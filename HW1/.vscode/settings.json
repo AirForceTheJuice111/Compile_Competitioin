@@ -1,0 +1,12 @@
+{
+    "files.associations": {
+        "*.yy": "bison",
+        "vector": "cpp",
+        "iostream": "cpp",
+        "__hash_table": "cpp",
+        "__node_handle": "cpp",
+        "__tree": "cpp",
+        "cmath": "cpp",
+        "complex": "cpp"
+    }
+}
