@@ -24,7 +24,6 @@ class Return;   // member: exp
 class Exp;      // Exp is a class for all expressions
 class BinaryOp; // l, op, r
 class UnaryOp;  // op, exp
-//class Esc;      // statementlist, exp
 class IdExp;    // val
 class IntExp;   // val
 class OpExp;    // val
@@ -64,7 +63,6 @@ public:
   virtual void visit(Return *node) = 0;
   virtual void visit(BinaryOp *node) = 0;
   virtual void visit(UnaryOp *node) = 0;
-  //virtual void visit(Esc *node) = 0;
   virtual void visit(IdExp *node) = 0;
   virtual void visit(OpExp *node) = 0;
   virtual void visit(IntExp *node) = 0;
@@ -77,7 +75,6 @@ enum class ASTKind {
   Return,
   BinaryOp,
   UnaryOp,
-  Esc,
   IdExp,
   OpExp,
   IntExp,
