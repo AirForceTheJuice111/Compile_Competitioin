@@ -1,6 +1,8 @@
 #include "ASTheader.hh"
 #include "FDMJAST.hh"
 #include "MinusIntConverter.hh"
+#include "constantPropagation.hh"
+#include "executor.hh"
 #include "ast2xml.hh"
 #include "xml2ast.hh"
 #include <cstring>
@@ -37,6 +39,7 @@ int main(int argc, const char *argv[]) {
   string file_ast2 = file + ".2-debug.ast";
   string file_ast3 = file + ".2-debug3.ast";
   string file_ast4 = file + ".2-debug4.ast";
+  string file_ast_cp = file + ".2-cp.ast";  // constant propagated ast
   string file_irp = file + ".3.irp";
   string file_stm = file + ".4.stm";
   string file_liv = file + ".5.liv";
@@ -90,6 +93,21 @@ int main(int argc, const char *argv[]) {
   w = ast2xml(root4, with_location_info);
   cout << "Saving AST (XML) to: " << file_ast4 << endl;
   w->SaveFile(file_ast4.c_str());
+
+  // 测试常量折叠
+  cout << "------Constant Propagation------" << endl;
+  Program *root_cp = constantPropagate(root3);
+  XMLDocument *cp_xml = ast2xml(root_cp, with_location_info);
+  cout << "Saving constant propagated AST (XML) to: " << file_ast_cp << endl;
+  cp_xml->SaveFile(file_ast_cp.c_str());
+
+  // 测试执行器
+  cout << "------Executor------" << endl;
+  int result1 = execute(root3);
+  cout << "execute(root) = " << result1 << endl;
+  int result2 = execute(root_cp);
+  cout << "execute(cp)   = " << result2 << endl;
+
   cout << "-----Done---" << endl;
   return EXIT_SUCCESS;
 }
