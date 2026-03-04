@@ -61,7 +61,6 @@ int main(int argc, const char *argv[]) {
     ofstream outFile(file_return);
     auto *coutBuf = cout.rdbuf();
     cout.rdbuf(outFile.rdbuf());
-    execute(root);
     execute(cp);
     cout.rdbuf(coutBuf);
     outFile.close();
