@@ -9,7 +9,6 @@
 using namespace std;
 using namespace fdmj;
 
-// 入口函数：创建 Executor visitor，执行整棵 AST 并返回 return 语句的值
 int execute(Program *root) {
     if (root == nullptr) return 0;
     Executor v;
@@ -113,6 +112,7 @@ void Executor::visit(IdExp *node) {
     if (node == nullptr) return;
 
     // 查变量表。若未定义，假设值为 0，并在 stderr 报告位置
+    varDefined.contains()
     if (varDefined.find(node->id) == varDefined.end()) {
         Pos *p = node->getPos();
         cerr << "Warning: variable '" << node->id << "' used before definition at line " << p->sline
