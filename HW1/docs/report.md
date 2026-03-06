@@ -40,8 +40,6 @@ void ConstantPropagator::visit(BinaryOp *node) {
 }
 ```
 
-此外，`UnaryOp` 的 visit 也处理了经过子树折叠后新产生的 `UnaryOp(-, IntExp)` 情况，确保 `(-(3+4))` 这类表达式也能被完全折叠为 `IntExp(-7)`。
-
 ## Executor
 
 **实现思路**：
