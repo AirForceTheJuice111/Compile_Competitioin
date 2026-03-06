@@ -176,12 +176,12 @@ void ConstantPropagator::visit(UnaryOp *node) {
     }
 
     // 若经过子树折叠后 UnaryOp(-, IntExp) 出现，也将其折叠
-    if (e != nullptr && node->op != nullptr && node->op->op == "-" &&
-        e->getASTKind() == ASTKind::IntExp) {
-        int val = -(static_cast<IntExp *>(e)->val);
-        cur_node = new IntExp(node->getPos()->clone(), val);
-        return;
-    }
+    // if (e != nullptr && node->op != nullptr && node->op->op == "-" &&
+    //     e->getASTKind() == ASTKind::IntExp) {
+    //     int val = -(static_cast<IntExp *>(e)->val);
+    //     cur_node = new IntExp(node->getPos()->clone(), val);
+    //     return;
+    // }
 
     OpExp *o = (node->op != nullptr) ? node->op->clone() : nullptr;
     cur_node = new UnaryOp(node->getPos()->clone(), o, e);
