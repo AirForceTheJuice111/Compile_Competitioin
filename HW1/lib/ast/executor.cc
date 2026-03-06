@@ -112,7 +112,6 @@ void Executor::visit(IdExp *node) {
     if (node == nullptr) return;
 
     // 查变量表。若未定义，假设值为 0，并在 stderr 报告位置
-    varDefined.contains()
     if (varDefined.find(node->id) == varDefined.end()) {
         Pos *p = node->getPos();
         cerr << "Warning: variable '" << node->id << "' used before definition at line " << p->sline
@@ -135,6 +134,6 @@ void Executor::visit(IntExp *node) {
 }
 
 void Executor::visit(OpExp *node) {
-    // OpExp 不会被直接访问——它作为 BinaryOp/UnaryOp 的成员被间接使用
+    // OpExp 不会被直接访问，它作为 BinaryOp/UnaryOp 的成员被间接使用
     (void)node;
 }
