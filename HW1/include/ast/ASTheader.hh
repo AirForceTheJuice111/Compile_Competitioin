@@ -32,52 +32,52 @@ class OpExp;    // val
 // Program *fdmjParser(std::ifstream &fp, const bool debug);
 
 class Pos {
-public:
-  size_t sline = 0, scolumn = 0, eline = 0,
-         ecolumn = 0; // start and end line and column
-  Pos(size_t sline, size_t scolumn, size_t eline, size_t ecolumn)
-      : sline(sline), scolumn(scolumn), eline(eline), ecolumn(ecolumn) {}
-  Pos *clone() { return new Pos(sline, scolumn, eline, ecolumn); }
+  public:
+    size_t sline = 0, scolumn = 0, eline = 0,
+           ecolumn = 0; // start and end line and column
+    Pos(size_t sline, size_t scolumn, size_t eline, size_t ecolumn)
+        : sline(sline), scolumn(scolumn), eline(eline), ecolumn(ecolumn) {}
+    Pos *clone() { return new Pos(sline, scolumn, eline, ecolumn); }
 };
 
 enum class ASTKind; // forwards declaration
 
 class AST {
-public:
-  ~AST() { delete pos; }
-  AST(Pos *pos) : pos(pos) {}
-  Pos *getPos() { return pos; }
-  virtual void accept(ASTVisitor &v) = 0;
-  virtual ASTKind getASTKind() = 0;
-  virtual AST *clone() = 0;
+  public:
+    ~AST() { delete pos; }
+    AST(Pos *pos) : pos(pos) {}
+    Pos *getPos() { return pos; }
+    virtual void accept(ASTVisitor &v) = 0;
+    virtual ASTKind getASTKind() = 0;
+    virtual AST *clone() = 0;
 
-protected:
-  Pos *pos = nullptr;
+  protected:
+    Pos *pos = nullptr;
 };
 
 class ASTVisitor {
-public:
-  virtual void visit(Program *node) = 0;
-  virtual void visit(MainMethod *node) = 0;
-  virtual void visit(Assign *node) = 0;
-  virtual void visit(Return *node) = 0;
-  virtual void visit(BinaryOp *node) = 0;
-  virtual void visit(UnaryOp *node) = 0;
-  virtual void visit(IdExp *node) = 0;
-  virtual void visit(OpExp *node) = 0;
-  virtual void visit(IntExp *node) = 0;
+  public:
+    virtual void visit(Program *node) = 0;
+    virtual void visit(MainMethod *node) = 0;
+    virtual void visit(Assign *node) = 0;
+    virtual void visit(Return *node) = 0;
+    virtual void visit(BinaryOp *node) = 0;
+    virtual void visit(UnaryOp *node) = 0;
+    virtual void visit(IdExp *node) = 0;
+    virtual void visit(OpExp *node) = 0;
+    virtual void visit(IntExp *node) = 0;
 };
 
 enum class ASTKind {
-  Program,
-  MainMethod,
-  Assign,
-  Return,
-  BinaryOp,
-  UnaryOp,
-  IdExp,
-  OpExp,
-  IntExp,
+    Program,
+    MainMethod,
+    Assign,
+    Return,
+    BinaryOp,
+    UnaryOp,
+    IdExp,
+    OpExp,
+    IntExp,
 }; // Two basic types (string, integer, with position information)
 
 // some helper functions for AST
