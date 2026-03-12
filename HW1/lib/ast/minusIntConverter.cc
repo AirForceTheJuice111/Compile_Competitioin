@@ -51,9 +51,7 @@ void MinusIntConverter::visit(Program *node) {
     else {
         node->main->accept(*this);
         if (cur_node == nullptr) m = nullptr;
-        else
-            m = static_cast<MainMethod *>(
-                cur_node); // cur_node must point to a clone of the MainMethod
+        else m = static_cast<MainMethod *>(cur_node); // cur_node must point to a clone of the MainMethod
     }
     // Visit the class declaration list
     cur_node = new Program(node->getPos()->clone(), m); // clone a new Program node

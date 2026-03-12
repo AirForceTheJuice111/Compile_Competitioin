@@ -66,8 +66,7 @@ class BinaryOp : public Exp {
     Exp *left = nullptr;
     OpExp *op = nullptr;
     Exp *right = nullptr;
-    BinaryOp(Pos *pos, Exp *left, OpExp *op, Exp *right)
-        : Exp(pos), left(left), op(op), right(right) {}
+    BinaryOp(Pos *pos, Exp *left, OpExp *op, Exp *right) : Exp(pos), left(left), op(op), right(right) {}
     ASTKind getASTKind() override { return ASTKind::BinaryOp; }
     BinaryOp *clone() override;
     void accept(ASTVisitor &v) override { v.visit(this); }

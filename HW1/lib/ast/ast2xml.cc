@@ -48,8 +48,7 @@ static void set_position(XMLElement *el, const Pos *pos) {
     el->SetAttribute("epos", to_string(pos->ecolumn).c_str());
 }
 
-template <class T>
-XMLElement *visitList(XMLDocument *doc, AST2XML &v, vector<T *> *nl, string tag) {
+template <class T> XMLElement *visitList(XMLDocument *doc, AST2XML &v, vector<T *> *nl, string tag) {
 #ifdef DEBUG
     cout << "visitList: tag = " << tag << endl;
 #endif

@@ -83,8 +83,7 @@ void Executor::visit(BinaryOp *node) {
     else if (opStr == "*") result = lval * rval;
     else if (opStr == "/") {
         if (rval == 0) {
-            cerr << "Error: Division by zero at line " << node->getPos()->sline << ", column "
-                 << node->getPos()->scolumn << endl;
+            cerr << "Error: Division by zero at line " << node->getPos()->sline << ", column " << node->getPos()->scolumn << endl;
             result = 0;
         } else {
             result = lval / rval;
@@ -114,8 +113,7 @@ void Executor::visit(IdExp *node) {
     // 查变量表。若未定义，假设值为 0，并在 stderr 报告位置
     if (varDefined.find(node->id) == varDefined.end()) {
         Pos *p = node->getPos();
-        cerr << "Warning: variable '" << node->id << "' used before definition at line " << p->sline
-             << ", column " << p->scolumn << endl;
+        cerr << "Warning: variable '" << node->id << "' used before definition at line " << p->sline << ", column " << p->scolumn << endl;
         result = 0;
         // 将其标记为已定义（值为 0），避免后续重复报告
         varTable[node->id] = 0;
