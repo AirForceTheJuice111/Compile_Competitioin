@@ -26,8 +26,8 @@ SpaceBeforeParens: ControlStatements
 # 大括号风格：attach，保证 { 前有空格
 BreakBeforeBraces: Attach
 
-# 列宽限制
-ColumnLimit: 100
+# 使用较大列宽（ColumnLimit: 0 会导致单行 if/loop 无法合并）
+ColumnLimit: 200
 
 # 其他
 IndentCaseLabels: false

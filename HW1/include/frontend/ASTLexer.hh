@@ -64,9 +64,7 @@ class ASTLexer : public yy_ast_FlexLexer {
 
   public:
     // The API to this lexer
-    ASTLexer(std::istream &in, const bool debug) : yy_ast_FlexLexer(&in) {
-        yy_ast_FlexLexer::set_debug(debug);
-    }
+    ASTLexer(std::istream &in, const bool debug) : yy_ast_FlexLexer(&in) { yy_ast_FlexLexer::set_debug(debug); }
     int yylex(AST_YYSTYPE *const lval, location_t *const lloc);
 };
 } // namespace fdmj

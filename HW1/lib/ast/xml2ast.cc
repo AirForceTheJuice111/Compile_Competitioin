@@ -81,9 +81,8 @@ ExpList *create_exp_list(XMLElement *);
 StmList *create_stm_list(XMLElement *);
 
 enum class ATTR_TYPE { INT, ID, OP };
-template <class T>
-T *create_leafnode(XMLElement *, string, string,
-                   ATTR_TYPE); // forward declaration
+template <class T> T *create_leafnode(XMLElement *, string, string,
+                                      ATTR_TYPE); // forward declaration
 
 template <class T> // for IntExp lists (can be expanded for other types)
 vector<T *> *create_list(XMLElement *element, string tag) {
@@ -94,8 +93,7 @@ vector<T *> *create_list(XMLElement *element, string tag) {
     variant<monostate, IntExp *> t = monostate{};
     XMLElement *ce = element->FirstChildElement();
     while (ce) {
-        if (string(tag) == "IntExp")
-            t = create_leafnode<IntExp>(ce, "IntExp", "val", ATTR_TYPE::INT);
+        if (string(tag) == "IntExp") t = create_leafnode<IntExp>(ce, "IntExp", "val", ATTR_TYPE::INT);
         else cerr << "Error: Unknown element in list: " << ce->Name() << endl;
         if (holds_alternative<T *>(t) == true) list->push_back(get<T *>(t));
         else {
@@ -107,8 +105,7 @@ vector<T *> *create_list(XMLElement *element, string tag) {
     return list; // empty list is also valid
 }
 
-template <class T>
-T *create_leafnode(XMLElement *element, string tag, string s_attr, ATTR_TYPE at) {
+template <class T> T *create_leafnode(XMLElement *element, string tag, string s_attr, ATTR_TYPE at) {
 #ifdef DEBUG
     cout << "Creating leaf node from=" << tag << " with attrib=" << s_attr << endl;
 #endif
@@ -292,8 +289,7 @@ BinaryOp *create_binaryOp(XMLElement *element) {
     }
     XMLElement *ce = element->FirstChildElement();
     while (ce) {
-        if (string(ce->Name()) == "OpExp")
-            op = create_leafnode<OpExp>(ce, "OpExp", "op", ATTR_TYPE::OP);
+        if (string(ce->Name()) == "OpExp") op = create_leafnode<OpExp>(ce, "OpExp", "op", ATTR_TYPE::OP);
         else {
             Exp *e = create_exp(ce);
             if (exp1 == nullptr) exp1 = e;
@@ -324,8 +320,7 @@ UnaryOp *create_unaryOp(XMLElement *element) {
     }
     XMLElement *ce = element->FirstChildElement();
     while (ce) {
-        if (string(ce->Name()) == "OpExp")
-            op = create_leafnode<OpExp>(ce, "OpExp", "op", ATTR_TYPE::OP);
+        if (string(ce->Name()) == "OpExp") op = create_leafnode<OpExp>(ce, "OpExp", "op", ATTR_TYPE::OP);
         else {
             Exp *e = create_exp(ce);
             if (exp == nullptr) exp = e;

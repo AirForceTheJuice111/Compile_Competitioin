@@ -81,8 +81,7 @@ void ConstantPropagator::visit(Assign *node) {
     Exp *l = nullptr;
     if (node->left != nullptr) {
         node->left->accept(*this);
-        l = static_cast<Exp *>(
-            cur_node); // 不是直接clone，因为accept后cur_node可能已经被修改了，指向其子节点
+        l = static_cast<Exp *>(cur_node); // 不是直接clone，因为accept后cur_node可能已经被修改了，指向其子节点
     }
     Exp *r = nullptr;
     if (node->exp != nullptr) {
@@ -130,8 +129,7 @@ void ConstantPropagator::visit(BinaryOp *node) {
     }
 
     // 核心逻辑：若左右都是 IntExp，直接计算并折叠为一个 IntExp
-    if (l != nullptr && r != nullptr && l->getASTKind() == ASTKind::IntExp &&
-        r->getASTKind() == ASTKind::IntExp) {
+    if (l != nullptr && r != nullptr && l->getASTKind() == ASTKind::IntExp && r->getASTKind() == ASTKind::IntExp) {
         int lval = static_cast<IntExp *>(l)->val;
         int rval = static_cast<IntExp *>(r)->val;
         string opStr = node->op->op;

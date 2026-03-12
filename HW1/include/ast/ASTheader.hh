@@ -35,8 +35,7 @@ class Pos {
   public:
     size_t sline = 0, scolumn = 0, eline = 0,
            ecolumn = 0; // start and end line and column
-    Pos(size_t sline, size_t scolumn, size_t eline, size_t ecolumn)
-        : sline(sline), scolumn(scolumn), eline(eline), ecolumn(ecolumn) {}
+    Pos(size_t sline, size_t scolumn, size_t eline, size_t ecolumn) : sline(sline), scolumn(scolumn), eline(eline), ecolumn(ecolumn) {}
     Pos *clone() { return new Pos(sline, scolumn, eline, ecolumn); }
 };
 
