@@ -1,22 +1,24 @@
 #ifndef _AST2XML_HH
-//#define _AST2XML_HH
+// #define _AST2XML_HH
 
 #include "ASTheader.hh"
 #include "FDMJAST.hh"
-#include "tinyxml2.hh"
 #include "semant.hh"
+#include "tinyxml2.hh"
 
 using namespace std;
 using namespace fdmj;
 using namespace tinyxml2;
 
-XMLDocument* ast2xml(Program *node, AST_Semant_Map *semant_map, bool location_flag, bool semant_flag);
+XMLDocument *ast2xml(Program *node, AST_Semant_Map *semant_map,
+                     bool location_flag, bool semant_flag);
 
 class AST2XML : public fdmj::AST_Visitor {
 public:
-  XMLDocument *doc; //XMLDocument to store the AST
-  XMLElement *el; //temp to remember the results during the AST is recursively visited. 
-  AST_Semant_Map *semant_map; //store the semantic information of the nodes
+  XMLDocument *doc; // XMLDocument to store the AST
+  XMLElement *
+      el; // temp to remember the results during the AST is recursively visited.
+  AST_Semant_Map *semant_map; // store the semantic information of the nodes
 
 public:
   void visit(Program *node) override;
