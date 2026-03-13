@@ -45,7 +45,7 @@ class AST {
   public:
     ~AST() { delete pos; }
     AST(Pos *pos) : pos(pos) {}
-    Pos *getPos() { return pos; }
+    Pos *get_pos() { return pos; }
     virtual void accept(ASTVisitor &v) = 0;
     virtual ASTKind getASTKind() = 0;
     virtual AST *clone() = 0;

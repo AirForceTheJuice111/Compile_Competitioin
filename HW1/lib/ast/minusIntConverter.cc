@@ -54,7 +54,7 @@ void MinusIntConverter::visit(Program *node) {
         else m = static_cast<MainMethod *>(cur_node); // cur_node must point to a clone of the MainMethod
     }
     // Visit the class declaration list
-    cur_node = new Program(node->getPos()->clone(), m); // clone a new Program node
+    cur_node = new Program(node->get_pos()->clone(), m); // clone a new Program node
 }
 
 void MinusIntConverter::visit(MainMethod *node) {
@@ -68,7 +68,7 @@ void MinusIntConverter::visit(MainMethod *node) {
     }
     StmList *sl = nullptr;
     if (node->sl != nullptr) sl = visitList<Stm>(*this, node->sl);
-    cur_node = new MainMethod(node->getPos()->clone(), sl);
+    cur_node = new MainMethod(node->get_pos()->clone(), sl);
 }
 
 void MinusIntConverter::visit(Assign *node) {
@@ -89,15 +89,15 @@ void MinusIntConverter::visit(Assign *node) {
         return;
     }
     Exp *r = nullptr;
-    if (node->exp != nullptr) {
-        node->exp->accept(*this);
+    if (node->right != nullptr) {
+        node->right->accept(*this);
         r = static_cast<Exp *>(cur_node);
     } else {
         cerr << "Error: No right expression found in the Assign statement" << endl;
         cur_node = nullptr;
         return;
     }
-    cur_node = new Assign(node->getPos()->clone(), l, r);
+    cur_node = new Assign(node->get_pos()->clone(), l, r);
 }
 
 void MinusIntConverter::visit(Return *node) {
@@ -117,7 +117,7 @@ void MinusIntConverter::visit(Return *node) {
         cur_node = nullptr;
         return;
     }
-    cur_node = new Return(node->getPos()->clone(), e);
+    cur_node = new Return(node->get_pos()->clone(), e);
 }
 
 void MinusIntConverter::visit(BinaryOp *node) {
@@ -146,7 +146,7 @@ void MinusIntConverter::visit(BinaryOp *node) {
         cur_node = nullptr;
         return;
     }
-    cur_node = new BinaryOp(node->getPos()->clone(), l, node->op->clone(), r);
+    cur_node = new BinaryOp(node->get_pos()->clone(), l, node->op->clone(), r);
 }
 
 void MinusIntConverter::visit(UnaryOp *node) {
@@ -175,10 +175,10 @@ void MinusIntConverter::visit(UnaryOp *node) {
     // Here's the converter logic (minus int)
     if (node->op->op == "-" && e->getASTKind() == ASTKind::IntExp) {
         int val = -(static_cast<IntExp *>(e)->val);
-        cur_node = new IntExp(node->getPos()->clone(), val);
+        cur_node = new IntExp(node->get_pos()->clone(), val);
         return;
     }
-    cur_node = new UnaryOp(node->getPos()->clone(), node->op->clone(), e);
+    cur_node = new UnaryOp(node->get_pos()->clone(), node->op->clone(), e);
 }
 
 void MinusIntConverter::visit(IdExp *node) {

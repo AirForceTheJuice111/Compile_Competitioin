@@ -39,8 +39,8 @@ class Stm : public AST { // this is the class for all statements
 class Assign : public Stm {
   public:
     Exp *left = nullptr;
-    Exp *exp = nullptr;
-    Assign(Pos *pos, Exp *left, Exp *exp) : Stm(pos), left(left), exp(exp) {}
+    Exp *right = nullptr;
+    Assign(Pos *pos, Exp *left, Exp *exp) : Stm(pos), left(left), right(exp) {}
     ASTKind getASTKind() override { return ASTKind::Assign; }
     Assign *clone() override;
     void accept(ASTVisitor &v) override { v.visit(this); }

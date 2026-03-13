@@ -73,7 +73,7 @@ void AST2XML::visit(Program *node) {
     cout << "Program" << endl;
 #endif
     XMLElement *cn = doc->NewElement("Program");
-    set_position(cn, node->getPos());
+    set_position(cn, node->get_pos());
     if (node->main == nullptr) {
         cerr << "Error: No MainMethod found" << endl;
         el = nullptr;
@@ -90,7 +90,7 @@ void AST2XML::visit(MainMethod *node) {
     cout << "MainMethod" << endl;
 #endif
     XMLElement *cn = doc->NewElement("MainMethod");
-    set_position(cn, node->getPos());
+    set_position(cn, node->get_pos());
     XMLElement *cn2 = visitList<Stm>(doc, *this, node->sl, "StmList");
     if (cn2 != nullptr) cn->InsertEndChild(cn2); // insert the statement
     el = cn;
@@ -102,7 +102,7 @@ void AST2XML::visit(Assign *node) {
     cout << "Assign" << endl;
 #endif
     XMLElement *cn = doc->NewElement("Assign");
-    set_position(cn, node->getPos());
+    set_position(cn, node->get_pos());
     if (node->left == nullptr) {
         cerr << "Error: No left expression found in an Assign" << endl;
         el = nullptr;
@@ -110,12 +110,12 @@ void AST2XML::visit(Assign *node) {
     }
     node->left->accept(*this);
     if (el != nullptr) cn->InsertEndChild(el); // insert the left expression
-    if (node->exp == nullptr) {
+    if (node->right == nullptr) {
         cerr << "Error: No right expression found in an Assign" << endl;
         el = nullptr;
         return;
     }
-    node->exp->accept(*this);
+    node->right->accept(*this);
     if (el != nullptr) cn->InsertEndChild(el); // insert the right expression
     el = cn;
 }
@@ -126,7 +126,7 @@ void AST2XML::visit(Return *node) {
     cout << "Return" << endl;
 #endif
     XMLElement *cn = doc->NewElement("Return");
-    set_position(cn, node->getPos());
+    set_position(cn, node->get_pos());
     if (node->exp != nullptr) {
         node->exp->accept(*this);
         if (el != nullptr) cn->InsertEndChild(el); // insert the expression
@@ -140,7 +140,7 @@ void AST2XML::visit(BinaryOp *node) {
     cout << "BinaryOp" << endl;
 #endif
     XMLElement *cn = doc->NewElement("BinaryOp");
-    set_position(cn, node->getPos());
+    set_position(cn, node->get_pos());
     if (node->left == nullptr) {
         cerr << "Error: No left expression found in a BinaryOp" << endl;
         el = nullptr;
@@ -155,7 +155,7 @@ void AST2XML::visit(BinaryOp *node) {
     }
     XMLElement *cn1 = doc->NewElement("OpExp");
     cn1->SetAttribute("op", node->op->op.c_str());
-    set_position(cn1, node->op->getPos());
+    set_position(cn1, node->op->get_pos());
     cn->InsertEndChild(cn1);
     if (node->right == nullptr) {
         cerr << "Error: No right expression found in a BinaryOp" << endl;
@@ -173,10 +173,10 @@ void AST2XML::visit(UnaryOp *node) {
     cout << "UnaryOp" << endl;
 #endif
     XMLElement *cn = doc->NewElement("UnaryOp");
-    set_position(cn, node->getPos());
+    set_position(cn, node->get_pos());
     XMLElement *cn1 = doc->NewElement("OpExp");
     cn1->SetAttribute("op", node->op->op.c_str());
-    set_position(cn1, node->op->getPos());
+    set_position(cn1, node->op->get_pos());
     cn->InsertEndChild(cn1);
     if (node->exp == nullptr) {
         cerr << "Error: No expression found in a UnaryOp" << endl;
@@ -194,14 +194,14 @@ void AST2XML::visit(IdExp *node) {
     cout << "IdExp" << endl;
 #endif
     XMLElement *cn = doc->NewElement("IdExp");
-    set_position(cn, node->getPos());
+    set_position(cn, node->get_pos());
     if (node->id.empty()) {
         cerr << "Error: No id found in an IdExp" << endl;
         el = nullptr;
         return;
     }
     cn->SetAttribute("id", node->id.c_str());
-    set_position(cn, node->getPos());
+    set_position(cn, node->get_pos());
     el = cn;
 }
 
@@ -211,7 +211,7 @@ void AST2XML::visit(IntExp *node) {
     cout << "IntExp" << endl;
 #endif
     XMLElement *cn = doc->NewElement("IntExp");
-    set_position(cn, node->getPos());
+    set_position(cn, node->get_pos());
     cn->SetAttribute("val", to_string(node->val).c_str());
     el = cn;
 }
@@ -222,7 +222,7 @@ void AST2XML::visit(OpExp *node) {
     cout << "OpExp" << endl;
 #endif
     XMLElement *cn = doc->NewElement("OpExp");
-    set_position(cn, node->getPos());
+    set_position(cn, node->get_pos());
     cn->SetAttribute("op", node->op.c_str());
     el = cn;
 }

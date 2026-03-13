@@ -42,7 +42,7 @@ void Executor::visit(Assign *node) {
     if (node == nullptr) return;
 
     // 先求右侧表达式的值
-    if (node->exp != nullptr) node->exp->accept(*this);
+    if (node->right != nullptr) node->right->accept(*this);
     int val = result;
 
     if (node->left != nullptr && node->left->getASTKind() == ASTKind::IdExp) {
@@ -83,7 +83,7 @@ void Executor::visit(BinaryOp *node) {
     else if (opStr == "*") result = lval * rval;
     else if (opStr == "/") {
         if (rval == 0) {
-            cerr << "Error: Division by zero at line " << node->getPos()->sline << ", column " << node->getPos()->scolumn << endl;
+            cerr << "Error: Division by zero at line " << node->get_pos()->sline << ", column " << node->get_pos()->scolumn << endl;
             result = 0;
         } else {
             result = lval / rval;
@@ -112,7 +112,7 @@ void Executor::visit(IdExp *node) {
 
     // 查变量表。若未定义，假设值为 0，并在 stderr 报告位置
     if (varDefined.find(node->id) == varDefined.end()) {
-        Pos *p = node->getPos();
+        Pos *p = node->get_pos();
         cerr << "Warning: variable '" << node->id << "' used before definition at line " << p->sline << ", column " << p->scolumn << endl;
         result = 0;
         // 将其标记为已定义（值为 0），避免后续重复报告
