@@ -23,7 +23,7 @@ class AST_Semant {
   private:
     Kind s_kind;
     TypeKind typeKind;                        // enum class TypeKind {CLASS/OBJECT = 0, INT = 1, ARRAY = 2};
-    variant<monostate, string, int> type_par; // string for class name, int for array arity
+    variant<monostate, string, int> type_par; // string for class name, int for array arity, par means parameter
     bool lvalue;                              // if the expression is an lvalue
   public:
     AST_Semant(AST_Semant::Kind s_kind, TypeKind typeKind, variant<monostate, string, int> type_par, bool lvalue) : s_kind(s_kind), typeKind(typeKind), type_par(type_par), lvalue(lvalue) {}
