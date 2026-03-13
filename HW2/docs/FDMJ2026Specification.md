@@ -56,7 +56,7 @@ This document defines the **FDMJ2026** programming language, a simplified object
 
 * `Type` $\rightarrow$ `int` | `int [ ]` | `class id` 
 
-* `VarDecl` $\rightarrow$ `Type id`  [ `= ArrayInit` ] `;`
+* `VarDecl` $\rightarrow$ `Type id`  [ `= ArrayInit` ] `;`     # 不允许 int i = 0; 这种东西！！！
 
 * `ArrayInit` $\rightarrow$ `{` `CONST` ( `,` `CONST` )\* `}`
 
