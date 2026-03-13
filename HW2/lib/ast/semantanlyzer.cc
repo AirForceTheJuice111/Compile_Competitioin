@@ -1,15 +1,3 @@
-/**
- * semantanlyzer.cc
- *
- * 语义分析 visitor，遍历 AST 并进行类型检查。
- * 主要功能：
- *   1. 为每个表达式节点生成 AST_Semant 语义信息（类型、lvalue等）
- *   2. 检查类型兼容性（赋值、运算、方法调用等）
- *   3. 检查 break/continue 是否在循环内
- *   4. 检查继承合法性（单层继承、无环继承）
- *   5. 方法重写签名匹配与协变返回类型
- */
-
 #define DEBUG
 #undef DEBUG
 
@@ -36,13 +24,13 @@ static bool is_subclass(Name_Maps *nm, const string &child_class, const string &
 
 // 判断两个类型是否兼容（right 能否赋值给 left 类型）
 // 规则：INT 对 INT，ARRAY 对 ARRAY，CLASS 对 CLASS（允许子类赋给父类）
-static bool type_compatible(Name_Maps *nm, TypeKind lk, variant<monostate, string, int> lp,
+static bool type_compatible(Name_Maps *nm, TypeKind lk, variant<monostate, string, int> lp, // lp: left type parameter, 可能是类名string或数组大小int
                             TypeKind rk, variant<monostate, string, int> rp) {
     if (lk != rk) return false;
     if (lk == TypeKind::INT) return true;
     if (lk == TypeKind::ARRAY) return true;
     if (lk == TypeKind::CLASS) {
-        string lclass = get<string>(lp);
+        string lclass = get<string>(lp); // 从variant里get出类名string
         string rclass = get<string>(rp);
         return is_subclass(nm, rclass, lclass);
     }
@@ -340,10 +328,10 @@ void AST_Semant_Visitor::visit(CallStm *node) { // CallStm 代表方法调用语
     semant_map->setSemant(node->name, new AST_Semant(AST_Semant::Kind::MethodName, TypeKind::INT, monostate{}, false));
 
     // 查找方法（在当前类或父类中）
-    string lookup_class = obj_class;
-    if (!name_maps->is_method(lookup_class, method_name)) {
-        string parent = name_maps->get_parent(lookup_class);
-        if (!parent.empty() && name_maps->is_method(parent, method_name)) lookup_class = parent;
+    string class_to_be_looked_up = obj_class;
+    if (!name_maps->is_method(class_to_be_looked_up, method_name)) {
+        string parent = name_maps->get_parent(class_to_be_looked_up);
+        if (!parent.empty() && name_maps->is_method(parent, method_name)) class_to_be_looked_up = parent;
         else {
             cerr << "Error: at position " << node->get_pos()->to_str() << endl;
             cerr << "Error: Method " << method_name << " not found in class " << obj_class << endl;
@@ -357,7 +345,7 @@ void AST_Semant_Visitor::visit(CallStm *node) { // CallStm 代表方法调用语
     }
 
     // 检查参数类型匹配
-    vector<Formal *> *formals = name_maps->get_method_formal_list(lookup_class, method_name);
+    vector<Formal *> *formals = name_maps->get_method_formal_list(class_to_be_looked_up, method_name);
     if (formals != nullptr) {
         size_t expected = formals->size() - 1; // 最后一个是 __return__
         size_t actual = (node->par != nullptr) ? node->par->size() : 0;
@@ -367,18 +355,21 @@ void AST_Semant_Visitor::visit(CallStm *node) { // CallStm 代表方法调用语
                  << " arguments but got " << actual << endl;
             exit(1);
         }
-        if (node->par != nullptr) {
+        if (node->par != nullptr) { // par: parameters，参数列表
             for (size_t i = 0; i < actual; i++) {
                 AST_Semant *arg_sem = semant_map->getSemant((*node->par)[i]);
                 Type *formal_type = (*formals)[i]->type;
-                if (arg_sem != nullptr) {
-                    if (!type_compatible(name_maps, formal_type->typeKind, get_type_par_from_type(formal_type),
-                                         arg_sem->get_type(), arg_sem->get_type_par())) {
-                        cerr << "Error: at position " << node->get_pos()->to_str() << endl;
-                        cerr << "Error: Argument type mismatch for parameter " << i
-                             << " in call to " << method_name << endl;
-                        exit(1);
-                    }
+                if (arg_sem == nullptr) {
+                    cerr << "Error: at position " << node->get_pos()->to_str() << endl;
+                    cerr << "Error: No semantic information for the " << i << "-th argument in call to " << method_name << endl;
+                    exit(1);
+                }
+                if (!type_compatible(name_maps, formal_type->typeKind, get_type_par_from_type(formal_type),
+                                        arg_sem->get_type(), arg_sem->get_type_par())) {
+                    cerr << "Error: at position " << node->get_pos()->to_str() << endl;
+                    cerr << "Error: Argument type mismatch for parameter " << i
+                            << " in call to " << method_name << endl;
+                    exit(1);
                 }
             }
         }
@@ -434,7 +425,7 @@ void AST_Semant_Visitor::visit(Return *node) {
 
 void AST_Semant_Visitor::visit(PutInt *node) {
     if (node == nullptr) return;
-    node->exp->accept(*this);
+    node->exp->accept(*this); // 没用visit是因为visit是虚函数，调用时会根据node的实际类型调用对应的visit方法，而不是固定调用某个visit方法。这个visit方法没写在AST_Semant_Visitor里，而是写在了AST_Visitor里，作为一个纯虚函数（接口），所以只能通过visit来调用，而不能直接调用某个具体的visit方法。
     AST_Semant *sem = semant_map->getSemant(node->exp);
     if (sem == nullptr) {
         cerr << "Error: at position " << node->get_pos()->to_str() << endl;
@@ -596,7 +587,7 @@ void AST_Semant_Visitor::visit(ArrayExp *node) {
     semant_map->setSemant(node, new AST_Semant(AST_Semant::Kind::Value, TypeKind::INT, monostate{}, true));
 }
 
-void AST_Semant_Visitor::visit(CallExp *node) {
+void AST_Semant_Visitor::visit(CallExp *node) { // CallExp 代表方法调用表达式，CallStm 代表方法调用语句。两者的区别在于 CallExp 需要设置语义信息（返回类型），而 CallStm 不需要。eg. foo.bar() 是一个方法调用表达式，既可以作为语句（CallStm），也可以作为更大表达式的一部分（CallExp）。如果是 foo.bar(); 就是一个方法调用语句（CallStm），不需要设置返回类型的语义信息；如果是 int x = foo.bar(); 就是一个方法调用表达式（CallExp），需要设置返回类型的语义信息，以供赋值语句检查类型兼容性。
     if (node == nullptr) return;
     // 分析对象表达式
     if (node->obj != nullptr) node->obj->accept(*this);
@@ -617,10 +608,10 @@ void AST_Semant_Visitor::visit(CallExp *node) {
     semant_map->setSemant(node->name, new AST_Semant(AST_Semant::Kind::MethodName, TypeKind::INT, monostate{}, false));
 
     // 查找方法（在当前类或父类中）
-    string lookup_class = obj_class;
-    if (!name_maps->is_method(lookup_class, method_name)) {
-        string parent = name_maps->get_parent(lookup_class);
-        if (!parent.empty() && name_maps->is_method(parent, method_name)) lookup_class = parent;
+    string class_to_be_looked_up = obj_class;
+    if (!name_maps->is_method(class_to_be_looked_up, method_name)) {
+        string parent = name_maps->get_parent(class_to_be_looked_up);
+        if (!parent.empty() && name_maps->is_method(parent, method_name)) class_to_be_looked_up = parent;
         else {
             cerr << "Error: at position " << node->get_pos()->to_str() << endl;
             cerr << "Error: Method " << method_name << " not found in class " << obj_class << endl;
@@ -634,7 +625,7 @@ void AST_Semant_Visitor::visit(CallExp *node) {
     }
 
     // 检查参数类型
-    vector<Formal *> *formals = name_maps->get_method_formal_list(lookup_class, method_name);
+    vector<Formal *> *formals = name_maps->get_method_formal_list(class_to_be_looked_up, method_name);
     if (formals != nullptr) {
         size_t expected = formals->size() - 1; // 最后一个是 __return__
         size_t actual = (node->par != nullptr) ? node->par->size() : 0;
@@ -668,7 +659,7 @@ void AST_Semant_Visitor::visit(CallExp *node) {
     }
 }
 
-void AST_Semant_Visitor::visit(ClassVar *node) {
+void AST_Semant_Visitor::visit(ClassVar *node) { // ClassVar 代表字段访问表达式，如 foo.bar 中的 bar。需要检查 foo 的类型是否是 CLASS，以及 bar 是否是该类或其父类的字段。同时设置语义信息：字段访问的结果是一个值（Value），类型是字段的类型，并且是 lvalue（因为可以赋值）。另外，为字段名 IdExp 也设置语义信息，表示它是一个类变量（ClassVar）。
     if (node == nullptr) return;
     node->obj->accept(*this);
 
@@ -688,6 +679,8 @@ void AST_Semant_Visitor::visit(ClassVar *node) {
         string parent = name_maps->get_parent(obj_class);
         if (!parent.empty()) vd = name_maps->get_class_var(parent, field_name);
     }
+    
+    // 如果还是找不到，报错
     if (vd == nullptr) {
         cerr << "Error: at position " << node->get_pos()->to_str() << endl;
         cerr << "Error: Field " << field_name << " not found in class " << obj_class << endl;
@@ -702,7 +695,7 @@ void AST_Semant_Visitor::visit(ClassVar *node) {
                           vd->type->typeKind, get_type_par_from_type(vd->type), true));
 }
 
-void AST_Semant_Visitor::visit(This *node) {
+void AST_Semant_Visitor::visit(This *node) { // This 就是 this 关键字，代表当前对象。需要检查 this 是否在类方法中使用，以及设置语义信息：this 的类型是当前类，是一个值（Value），但不是 lvalue（因为不能赋值）。另外，this 只能在类方法中使用，如果在 __main__ 或其他非类方法中使用，需要报错。
     if (node == nullptr) return;
     // this 只能在类方法中使用（不能在 __main__ 中）
     if (current_visiting_class == "__main__" || current_visiting_class.empty()) {
@@ -715,7 +708,7 @@ void AST_Semant_Visitor::visit(This *node) {
                           TypeKind::CLASS, current_visiting_class, false));
 }
 
-void AST_Semant_Visitor::visit(Length *node) {
+void AST_Semant_Visitor::visit(Length *node) { // Length 代表数组长度访问表达式，如 foo.length。需要检查 foo 的类型是否是 ARRAY，并设置语义信息：长度访问的结果是一个值（Value），类型是 INT，并且不是 lvalue。
     if (node == nullptr) return;
     node->exp->accept(*this);
     AST_Semant *sem = semant_map->getSemant(node->exp);
@@ -733,7 +726,7 @@ void AST_Semant_Visitor::visit(Length *node) {
     semant_map->setSemant(node, new AST_Semant(AST_Semant::Kind::Value, TypeKind::INT, monostate{}, false));
 }
 
-void AST_Semant_Visitor::visit(NewArray *node) {
+void AST_Semant_Visitor::visit(NewArray *node) { // new int[exp] 代表数组创建表达式，需要检查 exp 的类型是否是 INT，并设置语义信息：数组创建的结果是一个值（Value），类型是 ARRAY，并且不是 lvalue。
     if (node == nullptr) return;
     node->size->accept(*this);
     AST_Semant *sem = semant_map->getSemant(node->size);
@@ -751,7 +744,7 @@ void AST_Semant_Visitor::visit(NewArray *node) {
     semant_map->setSemant(node, new AST_Semant(AST_Semant::Kind::Value, TypeKind::ARRAY, 0, false));
 }
 
-void AST_Semant_Visitor::visit(NewObject *node) {
+void AST_Semant_Visitor::visit(NewObject *node) { // new ClassName() 代表对象创建表达式，需要检查 ClassName 是否是一个已声明的类，并设置语义信息：对象创建的结果是一个值（Value），类型是 CLASS，并且不是 lvalue。同时，为 ClassName 的 IdExp 设置语义信息，表示它是一个类类型（ClassType）。
     if (node == nullptr) return;
     string class_name = node->id->id;
     if (!name_maps->is_class(class_name)) {
@@ -793,7 +786,7 @@ void AST_Semant_Visitor::visit(GetArray *node) {
     semant_map->setSemant(node, new AST_Semant(AST_Semant::Kind::Value, TypeKind::INT, monostate{}, false));
 }
 
-void AST_Semant_Visitor::visit(IdExp *node) {
+void AST_Semant_Visitor::visit(IdExp *node) { // IdExp 代表标识符表达式，如 foo、bar 等。需要按照名称查找优先顺序（方法局部变量 -> 方法形参 -> 类变量）查找标识符，并设置语义信息：标识符的类型和是否是 lvalue。同时，如果标识符未找到，需要报错。
     if (node == nullptr) return;
     string id = node->id;
 
