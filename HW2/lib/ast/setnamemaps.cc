@@ -1,3 +1,18 @@
+/**
+ * setnamemaps.cc
+ *
+ * 实现 AST_Name_Map_Visitor，遍历 AST 并构建 Name_Maps 符号表。
+ * 主要工作：
+ *   1. 注册所有类名、类层次关系
+ *   2. 注册所有方法及其形参列表（含返回类型伪形参 __return__）
+ *   3. 注册所有类变量和方法局部变量
+ *
+ * 关键设计：
+ *   - 在 visit(Program*) 里先预注册所有类名，解决父类声明在子类之后的问题
+ *   - MainMethod 被视为 __main__ 类中的 main 方法
+ *   - 每个方法的 formal list 最后一个元素是返回类型（用 __return__ 标识）
+ */
+
 #define DEBUG
 #undef DEBUG
 
@@ -13,16 +28,13 @@
 using namespace std;
 using namespace fdmj;
 
-// 遍历 Program 节点：
-// 第一遍：先注册所有类名（解决前向引用问题）
-// 第二遍：处理继承关系、类变量、方法等细节
 void AST_Name_Map_Visitor::visit(Program *node) {
 #ifdef DEBUG
     std::cout << "Visiting Program" << std::endl;
 #endif
     if (node == nullptr) return;
 
-    // 第一遍：注册所有类名
+    // 预注册所有类名，使得父类可以在子类之后声明
     if (node->cdl != nullptr) {
         for (auto cl : *(node->cdl)) {
             if (cl != nullptr && cl->id != nullptr) {
@@ -34,171 +46,169 @@ void AST_Name_Map_Visitor::visit(Program *node) {
         }
     }
 
-    // 第二遍：处理继承关系
-    if (node->cdl != nullptr) {
-        for (auto cl : *(node->cdl)) {
-            if (cl != nullptr && cl->eid != nullptr) {
-                string child = cl->id->id;
-                string parent = cl->eid->id;
-                if (!name_maps->is_class(parent)) {
-                    cerr << "Error: at position " << cl->getPos()->print() << endl;
-                    cerr << "Error: Parent class not found: " << parent << endl;
-                } else {
-                    name_maps->add_class_hiearchy(child, parent);
-                }
-            }
-        }
-    }
-
-    // 访问 main 方法
+    // 访问 MainMethod
     if (node->main != nullptr) node->main->accept(*this);
 
-    // 第三遍：遍历类的内部（变量、方法）
-    if (node->cdl != nullptr)
+    // 访问各个 ClassDecl
+    if (node->cdl != nullptr) {
         for (auto cl : *(node->cdl)) cl->accept(*this);
+    }
 }
 
-// MainMethod：以特殊类名 "__main__" 和方法名 "main" 注册，
-// 收集局部变量声明
 void AST_Name_Map_Visitor::visit(MainMethod *node) {
 #ifdef DEBUG
     std::cout << "Visiting MainMethod" << std::endl;
 #endif
     if (node == nullptr) return;
 
-    // 将 main 方法视为特殊类 "__main__" 的 "main" 方法
+    // MainMethod 被视为 __main__ 类中的 main 方法
     current_visiting_class = "__main__";
     current_visiting_method = "main";
     name_maps->add_class("__main__");
     name_maps->add_method("__main__", "main");
 
-    // 为 main 方法创建返回类型的伪 Formal（int 类型，名称 "__return__"）
-    // 作为 methodFormalList 的最后一个元素
-    Pos *retPos = node->getPos()->clone();
-    Type *retType = new Type(retPos); // 默认 INT 类型
-    IdExp *retId = new IdExp(retPos->clone(), "__return__");
-    Formal *retFormal = new Formal(retPos->clone(), retType, retId);
-    name_maps->add_method_formal("__main__", "main", "__return__", retFormal);
-
-    // methodFormalList 只包含返回类型（main 没有参数）
-    vector<string> formalNames;
-    formalNames.push_back("__return__");
-    name_maps->add_method_formal_list("__main__", "main", formalNames);
-
-    // 遍历局部变量声明
-    if (node->vdl != nullptr)
+    // 注册局部变量
+    if (node->vdl != nullptr) {
         for (auto vd : *(node->vdl)) vd->accept(*this);
+    }
+
+    // 创建返回类型伪形参（main 返回 int）
+    Pos *pos = node->getPos()->clone();
+    Type *retType = new Type(pos);  // INT 类型
+    IdExp *retId = new IdExp(pos->clone(), "__return__");
+    Formal *retFormal = new Formal(pos->clone(), retType, retId);
+    name_maps->add_method_formal("__main__", "main", "__return__", retFormal);
+    name_maps->add_method_formal_list("__main__", "main", {"__return__"});
+
+    // 无需深入遍历语句（name map 阶段只关心声明）
 
     current_visiting_class = "";
     current_visiting_method = "";
 }
 
-// ClassDecl：类名和继承已在 Program 中处理，
-// 这里只处理类变量和方法声明
 void AST_Name_Map_Visitor::visit(ClassDecl *node) {
 #ifdef DEBUG
-    std::cout << "Visiting ClassDecl: " << node->id->id << std::endl;
+    std::cout << "Visiting ClassDecl" << std::endl;
 #endif
     if (node == nullptr) return;
 
-    current_visiting_class = node->id->id;
+    string class_name = node->id->id;
+    current_visiting_class = class_name;
+    // 类名已经在 visit(Program*) 中预注册
+
+    // 注册继承关系
+    if (node->eid != nullptr) {
+        string parent_name = node->eid->id;
+        if (!name_maps->is_class(parent_name)) {
+            cerr << "Error: at position " << node->eid->getPos()->print() << endl;
+            cerr << "Error: Parent class " << parent_name << " not found" << endl;
+        } else {
+            name_maps->add_class_hiearchy(class_name, parent_name);
+        }
+    }
+
+    // 注册类变量（此时 current_visiting_method 为空，VarDecl 会被注册为类变量）
     current_visiting_method = "";
-
-    // 遍历类变量声明
-    if (node->vdl != nullptr)
+    if (node->vdl != nullptr) {
         for (auto vd : *(node->vdl)) vd->accept(*this);
+    }
 
-    // 遍历方法声明
-    if (node->mdl != nullptr)
+    // 注册方法
+    if (node->mdl != nullptr) {
         for (auto md : *(node->mdl)) md->accept(*this);
+    }
 
     current_visiting_class = "";
 }
 
-void AST_Name_Map_Visitor::visit(Type *node) {}
-
-// VarDecl：根据上下文将变量注册为类变量或方法局部变量
-void AST_Name_Map_Visitor::visit(VarDecl *node) {
+void AST_Name_Map_Visitor::visit(MethodDecl *node) {
 #ifdef DEBUG
-    std::cout << "Visiting VarDecl: " << node->id->id << std::endl;
+    std::cout << "Visiting MethodDecl" << std::endl;
 #endif
     if (node == nullptr) return;
 
-    string varName = node->id->id;
+    string method_name = node->id->id;
+    current_visiting_method = method_name;
+
+    if (!name_maps->add_method(current_visiting_class, method_name)) {
+        cerr << "Error: at position " << node->getPos()->print() << endl;
+        cerr << "Error: Duplicate method name: " << method_name
+             << " in class " << current_visiting_class << endl;
+    }
+
+    // 注册形参
+    vector<string> formal_names;
+    if (node->fl != nullptr) {
+        for (auto f : *(node->fl)) {
+            f->accept(*this);
+            formal_names.push_back(f->id->id);
+        }
+    }
+
+    // 创建返回类型伪形参
+    Type *retType = node->type->clone();
+    // 如果是 ARRAY 类型但没有 arity，补上 arity=0
+    if (retType->typeKind == TypeKind::ARRAY && retType->arity == nullptr)
+        retType->arity = new IntExp(new Pos(0, 0, 0, 0), 0);
+
+    Pos *pos = node->getPos()->clone();
+    IdExp *retId = new IdExp(pos, "__return__");
+    Formal *retFormal = new Formal(pos->clone(), retType, retId);
+    name_maps->add_method_formal(current_visiting_class, method_name, "__return__", retFormal);
+    formal_names.push_back("__return__");
+    name_maps->add_method_formal_list(current_visiting_class, method_name, formal_names);
+
+    // 注册方法局部变量
+    if (node->vdl != nullptr) {
+        for (auto vd : *(node->vdl)) vd->accept(*this);
+    }
+
+    // 无需深入遍历语句
+
+    current_visiting_method = "";
+}
+
+void AST_Name_Map_Visitor::visit(VarDecl *node) {
+#ifdef DEBUG
+    std::cout << "Visiting VarDecl" << std::endl;
+#endif
+    if (node == nullptr) return;
+
+    string var_name = node->id->id;
 
     if (current_visiting_method.empty()) {
-        // 类变量
-        if (!name_maps->add_class_var(current_visiting_class, varName, node)) {
+        // 类级别变量
+        if (!name_maps->add_class_var(current_visiting_class, var_name, node)) {
             cerr << "Error: at position " << node->getPos()->print() << endl;
-            cerr << "Error: Duplicate class variable: " << current_visiting_class << "." << varName << endl;
+            cerr << "Error: Duplicate class variable: " << var_name
+                 << " in class " << current_visiting_class << endl;
         }
     } else {
         // 方法局部变量
-        if (!name_maps->add_method_var(current_visiting_class, current_visiting_method, varName, node)) {
+        if (!name_maps->add_method_var(current_visiting_class, current_visiting_method, var_name, node)) {
             cerr << "Error: at position " << node->getPos()->print() << endl;
-            cerr << "Error: Duplicate method variable: " << current_visiting_class << "." << current_visiting_method << "." << varName << endl;
+            cerr << "Error: Duplicate method variable: " << var_name
+                 << " in method " << current_visiting_class << "." << current_visiting_method << endl;
         }
     }
 }
 
-// MethodDecl：注册方法名、处理形参和返回类型、遍历方法体
-void AST_Name_Map_Visitor::visit(MethodDecl *node) {
-#ifdef DEBUG
-    std::cout << "Visiting MethodDecl: " << node->id->id << std::endl;
-#endif
-    if (node == nullptr) return;
-
-    string methodName = node->id->id;
-    current_visiting_method = methodName;
-
-    // 注册方法（如果已存在则报错）
-    if (!name_maps->add_method(current_visiting_class, methodName)) {
-        cerr << "Error: at position " << node->getPos()->print() << endl;
-        cerr << "Error: Duplicate method: " << current_visiting_class << "." << methodName << endl;
-    }
-
-    // 收集形参名列表,遍历形参
-    vector<string> formalNames;
-    if (node->fl != nullptr) {
-        for (auto f : *(node->fl)) {
-            formalNames.push_back(f->id->id);
-            f->accept(*this);
-        }
-    }
-
-    // 为返回类型创建伪 Formal（名称 "__return__"），加入形参列表末尾
-    Type *retTypeClone = node->type->clone();
-    Pos *retPos = node->getPos()->clone();
-    IdExp *retId = new IdExp(retPos->clone(), "__return__");
-    Formal *retFormal = new Formal(retPos->clone(), retTypeClone, retId);
-    name_maps->add_method_formal(current_visiting_class, methodName, "__return__", retFormal);
-    formalNames.push_back("__return__");
-
-    // 注册方法的完整形参列表（含返回类型）
-    name_maps->add_method_formal_list(current_visiting_class, methodName, formalNames);
-
-    // 遍历方法局部变量声明
-    if (node->vdl != nullptr)
-        for (auto vd : *(node->vdl)) vd->accept(*this);
-
-    current_visiting_method = "";
-}
-
-// Formal：注册方法形参
 void AST_Name_Map_Visitor::visit(Formal *node) {
 #ifdef DEBUG
-    std::cout << "Visiting Formal: " << node->id->id << std::endl;
+    std::cout << "Visiting Formal" << std::endl;
 #endif
     if (node == nullptr) return;
 
-    string formalName = node->id->id;
-    if (!name_maps->add_method_formal(current_visiting_class, current_visiting_method, formalName, node)) {
+    string formal_name = node->id->id;
+    if (!name_maps->add_method_formal(current_visiting_class, current_visiting_method, formal_name, node)) {
         cerr << "Error: at position " << node->getPos()->print() << endl;
-        cerr << "Error: Duplicate formal parameter: " << current_visiting_class << "." << current_visiting_method << "." << formalName << endl;
+        cerr << "Error: Duplicate formal parameter: " << formal_name
+             << " in method " << current_visiting_class << "." << current_visiting_method << endl;
     }
 }
 
-// 以下是语句和表达式的 visit 方法——name map 阶段不需要处理它们
+// 以下 visitor 在 name map 阶段不需要做任何处理，仅保留空实现
+void AST_Name_Map_Visitor::visit(Type *node) {}
 void AST_Name_Map_Visitor::visit(Nested *node) {}
 void AST_Name_Map_Visitor::visit(If *node) {}
 void AST_Name_Map_Visitor::visit(While *node) {}
