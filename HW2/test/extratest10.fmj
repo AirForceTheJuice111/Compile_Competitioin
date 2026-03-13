@@ -1,0 +1,18 @@
+/* 测试: If 条件非 int 类型 */
+public int main() {
+    class Foo f;
+    f = new Foo();
+    if (f) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+public class Foo {
+    int x;
+}
+
+/*
+Expected error: If condition must be of integer type
+*/

@@ -54,7 +54,7 @@ void ConstantPropagator::visit(Program *node) {
         node->main->accept(*this);
         m = (cur_node != nullptr) ? static_cast<MainMethod *>(cur_node) : nullptr;
     }
-    cur_node = new Program(node->getPos()->clone(), m);
+    cur_node = new Program(node->get_pos()->clone(), m);
 }
 
 void ConstantPropagator::visit(MainMethod *node) {
@@ -67,7 +67,7 @@ void ConstantPropagator::visit(MainMethod *node) {
     }
     StmList *sl = nullptr;
     if (node->sl != nullptr) sl = visitList<Stm>(*this, node->sl);
-    cur_node = new MainMethod(node->getPos()->clone(), sl);
+    cur_node = new MainMethod(node->get_pos()->clone(), sl);
 }
 
 void ConstantPropagator::visit(Assign *node) {
@@ -84,11 +84,11 @@ void ConstantPropagator::visit(Assign *node) {
         l = static_cast<Exp *>(cur_node); // 不是直接clone，因为accept后cur_node可能已经被修改了，指向其子节点
     }
     Exp *r = nullptr;
-    if (node->exp != nullptr) {
-        node->exp->accept(*this);
+    if (node->right != nullptr) {
+        node->right->accept(*this);
         r = static_cast<Exp *>(cur_node);
     }
-    cur_node = new Assign(node->getPos()->clone(), l, r);
+    cur_node = new Assign(node->get_pos()->clone(), l, r);
 }
 
 void ConstantPropagator::visit(Return *node) {
@@ -104,7 +104,7 @@ void ConstantPropagator::visit(Return *node) {
         node->exp->accept(*this);
         e = static_cast<Exp *>(cur_node);
     }
-    cur_node = new Return(node->getPos()->clone(), e);
+    cur_node = new Return(node->get_pos()->clone(), e);
 }
 
 void ConstantPropagator::visit(BinaryOp *node) {
@@ -141,21 +141,21 @@ void ConstantPropagator::visit(BinaryOp *node) {
         else if (opStr == "/") {
             if (rval == 0) {
                 cerr << "Error: Division by zero" << endl;
-                cur_node = new BinaryOp(node->getPos()->clone(), l, node->op->clone(), r);
+                cur_node = new BinaryOp(node->get_pos()->clone(), l, node->op->clone(), r);
                 return;
             }
             res = lval / rval;
         } else {
             // 未知运算符，不折叠
-            cur_node = new BinaryOp(node->getPos()->clone(), l, node->op->clone(), r);
+            cur_node = new BinaryOp(node->get_pos()->clone(), l, node->op->clone(), r);
             return;
         }
-        cur_node = new IntExp(node->getPos()->clone(), res);
+        cur_node = new IntExp(node->get_pos()->clone(), res);
         return;
     }
 
     // 无法折叠，保留原结构
-    cur_node = new BinaryOp(node->getPos()->clone(), l, node->op->clone(), r);
+    cur_node = new BinaryOp(node->get_pos()->clone(), l, node->op->clone(), r);
 }
 
 void ConstantPropagator::visit(UnaryOp *node) {
@@ -182,7 +182,7 @@ void ConstantPropagator::visit(UnaryOp *node) {
     // }
 
     OpExp *o = (node->op != nullptr) ? node->op->clone() : nullptr;
-    cur_node = new UnaryOp(node->getPos()->clone(), o, e);
+    cur_node = new UnaryOp(node->get_pos()->clone(), o, e);
 }
 
 void ConstantPropagator::visit(IdExp *node) {

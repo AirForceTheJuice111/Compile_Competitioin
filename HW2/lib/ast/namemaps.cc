@@ -98,6 +98,7 @@ Formal *Name_Maps::get_method_formal(string class_name, string method_name, stri
     return methodFormal[tuple<string, string, string>(class_name, method_name, var_name)];
 }
 
+// method_formal_list: 形参列表，最后一个元素是返回类型（伪形参）
 bool Name_Maps::add_method_formal_list(string class_name, string method_name, vector<string> vl) {
     if (!Name_Maps::is_method(class_name, method_name)) return false;
     methodFormalList[pair<string, string>(class_name, method_name)] = vl;

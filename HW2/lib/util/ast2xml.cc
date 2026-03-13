@@ -75,7 +75,7 @@ static void set_position_and_semant(XMLElement *el, const Pos *pos, AST* node) {
       }
   } else if (kd != AST_Semant::Kind::MethodName && kd != AST_Semant::Kind::ClassName) {
       Pos p(pos->sline, pos->scolumn, pos->eline, pos->ecolumn);
-      cerr << "Error: at position " << p.print() << endl;
+      cerr << "Error: at position " << p.to_str() << endl;
       cerr << "Error: Unknown semantic kind" << endl;
   }
 }
@@ -106,7 +106,7 @@ void AST2XML::visit(Program *node) {
     cout<<"Program"<<endl;
 #endif
     XMLElement* cn = doc->NewElement("Program");
-    set_position_and_semant(cn, node->getPos(), node);
+    set_position_and_semant(cn, node->get_pos(), node);
     if (node->main == nullptr) {
         cerr << "Error: No MainMethod found" << endl;
         el = nullptr;
@@ -130,7 +130,7 @@ void AST2XML::visit(MainMethod *node) {
 cout<<"MainMethod"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("MainMethod");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   XMLElement *cn1 = visitList<VarDecl>(doc, *this, node->vdl, "VarDeclList");
   if (cn1 != nullptr) cn->InsertEndChild(cn1); //insert the variable declaration
   XMLElement *cn2 = visitList<Stm>(doc, *this, node->sl, "StmList");
@@ -144,7 +144,7 @@ void AST2XML::visit(ClassDecl *node) {
 cout<<"ClassDecl"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("ClassDecl");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   if (node->id == nullptr) {
     cerr << "Error: No class id found" << endl;
     el = nullptr;
@@ -157,12 +157,12 @@ cout<<"ClassDecl"<<endl;
     return;
   }
   cn1->SetAttribute("id", node->id->id.c_str());
-  set_position_and_semant(cn1, node->id->getPos(), node->id);
+  set_position_and_semant(cn1, node->id->get_pos(), node->id);
   cn->InsertEndChild(cn1);
   if (node->eid != nullptr) {
     XMLElement *cn2 = doc->NewElement("ExtendsId");
     cn2->SetAttribute("eid", node->eid->id.c_str());
-    set_position_and_semant(cn2, node->eid->getPos(), node->eid);
+    set_position_and_semant(cn2, node->eid->get_pos(), node->eid);
     cn->InsertEndChild(cn2);
   }
   XMLElement *cn3 = visitList<VarDecl>(doc, *this, node->vdl, "VarDeclList");
@@ -185,7 +185,7 @@ cout<<"Type" <<endl;
       cn->SetAttribute("typeKind", "CLASS");  
       cn1 = doc->NewElement("IdExp");
       cn1->SetAttribute("id", node->cid->id.c_str());
-      set_position_and_semant(cn1, node->cid->getPos(), node->cid);
+      set_position_and_semant(cn1, node->cid->get_pos(), node->cid);
       cn->InsertEndChild(cn1);
       break;
     case TypeKind::INT:
@@ -197,7 +197,7 @@ cout<<"Type" <<endl;
         cn2 = doc->NewElement("Arity");
         string sss = to_string(node->arity->val);
         cn2->SetAttribute("val", sss.c_str()); //to_string(node->arity->val).c_str());
-        set_position_and_semant(cn2, node->arity->getPos(), node->arity);
+        set_position_and_semant(cn2, node->arity->get_pos(), node->arity);
         cn->InsertEndChild(cn2);
       }
       else {
@@ -207,7 +207,7 @@ cout<<"Type" <<endl;
       }
       break;
   }
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   el=cn;
 }
 
@@ -217,7 +217,7 @@ void AST2XML::visit(VarDecl *node) {
 cout<<"VarDecl"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("VarDecl");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   if (node->type == nullptr) {
     cerr << "Error: No type found in a VarDecl" << endl;
     el = nullptr;
@@ -232,13 +232,13 @@ cout<<"VarDecl"<<endl;
   }
   XMLElement *cn1 = doc->NewElement("IdExp");
   cn1->SetAttribute("id", node->id->id.c_str());
-  set_position_and_semant(cn1, node->id->getPos(), node->id);
+  set_position_and_semant(cn1, node->id->get_pos(), node->id);
   cn->InsertEndChild(cn1);
   //insert the init
   if (holds_alternative<IntExp*>(node->init) == true) {
     XMLElement *cn2 = doc->NewElement("IntInit");
     cn2->SetAttribute("val", to_string(get<IntExp*>(node->init)->val).c_str());
-    set_position_and_semant(cn2, get<IntExp*>(node->init)->getPos(), get<IntExp*>(node->init));
+    set_position_and_semant(cn2, get<IntExp*>(node->init)->get_pos(), get<IntExp*>(node->init));
     cn->InsertEndChild(cn2);
   } else if (holds_alternative<vector<IntExp*>*>(node->init) == true) {
     vector<IntExp*> *v = get<vector<IntExp*>*>(node->init);
@@ -247,7 +247,7 @@ cout<<"VarDecl"<<endl;
       for (IntExp *i : *v) {
         XMLElement *cn4 = doc->NewElement("IntExp");
         cn4->SetAttribute("val", to_string(i->val).c_str());
-        set_position_and_semant(cn4, i->getPos(), i);
+        set_position_and_semant(cn4, i->get_pos(), i);
         cn3->InsertEndChild(cn4);
       } 
       cn->InsertEndChild(cn3);
@@ -262,7 +262,7 @@ void AST2XML::visit(MethodDecl *node) {
 cout<<"MethodDecl"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("MethodDecl");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   if (node->type == nullptr) {
     cerr << "Error: No return type found in a MethodDecl" << endl;
     el = nullptr;
@@ -278,7 +278,7 @@ cout<<"MethodDecl"<<endl;
   // insert the method id
   XMLElement *cn1 = doc->NewElement("IdExp");
   cn1->SetAttribute("id", node->id->id.c_str());
-  set_position_and_semant(cn1, node->id->getPos(), node->id);
+  set_position_and_semant(cn1, node->id->get_pos(), node->id);
   cn->InsertEndChild(cn1);
   XMLElement *cn2 = visitList<Formal>(doc, *this, node->fl, "FormalList");
   if (cn2 != nullptr) cn->InsertEndChild(cn2); //insert the formal
@@ -295,7 +295,7 @@ void AST2XML::visit(Formal *node) {
 cout<<"Formal"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("Formal");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   if (node->type == nullptr) {
     cerr << "Error: No type found in a Formal" << endl;
     el = nullptr;
@@ -309,7 +309,7 @@ cout<<"Formal"<<endl;
     return;
   }
   XMLElement *cn1 = doc->NewElement("IdExp");
-  set_position_and_semant(cn1, node->id->getPos(), node->id);
+  set_position_and_semant(cn1, node->id->get_pos(), node->id);
   cn1->SetAttribute("id", node->id->id.c_str());
   cn->InsertEndChild(cn1);
   el = cn;
@@ -321,7 +321,7 @@ void AST2XML::visit(Nested *node) {
 cout<< "Nested" <<endl;
 #endif
   XMLElement *cn = doc->NewElement("Nested");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   XMLElement *cn1 = visitList<Stm>(doc, *this, node->sl, "StmList");
   if (cn1 != nullptr) cn->InsertEndChild(cn1);
   el = cn;
@@ -333,7 +333,7 @@ void AST2XML::visit(If *node) {
 cout<<"If"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("If");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   if (node->exp == nullptr) {
     cerr << "Error: No expression found in an If" << endl;
     el = nullptr;
@@ -361,7 +361,7 @@ void AST2XML::visit(While *node) {
 cout<<"While"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("While");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   if (node->exp == nullptr) {
     cerr << "Error: No expression found in a While" << endl;
     el = nullptr;
@@ -382,7 +382,7 @@ void AST2XML::visit(Assign *node) {
 cout<<"Assign"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("Assign");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   if (node->left == nullptr) {
     cerr << "Error: No left expression found in an Assign" << endl;
     el = nullptr;
@@ -390,12 +390,12 @@ cout<<"Assign"<<endl;
   }
   node->left->accept(*this);
   if (el != nullptr) cn->InsertEndChild(el); //insert the left expression
-  if (node->exp == nullptr) {
+  if (node->right == nullptr) {
     cerr << "Error: No right expression found in an Assign" << endl;
     el = nullptr;
     return;
   }
-  node->exp->accept(*this);
+  node->right->accept(*this);
   if (el != nullptr) cn->InsertEndChild(el); //insert the right expression
   el = cn;
 }
@@ -406,7 +406,7 @@ void AST2XML::visit(CallStm *node) {
 cout<<"CallStm"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("CallStm");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   if (node->obj == nullptr) {
     cerr << "Error: No object found in a CallStm" << endl;
     el = nullptr;
@@ -421,7 +421,7 @@ cout<<"CallStm"<<endl;
   }
   XMLElement *cn1 = doc->NewElement("IdExp");
   cn1->SetAttribute("id", node->name->id.c_str());
-  set_position_and_semant(cn1, node->name->getPos(), node->name);
+  set_position_and_semant(cn1, node->name->get_pos(), node->name);
   cn->InsertEndChild(cn1);
   XMLElement *cn2 = visitList<Exp>(doc, *this, node->par, "ParList");
   if (cn2 != nullptr) cn->InsertEndChild(cn2); //insert the parameters
@@ -434,7 +434,7 @@ void AST2XML::visit(Continue *node) {
 cout<<"Continue"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("Continue");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   el = cn;
 }
 
@@ -444,7 +444,7 @@ void AST2XML::visit(Break *node) {
 cout<<"Break"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("Break");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   el = cn;
 }
 
@@ -454,7 +454,7 @@ void AST2XML::visit(Return *node) {
 cout<<"Return"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("Return");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   if (node->exp != nullptr) {
     node->exp->accept(*this);
     if (el != nullptr) cn->InsertEndChild(el); //insert the expression
@@ -468,7 +468,7 @@ void AST2XML::visit(PutInt *node) {
 cout<<"PutInt"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("PutInt");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   if (node->exp == nullptr) {
     cerr << "Error: No expression found in a PutInt" << endl;
     el = nullptr;
@@ -485,7 +485,7 @@ void AST2XML::visit(PutCh *node) {
 cout<<"PutCh"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("PutCh");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   if (node->exp == nullptr) {
     cerr << "Error: No expression found in a PutCh" << endl;
     el = nullptr;
@@ -502,7 +502,7 @@ void AST2XML::visit(PutArray *node) {
 cout<<"PutArray"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("PutArray");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   if (node->arr == nullptr) {
     cerr << "Error: No array expression found in a PutArray" << endl;
     el = nullptr;
@@ -526,7 +526,7 @@ void AST2XML::visit(Starttime *node) {
 cout<<"Starttime"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("Starttime");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   el = cn;
 }
 
@@ -536,7 +536,7 @@ void AST2XML::visit(Stoptime *node) {
 cout<<"Stoptime"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("Stoptime");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   el = cn;
 }
 
@@ -546,7 +546,7 @@ void AST2XML::visit(BinaryOp *node) {
 cout<<"BinaryOp"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("BinaryOp");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   if (node->left == nullptr) {
     cerr << "Error: No left expression found in a BinaryOp" << endl;
     el = nullptr;
@@ -561,7 +561,7 @@ cout<<"BinaryOp"<<endl;
   }
   XMLElement *cn1 = doc->NewElement("OpExp");
   cn1->SetAttribute("op", node->op->op.c_str());
-  set_position_and_semant(cn1, node->op->getPos(), node->op);
+  set_position_and_semant(cn1, node->op->get_pos(), node->op);
   cn->InsertEndChild(cn1);
   if (node->right == nullptr) {
     cerr << "Error: No right expression found in a BinaryOp" << endl;
@@ -579,10 +579,10 @@ void AST2XML::visit(UnaryOp *node) {
 cout<<"UnaryOp"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("UnaryOp");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   XMLElement *cn1 = doc->NewElement("OpExp");
   cn1->SetAttribute("op", node->op->op.c_str());
-  set_position_and_semant(cn1, node->op->getPos(), node->op);
+  set_position_and_semant(cn1, node->op->get_pos(), node->op);
   cn->InsertEndChild(cn1);
   if (node->exp == nullptr) {
     cerr << "Error: No expression found in a UnaryOp" << endl;
@@ -600,7 +600,7 @@ void AST2XML::visit(ArrayExp *node) {
 cout<<"ArrayExp"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("ArrayExp");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   if (node->arr == nullptr) {
     cerr << "Error: No array expression found in an ArrayExp" << endl;
     el = nullptr;
@@ -624,7 +624,7 @@ void AST2XML::visit(CallExp *node) {
 cout<<"CallExp"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("CallExp");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   if (node->obj == nullptr) {
     cerr << "Error: No object found in a CallExp" << endl;
     el = nullptr;
@@ -639,7 +639,7 @@ cout<<"CallExp"<<endl;
   }
   XMLElement *cn1 = doc->NewElement("IdExp");
   cn1->SetAttribute("id", node->name->id.c_str());
-  set_position_and_semant(cn1, node->name->getPos(), node->name);
+  set_position_and_semant(cn1, node->name->get_pos(), node->name);
   cn->InsertEndChild(cn1);
   XMLElement *cn2 = visitList<Exp>(doc, *this, node->par, "ParList");
   if (cn2 != nullptr) cn->InsertEndChild(cn2); //insert the parameters
@@ -652,7 +652,7 @@ void AST2XML::visit(ClassVar *node) {
 cout<<"ClassVar"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("ClassVar");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   if (node->obj == nullptr) {
     cerr << "Error: No object found in a ClassVar" << endl;
     el = nullptr;
@@ -667,7 +667,7 @@ cout<<"ClassVar"<<endl;
   }
   XMLElement *cn1 = doc->NewElement("IdExp");
   cn1->SetAttribute("id", node->id->id.c_str());
-  set_position_and_semant(cn1, node->id->getPos(), node->id);
+  set_position_and_semant(cn1, node->id->get_pos(), node->id);
   cn->InsertEndChild(cn1);
   el = cn;
 }
@@ -678,7 +678,7 @@ void AST2XML::visit(This *node) {
 cout<<"This"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("This");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   el = cn;
 }
 
@@ -688,7 +688,7 @@ void AST2XML::visit(Length *node) {
 cout<<"Length"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("Length");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   if (node->exp == nullptr) {
     cerr << "Error: No expression found in a Length" << endl;
     el = nullptr;
@@ -705,7 +705,7 @@ void AST2XML::visit(NewArray *node) {
 cout<<"NewArray"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("NewArray");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   if (node->size == nullptr) {
     cerr << "Error: No size expression found in a NewArray" << endl;
     el = nullptr;
@@ -722,7 +722,7 @@ void AST2XML::visit(NewObject *node) {
 cout<<"NewObject"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("NewObject");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   if (node->id == nullptr) {
     cerr << "Error: No id found in a NewObject" << endl;
     el = nullptr;
@@ -740,7 +740,7 @@ void AST2XML::visit(GetInt *node) {
 cout<<"GetInt"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("GetInt");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   el = cn;
 }
 
@@ -750,7 +750,7 @@ void AST2XML::visit(GetCh *node) {
 cout<<"GetCh"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("GetCh");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   el = cn;
 }
 
@@ -760,7 +760,7 @@ void AST2XML::visit(GetArray *node) {
 cout<<"GetArray"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("GetArray");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   if (node->exp == nullptr) {
     cerr << "Error: No expression found in a GetArray" << endl;
     el = nullptr;
@@ -777,14 +777,14 @@ void AST2XML::visit(IdExp *node) {
 cout<<"IdExp"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("IdExp");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   if (node->id.empty()) {
     cerr << "Error: No id found in an IdExp" << endl;
     el = nullptr;
     return;
   }
   cn->SetAttribute("id", node->id.c_str());
-  set_position_and_semant(cn, node->getPos(), nullptr);
+  set_position_and_semant(cn, node->get_pos(), nullptr);
   el = cn;
 }
 
@@ -794,7 +794,7 @@ void AST2XML::visit(IntExp *node) {
 cout<<"IntExp"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("IntExp");
-  set_position_and_semant(cn, node->getPos(), node);
+  set_position_and_semant(cn, node->get_pos(), node);
   cn->SetAttribute("val", to_string(node->val).c_str());
   el = cn;
 }
@@ -805,7 +805,7 @@ void AST2XML::visit(OpExp *node) {
 cout<<"OpExp"<<endl;
 #endif
   XMLElement *cn = doc->NewElement("OpExp");
-  set_position_and_semant(cn, node->getPos(), nullptr);
+  set_position_and_semant(cn, node->get_pos(), nullptr);
   cn->SetAttribute("op", node->op.c_str());
   el = cn;
 }

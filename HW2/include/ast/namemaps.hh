@@ -9,8 +9,7 @@
 using namespace std;
 using namespace fdmj;
 
-// this is for the maps of various names (things) in a program and their
-// relationships
+// this is for the maps of various names (things) in a program and their relationships
 class Name_Maps {
   private:
     // build all name maps to facilitate the easy access of the declarations of

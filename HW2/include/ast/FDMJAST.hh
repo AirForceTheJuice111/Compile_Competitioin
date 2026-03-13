@@ -50,7 +50,7 @@ class Type : public AST {
   public:
     TypeKind typeKind;
     IdExp *cid = nullptr;    // class id
-    IntExp *arity = nullptr; // array arity
+    IntExp *arity = nullptr; // array arity (a.k.a array size)
     Type(Pos *pos) : AST(pos), typeKind(TypeKind::INT) {}
     Type(Pos *pos, IdExp *cid) : AST(pos), typeKind(TypeKind::CLASS), cid(cid) {}
     Type(Pos *pos, IntExp *arity) : AST(pos), typeKind(TypeKind::ARRAY), arity(arity) {} // array must have arity=0
@@ -64,7 +64,7 @@ class VarDecl : public AST {
   public:
     Type *type = nullptr;
     IdExp *id = nullptr;
-    variant<monostate, IntExp *, vector<IntExp *> *> init;
+    variant<monostate, IntExp *, vector<IntExp *> *> init; // variant to hold either no initializer, an int initializer, or an array initializer. Note that vector<IntExp*>* can be nullptr (no init) or non-nullptr with size=0 (empty array init)
     // note that nullptr means no init. vector.size=0 means empty array
     // initialization
     VarDecl(Pos *pos, Type *type, IdExp *id) : AST(pos), type(type), id(id) { init = std::monostate{}; }
@@ -107,7 +107,7 @@ class Formal : public AST {
     Formal(Pos *pos, Type *type, IdExp *id) : AST(pos), type(type), id(id) {
         if (type->typeKind == TypeKind::ARRAY) {
             if (type->arity == nullptr) {
-                cerr << "at position: " << pos->print() << endl;
+                cerr << "at position: " << pos->to_str() << endl;
                 cerr << "Error: Array type has no arity in the formal. Not allowed!" << endl;
                 exit(1);
             }
@@ -160,8 +160,8 @@ class While : public Stm {
 class Assign : public Stm {
   public:
     Exp *left = nullptr;
-    Exp *exp = nullptr;
-    Assign(Pos *pos, Exp *left, Exp *exp) : Stm(pos), left(left), exp(exp) {}
+    Exp *right = nullptr;
+    Assign(Pos *pos, Exp *left, Exp *right) : Stm(pos), left(left), right(right) {}
     ASTKind getASTKind() override { return ASTKind::Assign; }
     Assign *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }

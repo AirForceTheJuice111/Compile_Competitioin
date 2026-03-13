@@ -1,0 +1,12 @@
+/* 测试: this 在 main 方法中使用应报错 */
+public int main() {
+    return this.x;
+}
+
+public class Foo {
+    int x;
+}
+
+/*
+Expected error: 'this' used outside of a class method
+*/

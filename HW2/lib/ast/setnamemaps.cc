@@ -39,7 +39,7 @@ void AST_Name_Map_Visitor::visit(Program *node) {
         for (auto cl : *(node->cdl)) {
             if (cl != nullptr && cl->id != nullptr) {
                 if (!name_maps->add_class(cl->id->id)) {
-                    cerr << "Error: at position " << cl->getPos()->print() << endl;
+                    cerr << "Error: at position " << cl->get_pos()->to_str() << endl;
                     cerr << "Error: Duplicate class name: " << cl->id->id << endl;
                 }
             }
@@ -73,7 +73,7 @@ void AST_Name_Map_Visitor::visit(MainMethod *node) {
     }
 
     // 创建返回类型伪形参（main 返回 int）
-    Pos *pos = node->getPos()->clone();
+    Pos *pos = node->get_pos()->clone();
     Type *retType = new Type(pos);  // INT 类型
     IdExp *retId = new IdExp(pos->clone(), "__return__");
     Formal *retFormal = new Formal(pos->clone(), retType, retId);
@@ -100,7 +100,7 @@ void AST_Name_Map_Visitor::visit(ClassDecl *node) {
     if (node->eid != nullptr) {
         string parent_name = node->eid->id;
         if (!name_maps->is_class(parent_name)) {
-            cerr << "Error: at position " << node->eid->getPos()->print() << endl;
+            cerr << "Error: at position " << node->eid->get_pos()->to_str() << endl;
             cerr << "Error: Parent class " << parent_name << " not found" << endl;
         } else {
             name_maps->add_class_hiearchy(class_name, parent_name);
@@ -131,7 +131,7 @@ void AST_Name_Map_Visitor::visit(MethodDecl *node) {
     current_visiting_method = method_name;
 
     if (!name_maps->add_method(current_visiting_class, method_name)) {
-        cerr << "Error: at position " << node->getPos()->print() << endl;
+        cerr << "Error: at position " << node->get_pos()->to_str() << endl;
         cerr << "Error: Duplicate method name: " << method_name
              << " in class " << current_visiting_class << endl;
     }
@@ -151,7 +151,7 @@ void AST_Name_Map_Visitor::visit(MethodDecl *node) {
     if (retType->typeKind == TypeKind::ARRAY && retType->arity == nullptr)
         retType->arity = new IntExp(new Pos(0, 0, 0, 0), 0);
 
-    Pos *pos = node->getPos()->clone();
+    Pos *pos = node->get_pos()->clone();
     IdExp *retId = new IdExp(pos, "__return__");
     Formal *retFormal = new Formal(pos->clone(), retType, retId);
     name_maps->add_method_formal(current_visiting_class, method_name, "__return__", retFormal);
@@ -179,14 +179,14 @@ void AST_Name_Map_Visitor::visit(VarDecl *node) {
     if (current_visiting_method.empty()) {
         // 类级别变量
         if (!name_maps->add_class_var(current_visiting_class, var_name, node)) {
-            cerr << "Error: at position " << node->getPos()->print() << endl;
+            cerr << "Error: at position " << node->get_pos()->to_str() << endl;
             cerr << "Error: Duplicate class variable: " << var_name
                  << " in class " << current_visiting_class << endl;
         }
     } else {
         // 方法局部变量
         if (!name_maps->add_method_var(current_visiting_class, current_visiting_method, var_name, node)) {
-            cerr << "Error: at position " << node->getPos()->print() << endl;
+            cerr << "Error: at position " << node->get_pos()->to_str() << endl;
             cerr << "Error: Duplicate method variable: " << var_name
                  << " in method " << current_visiting_class << "." << current_visiting_method << endl;
         }
@@ -201,7 +201,7 @@ void AST_Name_Map_Visitor::visit(Formal *node) {
 
     string formal_name = node->id->id;
     if (!name_maps->add_method_formal(current_visiting_class, current_visiting_method, formal_name, node)) {
-        cerr << "Error: at position " << node->getPos()->print() << endl;
+        cerr << "Error: at position " << node->get_pos()->to_str() << endl;
         cerr << "Error: Duplicate formal parameter: " << formal_name
              << " in method " << current_visiting_class << "." << current_visiting_method << endl;
     }

@@ -62,7 +62,7 @@ MainMethod *MainMethod::clone() {
 
 Assign *Assign::clone() {
     Exp *l = (this->left) ? static_cast<Exp *>(left->clone()) : nullptr;
-    Exp *e = (this->exp) ? static_cast<Exp *>(exp->clone()) : nullptr;
+    Exp *e = (this->right) ? static_cast<Exp *>(right->clone()) : nullptr;
     return new Assign(pos->clone(), l, e);
 }
 

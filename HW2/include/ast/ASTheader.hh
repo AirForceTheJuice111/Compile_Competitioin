@@ -66,7 +66,7 @@ class Pos {
            ecolumn = 0; // start and end line and column
     Pos(size_t sline, size_t scolumn, size_t eline, size_t ecolumn) : sline(sline), scolumn(scolumn), eline(eline), ecolumn(ecolumn) {}
     Pos *clone() { return new Pos(sline, scolumn, eline, ecolumn); }
-    std::string print() {
+    std::string to_str() {
         return "Position(sline: " + std::to_string(sline) + ", scolumn: " + std::to_string(scolumn) + ", eline: " + std::to_string(eline) + ", ecolumn: " + std::to_string(ecolumn) + ")";
     }
 };
@@ -77,7 +77,7 @@ class AST {
   public:
     ~AST() { delete pos; }
     AST(Pos *pos) : pos(pos) {}
-    Pos *getPos() { return pos; }
+    Pos *get_pos() { return pos; }
     virtual void accept(AST_Visitor &v) = 0;
     virtual ASTKind getASTKind() = 0;
     virtual AST *clone() = 0;
