@@ -1,0 +1,43 @@
+public int main() {
+    class Shape s;
+    class Circle c;
+    int area;
+
+    s = new Shape();
+    c = new Circle();
+
+    area = s.getArea(5);
+    putint(area);
+    putch(10);
+
+    area = c.getArea(5);
+    putint(area);
+    putch(10);
+
+    s = c;
+    area = s.getArea(5);
+    putint(area);
+    putch(10);
+
+    starttime();
+    stoptime();
+
+    return 0;
+}
+
+public class Shape {
+    int type = 0;
+    public int getArea(int r) {
+        return r * r;
+    }
+}
+
+public class Circle extends Shape {
+    int type = 1;
+    public int getArea(int r) {
+        return 3 * r * r;
+    }
+    public int getCircumference(int r) {
+        return 2 * 3 * r;
+    }
+}
