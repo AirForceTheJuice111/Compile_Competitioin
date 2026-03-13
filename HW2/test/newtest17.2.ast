@@ -8,17 +8,27 @@
                 </Type>
                 <IdExp id="x" bline="2" bpos="21" eline="2" epos="21"/>
             </VarDecl>
+            <VarDecl bline="3" bpos="5" eline="3" epos="23">
+                <Type typeKind="CLASS" bline="3" bpos="5" eline="3" epos="20">
+                    <IdExp id="TestClass2" bline="3" bpos="11" eline="3" epos="20"/>
+                </Type>
+                <IdExp id="y" bline="3" bpos="22" eline="3" epos="22"/>
+            </VarDecl>
         </VarDeclList>
         <StmList>
-            <Assign bline="5" bpos="5" eline="5" epos="15">
-                <ArrayExp bline="5" bpos="5" eline="5" epos="10">
-                    <ClassVar bline="5" bpos="5" eline="5" epos="7">
-                        <IdExp bline="5" bpos="5" eline="5" epos="5" id="x"/>
-                        <IdExp id="a" bline="5" bpos="7" eline="5" epos="7"/>
+            <Assign bline="5" bpos="5" eline="5" epos="10">
+                <IdExp bline="5" bpos="5" eline="5" epos="5" id="x"/>
+                <IdExp bline="5" bpos="9" eline="5" epos="9" id="y"/>
+            </Assign>
+            <Assign bline="6" bpos="5" eline="6" epos="15">
+                <ArrayExp bline="6" bpos="5" eline="6" epos="10">
+                    <ClassVar bline="6" bpos="5" eline="6" epos="7">
+                        <IdExp bline="6" bpos="5" eline="6" epos="5" id="x"/>
+                        <IdExp id="a" bline="6" bpos="7" eline="6" epos="7"/>
                     </ClassVar>
-                    <IntExp bline="5" bpos="9" eline="5" epos="9" val="1"/>
+                    <IntExp bline="6" bpos="9" eline="6" epos="9" val="1"/>
                 </ArrayExp>
-                <IntExp bline="5" bpos="14" eline="5" epos="14" val="1"/>
+                <IntExp bline="6" bpos="14" eline="6" epos="14" val="1"/>
             </Assign>
         </StmList>
     </MainMethod>

@@ -37,6 +37,7 @@
         </ClassDecl>
         <ClassDecl bline="13" bpos="1" eline="15" epos="1">
             <IdExp id="TestClass2" bline="13" bpos="14" eline="13" epos="23"/>
+            <ExtendsId eid="TestClass" bline="13" bpos="33" eline="13" epos="41"/>
             <VarDeclList>
                 <VarDecl bline="14" bpos="5" eline="14" epos="10">
                     <Type typeKind="INT" bline="14" bpos="5" eline="14" epos="7"/>

@@ -10,14 +10,14 @@ public class TestClass {
     int[] a;
 }
 
-public class TestClass2 {
+public class TestClass2 extends TestClass {
     int a;
 }
 
 /*
 --Making Name Maps...
 Classes: TestClass ; TestClass2 ; __$main__ ; 
-Class Hiearchy: 
+Class Hiearchy: TestClass2->TestClass ; 
 Methods: __$main__->main ; 
 Class Variables: TestClass->a with type=IntArray ; TestClass2->a with type=Int ; 
 Method Variables: __$main__->main->x with type=Class ; 

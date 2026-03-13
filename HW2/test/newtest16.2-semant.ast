@@ -11,14 +11,14 @@
         </VarDeclList>
         <StmList>
             <Assign bline="5" bpos="5" eline="5" epos="15">
-                <ArrayExp bline="5" bpos="5" eline="5" epos="10">
-                    <ClassVar bline="5" bpos="5" eline="5" epos="7">
-                        <IdExp bline="5" bpos="5" eline="5" epos="5" id="x"/>
-                        <IdExp id="a" bline="5" bpos="7" eline="5" epos="7"/>
+                <ArrayExp bline="5" bpos="5" eline="5" epos="10" s_kind="Value" typeKind="Int" lvalue="true">
+                    <ClassVar bline="5" bpos="5" eline="5" epos="7" s_kind="Value" typeKind="IntArray" lvalue="true" arity="0">
+                        <IdExp bline="5" bpos="5" eline="5" epos="5" s_kind="Value" typeKind="Class" lvalue="true" cid="TestClass" id="x"/>
+                        <IdExp id="a" bline="5" bpos="7" eline="5" epos="7" s_kind="Value" typeKind="IntArray" lvalue="true" arity="0"/>
                     </ClassVar>
-                    <IntExp bline="5" bpos="9" eline="5" epos="9" val="1"/>
+                    <IntExp bline="5" bpos="9" eline="5" epos="9" s_kind="Value" typeKind="Int" lvalue="false" val="1"/>
                 </ArrayExp>
-                <IntExp bline="5" bpos="14" eline="5" epos="14" val="1"/>
+                <IntExp bline="5" bpos="14" eline="5" epos="14" s_kind="Value" typeKind="Int" lvalue="false" val="1"/>
             </Assign>
         </StmList>
     </MainMethod>
