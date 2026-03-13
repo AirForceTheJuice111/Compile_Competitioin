@@ -3,27 +3,27 @@
 #define DEBUG
 #undef DEBUG
 
-#include "xml2ast.hh"
+#include <iostream>
+#include <algorithm>
+#include <variant>
+#include <cctype>
 #include "ASTheader.hh"
 #include "FDMJAST.hh"
+#include "xml2ast.hh"
 #include "tinyxml2.hh"
-#include <algorithm>
-#include <cctype>
-#include <iostream>
-#include <variant>
 
 using namespace std;
 using namespace fdmj;
 using namespace tinyxml2;
 
-#define ClassDeclList vector<ClassDecl *>
-#define VarDeclList vector<VarDecl *>
-#define MethodDeclList vector<MethodDecl *>
-#define FormalList vector<Formal *>
-#define StmList vector<Stm *>
-#define ExpList vector<Exp *>
+#define ClassDeclList vector<ClassDecl*>
+#define VarDeclList vector<VarDecl*>
+#define MethodDeclList vector<MethodDecl*>
+#define FormalList vector<Formal*>
+#define StmList vector<Stm*>
+#define ExpList vector<Exp*>
 
-Program *xml2ast(XMLElement *element) {
+Program* xml2ast(XMLElement *element) {
     if (string(element->Name()) != "Program") {
         cerr << "Error: Root element is not Program" << endl;
         return nullptr;
@@ -31,7 +31,7 @@ Program *xml2ast(XMLElement *element) {
     return create_program(element);
 }
 
-Program *xml2ast(string xmlfilename) {
+Program* xml2ast(string xmlfilename) {
     XMLDocument doc;
     if (doc.LoadFile(xmlfilename.c_str()) != XML_SUCCESS) {
         cerr << "Error: " << xmlfilename << " not found" << endl;
@@ -46,22 +46,22 @@ Program *xml2ast(string xmlfilename) {
 
 static Pos *get_position(XMLElement *element) {
 #ifdef DEBUG
-    // cout << "Getting position" << endl;
+    //cout << "Getting position" << endl;
 #endif
     int bline = 0, bpos = 0, eline = 0, epos = 0;
     const XMLAttribute *attr = element->FirstAttribute();
-    while (attr) {
+    while (attr) { 
         string name = attr->Name();
-        if (name == "bline") bline = stoi(string(attr->Value()));
-        else if (name == "bpos") bpos = stoi(string(attr->Value()));
-        else if (name == "eline") eline = stoi(string(attr->Value()));
-        else if (name == "epos") epos = stoi(string(attr->Value()));
+        if (name == "bline") { bline = stoi(string(attr->Value()));
+        } else if (name == "bpos") { bpos = stoi(string(attr->Value()));
+        } else if (name == "eline") { eline = stoi(string(attr->Value()));
+        } else if (name == "epos") { epos = stoi(string(attr->Value()));}
         attr = attr->Next();
     }
-    // the XML file may not have positions info in it
+    //the XML file may not have positions info in it 
     /*if (bline == 0 || bpos == 0 || eline == 0 || epos == 0) {
-        //cerr << "Error: No position found in " << string(element->Name()) << ",
-       or position is ill formed" << endl; return nullptr;
+        //cerr << "Error: No position found in " << string(element->Name()) << ", or position is ill formed" << endl;
+        return nullptr;
     */
     return new Pos(bline, bpos, eline, epos);
 }
@@ -79,77 +79,88 @@ T* create_(XMLElement *element, string tag) {
 }
 */
 
-// forward declarations
-Program *create_program(XMLElement *);
-MainMethod *create_mainMethod(XMLElement *);
-ClassDecl *create_classDecl(XMLElement *);
-Type *create_type(XMLElement *);
-VarDecl *create_varDecl(XMLElement *);
-MethodDecl *create_methodDecl(XMLElement *);
-Formal *create_formal(XMLElement *);
-Nested *create_nested(XMLElement *);
-If *create_if(XMLElement *);
-While *create_while(XMLElement *);
-Assign *create_assign(XMLElement *);
-CallStm *create_callStm(XMLElement *);
-Continue *create_continue(XMLElement *);
-Break *create_break(XMLElement *);
-Return *create_return(XMLElement *);
-PutInt *create_putInt(XMLElement *);
-PutCh *create_putCh(XMLElement *);
-PutArray *create_putArray(XMLElement *);
-Starttime *create_starttime(XMLElement *);
-Stoptime *create_stoptime(XMLElement *);
-BinaryOp *create_binaryOp(XMLElement *);
-UnaryOp *create_unaryOp(XMLElement *);
-ArrayExp *create_arrayExp(XMLElement *);
-CallExp *create_callExp(XMLElement *);
-ClassVar *create_classVar(XMLElement *);
-This *create_this(XMLElement *);
-Length *create_length(XMLElement *);
-NewArray *create_newArray(XMLElement *);
-NewObject *create_newObject(XMLElement *);
-GetInt *create_getInt(XMLElement *);
-GetCh *create_getCh(XMLElement *);
-GetArray *create_getArray(XMLElement *);
-// IdExp* create_idExp(XMLElement*);
-// IntExp* create_intExp(XMLElement*);
-// OpExp* create_opExp(XMLElement*);
+//forward declarations
+Program* create_program(XMLElement*);
+MainMethod* create_mainMethod(XMLElement*);
+ClassDecl* create_classDecl(XMLElement*);
+Type* create_type(XMLElement*);
+VarDecl* create_varDecl(XMLElement*);
+MethodDecl* create_methodDecl(XMLElement*);
+Formal* create_formal(XMLElement*);
+Nested* create_nested(XMLElement*);
+If* create_if(XMLElement*);
+While* create_while(XMLElement*);
+Assign* create_assign(XMLElement*);
+CallStm* create_callStm(XMLElement*);
+Continue* create_continue(XMLElement*);
+Break* create_break(XMLElement*);
+Return* create_return(XMLElement*);
+PutInt* create_putInt(XMLElement*);
+PutCh* create_putCh(XMLElement*);
+PutArray* create_putArray(XMLElement*);
+Starttime* create_starttime(XMLElement*);
+Stoptime* create_stoptime(XMLElement*);
+BinaryOp* create_binaryOp(XMLElement*);
+UnaryOp* create_unaryOp(XMLElement*);
+ArrayExp* create_arrayExp(XMLElement*);
+CallExp* create_callExp(XMLElement*);
+ClassVar* create_classVar(XMLElement*);
+This* create_this(XMLElement*);
+Length* create_length(XMLElement*);
+NewArray* create_newArray(XMLElement*);
+NewObject* create_newObject(XMLElement*);
+GetInt* create_getInt(XMLElement*);
+GetCh* create_getCh(XMLElement*);
+GetArray* create_getArray(XMLElement*);
+//IdExp* create_idExp(XMLElement*);
+//IntExp* create_intExp(XMLElement*);
+//OpExp* create_opExp(XMLElement*);
 
-ExpList *create_exp_list(XMLElement *);
-StmList *create_stm_list(XMLElement *);
+ExpList* create_exp_list(XMLElement*);
+StmList* create_stm_list(XMLElement*);
 
-enum class ATTR_TYPE { INT, ID, OP };
-template <class T> T *create_leafnode(XMLElement *, string, string,
-                                      ATTR_TYPE); // forward declaration
+enum class ATTR_TYPE {
+    INT,
+    ID,
+    OP
+};
+template<class T> T* create_leafnode(XMLElement*, string, string, ATTR_TYPE); //forward declaration
 
-template <class T> // only works for lists of VarDecl, MethodDecl, Formal,
-                   // ClassDecl, IntExp
-vector<T *> *create_list(XMLElement *element, string tag) {
+template<class T> //only works for lists of VarDecl, MethodDecl, Formal, ClassDecl, IntExp
+vector<T*> *create_list(XMLElement *element, string tag) {
 #ifdef DEBUG
     cout << "Creating list from list of " << tag << endl;
 #endif
-    vector<T *> *list = new vector<T *>();
-    variant<monostate, VarDecl *, MethodDecl *, Formal *, ClassDecl *, IntExp *> t = monostate{};
+    vector<T*> *list = new vector<T*>();
+    variant<monostate, VarDecl*, MethodDecl*, Formal*, ClassDecl*, IntExp*> t = monostate{};
     XMLElement *ce = element->FirstChildElement();
     while (ce) {
-        if (string(tag) == "VarDecl") t = create_varDecl(ce);
-        else if (string(tag) == "MethodDecl") t = create_methodDecl(ce);
-        else if (string(tag) == "Formal") t = create_formal(ce);
-        else if (string(tag) == "ClassDecl") t = create_classDecl(ce);
-        else if (string(tag) == "IntExp") t = create_leafnode<IntExp>(ce, "IntExp", "val", ATTR_TYPE::INT);
-        else cerr << "Error: Unknown element in list: " << ce->Name() << endl;
-        if (holds_alternative<T *>(t) == true) list->push_back(get<T *>(t));
+        if (string(tag) == "VarDecl") {
+            t = create_varDecl(ce);
+        } else if (string(tag) == "MethodDecl") {
+            t = create_methodDecl(ce);
+        } else if (string(tag) == "Formal") {
+            t = create_formal(ce);
+        } else if (string(tag) == "ClassDecl") {
+            t = create_classDecl(ce);
+        } else if (string(tag) == "IntExp") {
+            t = create_leafnode<IntExp>(ce, "IntExp", "val", ATTR_TYPE::INT);
+        } else {
+            cerr << "Error: Unknown element in list: " << ce->Name() << endl;
+        }
+        if (holds_alternative<T*>(t) == true) 
+            list->push_back(get<T*>(t));
         else {
             cerr << "Error: Failed to create a " << tag << endl;
             return nullptr;
         }
         ce = ce->NextSiblingElement();
     }
-    return list; // empty list is also valid
+    return list; //empty list is also valid 
 }
 
-template <class T> T *create_leafnode(XMLElement *element, string tag, string s_attr, ATTR_TYPE at) {
+template<class T>
+T* create_leafnode(XMLElement *element, string tag, string s_attr, ATTR_TYPE at) {
 #ifdef DEBUG
     cout << "Creating leaf node from=" << tag << " with attrib=" << s_attr << endl;
 #endif
@@ -158,31 +169,32 @@ template <class T> T *create_leafnode(XMLElement *element, string tag, string s_
         return nullptr;
     }
     const XMLAttribute *attr = element->FirstAttribute();
-    variant<IntExp *, IdExp *, OpExp *> holding;
+    variant<IntExp*, IdExp*, OpExp*> holding;
     while (attr) {
         if (string(attr->Name()) == s_attr) {
             switch (at) {
-            case ATTR_TYPE::INT:
-                holding = new IntExp(get_position(element), stoi(string(attr->Value())));
-                break;
-            case ATTR_TYPE::ID:
-                holding = new IdExp(get_position(element), string(attr->Value()));
-                break;
-            case ATTR_TYPE::OP:
-                holding = new OpExp(get_position(element), string(attr->Value()));
-                break;
-            default:
-                cerr << "Error: Unknown attribute type" << endl;
-                return nullptr;
+                case ATTR_TYPE::INT:
+                    holding = new IntExp(get_position(element), stoi(string(attr->Value())));
+                    break;
+                case ATTR_TYPE::ID:
+                    holding = new IdExp(get_position(element), string(attr->Value()));
+                    break;
+                case ATTR_TYPE::OP:
+                    holding = new OpExp(get_position(element), string(attr->Value()));
+                    break;
+                default:
+                    cerr << "Error: Unknown attribute type" << endl;
+                    return nullptr;
             }
         }
         attr = attr->Next();
     }
-    if (holds_alternative<T *>(holding) == true) return get<T *>(holding);
+    if (holds_alternative<T*>(holding) == true) 
+        return get<T*>(holding);
     else return nullptr;
 }
 
-Program *create_program(XMLElement *element) {
+Program* create_program(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating Program" << endl;
 #endif
@@ -194,12 +206,12 @@ Program *create_program(XMLElement *element) {
     }
     XMLElement *ce = element->FirstChildElement();
     while (ce) {
-        if (string(ce->Name()) == "MainMethod") {
+        if (string(ce->Name()) == "MainMethod" ) {
             main = create_mainMethod(ce);
-        } else if (string(ce->Name()) == "ClassDeclList") {
+        }
+        else  if (string(ce->Name()) == "ClassDeclList" ) {
             if (ce->NoChildren()) {
-                delete cdl;
-                cdl = nullptr;
+                delete cdl; cdl = nullptr;
             } else {
                 cdl = create_list<ClassDecl>(ce, "ClassDecl");
             }
@@ -209,11 +221,11 @@ Program *create_program(XMLElement *element) {
         ce = ce->NextSiblingElement();
     }
     return new Program(get_position(element), main, cdl);
-}
+}   
 
-MainMethod *create_mainMethod(XMLElement *element) {
+MainMethod* create_mainMethod(XMLElement* element) {
 #ifdef DEBUG
-    cout << "Creating MainMethod" << endl;
+cout << "Creating MainMethod" << endl;
 #endif
     VarDeclList *vdl = nullptr;
     StmList *sl = nullptr;
@@ -223,14 +235,17 @@ MainMethod *create_mainMethod(XMLElement *element) {
     }
     XMLElement *ce = element->FirstChildElement();
     while (ce) {
-        if (string(ce->Name()) == "VarDeclList") vdl = create_list<VarDecl>(ce, "VarDecl");
-        else if (string(ce->Name()) == "StmList") sl = create_stm_list(ce);
+        if (string(ce->Name()) == "VarDeclList" ) {
+            vdl = create_list<VarDecl>(ce, "VarDecl");
+        } else if (string(ce->Name()) == "StmList" ) {
+            sl = create_stm_list(ce);
+        }
         ce = ce->NextSiblingElement();
-    }
+    } 
     return new MainMethod(get_position(element), vdl, sl);
 }
 
-ClassDecl *create_classDecl(XMLElement *element) {
+ClassDecl* create_classDecl(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating ClassDecl" << endl;
 #endif
@@ -244,13 +259,23 @@ ClassDecl *create_classDecl(XMLElement *element) {
     }
     XMLElement *ce = element->FirstChildElement();
     while (ce) {
-        if (string(ce->Name()) == "IdExp") id = create_leafnode<IdExp>(ce, "IdExp", "id", ATTR_TYPE::ID);
-        else if (string(ce->Name()) == "ExtendsId") eid = create_leafnode<IdExp>(ce, "ExtendsId", "eid", ATTR_TYPE::ID);
-        else if (string(ce->Name()) == "VarDeclList") vdl = create_list<VarDecl>(ce, "VarDecl");
-        else if (string(ce->Name()) == "MethodDeclList") mdl = create_list<MethodDecl>(ce, "MethodDecl");
-        else cerr << "Error: Unknown element in ClassDecl: " << ce->Name() << endl;
+        if (string(ce->Name()) == "IdExp" ) {
+            id = create_leafnode<IdExp>(ce, "IdExp", "id", ATTR_TYPE::ID);
+        }
+        else if (string(ce->Name()) == "ExtendsId") {
+            eid = create_leafnode<IdExp>(ce, "ExtendsId", "eid", ATTR_TYPE::ID);
+        }
+        else  if (string(ce->Name()) == "VarDeclList" ) {
+            vdl = create_list<VarDecl>(ce, "VarDecl");
+        }
+        else  if (string(ce->Name()) == "MethodDeclList" ) {
+            mdl = create_list<MethodDecl>(ce, "MethodDecl");
+        }
+        else {
+            cerr << "Error: Unknown element in ClassDecl: " << ce->Name() << endl;
+        }
         ce = ce->NextSiblingElement();
-    }
+    }   
     if (id == nullptr) {
         cerr << "Error: ClassDecl: Class id can't be null" << endl;
         return nullptr;
@@ -258,7 +283,7 @@ ClassDecl *create_classDecl(XMLElement *element) {
     return new ClassDecl(get_position(element), id, eid, vdl, mdl);
 }
 
-Type *create_type(XMLElement *element) {
+Type* create_type(XMLElement* element) {
     TypeKind typeKind;
     IdExp *cid = nullptr;
     IntExp *arity = nullptr;
@@ -266,7 +291,7 @@ Type *create_type(XMLElement *element) {
         cerr << "Error: input Element is not Type" << endl;
         return nullptr;
     }
-    // get the typeKind
+    //get the typeKind
     IdExp *tk = create_leafnode<IdExp>(element, "Type", "typeKind", ATTR_TYPE::ID);
     if (tk->id == "CLASS") typeKind = TypeKind::CLASS;
     else if (tk->id == "INT") typeKind = TypeKind::INT;
@@ -277,11 +302,13 @@ Type *create_type(XMLElement *element) {
     }
     XMLElement *ce, *e1;
     Pos *p1;
-    switch (typeKind) { // get the arity
+    switch (typeKind) { //get the arity
     case TypeKind::ARRAY:
         ce = element->FirstChildElement();
         while (ce) {
-            if (string(ce->Name()) == "Arity") arity = create_leafnode<IntExp>(ce, "Arity", "val", ATTR_TYPE::INT);
+            if (string(ce->Name()) == "Arity") {
+                arity = create_leafnode<IntExp>(ce, "Arity", "val", ATTR_TYPE::INT);
+            }
             ce = ce->NextSiblingElement();
         }
         if (arity == nullptr) {
@@ -294,13 +321,16 @@ Type *create_type(XMLElement *element) {
         p1 = get_position(e1);
         IdExp *t_cid;
         while (e1) {
-            if (string(e1->Name()) == "IdExp") t_cid = create_leafnode<IdExp>(e1, "IdExp", "id", ATTR_TYPE::ID);
+            if (string(e1->Name()) == "IdExp") {
+                t_cid = create_leafnode<IdExp>(e1, "IdExp", "id", ATTR_TYPE::ID);
+            } 
             e1 = e1->NextSiblingElement();
         }
         if (t_cid == nullptr) {
             cerr << "Error: Class type must have a class id" << endl;
             return nullptr;
-        } else cid = t_cid;
+        } else 
+            cid = t_cid;
         break;
     default:
         break;
@@ -308,57 +338,49 @@ Type *create_type(XMLElement *element) {
     return new Type(get_position(element), typeKind, cid, arity);
 }
 
-VarDecl *create_varDecl(XMLElement *element) {
+VarDecl* create_varDecl(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating VarDecl" << endl;
 #endif
     Type *type = nullptr;
     IdExp *id = nullptr;
-    variant<monostate, IntExp *, vector<IntExp *> *> init = monostate{};
+    variant<monostate, IntExp *, vector<IntExp*>*> init = monostate{};
     if (string(element->Name()) != "VarDecl") {
         cerr << "Error: input Element is not VarDecl" << endl;
         return nullptr;
     }
     XMLElement *ce = element->FirstChildElement();
     while (ce) {
-        if (string(ce->Name()) == "Type") type = create_type(ce);
-        else if (string(ce->Name()) == "IdExp") id = create_leafnode<IdExp>(ce, "IdExp", "id", ATTR_TYPE::ID);
+        if (string(ce->Name()) == "Type" ) {
+            type = create_type(ce);
+        }
+        else  if (string(ce->Name()) == "IdExp" ) {
+            id = create_leafnode<IdExp>(ce, "IdExp", "id", ATTR_TYPE::ID);
+        }
         ce = ce->NextSiblingElement();
     }
     if (type == nullptr || id == nullptr) {
         cerr << "Error: VarDecl: Type or Id can't be null" << endl;
         return nullptr;
     }
+    // In FDMJ2026, only array initialization is allowed
+    // Don't check type here - just look for IntInitList if it exists
     XMLElement *ce1 = element->FirstChildElement();
-    switch (type->typeKind) {
-    case TypeKind::INT: // look for int init
-        while (ce1) {
-            if (string(ce1->Name()) == "IntInit") {
-                IntExp *ii = create_leafnode<IntExp>(ce1, "IntInit", "val", ATTR_TYPE::INT);
-                init = ii;
-            }
-            ce1 = ce1->NextSiblingElement();
+    vector <IntExp*> *init_array = nullptr;
+    while (ce1) {
+        if (string(ce1->Name()) == "IntInitList") {
+            init_array = create_list<IntExp>(ce1, "IntExp");
+            if (init_array == nullptr) init_array = new vector<IntExp*>();
         }
-        break;
-    case TypeKind::ARRAY: { // look for array init
-        vector<IntExp *> *init_array = nullptr;
-        while (ce1) {
-            if (string(ce1->Name()) == "IntInitList") {
-                init_array = create_list<IntExp>(ce1, "IntExp");
-                if (init_array == nullptr) init_array = new vector<IntExp *>();
-                // else init = init_array;
-            }
-            ce1 = ce1->NextSiblingElement();
-        }
+        ce1 = ce1->NextSiblingElement();
+    }
+    if (init_array != nullptr) {
         init = init_array;
-    } break;
-    default:
-        break;
     }
     return new VarDecl(get_position(element), type, id, init);
 }
 
-MethodDecl *create_methodDecl(XMLElement *element) {
+MethodDecl* create_methodDecl(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating MethodDecl" << endl;
 #endif
@@ -373,11 +395,21 @@ MethodDecl *create_methodDecl(XMLElement *element) {
     }
     XMLElement *ce = element->FirstChildElement();
     while (ce) {
-        if (string(ce->Name()) == "Type") type = create_type(ce);
-        else if (string(ce->Name()) == "IdExp") id = create_leafnode<IdExp>(ce, "IdExp", "id", ATTR_TYPE::ID);
-        else if (string(ce->Name()) == "FormalList") fl = create_list<Formal>(ce, "Formal");
-        else if (string(ce->Name()) == "VarDeclList") vdl = create_list<VarDecl>(ce, "VarDecl");
-        else sl = create_stm_list(ce);
+        if (string(ce->Name()) == "Type" ) {
+            type = create_type(ce);
+        }
+        else if (string(ce->Name()) == "IdExp" ) {
+            id = create_leafnode<IdExp>(ce, "IdExp", "id", ATTR_TYPE::ID);
+        }
+        else if (string(ce->Name()) == "FormalList" ) {
+            fl = create_list<Formal>(ce, "Formal");
+        }
+        else  if (string(ce->Name()) == "VarDeclList" ) {
+            vdl = create_list<VarDecl>(ce, "VarDecl");
+        }
+        else {
+            sl = create_stm_list(ce);
+        }
         ce = ce->NextSiblingElement();
     }
     if (type == nullptr || id == nullptr) {
@@ -387,7 +419,7 @@ MethodDecl *create_methodDecl(XMLElement *element) {
     return new MethodDecl(get_position(element), type, id, fl, vdl, sl);
 }
 
-Formal *create_formal(XMLElement *element) {
+Formal* create_formal(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating Formal" << endl;
 #endif
@@ -399,59 +431,76 @@ Formal *create_formal(XMLElement *element) {
     }
     XMLElement *ce = element->FirstChildElement();
     while (ce) {
-        if (string(ce->Name()) == "Type") type = create_type(ce);
-        else if (string(ce->Name()) == "IdExp") id = create_leafnode<IdExp>(ce, "IdExp", "id", ATTR_TYPE::ID);
-        else cerr << "Error: Unknown element in Formal" << endl;
+        if (string(ce->Name()) == "Type" ) {
+            type = create_type(ce);
+        }
+        else  if (string(ce->Name()) == "IdExp" ) {
+            id = create_leafnode<IdExp>(ce, "IdExp", "id", ATTR_TYPE::ID);
+        }
+        else {
+            cerr << "Error: Unknown element in Formal" << endl;
+        }
         ce = ce->NextSiblingElement();
     }
     return new Formal(get_position(element), type, id);
 }
 
-Stm *create_stm(XMLElement *element) { // stm dispatcher
+Stm* create_stm(XMLElement* element) { //stm dispatcher
 #ifdef DEBUG
     cout << "Creating Stm for " << element->Name() << endl;
 #endif
     if (string(element->Name()) == "Nested") {
         return create_nested(element);
-    } else if (string(element->Name()) == "If") {
+    }
+    else if (string(element->Name()) == "If") {
         return create_if(element);
-    } else if (string(element->Name()) == "While") {
+    }
+    else if (string(element->Name()) == "While") {
         return create_while(element);
-    } else if (string(element->Name()) == "Assign") {
+    }
+    else if (string(element->Name()) == "Assign") {
         return create_assign(element);
-    } else if (string(element->Name()) == "CallStm") {
+    }
+    else if (string(element->Name()) == "CallStm") {
         return create_callStm(element);
-    } else if (string(element->Name()) == "Continue") {
+    }
+    else if (string(element->Name()) == "Continue") {
         return create_continue(element);
-    } else if (string(element->Name()) == "Break") {
+    }
+    else if (string(element->Name()) == "Break") {
         return create_break(element);
-    } else if (string(element->Name()) == "Return") {
+    }
+    else if (string(element->Name()) == "Return") {
         return create_return(element);
-    } else if (string(element->Name()) == "PutInt") {
+    }
+    else if (string(element->Name()) == "PutInt") {
         return create_putInt(element);
-    } else if (string(element->Name()) == "PutCh") {
+    }
+    else if (string(element->Name()) == "PutCh") {
         return create_putCh(element);
-    } else if (string(element->Name()) == "PutArray") {
+    }
+    else if (string(element->Name()) == "PutArray") {
         return create_putArray(element);
-    } else if (string(element->Name()) == "Starttime") {
+    }
+    else if (string(element->Name()) == "Starttime") {
         return create_starttime(element);
-    } else if (string(element->Name()) == "Stoptime") {
+    }
+    else if (string(element->Name()) == "Stoptime") {
         return create_stoptime(element);
-    } else {
-        // cout << "Error in dispatching: Unknown element in Stm: " <<
-        // element->Name()<< endl;
-        return nullptr; // fail to create a statement
+    }
+    else {
+        //cout << "Error in dispatching: Unknown element in Stm: " << element->Name()<< endl;
+        return nullptr; //fail to create a statement
     }
 }
 
-StmList *create_stm_list(XMLElement *element) {
+StmList* create_stm_list(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating StmList, tag = " << element->Name() << endl;
 #endif
     StmList *sl = new StmList();
     if (element->NoChildren()) {
-        delete sl;
-        sl = nullptr;
+        delete sl; sl = nullptr;
         return sl;
     }
     XMLElement *ce = element->FirstChildElement();
@@ -463,7 +512,7 @@ StmList *create_stm_list(XMLElement *element) {
     return sl;
 }
 
-Nested *create_nested(XMLElement *element) {
+Nested* create_nested(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating Nested" << endl;
 #endif
@@ -481,7 +530,7 @@ Nested *create_nested(XMLElement *element) {
     return new Nested(get_position(element), sl);
 }
 
-If *create_if(XMLElement *element) {
+If* create_if(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating If" << endl;
 #endif
@@ -496,9 +545,9 @@ If *create_if(XMLElement *element) {
     while (ce) {
         Stm *s = create_stm(ce);
         if (s != nullptr) {
-            if (stm1 == nullptr) stm1 = s;
-            else if (stm2 == nullptr) stm2 = s;
-            else cerr << "Error: If: More than two statements in If" << endl;
+           if (stm1 == nullptr) stm1=s;
+           else if (stm2 == nullptr) stm2=s;
+           else cerr << "Error: If: More than two statements in If" << endl;
         } else {
             Exp *e = create_exp(ce);
             if (e != nullptr) exp = e;
@@ -509,7 +558,7 @@ If *create_if(XMLElement *element) {
     return new If(get_position(element), exp, stm1, stm2);
 }
 
-While *create_while(XMLElement *element) {
+While* create_while(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating While" << endl;
 #endif
@@ -523,7 +572,7 @@ While *create_while(XMLElement *element) {
     while (ce) {
         Stm *s = create_stm(ce);
         if (s != nullptr) {
-            if (stm == nullptr) stm = s;
+            if (stm == nullptr) stm=s;
             else cerr << "Error: While: More than one statement in While" << endl;
         } else {
             Exp *e = create_exp(ce);
@@ -535,7 +584,7 @@ While *create_while(XMLElement *element) {
     return new While(get_position(element), exp, stm);
 }
 
-Assign *create_assign(XMLElement *element) {
+Assign* create_assign(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating Assign" << endl;
 #endif
@@ -547,11 +596,14 @@ Assign *create_assign(XMLElement *element) {
     }
     XMLElement *ce = element->FirstChildElement();
     while (ce) {
-        Exp *e = create_exp(ce);
-        if (e == nullptr) cerr << "Error: Assign: Unknown element in Assign" << endl;
-        else if (exp1 == nullptr) exp1 = e;
-        else if (exp2 == nullptr) exp2 = e;
-        else cerr << "Error: Assign: More than three expressions in Assign" << endl;
+       Exp *e = create_exp(ce);
+       if (e == nullptr)
+           cerr << "Error: Assign: Unknown element in Assign" << endl;
+        else { 
+            if (exp1 == nullptr) exp1 = e;
+            else if (exp2 == nullptr) exp2 = e; 
+            else cerr << "Error: Assign: More than three expressions in Assign" << endl;
+        }
         ce = ce->NextSiblingElement();
     }
     if (exp1 == nullptr || exp2 == nullptr) {
@@ -561,7 +613,7 @@ Assign *create_assign(XMLElement *element) {
     return new Assign(get_position(element), exp1, exp2);
 }
 
-CallStm *create_callStm(XMLElement *element) {
+CallStm* create_callStm(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating CallStm" << endl;
 #endif
@@ -574,13 +626,14 @@ CallStm *create_callStm(XMLElement *element) {
     }
     XMLElement *ce = element->FirstChildElement();
     while (ce) {
-        if (string(ce->Name()) == "ParList") par = create_exp_list(ce);
-        else { // The other elements are expressions, id (and in this order)
+        if (string(ce->Name()) == "ParList")
+            par = create_exp_list(ce);
+        else  { //The other elements are expressions, id (and in this order)
             Exp *e = create_exp(ce);
-            if (exp == nullptr) // the first express must be the object expression (if
-                                // it happens to be and ID, it's ok too)
+            if (exp == nullptr) //the first express must be the object expression (if it happens to be and ID, it's ok too)
                 exp = e;
-            else if (id == nullptr && e->getASTKind() == ASTKind::IdExp) id = static_cast<IdExp *>(e);
+            else if (id == nullptr && e->getASTKind()==ASTKind::IdExp) 
+                id = static_cast<IdExp*>(e);
             else {
                 cerr << "Error: CallStm: More than one expression in CallStm" << endl;
                 return nullptr;
@@ -599,7 +652,7 @@ CallStm *create_callStm(XMLElement *element) {
     return new CallStm(get_position(element), exp, id, par);
 }
 
-Continue *create_continue(XMLElement *element) {
+Continue* create_continue(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating Continue" << endl;
 #endif
@@ -610,7 +663,7 @@ Continue *create_continue(XMLElement *element) {
     return new Continue(get_position(element));
 }
 
-Break *create_break(XMLElement *element) {
+Break* create_break(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating Break" << endl;
 #endif
@@ -621,7 +674,7 @@ Break *create_break(XMLElement *element) {
     return new Break(get_position(element));
 }
 
-Return *create_return(XMLElement *element) {
+Return* create_return(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating Return" << endl;
 #endif
@@ -637,14 +690,14 @@ Return *create_return(XMLElement *element) {
         else cerr << "Error: Return: Unknown element in Return" << endl;
         ce = ce->NextSiblingElement();
     }
-    if (exp == nullptr) { // no expression,failed to create a return
+    if (exp == nullptr) { //no expression,failed to create a return
         cerr << "Error: Return: No expression in Return" << endl;
         return nullptr;
     }
     return new Return(get_position(element), exp);
 }
 
-PutInt *create_putInt(XMLElement *element) {
+PutInt* create_putInt(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating PutInt" << endl;
 #endif
@@ -660,12 +713,13 @@ PutInt *create_putInt(XMLElement *element) {
         else cerr << "Error: PutInt: unknown lement in PutInt" << endl;
         ce = ce->NextSiblingElement();
     }
-    if (exp == nullptr) // no expression,failed to create a PutInt
+    if (exp == nullptr) { //no expression,failed to create a PutInt
         return nullptr;
+    }
     return new PutInt(get_position(element), exp);
 }
 
-PutCh *create_putCh(XMLElement *element) {
+PutCh* create_putCh(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating PutCh" << endl;
 #endif
@@ -678,13 +732,13 @@ PutCh *create_putCh(XMLElement *element) {
     while (ce) {
         Exp *e = create_exp(ce);
         if (exp == nullptr) exp = e;
-        else cerr << "Error: PutCh: More than one expression in PutCh" << endl;
+            else cerr << "Error: PutCh: More than one expression in PutCh" << endl;
         ce = ce->NextSiblingElement();
     }
     return new PutCh(get_position(element), exp);
 }
 
-PutArray *create_putArray(XMLElement *element) {
+PutArray* create_putArray(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating PutArray" << endl;
 #endif
@@ -697,7 +751,7 @@ PutArray *create_putArray(XMLElement *element) {
     XMLElement *ce = element->FirstChildElement();
     while (ce) {
         Exp *e = create_exp(ce);
-        if (exp1 == nullptr) exp1 = e;
+        if (exp1 == nullptr) exp1 = e; 
         else if (exp2 == nullptr) exp2 = e;
         else cerr << "Error: PutArray: More than two expressions in PutArray" << endl;
         ce = ce->NextSiblingElement();
@@ -705,7 +759,7 @@ PutArray *create_putArray(XMLElement *element) {
     return new PutArray(get_position(element), exp1, exp2);
 }
 
-Starttime *create_starttime(XMLElement *element) {
+Starttime* create_starttime(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating Starttime" << endl;
 #endif
@@ -716,7 +770,7 @@ Starttime *create_starttime(XMLElement *element) {
     return new Starttime(get_position(element));
 }
 
-Stoptime *create_stoptime(XMLElement *element) {
+Stoptime* create_stoptime(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating Stoptime" << endl;
 #endif
@@ -727,66 +781,80 @@ Stoptime *create_stoptime(XMLElement *element) {
     return new Stoptime(get_position(element));
 }
 
-ExpList *create_exp_list(XMLElement *element) {
+ExpList* create_exp_list(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating ExpList for " << element->Name() << endl;
 #endif
     ExpList *el = new ExpList();
     if (element->NoChildren()) {
-        delete el;
-        el = nullptr;
+        delete el; el = nullptr;
         return el;
     }
     XMLElement *ce = element->FirstChildElement();
     while (ce) {
-        Exp *e = static_cast<Exp *>(create_exp(ce));
+        Exp* e = static_cast<Exp*>(create_exp(ce));
         if (e != nullptr) el->push_back(e);
         ce = ce->NextSiblingElement();
     }
     return el;
 }
 
-Exp *create_exp(XMLElement *element) { // exp dispatcher
+Exp* create_exp(XMLElement* element) { //exp dispatcher
 #ifdef DEBUG
     cout << "Creating Exp for " << element->Name() << "..." << endl;
 #endif
-    if (string(element->Name()) == "BinaryOp") return create_binaryOp(element);
+    if (string(element->Name()) == "BinaryOp") {
+        return create_binaryOp(element);
+    }
     if (string(element->Name()) == "UnaryOp") {
         return create_unaryOp(element);
-    } else if (string(element->Name()) == "ArrayExp") {
+    }
+    else if (string(element->Name()) == "ArrayExp") {
         return create_arrayExp(element);
-    } else if (string(element->Name()) == "CallExp") {
+    }
+    else if (string(element->Name()) == "CallExp") {
         return create_callExp(element);
-    } else if (string(element->Name()) == "ClassVar") {
+    }
+    else if (string(element->Name()) == "ClassVar") {
         return create_classVar(element);
-    } else if (string(element->Name()) == "This") {
+    }
+    else if (string(element->Name()) == "This") {
         return create_this(element);
-    } else if (string(element->Name()) == "Length") {
+    }
+    else if (string(element->Name()) == "Length") {
         return create_length(element);
-    } else if (string(element->Name()) == "NewArray") {
+    }
+    else if (string(element->Name()) == "NewArray") {
         return create_newArray(element);
-    } else if (string(element->Name()) == "NewObject") {
+    }
+    else if (string(element->Name()) == "NewObject") {
         return create_newObject(element);
-    } else if (string(element->Name()) == "GetInt") {
+    }
+    else if (string(element->Name()) == "GetInt") {
         return create_getInt(element);
-    } else if (string(element->Name()) == "GetCh") {
+    }
+    else if (string(element->Name()) == "GetCh") {
         return create_getCh(element);
-    } else if (string(element->Name()) == "GetArray") {
+    }
+    else if (string(element->Name()) == "GetArray") {
         return create_getArray(element);
-    } else if (string(element->Name()) == "IdExp") {
+    }
+    else if (string(element->Name()) == "IdExp") {
         return create_leafnode<IdExp>(element, "IdExp", "id", ATTR_TYPE::ID);
-    } else if (string(element->Name()) == "IntExp") {
+    }
+    else if (string(element->Name()) == "IntExp") {
         return create_leafnode<IntExp>(element, "IntExp", "val", ATTR_TYPE::INT);
-    } else if (string(element->Name()) == "OpExp") {
+    }
+    else if (string(element->Name()) == "OpExp") {
         return create_leafnode<OpExp>(element, "OpExp", "op", ATTR_TYPE::OP);
-    } else {
-        // cout << "Error in dispatching: Unknown element in Exp: " <<
-        // element->Name()<< endl;
-        return nullptr; // fail to create an expression
+    }
+    else { 
+       // cout << "Error in dispatching: Unknown element in Exp: " << element->Name()<< endl;
+        return nullptr; //fail to create an expression
     }
 }
 
-BinaryOp *create_binaryOp(XMLElement *element) {
+BinaryOp* create_binaryOp(XMLElement *element) {
 #ifdef DEBUG
     cout << "Creating BinaryOp" << endl;
 #endif
@@ -799,11 +867,12 @@ BinaryOp *create_binaryOp(XMLElement *element) {
     }
     XMLElement *ce = element->FirstChildElement();
     while (ce) {
-        if (string(ce->Name()) == "OpExp") op = create_leafnode<OpExp>(ce, "OpExp", "op", ATTR_TYPE::OP);
+        if (string(ce->Name()) == "OpExp" )
+            op = create_leafnode<OpExp>(ce, "OpExp", "op", ATTR_TYPE::OP);
         else {
             Exp *e = create_exp(ce);
             if (exp1 == nullptr) exp1 = e;
-            else if (exp2 == nullptr) exp2 = e;
+            else if (exp2 == nullptr)  exp2 = e;
         }
         ce = ce->NextSiblingElement();
     }
@@ -811,14 +880,14 @@ BinaryOp *create_binaryOp(XMLElement *element) {
         cerr << "Error: BinaryOp: Missing operator" << endl;
         return nullptr;
     }
-    if (exp1 == nullptr || exp2 == nullptr) {
+    if (exp1 == nullptr || exp2 == nullptr ) {
         cerr << "Error: BinaryOp: Missing expression" << endl;
         return nullptr;
     }
     return new BinaryOp(get_position(element), exp1, op, exp2);
 }
 
-UnaryOp *create_unaryOp(XMLElement *element) {
+UnaryOp* create_unaryOp(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating UnaryOp" << endl;
 #endif
@@ -830,7 +899,8 @@ UnaryOp *create_unaryOp(XMLElement *element) {
     }
     XMLElement *ce = element->FirstChildElement();
     while (ce) {
-        if (string(ce->Name()) == "OpExp") op = create_leafnode<OpExp>(ce, "OpExp", "op", ATTR_TYPE::OP);
+        if (string(ce->Name()) == "OpExp" )
+            op = create_leafnode<OpExp>(ce, "OpExp", "op", ATTR_TYPE::OP);
         else {
             Exp *e = create_exp(ce);
             if (exp == nullptr) exp = e;
@@ -841,7 +911,7 @@ UnaryOp *create_unaryOp(XMLElement *element) {
     return new UnaryOp(get_position(element), op, exp);
 }
 
-ArrayExp *create_arrayExp(XMLElement *element) {
+ArrayExp* create_arrayExp(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating ArrayExp" << endl;
 #endif
@@ -861,7 +931,7 @@ ArrayExp *create_arrayExp(XMLElement *element) {
     return new ArrayExp(get_position(element), exp1, exp2);
 }
 
-CallExp *create_callExp(XMLElement *element) {
+CallExp* create_callExp(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating CallExp" << endl;
 #endif
@@ -874,14 +944,13 @@ CallExp *create_callExp(XMLElement *element) {
     }
     XMLElement *ce = element->FirstChildElement();
     while (ce) {
-        if (string(ce->Name()) == "ParList") {
+        if (string(ce->Name()) == "ParList" ) {
             el = create_exp_list(ce);
         } else {
             Exp *e = create_exp(ce);
-            if (exp == nullptr) exp = e;                                 // first expression must be the object expression
-            else if (id == nullptr && e->getASTKind() == ASTKind::IdExp) // only if the ID is not the object, then
-                                                                         // it's the method ID
-                id = static_cast<IdExp *>(e);
+            if (exp == nullptr) exp = e; //first expression must be the object expression
+            else if (id == nullptr && e->getASTKind()==ASTKind::IdExp) //only if the ID is not the object, then it's the method ID
+                id = static_cast<IdExp*>(e);
             else {
                 cerr << "Error: CallExp: More than one expression in CallExp" << endl;
                 return nullptr;
@@ -894,13 +963,12 @@ CallExp *create_callExp(XMLElement *element) {
         return nullptr;
     }
     if (el != nullptr && el->size() == 0) {
-        delete el;
-        el = nullptr;
+        delete el; el = nullptr;
     }
     return new CallExp(get_position(element), exp, id, el);
 }
 
-ClassVar *create_classVar(XMLElement *element) {
+ClassVar* create_classVar(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating ClassVar" << endl;
 #endif
@@ -911,10 +979,10 @@ ClassVar *create_classVar(XMLElement *element) {
         return nullptr;
     }
     XMLElement *ce = element->FirstChildElement();
-    // updated to take care of two IdExp case (March 17, 2025)
+    //updated to take care of two IdExp case (March 17, 2025)
     while (ce) {
         Exp *e = create_exp(ce);
-        if (exp == nullptr) { // the first must be object expression
+        if (exp == nullptr) { //the first must be object expression
             exp = e;
             ce = ce->NextSiblingElement();
             continue;
@@ -923,14 +991,14 @@ ClassVar *create_classVar(XMLElement *element) {
                 cerr << "Error: ClassVar: second element is not an IdExpe" << endl;
                 return nullptr;
             }
-            id = static_cast<IdExp *>(e);
+            id = static_cast<IdExp*>(e);
         }
         ce = ce->NextSiblingElement();
     }
     /* updated to take care of two IdExp case (March 17, 2025)
     while (ce) {
         if (string(ce->Name()) == "IdExp" ) {
-            id = create_leafnode<IdExp>(ce, "IdExp", "id", ATTR_TYPE::ID);
+            id = create_leafnode<IdExp>(ce, "IdExp", "id", ATTR_TYPE::ID); 
         } else { //everything else should be an expression
             Exp *e = create_exp(ce);
             if (exp == nullptr) exp = e;
@@ -942,7 +1010,7 @@ ClassVar *create_classVar(XMLElement *element) {
     return new ClassVar(get_position(element), exp, id);
 }
 
-This *create_this(XMLElement *element) {
+This* create_this(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating This" << endl;
 #endif
@@ -953,7 +1021,7 @@ This *create_this(XMLElement *element) {
     return new This(get_position(element));
 }
 
-Length *create_length(XMLElement *element) {
+Length* create_length(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating Length" << endl;
 #endif
@@ -972,7 +1040,7 @@ Length *create_length(XMLElement *element) {
     return new Length(get_position(element), exp);
 }
 
-NewArray *create_newArray(XMLElement *element) {
+NewArray* create_newArray(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating NewArray" << endl;
 #endif
@@ -995,7 +1063,7 @@ NewArray *create_newArray(XMLElement *element) {
     return new NewArray(get_position(element), size);
 }
 
-NewObject *create_newObject(XMLElement *element) {
+NewObject* create_newObject(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating NewObject" << endl;
 #endif
@@ -1007,7 +1075,7 @@ NewObject *create_newObject(XMLElement *element) {
     XMLElement *ce = element->FirstChildElement();
     while (ce) {
         if (string(ce->Name()) == "Id") {
-            const char *id_str = ce->Attribute("id");
+            const char* id_str = ce->Attribute("id");
             if (id_str == nullptr) {
                 cerr << "Error: NewObject: No id attribute in Id element" << endl;
                 return nullptr;
@@ -1025,7 +1093,7 @@ NewObject *create_newObject(XMLElement *element) {
     return new NewObject(get_position(element), id);
 }
 
-GetInt *create_getInt(XMLElement *element) {
+GetInt* create_getInt(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating GetInt" << endl;
 #endif
@@ -1036,7 +1104,7 @@ GetInt *create_getInt(XMLElement *element) {
     return new GetInt(get_position(element));
 }
 
-GetCh *create_getCh(XMLElement *element) {
+GetCh* create_getCh(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating GetCh" << endl;
 #endif
@@ -1047,7 +1115,7 @@ GetCh *create_getCh(XMLElement *element) {
     return new GetCh(get_position(element));
 }
 
-GetArray *create_getArray(XMLElement *element) {
+GetArray* create_getArray(XMLElement* element) {
 #ifdef DEBUG
     cout << "Creating GetArray" << endl;
 #endif
@@ -1059,15 +1127,17 @@ GetArray *create_getArray(XMLElement *element) {
     XMLElement *ce = element->FirstChildElement();
     while (ce) {
         Exp *e = create_exp(ce);
-        if (e != nullptr)
+        if (e != nullptr) {
             if (exp == nullptr) exp = e;
             else cerr << "Error: GetArray: More than one expression in GetArray" << endl;
-        else cerr << "Error: GetArray: Unknown element in GetArray" << endl;
+        } else {
+            cerr << "Error: GetArray: Unknown element in GetArray" << endl;
+        }
         ce = ce->NextSiblingElement();
     }
     if (exp == nullptr) {
         cerr << "Error: GetArray: No expression in GetArray" << endl;
-        return nullptr; // fail to get an expression
+        return nullptr; //fail to get an expression
     }
     return new GetArray(get_position(element), exp);
 }
