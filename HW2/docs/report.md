@@ -81,7 +81,16 @@ using_table_of_content: true
 - ARRAY 对 ARRAY：直接兼容
 - CLASS 对 CLASS：右侧类型必须是左侧类型的子类（或相同类）
 
-### 3. 遇到的坑
+### 3. 语义信息注解
+
+语义分析器不仅进行类型检查，还为 AST 节点添加语义注解信息（`AST_Semant`），以便后续阶段使用。具体包括：
+
+- **表达式节点**：设置 `s_kind="Value"`，附带 `typeKind`、`lvalue`、以及类型参数（CLASS 的 `cid`、ARRAY 的 `arity`）。
+- **Return 节点**：设置与返回表达式相同的类型信息（不含 type_par 细节），`lvalue=false`。
+- **ClassVar 字段名 IdExp**：设置字段的类型信息，`lvalue=true`。
+- **CallExp/CallStm 方法名 IdExp**：设置 `s_kind="MethodName"`。
+
+### 4. 遇到的坑
 
 1. **类变量访问**：最初在 `IdExp` 的名称解析中没有考虑类变量，导致 `bubblesort.fmj` 中 `temp`（一个类变量）无法解析。实际上虽然规范说类变量只能通过 `obj.id` 访问，但测试用例中类方法可以直接引用自己的类变量（相当于隐式 `this`）。
 
@@ -91,9 +100,18 @@ using_table_of_content: true
 
 4. **ARRAY 类型 arity**：返回类型为 ARRAY 时，如果原始声明没有 arity，需要补上 `arity=0`，否则创建 Formal 时会报错。
 
+5. **Return 节点语义**：Return 节点本身也需要设置语义信息（类型与返回表达式一致），但不应包含 `type_par`（如 ARRAY 的 arity），否则 ast2xml 会输出多余的属性。
+
+6. **ClassVar 和方法名的语义**：`ClassVar` 的字段名 IdExp 和 `CallExp`/`CallStm` 的方法名 IdExp 都需要设置语义信息，因为 `ast2xml` 会对这些子节点调用 `set_position_and_semant`。
+
+7. **If/While 条件类型**：条件表达式必须是 INT 类型，需要在遍历条件后显式检查。
+
 ## Git 提交记录
 
 ```
+b574258 fix(hw2): add Return/ClassVar.id/MethodName semantic info, add If/While condition type checks
+edf1588 merge: pull upstream changes with new tests and tools
+09ff324 docs(hw2): add experiment report
 17406c9 test(hw2): add additional test cases for inheritance, IO, errors, and class hierarchy
 5b8ee79 feat(hw2): implement name maps and semantic analyzer - basic type checking
 b69912f make format fixed: hw2
