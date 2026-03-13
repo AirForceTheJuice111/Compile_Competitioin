@@ -267,8 +267,16 @@ void AST_Semant_Visitor::visit(Nested *node) {
 
 void AST_Semant_Visitor::visit(If *node) {
     if (node == nullptr) return;
-    // 条件表达式必须存在
-    if (node->exp != nullptr) node->exp->accept(*this);
+    // 条件表达式必须存在且为 INT 类型
+    if (node->exp != nullptr) {
+        node->exp->accept(*this);
+        AST_Semant *cond_sem = semant_map->getSemant(node->exp);
+        if (cond_sem != nullptr && cond_sem->get_type() != TypeKind::INT) {
+            cerr << "Error: at position " << node->getPos()->print() << endl;
+            cerr << "Error: If condition must be of integer type" << endl;
+            exit(1);
+        }
+    }
     // then 分支
     if (node->stm1 != nullptr) node->stm1->accept(*this);
     // else 分支（可选）
@@ -277,7 +285,15 @@ void AST_Semant_Visitor::visit(If *node) {
 
 void AST_Semant_Visitor::visit(While *node) {
     if (node == nullptr) return;
-    if (node->exp != nullptr) node->exp->accept(*this);
+    if (node->exp != nullptr) {
+        node->exp->accept(*this);
+        AST_Semant *cond_sem = semant_map->getSemant(node->exp);
+        if (cond_sem != nullptr && cond_sem->get_type() != TypeKind::INT) {
+            cerr << "Error: at position " << node->getPos()->print() << endl;
+            cerr << "Error: While condition must be of integer type" << endl;
+            exit(1);
+        }
+    }
     in_a_while_loop++;
     if (node->stm != nullptr) node->stm->accept(*this);
     in_a_while_loop--;
@@ -326,6 +342,9 @@ void AST_Semant_Visitor::visit(CallStm *node) {
 
     string obj_class = get<string>(obj_sem->get_type_par());
     string method_name = node->name->id;
+
+    // 为方法名 IdExp 设置 MethodName 语义信息
+    semant_map->setSemant(node->name, new AST_Semant(AST_Semant::Kind::MethodName, TypeKind::INT, monostate{}, false));
 
     // 查找方法（在当前类或父类中）
     string lookup_class = obj_class;
@@ -408,6 +427,9 @@ void AST_Semant_Visitor::visit(Return *node) {
                      << current_visiting_class << "." << current_visiting_method << endl;
                 exit(1);
             }
+            // 为 Return 节点本身设置语义信息（与返回表达式同类型，非 lvalue，不含 type_par 细节）
+            semant_map->setSemant(node, new AST_Semant(AST_Semant::Kind::Value,
+                                  ret_sem->get_type(), monostate{}, false));
         }
     }
 }
@@ -550,6 +572,9 @@ void AST_Semant_Visitor::visit(CallExp *node) {
     string obj_class = get<string>(obj_sem->get_type_par());
     string method_name = node->name->id;
 
+    // 为方法名 IdExp 设置 MethodName 语义信息
+    semant_map->setSemant(node->name, new AST_Semant(AST_Semant::Kind::MethodName, TypeKind::INT, monostate{}, false));
+
     // 查找方法（在当前类或父类中）
     string lookup_class = obj_class;
     if (!name_maps->is_method(lookup_class, method_name)) {
@@ -630,6 +655,9 @@ void AST_Semant_Visitor::visit(ClassVar *node) {
 
     // 设置语义信息：类变量是 lvalue
     semant_map->setSemant(node, new AST_Semant(AST_Semant::Kind::Value,
+                          vd->type->typeKind, get_type_par_from_type(vd->type), true));
+    // 同时为字段名 IdExp 设置语义信息
+    semant_map->setSemant(node->id, new AST_Semant(AST_Semant::Kind::Value,
                           vd->type->typeKind, get_type_par_from_type(vd->type), true));
 }
 
