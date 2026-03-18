@@ -167,11 +167,14 @@
                                         </BinaryOp>
                                         <Nested bline="30" bpos="36" eline="34" epos="7">
                                             <StmList>
-                                                <Assign bline="31" bpos="9" eline="31" epos="24">
-                                                    <IdExp bline="31" bpos="9" eline="31" epos="12" id="temp"/>
-                                                    <ArrayExp bline="31" bpos="16" eline="31" epos="23">
-                                                        <IdExp bline="31" bpos="16" eline="31" epos="20" id="array"/>
-                                                        <IdExp bline="31" bpos="22" eline="31" epos="22" id="i"/>
+                                                <Assign bline="31" bpos="9" eline="31" epos="29">
+                                                    <ClassVar bline="31" bpos="9" eline="31" epos="17">
+                                                        <This bline="31" bpos="9" eline="31" epos="12"/>
+                                                        <IdExp id="temp" bline="31" bpos="14" eline="31" epos="17"/>
+                                                    </ClassVar>
+                                                    <ArrayExp bline="31" bpos="21" eline="31" epos="28">
+                                                        <IdExp bline="31" bpos="21" eline="31" epos="25" id="array"/>
+                                                        <IdExp bline="31" bpos="27" eline="31" epos="27" id="i"/>
                                                     </ArrayExp>
                                                 </Assign>
                                                 <Assign bline="32" bpos="9" eline="32" epos="32">
@@ -188,7 +191,7 @@
                                                         </BinaryOp>
                                                     </ArrayExp>
                                                 </Assign>
-                                                <Assign bline="33" bpos="9" eline="33" epos="28">
+                                                <Assign bline="33" bpos="9" eline="33" epos="33">
                                                     <ArrayExp bline="33" bpos="9" eline="33" epos="20">
                                                         <IdExp bline="33" bpos="9" eline="33" epos="13" id="array"/>
                                                         <BinaryOp bline="33" bpos="15" eline="33" epos="19">
@@ -197,7 +200,10 @@
                                                             <IntExp bline="33" bpos="19" eline="33" epos="19" val="1"/>
                                                         </BinaryOp>
                                                     </ArrayExp>
-                                                    <IdExp bline="33" bpos="24" eline="33" epos="27" id="temp"/>
+                                                    <ClassVar bline="33" bpos="24" eline="33" epos="32">
+                                                        <This bline="33" bpos="24" eline="33" epos="27"/>
+                                                        <IdExp id="temp" bline="33" bpos="29" eline="33" epos="32"/>
+                                                    </ClassVar>
                                                 </Assign>
                                             </StmList>
                                         </Nested>
