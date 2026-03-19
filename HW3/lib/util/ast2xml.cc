@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <variant>
+#include <algorithm>
 
 #include "ASTheader.hh"
 #include "FDMJAST.hh"
