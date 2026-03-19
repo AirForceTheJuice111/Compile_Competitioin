@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program>
+    <FunctionDeclaration name="__$main__^main" return_type="INT" last_temp="102" last_label="104">
+        <Sequence>
+            <Move>
+                <Temp type="INT" temp="100"/>
+                <Const value="5"/>
+            </Move>
+            <Move>
+                <Temp type="INT" temp="101"/>
+                <BinOp type="INT" op="+">
+                    <Temp type="INT" temp="100"/>
+                    <Const value="3"/>
+                </BinOp>
+            </Move>
+            <Sequence>
+                <CJump relop="&gt;" true="102" false="103">
+                    <Temp type="INT" temp="100"/>
+                    <Temp type="INT" temp="101"/>
+                </CJump>
+                <Label label="102"/>
+                <Sequence>
+                    <ExpressionStatement>
+                        <ExtCall extfun="putint">
+                            <Arguments>
+                                <Temp type="INT" temp="100"/>
+                            </Arguments>
+                        </ExtCall>
+                    </ExpressionStatement>
+                </Sequence>
+                <Jump label="104"/>
+                <Label label="103"/>
+                <Label label="104"/>
+            </Sequence>
+            <Return>
+                <Temp type="INT" temp="101"/>
+            </Return>
+        </Sequence>
+    </FunctionDeclaration>
+</Program>

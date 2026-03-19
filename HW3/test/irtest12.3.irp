@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program>
+    <FunctionDeclaration name="__$main__^main" return_type="INT" last_temp="102" last_label="109">
+        <Sequence>
+            <ExpressionStatement>
+                <ExtCall extfun="starttime">
+                    <Arguments/>
+                </ExtCall>
+            </ExpressionStatement>
+            <Move>
+                <Temp type="INT" temp="100"/>
+                <Const value="3"/>
+            </Move>
+            <Move>
+                <Temp type="INT" temp="101"/>
+                <Const value="0"/>
+            </Move>
+            <Sequence>
+                <Label label="102"/>
+                <CJump relop="&gt;" true="103" false="104">
+                    <Temp type="INT" temp="100"/>
+                    <Const value="0"/>
+                </CJump>
+                <Label label="103"/>
+                <Sequence>
+                    <Sequence>
+                        <Label label="107"/>
+                        <CJump relop="&lt;" true="108" false="109">
+                            <Temp type="INT" temp="101"/>
+                            <Temp type="INT" temp="100"/>
+                        </CJump>
+                        <Label label="108"/>
+                        <Sequence>
+                            <Move>
+                                <Temp type="INT" temp="101"/>
+                                <BinOp type="INT" op="+">
+                                    <Temp type="INT" temp="101"/>
+                                    <Const value="1"/>
+                                </BinOp>
+                            </Move>
+                        </Sequence>
+                        <Jump label="107"/>
+                        <Label label="109"/>
+                    </Sequence>
+                    <Move>
+                        <Temp type="INT" temp="100"/>
+                        <BinOp type="INT" op="-">
+                            <Temp type="INT" temp="100"/>
+                            <Const value="1"/>
+                        </BinOp>
+                    </Move>
+                </Sequence>
+                <Jump label="102"/>
+                <Label label="104"/>
+            </Sequence>
+            <ExpressionStatement>
+                <ExtCall extfun="stoptime">
+                    <Arguments/>
+                </ExtCall>
+            </ExpressionStatement>
+            <ExpressionStatement>
+                <ExtCall extfun="putint">
+                    <Arguments>
+                        <Temp type="INT" temp="101"/>
+                    </Arguments>
+                </ExtCall>
+            </ExpressionStatement>
+            <ExpressionStatement>
+                <ExtCall extfun="putch">
+                    <Arguments>
+                        <Const value="10"/>
+                    </Arguments>
+                </ExtCall>
+            </ExpressionStatement>
+            <Return>
+                <BinOp type="INT" op="*">
+                    <Temp type="INT" temp="101"/>
+                    <Temp type="INT" temp="100"/>
+                </BinOp>
+            </Return>
+        </Sequence>
+    </FunctionDeclaration>
+</Program>
