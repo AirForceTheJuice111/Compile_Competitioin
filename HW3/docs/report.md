@@ -10,9 +10,7 @@ using_table_of_content: true
 
 ## 参考材料
 
-1. **虎书 (Modern Compiler Implementation in C/Java)**，Andrew W. Appel。第7章 Translation to Intermediate Code 是本次作业的核心参考，详细介绍了 `Tr_ex`/`Tr_nx`/`Tr_cx` 三种翻译表达式类型、Patch List 的回填机制以及条件表达式的短路求值翻译。
-2. **课程PPT**：Tiger IR+ 的扩展设计，包括 `ExtCall`、`Return`、`ExpStm` 等新增节点。
-3. **tinyxml2 文档**：https://github.com/leethomason/tinyxml2 ，用于 XML 格式的 AST 输入解析与 IRP 输出序列化。
+虎书：第7章 Translation to Intermediate Code。
 
 ## Q1.1: Tiger IR+ 中各 class 的作用
 
