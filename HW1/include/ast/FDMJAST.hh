@@ -15,7 +15,8 @@ namespace fdmj {
 class Program : public AST {
   public:
     MainMethod *main;
-    Program(Pos *pos, MainMethod *main) : AST(pos), main(main){};
+    Program(Pos *pos, MainMethod *main)
+        : AST(pos), main(main){};
     ASTKind getASTKind() override { return ASTKind::Program; }
     Program *clone() override;
     void accept(ASTVisitor &v) override { v.visit(this); }
@@ -24,7 +25,8 @@ class Program : public AST {
 class MainMethod : public AST {
   public:
     vector<Stm *> *sl;
-    MainMethod(Pos *pos, vector<Stm *> *sl) : AST(pos), sl(sl) {}
+    MainMethod(Pos *pos, vector<Stm *> *sl)
+        : AST(pos), sl(sl) {}
     ASTKind getASTKind() override { return ASTKind::MainMethod; }
     MainMethod *clone() override;
     void accept(ASTVisitor &v) override { v.visit(this); }
@@ -32,7 +34,8 @@ class MainMethod : public AST {
 
 class Stm : public AST { // this is the class for all statements
   public:
-    Stm(Pos *pos) : AST(pos) {}
+    Stm(Pos *pos)
+        : AST(pos) {}
     virtual ASTKind getASTKind() = 0;
 };
 
@@ -40,7 +43,8 @@ class Assign : public Stm {
   public:
     Exp *left = nullptr;
     Exp *right = nullptr;
-    Assign(Pos *pos, Exp *left, Exp *exp) : Stm(pos), left(left), right(exp) {}
+    Assign(Pos *pos, Exp *left, Exp *exp)
+        : Stm(pos), left(left), right(exp) {}
     ASTKind getASTKind() override { return ASTKind::Assign; }
     Assign *clone() override;
     void accept(ASTVisitor &v) override { v.visit(this); }
@@ -49,7 +53,8 @@ class Assign : public Stm {
 class Return : public Stm {
   public:
     Exp *exp = nullptr;
-    Return(Pos *pos, Exp *exp) : Stm(pos), exp(exp) {}
+    Return(Pos *pos, Exp *exp)
+        : Stm(pos), exp(exp) {}
     ASTKind getASTKind() override { return ASTKind::Return; }
     Return *clone() override;
     void accept(ASTVisitor &v) override { v.visit(this); }
@@ -57,7 +62,8 @@ class Return : public Stm {
 
 class Exp : public AST { // this is the class for all expressions
   public:
-    Exp(Pos *pos) : AST(pos) {}
+    Exp(Pos *pos)
+        : AST(pos) {}
     virtual ASTKind getASTKind() = 0;
 };
 
@@ -66,7 +72,8 @@ class BinaryOp : public Exp {
     Exp *left = nullptr;
     OpExp *op = nullptr;
     Exp *right = nullptr;
-    BinaryOp(Pos *pos, Exp *left, OpExp *op, Exp *right) : Exp(pos), left(left), op(op), right(right) {}
+    BinaryOp(Pos *pos, Exp *left, OpExp *op, Exp *right)
+        : Exp(pos), left(left), op(op), right(right) {}
     ASTKind getASTKind() override { return ASTKind::BinaryOp; }
     BinaryOp *clone() override;
     void accept(ASTVisitor &v) override { v.visit(this); }
@@ -76,7 +83,8 @@ class UnaryOp : public Exp {
   public:
     OpExp *op = nullptr;
     Exp *exp = nullptr;
-    UnaryOp(Pos *pos, OpExp *op, Exp *exp) : Exp(pos), op(op), exp(exp) {}
+    UnaryOp(Pos *pos, OpExp *op, Exp *exp)
+        : Exp(pos), op(op), exp(exp) {}
     ASTKind getASTKind() override { return ASTKind::UnaryOp; }
     UnaryOp *clone() override;
     void accept(ASTVisitor &v) override { v.visit(this); }
@@ -85,7 +93,8 @@ class UnaryOp : public Exp {
 class IdExp : public Exp {
   public:
     string id;
-    IdExp(Pos *pos, string id) : Exp(pos), id(id) {}
+    IdExp(Pos *pos, string id)
+        : Exp(pos), id(id) {}
     ASTKind getASTKind() override { return ASTKind::IdExp; }
     IdExp *clone() override;
     void accept(ASTVisitor &v) override { v.visit(this); }
@@ -94,7 +103,8 @@ class IdExp : public Exp {
 class IntExp : public Exp {
   public:
     int val;
-    IntExp(Pos *pos, int val) : Exp(pos), val(val) {}
+    IntExp(Pos *pos, int val)
+        : Exp(pos), val(val) {}
     ASTKind getASTKind() override { return ASTKind::IntExp; }
     IntExp *clone() override;
     void accept(ASTVisitor &v) override { v.visit(this); }
@@ -103,7 +113,8 @@ class IntExp : public Exp {
 class OpExp : public Exp {
   public:
     string op;
-    OpExp(Pos *pos, string op) : Exp(pos), op(op) {}
+    OpExp(Pos *pos, string op)
+        : Exp(pos), op(op) {}
     ASTKind getASTKind() override { return ASTKind::OpExp; }
     OpExp *clone() override;
     void accept(ASTVisitor &v) override { v.visit(this); }

@@ -12,7 +12,8 @@ Program *minusIntRewrite(Program *root);
 class MinusIntConverter : public ASTVisitor {
   public:
     AST *cur_node = nullptr; // cur_node is the root of a clone of the original AST (sub) tree
-    MinusIntConverter(AST *cur_node) : cur_node(cur_node) {}
+    MinusIntConverter(AST *cur_node)
+        : cur_node(cur_node) {}
     void visit(Program *node) override;
     void visit(MainMethod *node) override;
     void visit(Assign *node) override;

@@ -9,9 +9,9 @@ using namespace tree;
 using namespace tinyxml2;
 
 class Tree2XML : public Visitor {
-public:
-    XMLDocument* doc;
-    XMLElement* visit_result;
+  public:
+    XMLDocument *doc;
+    XMLElement *visit_result;
 
     void visit(tree::Program *prog) override;
     void visit(tree::FuncDecl *func) override;
@@ -32,6 +32,6 @@ public:
     void visit(tree::ExtCall *extcall) override;
 };
 
-XMLDocument* tree2xml(tree::Program* prog);
+XMLDocument *tree2xml(tree::Program *prog);
 
 #endif

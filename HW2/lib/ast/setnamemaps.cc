@@ -50,9 +50,8 @@ void AST_Name_Map_Visitor::visit(Program *node) {
     if (node->main != nullptr) node->main->accept(*this);
 
     // 访问各个 ClassDecl
-    if (node->cdl != nullptr) {
+    if (node->cdl != nullptr)
         for (auto cl : *(node->cdl)) cl->accept(*this);
-    }
 }
 
 void AST_Name_Map_Visitor::visit(MainMethod *node) {
@@ -68,13 +67,12 @@ void AST_Name_Map_Visitor::visit(MainMethod *node) {
     name_maps->add_method("__main__", "main");
 
     // 注册局部变量
-    if (node->vdl != nullptr) {
+    if (node->vdl != nullptr)
         for (auto vd : *(node->vdl)) vd->accept(*this);
-    }
 
     // 创建返回类型伪形参（main 返回 int）
     Pos *pos = node->get_pos()->clone();
-    Type *retType = new Type(pos);  // INT 类型
+    Type *retType = new Type(pos); // INT 类型
     IdExp *retId = new IdExp(pos->clone(), "__return__");
     Formal *retFormal = new Formal(pos->clone(), retType, retId);
     name_maps->add_method_formal("__main__", "main", "__return__", retFormal);
@@ -109,14 +107,12 @@ void AST_Name_Map_Visitor::visit(ClassDecl *node) {
 
     // 注册类变量（此时 current_visiting_method 为空，VarDecl 会被注册为类变量）
     current_visiting_method = "";
-    if (node->vdl != nullptr) {
+    if (node->vdl != nullptr)
         for (auto vd : *(node->vdl)) vd->accept(*this);
-    }
 
     // 注册方法
-    if (node->mdl != nullptr) {
+    if (node->mdl != nullptr)
         for (auto md : *(node->mdl)) md->accept(*this);
-    }
 
     current_visiting_class = "";
 }
@@ -159,9 +155,8 @@ void AST_Name_Map_Visitor::visit(MethodDecl *node) {
     name_maps->add_method_formal_list(current_visiting_class, method_name, formal_names);
 
     // 注册方法局部变量
-    if (node->vdl != nullptr) {
+    if (node->vdl != nullptr)
         for (auto vd : *(node->vdl)) vd->accept(*this);
-    }
 
     // 无需深入遍历语句
 

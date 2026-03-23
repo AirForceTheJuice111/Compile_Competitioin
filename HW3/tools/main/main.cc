@@ -1,5 +1,5 @@
 #include <iostream> // IWYU pragma: keep
-#include <fstream> // IWYU pragma: keep
+#include <fstream>  // IWYU pragma: keep
 #include <cstring>
 #include <string>
 #include "config.hh"
@@ -31,7 +31,7 @@ int main(int argc, const char *argv[]) {
     file = argv[argc - 1];
 
     // boilerplate output filenames (used throughout the compiler pipeline)
-    string file_ast = file + ".2-semant.ast"; // ast in xml
+    string file_ast = file + ".2-semant.ast";             // ast in xml
     string file_ast_debug = file + ".2-semant-debug.ast"; // ast in xml
     string file_irp = file + ".3.irp";
 

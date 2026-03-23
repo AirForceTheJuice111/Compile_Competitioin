@@ -16,8 +16,10 @@ class Program : public AST {
   public:
     MainMethod *main;
     vector<ClassDecl *> *cdl = new vector<ClassDecl *>();
-    Program(Pos *pos, MainMethod *main) : AST(pos), main(main), cdl(nullptr){};
-    Program(Pos *pos, MainMethod *main, vector<ClassDecl *> *cdl) : AST(pos), main(main), cdl(cdl){};
+    Program(Pos *pos, MainMethod *main)
+        : AST(pos), main(main), cdl(nullptr){};
+    Program(Pos *pos, MainMethod *main, vector<ClassDecl *> *cdl)
+        : AST(pos), main(main), cdl(cdl){};
     ASTKind getASTKind() override { return ASTKind::Program; }
     Program *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -27,7 +29,8 @@ class MainMethod : public AST {
   public:
     vector<VarDecl *> *vdl;
     vector<Stm *> *sl;
-    MainMethod(Pos *pos, vector<VarDecl *> *vdl, vector<Stm *> *sl) : AST(pos), vdl(vdl), sl(sl) {}
+    MainMethod(Pos *pos, vector<VarDecl *> *vdl, vector<Stm *> *sl)
+        : AST(pos), vdl(vdl), sl(sl) {}
     ASTKind getASTKind() override { return ASTKind::MainMethod; }
     MainMethod *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -39,8 +42,10 @@ class ClassDecl : public AST {
     IdExp *eid = nullptr; // nullptr if not assigned
     vector<VarDecl *> *vdl = new vector<VarDecl *>();
     vector<MethodDecl *> *mdl = new vector<MethodDecl *>();
-    ClassDecl(Pos *pos, IdExp *id, vector<VarDecl *> *vdl, vector<MethodDecl *> *mdl) : AST(pos), id(id), vdl(vdl), mdl(mdl) {}
-    ClassDecl(Pos *pos, IdExp *id, IdExp *eid, vector<VarDecl *> *vdl, vector<MethodDecl *> *mdl) : AST(pos), id(id), eid(eid), vdl(vdl), mdl(mdl) {}
+    ClassDecl(Pos *pos, IdExp *id, vector<VarDecl *> *vdl, vector<MethodDecl *> *mdl)
+        : AST(pos), id(id), vdl(vdl), mdl(mdl) {}
+    ClassDecl(Pos *pos, IdExp *id, IdExp *eid, vector<VarDecl *> *vdl, vector<MethodDecl *> *mdl)
+        : AST(pos), id(id), eid(eid), vdl(vdl), mdl(mdl) {}
     ASTKind getASTKind() override { return ASTKind::ClassDecl; }
     ClassDecl *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -51,10 +56,14 @@ class Type : public AST {
     TypeKind typeKind;
     IdExp *cid = nullptr;    // class id
     IntExp *arity = nullptr; // array arity (a.k.a array size)
-    Type(Pos *pos) : AST(pos), typeKind(TypeKind::INT) {}
-    Type(Pos *pos, IdExp *cid) : AST(pos), typeKind(TypeKind::CLASS), cid(cid) {}
-    Type(Pos *pos, IntExp *arity) : AST(pos), typeKind(TypeKind::ARRAY), arity(arity) {} // array must have arity=0
-    Type(Pos *pos, TypeKind typeKind, IdExp *cid, IntExp *arity) : AST(pos), typeKind(typeKind), cid(cid), arity(arity) {}
+    Type(Pos *pos)
+        : AST(pos), typeKind(TypeKind::INT) {}
+    Type(Pos *pos, IdExp *cid)
+        : AST(pos), typeKind(TypeKind::CLASS), cid(cid) {}
+    Type(Pos *pos, IntExp *arity)
+        : AST(pos), typeKind(TypeKind::ARRAY), arity(arity) {} // array must have arity=0
+    Type(Pos *pos, TypeKind typeKind, IdExp *cid, IntExp *arity)
+        : AST(pos), typeKind(typeKind), cid(cid), arity(arity) {}
     ASTKind getASTKind() override { return ASTKind::Type; }
     Type *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -67,10 +76,14 @@ class VarDecl : public AST {
     variant<monostate, IntExp *, vector<IntExp *> *> init; // variant to hold either no initializer, an int initializer, or an array initializer. Note that vector<IntExp*>* can be nullptr (no init) or non-nullptr with size=0 (empty array init)
     // note that nullptr means no init. vector.size=0 means empty array
     // initialization
-    VarDecl(Pos *pos, Type *type, IdExp *id) : AST(pos), type(type), id(id) { init = std::monostate{}; }
-    VarDecl(Pos *pos, Type *type, IdExp *id, IntExp *init_int) : AST(pos), type(type), id(id), init(init_int) {}
-    VarDecl(Pos *pos, Type *type, IdExp *id, vector<IntExp *> *init_array) : AST(pos), type(type), id(id), init(init_array) {}
-    VarDecl(Pos *pos, Type *type, IdExp *id, variant<monostate, IntExp *, vector<IntExp *> *> init) : AST(pos), type(type), id(id), init(init) {}
+    VarDecl(Pos *pos, Type *type, IdExp *id)
+        : AST(pos), type(type), id(id) { init = std::monostate{}; }
+    VarDecl(Pos *pos, Type *type, IdExp *id, IntExp *init_int)
+        : AST(pos), type(type), id(id), init(init_int) {}
+    VarDecl(Pos *pos, Type *type, IdExp *id, vector<IntExp *> *init_array)
+        : AST(pos), type(type), id(id), init(init_array) {}
+    VarDecl(Pos *pos, Type *type, IdExp *id, variant<monostate, IntExp *, vector<IntExp *> *> init)
+        : AST(pos), type(type), id(id), init(init) {}
     ASTKind getASTKind() override { return ASTKind::VarDecl; }
     VarDecl *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -83,7 +96,8 @@ class MethodDecl : public AST {
     vector<Formal *> *fl = new vector<Formal *>();
     vector<VarDecl *> *vdl = new vector<VarDecl *>();
     vector<Stm *> *sl = new vector<Stm *>();
-    MethodDecl(Pos *pos, Type *type, IdExp *id, vector<Formal *> *fl, vector<VarDecl *> *vdl, vector<Stm *> *sl) : AST(pos), type(type), id(id), fl(fl), vdl(vdl), sl(sl) {}
+    MethodDecl(Pos *pos, Type *type, IdExp *id, vector<Formal *> *fl, vector<VarDecl *> *vdl, vector<Stm *> *sl)
+        : AST(pos), type(type), id(id), fl(fl), vdl(vdl), sl(sl) {}
     MethodDecl(Pos *pos, Type *type, IdExp *id, vector<VarDecl *> *vdl,
                vector<Stm *> *sl)
         : // without formalList
@@ -104,7 +118,8 @@ class Formal : public AST {
   public:
     Type *type = nullptr;
     IdExp *id = nullptr;
-    Formal(Pos *pos, Type *type, IdExp *id) : AST(pos), type(type), id(id) {
+    Formal(Pos *pos, Type *type, IdExp *id)
+        : AST(pos), type(type), id(id) {
         if (type->typeKind == TypeKind::ARRAY) {
             if (type->arity == nullptr) {
                 cerr << "at position: " << pos->to_str() << endl;
@@ -120,7 +135,8 @@ class Formal : public AST {
 
 class Stm : public AST { // this is the class for all statements
   public:
-    Stm(Pos *pos) : AST(pos) {}
+    Stm(Pos *pos)
+        : AST(pos) {}
     virtual ASTKind getASTKind() = 0;
 };
 
@@ -128,7 +144,8 @@ class Nested : public Stm {
   public:
     vector<Stm *> *sl;
     Nested() = delete;
-    Nested(Pos *pos, vector<Stm *> *sl) : Stm(pos), sl(sl) {}
+    Nested(Pos *pos, vector<Stm *> *sl)
+        : Stm(pos), sl(sl) {}
     ASTKind getASTKind() override { return ASTKind::Nested; }
     Nested *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -139,8 +156,10 @@ class If : public Stm {
     Exp *exp = nullptr;
     Stm *stm1 = nullptr;
     Stm *stm2 = nullptr; // else part, could be empty
-    If(Pos *pos, Exp *exp, Stm *stm1, Stm *stm2) : Stm(pos), exp(exp), stm1(stm1), stm2(stm2) {}
-    If(Pos *pos, Exp *exp, Stm *stm1) : Stm(pos), exp(exp), stm1(stm1), stm2(nullptr) {}
+    If(Pos *pos, Exp *exp, Stm *stm1, Stm *stm2)
+        : Stm(pos), exp(exp), stm1(stm1), stm2(stm2) {}
+    If(Pos *pos, Exp *exp, Stm *stm1)
+        : Stm(pos), exp(exp), stm1(stm1), stm2(nullptr) {}
     ASTKind getASTKind() override { return ASTKind::If; }
     If *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -150,8 +169,10 @@ class While : public Stm {
   public:
     Exp *exp = nullptr;
     Stm *stm = nullptr; // body of the while loop, could be empty
-    While(Pos *pos, Exp *exp, Stm *stm) : Stm(pos), exp(exp), stm(stm) {}
-    While(Pos *pos, Exp *exp) : Stm(pos), exp(exp), stm(nullptr) {}
+    While(Pos *pos, Exp *exp, Stm *stm)
+        : Stm(pos), exp(exp), stm(stm) {}
+    While(Pos *pos, Exp *exp)
+        : Stm(pos), exp(exp), stm(nullptr) {}
     ASTKind getASTKind() override { return ASTKind::While; }
     While *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -161,7 +182,8 @@ class Assign : public Stm {
   public:
     Exp *left = nullptr;
     Exp *right = nullptr;
-    Assign(Pos *pos, Exp *left, Exp *right) : Stm(pos), left(left), right(right) {}
+    Assign(Pos *pos, Exp *left, Exp *right)
+        : Stm(pos), left(left), right(right) {}
     ASTKind getASTKind() override { return ASTKind::Assign; }
     Assign *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -173,8 +195,10 @@ class CallStm : public Stm {
     IdExp *name = nullptr;
     vector<Exp *> *par = new vector<Exp *>();
 
-    CallStm(Pos *pos, Exp *obj, IdExp *name, vector<Exp *> *par) : Stm(pos), obj(obj), name(name), par(par) {}
-    CallStm(Pos *pos, Exp *obj, IdExp *name) : Stm(pos), obj(obj), name(name), par(nullptr) {}
+    CallStm(Pos *pos, Exp *obj, IdExp *name, vector<Exp *> *par)
+        : Stm(pos), obj(obj), name(name), par(par) {}
+    CallStm(Pos *pos, Exp *obj, IdExp *name)
+        : Stm(pos), obj(obj), name(name), par(nullptr) {}
 
     ASTKind getASTKind() override { return ASTKind::CallStm; }
     CallStm *clone() override;
@@ -183,7 +207,8 @@ class CallStm : public Stm {
 
 class Continue : public Stm {
   public:
-    Continue(Pos *pos) : Stm(pos) {}
+    Continue(Pos *pos)
+        : Stm(pos) {}
     ASTKind getASTKind() override { return ASTKind::Continue; }
     Continue *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -191,7 +216,8 @@ class Continue : public Stm {
 
 class Break : public Stm {
   public:
-    Break(Pos *pos) : Stm(pos) {}
+    Break(Pos *pos)
+        : Stm(pos) {}
     ASTKind getASTKind() override { return ASTKind::Break; }
     Break *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -200,7 +226,8 @@ class Break : public Stm {
 class Return : public Stm {
   public:
     Exp *exp = nullptr;
-    Return(Pos *pos, Exp *exp) : Stm(pos), exp(exp) {}
+    Return(Pos *pos, Exp *exp)
+        : Stm(pos), exp(exp) {}
     ASTKind getASTKind() override { return ASTKind::Return; }
     Return *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -209,7 +236,8 @@ class Return : public Stm {
 class PutInt : public Stm {
   public:
     Exp *exp = nullptr;
-    PutInt(Pos *pos, Exp *exp) : Stm(pos), exp(exp) {}
+    PutInt(Pos *pos, Exp *exp)
+        : Stm(pos), exp(exp) {}
     ASTKind getASTKind() override { return ASTKind::PutInt; }
     PutInt *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -219,7 +247,8 @@ class PutCh : public Stm {
   public:
     Exp *exp = nullptr;
 
-    PutCh(Pos *pos, Exp *exp) : Stm(pos), exp(exp) {}
+    PutCh(Pos *pos, Exp *exp)
+        : Stm(pos), exp(exp) {}
     ASTKind getASTKind() override { return ASTKind::PutCh; }
     PutCh *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -230,7 +259,8 @@ class PutArray : public Stm {
     Exp *n = nullptr;   // size to print (from beginning of the following array)
     Exp *arr = nullptr; // the arary
 
-    PutArray(Pos *pos, Exp *n, Exp *arr) : Stm(pos), n(n), arr(arr) {}
+    PutArray(Pos *pos, Exp *n, Exp *arr)
+        : Stm(pos), n(n), arr(arr) {}
     ASTKind getASTKind() override { return ASTKind::PutArray; }
     PutArray *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -238,7 +268,8 @@ class PutArray : public Stm {
 
 class Starttime : public Stm {
   public:
-    Starttime(Pos *pos) : Stm(pos) {}
+    Starttime(Pos *pos)
+        : Stm(pos) {}
     ASTKind getASTKind() override { return ASTKind::Starttime; }
     Starttime *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -246,7 +277,8 @@ class Starttime : public Stm {
 
 class Stoptime : public Stm {
   public:
-    Stoptime(Pos *pos) : Stm(pos) {}
+    Stoptime(Pos *pos)
+        : Stm(pos) {}
     ASTKind getASTKind() override { return ASTKind::Stoptime; }
     Stoptime *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -254,7 +286,8 @@ class Stoptime : public Stm {
 
 class Exp : public AST { // this is the class for all expressions
   public:
-    Exp(Pos *pos) : AST(pos) {}
+    Exp(Pos *pos)
+        : AST(pos) {}
     virtual ASTKind getASTKind() = 0;
 };
 
@@ -263,7 +296,8 @@ class BinaryOp : public Exp {
     Exp *left = nullptr;
     OpExp *op = nullptr;
     Exp *right = nullptr;
-    BinaryOp(Pos *pos, Exp *left, OpExp *op, Exp *right) : Exp(pos), left(left), op(op), right(right) {}
+    BinaryOp(Pos *pos, Exp *left, OpExp *op, Exp *right)
+        : Exp(pos), left(left), op(op), right(right) {}
     ASTKind getASTKind() override { return ASTKind::BinaryOp; }
     BinaryOp *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -273,7 +307,8 @@ class UnaryOp : public Exp {
   public:
     OpExp *op = nullptr;
     Exp *exp = nullptr;
-    UnaryOp(Pos *pos, OpExp *op, Exp *exp) : Exp(pos), op(op), exp(exp) {}
+    UnaryOp(Pos *pos, OpExp *op, Exp *exp)
+        : Exp(pos), op(op), exp(exp) {}
     ASTKind getASTKind() override { return ASTKind::UnaryOp; }
     UnaryOp *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -283,7 +318,8 @@ class ArrayExp : public Exp {
   public:
     Exp *arr = nullptr;
     Exp *index = nullptr;
-    ArrayExp(Pos *pos, Exp *arr, Exp *index) : Exp(pos), arr(arr), index(index) {}
+    ArrayExp(Pos *pos, Exp *arr, Exp *index)
+        : Exp(pos), arr(arr), index(index) {}
     ASTKind getASTKind() override { return ASTKind::ArrayExp; }
     ArrayExp *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -295,8 +331,10 @@ class CallExp : public Exp {
     IdExp *name = nullptr;
     vector<Exp *> *par = new vector<Exp *>();
 
-    CallExp(Pos *pos, Exp *obj, IdExp *name, vector<Exp *> *par) : Exp(pos), obj(obj), name(name), par(par) {}
-    CallExp(Pos *pos, Exp *obj, IdExp *name) : Exp(pos), obj(obj), name(name), par(nullptr) {}
+    CallExp(Pos *pos, Exp *obj, IdExp *name, vector<Exp *> *par)
+        : Exp(pos), obj(obj), name(name), par(par) {}
+    CallExp(Pos *pos, Exp *obj, IdExp *name)
+        : Exp(pos), obj(obj), name(name), par(nullptr) {}
     ASTKind getASTKind() override { return ASTKind::CallExp; }
     CallExp *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -307,14 +345,16 @@ class ClassVar : public Exp {
     Exp *obj = nullptr;
     IdExp *id = nullptr;
 
-    ClassVar(Pos *pos, Exp *obj, IdExp *id) : Exp(pos), obj(obj), id(id) {}
+    ClassVar(Pos *pos, Exp *obj, IdExp *id)
+        : Exp(pos), obj(obj), id(id) {}
     ASTKind getASTKind() override { return ASTKind::ClassVar; }
     ClassVar *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
 };
 class This : public Exp {
   public:
-    This(Pos *pos) : Exp(pos) {}
+    This(Pos *pos)
+        : Exp(pos) {}
     ASTKind getASTKind() override { return ASTKind::This; }
     This *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -322,7 +362,8 @@ class This : public Exp {
 class Length : public Exp {
   public:
     Exp *exp = nullptr;
-    Length(Pos *pos, Exp *exp) : Exp(pos), exp(exp) {}
+    Length(Pos *pos, Exp *exp)
+        : Exp(pos), exp(exp) {}
     ASTKind getASTKind() override { return ASTKind::Length; }
     Length *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -331,7 +372,8 @@ class Length : public Exp {
 class NewArray : public Exp {
   public:
     Exp *size = nullptr;
-    NewArray(Pos *pos, Exp *size) : Exp(pos), size(size) {}
+    NewArray(Pos *pos, Exp *size)
+        : Exp(pos), size(size) {}
     ASTKind getASTKind() override { return ASTKind::NewArray; }
     NewArray *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -340,7 +382,8 @@ class NewArray : public Exp {
 class NewObject : public Exp {
   public:
     IdExp *id = nullptr;
-    NewObject(Pos *pos, IdExp *id) : Exp(pos), id(id) {}
+    NewObject(Pos *pos, IdExp *id)
+        : Exp(pos), id(id) {}
     ASTKind getASTKind() override { return ASTKind::NewObject; }
     NewObject *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -348,7 +391,8 @@ class NewObject : public Exp {
 
 class GetInt : public Exp {
   public:
-    GetInt(Pos *pos) : Exp(pos) {}
+    GetInt(Pos *pos)
+        : Exp(pos) {}
     ASTKind getASTKind() override { return ASTKind::GetInt; }
     GetInt *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -356,7 +400,8 @@ class GetInt : public Exp {
 
 class GetCh : public Exp {
   public:
-    GetCh(Pos *pos) : Exp(pos) {}
+    GetCh(Pos *pos)
+        : Exp(pos) {}
     ASTKind getASTKind() override { return ASTKind::GetCh; }
     GetCh *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -365,7 +410,8 @@ class GetCh : public Exp {
 class GetArray : public Exp {
   public:
     Exp *exp = nullptr;
-    GetArray(Pos *pos, Exp *exp) : Exp(pos), exp(exp) {}
+    GetArray(Pos *pos, Exp *exp)
+        : Exp(pos), exp(exp) {}
     ASTKind getASTKind() override { return ASTKind::GetArray; }
     GetArray *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -374,7 +420,8 @@ class GetArray : public Exp {
 class IdExp : public Exp {
   public:
     string id;
-    IdExp(Pos *pos, string id) : Exp(pos), id(id) {}
+    IdExp(Pos *pos, string id)
+        : Exp(pos), id(id) {}
     ASTKind getASTKind() override { return ASTKind::IdExp; }
     IdExp *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -383,7 +430,8 @@ class IdExp : public Exp {
 class IntExp : public Exp {
   public:
     int val;
-    IntExp(Pos *pos, int val) : Exp(pos), val(val) {}
+    IntExp(Pos *pos, int val)
+        : Exp(pos), val(val) {}
     ASTKind getASTKind() override { return ASTKind::IntExp; }
     IntExp *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }
@@ -392,7 +440,8 @@ class IntExp : public Exp {
 class OpExp : public Exp {
   public:
     string op;
-    OpExp(Pos *pos, string op) : Exp(pos), op(op) {}
+    OpExp(Pos *pos, string op)
+        : Exp(pos), op(op) {}
     ASTKind getASTKind() override { return ASTKind::OpExp; }
     OpExp *clone() override;
     void accept(AST_Visitor &v) override { v.visit(this); }

@@ -103,7 +103,8 @@ string type_kind_string(TypeKind typekind) {
     }
 }
 
-template <class T> vector<T *> *cloneList(vector<T *> *tl) {
+template <class T>
+vector<T *> *cloneList(vector<T *> *tl) {
     if (tl == nullptr || tl->size() == 0) return nullptr;
     vector<T *> *v = new vector<T *>();
     for (auto x : *tl) {

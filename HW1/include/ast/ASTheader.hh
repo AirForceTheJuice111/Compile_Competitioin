@@ -35,7 +35,8 @@ class Pos {
   public:
     size_t sline = 0, scolumn = 0, eline = 0,
            ecolumn = 0; // start and end line and column
-    Pos(size_t sline, size_t scolumn, size_t eline, size_t ecolumn) : sline(sline), scolumn(scolumn), eline(eline), ecolumn(ecolumn) {}
+    Pos(size_t sline, size_t scolumn, size_t eline, size_t ecolumn)
+        : sline(sline), scolumn(scolumn), eline(eline), ecolumn(ecolumn) {}
     Pos *clone() { return new Pos(sline, scolumn, eline, ecolumn); }
 };
 
@@ -44,7 +45,8 @@ enum class ASTKind; // forwards declaration
 class AST {
   public:
     ~AST() { delete pos; }
-    AST(Pos *pos) : pos(pos) {}
+    AST(Pos *pos)
+        : pos(pos) {}
     Pos *get_pos() { return pos; }
     virtual void accept(ASTVisitor &v) = 0;
     virtual ASTKind getASTKind() = 0;
@@ -83,7 +85,8 @@ enum class ASTKind {
 Program *fdmjParser(const std::string &filename, const bool debug);
 Program *fdmjParser(std::ifstream &fp, const bool debug);
 std::string stringASTKind(ASTKind k);
-template <class T> std::vector<T *> *cloneList(std::vector<T *> *tl);
+template <class T>
+std::vector<T *> *cloneList(std::vector<T *> *tl);
 
 } // namespace fdmj
 

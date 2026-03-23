@@ -15,7 +15,9 @@ using namespace fdmj;
 // Useful for type checking and IR (tree) generation
 class AST_Semant {
   public:
-    enum Kind { Value, MethodName, ClassName };
+    enum Kind { Value,
+                MethodName,
+                ClassName };
     // Value - a value, has a typeKind (any calculation result)
     // MethodName - a method name, has a typeKind (need: class id)
     // ClassName - a class name, has a typeKind (need class id)
@@ -26,7 +28,8 @@ class AST_Semant {
     variant<monostate, string, int> type_par; // string for class name, int for array arity, par means parameter
     bool lvalue;                              // if the expression is an lvalue
   public:
-    AST_Semant(AST_Semant::Kind s_kind, TypeKind typeKind, variant<monostate, string, int> type_par, bool lvalue) : s_kind(s_kind), typeKind(typeKind), type_par(type_par), lvalue(lvalue) {}
+    AST_Semant(AST_Semant::Kind s_kind, TypeKind typeKind, variant<monostate, string, int> type_par, bool lvalue)
+        : s_kind(s_kind), typeKind(typeKind), type_par(type_par), lvalue(lvalue) {}
     Kind get_kind() { return s_kind; }
     TypeKind get_type() { return typeKind; }
     variant<monostate, string, int> get_type_par() { return type_par; }
@@ -81,7 +84,8 @@ class AST_Semant_Visitor : public AST_Visitor {
                              // loops)
   public:
     int mode;
-    AST_Semant_Visitor(Name_Maps *const nm) : name_maps(nm), semant_map(new AST_Semant_Map()) {}
+    AST_Semant_Visitor(Name_Maps *const nm)
+        : name_maps(nm), semant_map(new AST_Semant_Map()) {}
 
     AST_Semant_Map *getSemantMap() { return semant_map; }
 

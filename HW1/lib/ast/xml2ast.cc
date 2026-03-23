@@ -80,9 +80,12 @@ UnaryOp *create_unaryOp(XMLElement *);
 ExpList *create_exp_list(XMLElement *);
 StmList *create_stm_list(XMLElement *);
 
-enum class ATTR_TYPE { INT, ID, OP };
-template <class T> T *create_leafnode(XMLElement *, string, string,
-                                      ATTR_TYPE); // forward declaration
+enum class ATTR_TYPE { INT,
+                       ID,
+                       OP };
+template <class T>
+T *create_leafnode(XMLElement *, string, string,
+                   ATTR_TYPE); // forward declaration
 
 template <class T> // for IntExp lists (can be expanded for other types)
 vector<T *> *create_list(XMLElement *element, string tag) {
@@ -105,7 +108,8 @@ vector<T *> *create_list(XMLElement *element, string tag) {
     return list; // empty list is also valid
 }
 
-template <class T> T *create_leafnode(XMLElement *element, string tag, string s_attr, ATTR_TYPE at) {
+template <class T>
+T *create_leafnode(XMLElement *element, string tag, string s_attr, ATTR_TYPE at) {
 #ifdef DEBUG
     cout << "Creating leaf node from=" << tag << " with attrib=" << s_attr << endl;
 #endif

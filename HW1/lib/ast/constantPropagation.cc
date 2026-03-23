@@ -25,7 +25,8 @@ Program *constantPropagate(Program *root) {
 }
 
 // 辅助函数：对节点列表逐个 visit，收集结果
-template <typename T> static vector<T *> *visitList(ConstantPropagator &v, vector<T *> *tl) {
+template <typename T>
+static vector<T *> *visitList(ConstantPropagator &v, vector<T *> *tl) {
     if (tl == nullptr || tl->size() == 0) return nullptr;
     vector<T *> *vt = new vector<T *>();
     for (T *x : *tl) {
