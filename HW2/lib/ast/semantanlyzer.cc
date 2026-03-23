@@ -59,9 +59,8 @@ AST_Semant_Map *semant_analyze(Program *node) {
 void AST_Semant_Visitor::visit(Program *node) {
     if (node == nullptr) return;
     if (node->main != nullptr) node->main->accept(*this);
-    if (node->cdl != nullptr) {
+    if (node->cdl != nullptr)
         for (auto cl : *(node->cdl)) cl->accept(*this);
-    }
 }
 
 void AST_Semant_Visitor::visit(MainMethod *node) {
@@ -69,12 +68,10 @@ void AST_Semant_Visitor::visit(MainMethod *node) {
     current_visiting_class = "__main__";
     current_visiting_method = "main";
 
-    if (node->vdl != nullptr) {
+    if (node->vdl != nullptr)
         for (auto vd : *(node->vdl)) vd->accept(*this);
-    }
-    if (node->sl != nullptr) {
+    if (node->sl != nullptr)
         for (auto s : *(node->sl)) s->accept(*this);
-    }
 
     current_visiting_class = "";
     current_visiting_method = "";
@@ -106,12 +103,10 @@ void AST_Semant_Visitor::visit(ClassDecl *node) {
         }
     }
 
-    if (node->vdl != nullptr) {
+    if (node->vdl != nullptr)
         for (auto vd : *(node->vdl)) vd->accept(*this);
-    }
-    if (node->mdl != nullptr) {
+    if (node->mdl != nullptr)
         for (auto md : *(node->mdl)) md->accept(*this);
-    }
 
     current_visiting_class = "";
 }
@@ -170,12 +165,10 @@ void AST_Semant_Visitor::visit(MethodDecl *node) {
         }
     }
 
-    if (node->vdl != nullptr) {
+    if (node->vdl != nullptr)
         for (auto vd : *(node->vdl)) vd->accept(*this);
-    }
-    if (node->sl != nullptr) {
+    if (node->sl != nullptr)
         for (auto s : *(node->sl)) s->accept(*this);
-    }
 
     current_visiting_method = "";
 }
@@ -221,9 +214,8 @@ void AST_Semant_Visitor::visit(Type *node) {
 
 void AST_Semant_Visitor::visit(Nested *node) { // Nested 指的是一个花括号括起来的语句块
     if (node == nullptr) return;
-    if (node->sl != nullptr) {
+    if (node->sl != nullptr)
         for (auto s : *(node->sl)) s->accept(*this);
-    }
 }
 
 void AST_Semant_Visitor::visit(If *node) {
@@ -340,9 +332,8 @@ void AST_Semant_Visitor::visit(CallStm *node) { // CallStm 代表方法调用语
     }
 
     // 分析参数
-    if (node->par != nullptr) {
+    if (node->par != nullptr)
         for (auto p : *(node->par)) p->accept(*this);
-    }
 
     // 检查参数类型匹配
     vector<Formal *> *formals = name_maps->get_method_formal_list(class_to_be_looked_up, method_name);
@@ -365,10 +356,10 @@ void AST_Semant_Visitor::visit(CallStm *node) { // CallStm 代表方法调用语
                     exit(1);
                 }
                 if (!type_compatible(name_maps, formal_type->typeKind, get_type_par_from_type(formal_type),
-                                        arg_sem->get_type(), arg_sem->get_type_par())) {
+                                     arg_sem->get_type(), arg_sem->get_type_par())) {
                     cerr << "Error: at position " << node->get_pos()->to_str() << endl;
                     cerr << "Error: Argument type mismatch for parameter " << i
-                            << " in call to " << method_name << endl;
+                         << " in call to " << method_name << endl;
                     exit(1);
                 }
             }
@@ -417,7 +408,7 @@ void AST_Semant_Visitor::visit(Return *node) {
         }
         // 为 Return 节点本身设置语义信息（与返回表达式同类型，非 lvalue，不含 type_par 细节）
         semant_map->setSemant(node, new AST_Semant(AST_Semant::Kind::Value,
-                              ret_sem->get_type(), monostate{}, false));
+                                                   ret_sem->get_type(), monostate{}, false));
     }
 }
 
@@ -620,9 +611,8 @@ void AST_Semant_Visitor::visit(CallExp *node) { // CallExp 代表方法调用表
     }
 
     // 分析参数
-    if (node->par != nullptr) {
+    if (node->par != nullptr)
         for (auto p : *(node->par)) p->accept(*this);
-    }
 
     // 检查参数类型
     vector<Formal *> *formals = name_maps->get_method_formal_list(class_to_be_looked_up, method_name);
@@ -655,7 +645,7 @@ void AST_Semant_Visitor::visit(CallExp *node) { // CallExp 代表方法调用表
         Formal *ret_formal = formals->back(); // __return__
         Type *ret_type = ret_formal->type;
         semant_map->setSemant(node, new AST_Semant(AST_Semant::Kind::Value,
-                              ret_type->typeKind, get_type_par_from_type(ret_type), false));
+                                                   ret_type->typeKind, get_type_par_from_type(ret_type), false));
     }
 }
 
@@ -679,7 +669,7 @@ void AST_Semant_Visitor::visit(ClassVar *node) { // ClassVar 代表字段访问�
         string parent = name_maps->get_parent(obj_class);
         if (!parent.empty()) vd = name_maps->get_class_var(parent, field_name);
     }
-    
+
     // 如果还是找不到，报错
     if (vd == nullptr) {
         cerr << "Error: at position " << node->get_pos()->to_str() << endl;
@@ -689,10 +679,10 @@ void AST_Semant_Visitor::visit(ClassVar *node) { // ClassVar 代表字段访问�
 
     // 设置语义信息：类变量是 lvalue
     semant_map->setSemant(node, new AST_Semant(AST_Semant::Kind::Value,
-                          vd->type->typeKind, get_type_par_from_type(vd->type), true));
+                                               vd->type->typeKind, get_type_par_from_type(vd->type), true));
     // 同时为字段名 IdExp 设置语义信息
     semant_map->setSemant(node->id, new AST_Semant(AST_Semant::Kind::Value,
-                          vd->type->typeKind, get_type_par_from_type(vd->type), true));
+                                                   vd->type->typeKind, get_type_par_from_type(vd->type), true));
 }
 
 void AST_Semant_Visitor::visit(This *node) { // This 就是 this 关键字，代表当前对象。需要检查 this 是否在类方法中使用，以及设置语义信息：this 的类型是当前类，是一个值（Value），但不是 lvalue（因为不能赋值）。另外，this 只能在类方法中使用，如果在 __main__ 或其他非类方法中使用，需要报错。
@@ -705,7 +695,7 @@ void AST_Semant_Visitor::visit(This *node) { // This 就是 this 关键字，代
     }
     // this 的类型是当前类，不是 lvalue
     semant_map->setSemant(node, new AST_Semant(AST_Semant::Kind::Value,
-                          TypeKind::CLASS, current_visiting_class, false));
+                                               TypeKind::CLASS, current_visiting_class, false));
 }
 
 void AST_Semant_Visitor::visit(Length *node) { // Length 代表数组长度访问表达式，如 foo.length。需要检查 foo 的类型是否是 ARRAY，并设置语义信息：长度访问的结果是一个值（Value），类型是 INT，并且不是 lvalue。
@@ -795,7 +785,7 @@ void AST_Semant_Visitor::visit(IdExp *node) { // IdExp 代表标识符表达式�
     VarDecl *vd = name_maps->get_method_var(current_visiting_class, current_visiting_method, id);
     if (vd != nullptr) {
         semant_map->setSemant(node, new AST_Semant(AST_Semant::Kind::Value,
-                              vd->type->typeKind, get_type_par_from_type(vd->type), true));
+                                                   vd->type->typeKind, get_type_par_from_type(vd->type), true));
         return;
     }
 
@@ -803,7 +793,7 @@ void AST_Semant_Visitor::visit(IdExp *node) { // IdExp 代表标识符表达式�
     Formal *f = name_maps->get_method_formal(current_visiting_class, current_visiting_method, id);
     if (f != nullptr) {
         semant_map->setSemant(node, new AST_Semant(AST_Semant::Kind::Value,
-                              f->type->typeKind, get_type_par_from_type(f->type), true));
+                                                   f->type->typeKind, get_type_par_from_type(f->type), true));
         return;
     }
 
@@ -812,7 +802,7 @@ void AST_Semant_Visitor::visit(IdExp *node) { // IdExp 代表标识符表达式�
         vd = name_maps->get_class_var(current_visiting_class, id);
         if (vd != nullptr) {
             semant_map->setSemant(node, new AST_Semant(AST_Semant::Kind::Value,
-                                  vd->type->typeKind, get_type_par_from_type(vd->type), true));
+                                                       vd->type->typeKind, get_type_par_from_type(vd->type), true));
             return;
         }
         // 检查父类
@@ -821,7 +811,7 @@ void AST_Semant_Visitor::visit(IdExp *node) { // IdExp 代表标识符表达式�
             vd = name_maps->get_class_var(parent, id);
             if (vd != nullptr) {
                 semant_map->setSemant(node, new AST_Semant(AST_Semant::Kind::Value,
-                                      vd->type->typeKind, get_type_par_from_type(vd->type), true));
+                                                           vd->type->typeKind, get_type_par_from_type(vd->type), true));
                 return;
             }
         }

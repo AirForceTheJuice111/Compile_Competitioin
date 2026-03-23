@@ -11,47 +11,48 @@ using namespace tree;
 
 namespace tree {
 
-//forward declaration
-class Tree; //abstract class
-class Program; //member: funcdecllist
-class FuncDecl; //members: name, args, stm
-class Stm; //abstract class
-class Jump; //members: label
-class Cjump; //members: relop, left, right, t, f
-class Move; //members: dst, src
-class Seq; //members: stmlist
-class LabelStm; //members: label
-class Return; //members: exp
-class ExpStm; //members: exp
-class Exp; //abstract class
-class Binop; //members: op, left, right
-class Mem; //members: mem
-class TempExp; //members: temp
-class Eseq; //members: stm, exp
-class Name; //members: name
-class Const; //members: constVal
-class Call; //members: id, obj, args
-class ExtCall; //members: extfun, args
+// forward declaration
+class Tree;     // abstract class
+class Program;  // member: funcdecllist
+class FuncDecl; // members: name, args, stm
+class Stm;      // abstract class
+class Jump;     // members: label
+class Cjump;    // members: relop, left, right, t, f
+class Move;     // members: dst, src
+class Seq;      // members: stmlist
+class LabelStm; // members: label
+class Return;   // members: exp
+class ExpStm;   // members: exp
+class Exp;      // abstract class
+class Binop;    // members: op, left, right
+class Mem;      // members: mem
+class TempExp;  // members: temp
+class Eseq;     // members: stm, exp
+class Name;     // members: name
+class Const;    // members: constVal
+class Call;     // members: id, obj, args
+class ExtCall;  // members: extfun, args
 
-enum class Type {INT, PTR};
+enum class Type { INT,
+                  PTR };
 
-string typeToString(Type type); 
+string typeToString(Type type);
 
-//possible binary ops: +, -, *. /, &&, ||, xor 
-//note we don't need unary ops: "!" (not) is "1 xor", "-" (negate) is "0 -")
-//possible relop:  ==, !=, <, >, <=, >=
+// possible binary ops: +, -, *. /, &&, ||, xor
+// note we don't need unary ops: "!" (not) is "1 xor", "-" (negate) is "0 -")
+// possible relop:  ==, !=, <, >, <=, >=
 
 class Visitor {
-public:
-  virtual void visit(Program *prog) = 0;
-  virtual void visit(FuncDecl *func) = 0;
-  virtual void visit(Jump *jump) = 0;
+  public:
+    virtual void visit(Program *prog) = 0;
+    virtual void visit(FuncDecl *func) = 0;
+    virtual void visit(Jump *jump) = 0;
     virtual void visit(Cjump *cjump) = 0;
     virtual void visit(Move *move) = 0;
     virtual void visit(Seq *seq) = 0;
     virtual void visit(LabelStm *labelstm) = 0;
-  virtual void visit(Return *ret) = 0;
-  virtual void visit(ExpStm *exp) = 0;
+    virtual void visit(Return *ret) = 0;
+    virtual void visit(ExpStm *exp) = 0;
     virtual void visit(Binop *binop) = 0;
     virtual void visit(Mem *mem) = 0;
     virtual void visit(TempExp *tempexp) = 0;
@@ -63,26 +64,26 @@ public:
 };
 
 enum class Kind {
-  PROGRAM, 
-  FUNCDECL, 
-  JUMP, 
-  CJUMP, 
-  MOVE, 
-  SEQ, 
-  LABELSTM, 
-  RETURN, 
-  EXPSTM, 
-  BINOP, 
-  MEM, 
-  TEMPEXP, 
-  ESEQ, 
-  NAME, 
-  CONST, 
-  CALL, 
-  EXTCALL
+    PROGRAM,
+    FUNCDECL,
+    JUMP,
+    CJUMP,
+    MOVE,
+    SEQ,
+    LABELSTM,
+    RETURN,
+    EXPSTM,
+    BINOP,
+    MEM,
+    TEMPEXP,
+    ESEQ,
+    NAME,
+    CONST,
+    CALL,
+    EXTCALL
 };
 
-//forward declaration (declaration in treep.cc)
+// forward declaration (declaration in treep.cc)
 string kindToString(Kind kind);
 
 class Tree {
@@ -91,42 +92,44 @@ class Tree {
     Tree() {}
     virtual Kind getTreeKind() = 0;
     virtual void accept(Visitor &v) = 0;
-}; 
+};
 
 class Program : public Tree {
-public:
-  std::vector<tree::FuncDecl*> *funcdecllist;
-  Program(std::vector<tree::FuncDecl*> *funcdecllist) : funcdecllist(funcdecllist) {}
-  Kind getTreeKind() { return Kind::PROGRAM; }
-  void accept(Visitor &v) { v.visit(this); }
+  public:
+    std::vector<tree::FuncDecl *> *funcdecllist;
+    Program(std::vector<tree::FuncDecl *> *funcdecllist)
+        : funcdecllist(funcdecllist) {}
+    Kind getTreeKind() { return Kind::PROGRAM; }
+    void accept(Visitor &v) { v.visit(this); }
 };
 
 class FuncDecl : public Tree {
-public:
-  string name; //function name (unique name: classname + methodname)
-  std::vector<tree::Temp*> *args; //arguments: the first argument is the object pointer (this)
-  Stm *stm; //function body
-  Type return_type;
-  int last_temp_num; //last temp number used in the function
-  int last_label_num; //last label number used in the function
-  FuncDecl(string name, std::vector<tree::Temp*> *args, Stm *stm, Type return_type, int lt, int ll) : 
-      name(name), args(args), stm(stm), return_type(return_type), last_temp_num(lt), last_label_num(ll) {}
-  Kind getTreeKind() { return Kind::FUNCDECL; }
-  void accept(Visitor &v)  { v.visit(this); }
+  public:
+    string name;                     // function name (unique name: classname + methodname)
+    std::vector<tree::Temp *> *args; // arguments: the first argument is the object pointer (this)
+    Stm *stm;                        // function body
+    Type return_type;
+    int last_temp_num;  // last temp number used in the function
+    int last_label_num; // last label number used in the function
+    FuncDecl(string name, std::vector<tree::Temp *> *args, Stm *stm, Type return_type, int lt, int ll)
+        : name(name), args(args), stm(stm), return_type(return_type), last_temp_num(lt), last_label_num(ll) {}
+    Kind getTreeKind() { return Kind::FUNCDECL; }
+    void accept(Visitor &v) { v.visit(this); }
 };
 
 class Stm : public Tree {
-public:
-  ~Stm() {}
-  Stm() {}
-  virtual void accept(Visitor &v) = 0;
+  public:
+    ~Stm() {}
+    Stm() {}
+    virtual void accept(Visitor &v) = 0;
 };
 
 class Seq : public Stm {
   public:
-    std::vector<tree::Stm*> *sl = nullptr;
-    Seq(std::vector<tree::Stm*> *sl): sl(sl) {}
-    Seq() {sl=nullptr;} //if nothing, make sl nullptr
+    std::vector<tree::Stm *> *sl = nullptr;
+    Seq(std::vector<tree::Stm *> *sl)
+        : sl(sl) {}
+    Seq() { sl = nullptr; } // if nothing, make sl nullptr
     Kind getTreeKind() { return Kind::SEQ; }
     void accept(Visitor &v) { v.visit(this); }
 };
@@ -134,15 +137,17 @@ class Seq : public Stm {
 class LabelStm : public Stm {
   public:
     Label *label;
-    LabelStm(Label *label) : label(label) {}
+    LabelStm(Label *label)
+        : label(label) {}
     Kind getTreeKind() { return Kind::LABELSTM; }
     void accept(Visitor &v) { v.visit(this); }
 };
 
 class Jump : public Stm {
   public:
-    Label* label;
-    Jump(Label *label) : label(label) {}
+    Label *label;
+    Jump(Label *label)
+        : label(label) {}
     Kind getTreeKind() { return Kind::JUMP; }
     void accept(Visitor &v) { v.visit(this); }
 };
@@ -151,35 +156,38 @@ class Cjump : public Stm {
   public:
     string relop;
     Exp *left;
-    Exp *right; 
+    Exp *right;
     Label *t, *f;
-    Cjump(string relop, Exp *left, Exp *right, Label *t, Label *f) :
-      relop(relop), left(left), right(right), t(t), f(f) {}
+    Cjump(string relop, Exp *left, Exp *right, Label *t, Label *f)
+        : relop(relop), left(left), right(right), t(t), f(f) {}
     Kind getTreeKind() { return Kind::CJUMP; }
     void accept(Visitor &v) { v.visit(this); }
 };
 
 class Move : public Stm {
-public:
-  Exp *dst;
-  Exp *src;
-  Move(Exp *dst, Exp *src) : dst(dst), src(src) {}
-  Kind getTreeKind() { return Kind::MOVE; }
-  void accept(Visitor &v) { v.visit(this); }
+  public:
+    Exp *dst;
+    Exp *src;
+    Move(Exp *dst, Exp *src)
+        : dst(dst), src(src) {}
+    Kind getTreeKind() { return Kind::MOVE; }
+    void accept(Visitor &v) { v.visit(this); }
 };
 
-class ExpStm : public Stm { //an expression with result ignored (only keep the side effects)
+class ExpStm : public Stm { // an expression with result ignored (only keep the side effects)
   public:
     Exp *exp;
-    ExpStm(Exp *exp) : exp(exp) {}
+    ExpStm(Exp *exp)
+        : exp(exp) {}
     Kind getTreeKind() { return Kind::EXPSTM; }
-    void  accept(Visitor &v) { v.visit(this); }
+    void accept(Visitor &v) { v.visit(this); }
 };
 
 class Return : public Stm {
   public:
     Exp *exp;
-    Return(Exp *exp) : exp(exp) {}
+    Return(Exp *exp)
+        : exp(exp) {}
     Kind getTreeKind() { return Kind::RETURN; }
     void accept(Visitor &v) { v.visit(this); }
 };
@@ -188,8 +196,9 @@ class Exp : public Tree {
   public:
     ~Exp() {}
     Exp() {}
-    Type type; //each expression has a type (int or pointer)
-    Exp(Type type) : type(type) {}
+    Type type; // each expression has a type (int or pointer)
+    Exp(Type type)
+        : type(type) {}
     virtual void accept(Visitor &v) = 0;
 };
 
@@ -198,23 +207,26 @@ class Binop : public Exp {
     string op;
     Exp *left;
     Exp *right;
-    Binop(Type t, string op, Exp *left, Exp *right) : Exp(t), op(op), left(left), right(right) {}
+    Binop(Type t, string op, Exp *left, Exp *right)
+        : Exp(t), op(op), left(left), right(right) {}
     Kind getTreeKind() { return Kind::BINOP; }
     void accept(Visitor &v) { v.visit(this); }
-}; 
+};
 
 class Mem : public Exp {
   public:
     Exp *mem;
-    Mem(Type t, Exp *mem) : Exp(t), mem(mem) {} 
+    Mem(Type t, Exp *mem)
+        : Exp(t), mem(mem) {}
     Kind getTreeKind() { return Kind::MEM; }
     void accept(Visitor &v) { v.visit(this); }
-}; 
+};
 
 class TempExp : public Exp {
   public:
     Temp *temp;
-    TempExp(Type t, Temp *temp) : Exp(t), temp(temp) {}
+    TempExp(Type t, Temp *temp)
+        : Exp(t), temp(temp) {}
     Kind getTreeKind() { return Kind::TEMPEXP; }
     void accept(Visitor &v) { v.visit(this); }
 };
@@ -223,25 +235,29 @@ class Eseq : public Exp {
   public:
     Stm *stm;
     Exp *exp;
-    Eseq(Type t, Stm *stm, Exp *exp) : Exp(t), stm(stm), exp(exp) {}
+    Eseq(Type t, Stm *stm, Exp *exp)
+        : Exp(t), stm(stm), exp(exp) {}
     Kind getTreeKind() { return Kind::ESEQ; }
     void accept(Visitor &v) { v.visit(this); }
 };
 
-class Name : public Exp { //convert a label to a ptr (address)
+class Name : public Exp { // convert a label to a ptr (address)
   public:
     Label *name;
     String_Label *sname;
-    Name(Label *name) : Exp(Type::PTR), name(name), sname(nullptr) {}
-    Name(String_Label *sname) : Exp(Type::PTR), name(nullptr), sname(sname) {}
+    Name(Label *name)
+        : Exp(Type::PTR), name(name), sname(nullptr) {}
+    Name(String_Label *sname)
+        : Exp(Type::PTR), name(nullptr), sname(sname) {}
     Kind getTreeKind() { return Kind::NAME; }
     void accept(Visitor &v) { v.visit(this); }
 };
 
 class Const : public Exp {
   public:
-    int constVal; //we only support integer constants 
-    Const(int constVal) : constVal(constVal) {type = Type::INT;}
+    int constVal; // we only support integer constants
+    Const(int constVal)
+        : constVal(constVal) { type = Type::INT; }
     Kind getTreeKind() { return Kind::CONST; }
     void accept(Visitor &v) { v.visit(this); }
 };
@@ -250,9 +266,9 @@ class Call : public Exp {
   public:
     string id;
     Exp *obj;
-    std::vector<tree::Exp*> *args;
-    Call(tree::Type t, string id, tree::Exp *obj, std::vector<tree::Exp*> *args) : 
-      Exp(t), id(id), obj(obj), args(args) {}
+    std::vector<tree::Exp *> *args;
+    Call(tree::Type t, string id, tree::Exp *obj, std::vector<tree::Exp *> *args)
+        : Exp(t), id(id), obj(obj), args(args) {}
     Kind getTreeKind() { return Kind::CALL; }
     void accept(Visitor &v) { v.visit(this); }
 };
@@ -260,13 +276,13 @@ class Call : public Exp {
 class ExtCall : public Exp {
   public:
     string extfun;
-    std::vector<tree::Exp*> *args;
-    ExtCall(tree::Type t, string extfun, std::vector<tree::Exp*> *args) : 
-      Exp(t), extfun(extfun), args(args) {}
+    std::vector<tree::Exp *> *args;
+    ExtCall(tree::Type t, string extfun, std::vector<tree::Exp *> *args)
+        : Exp(t), extfun(extfun), args(args) {}
     Kind getTreeKind() { return Kind::EXTCALL; }
     void accept(Visitor &v) { v.visit(this); }
 };
 
-} //namespace tree
+} // namespace tree
 
 #endif

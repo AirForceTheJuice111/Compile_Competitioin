@@ -21,7 +21,8 @@ Program *minusIntRewrite(Program *root) {
     return dynamic_cast<Program *>(v.cur_node);
 }
 
-template <typename T> static vector<T *> *visitList(MinusIntConverter &v, vector<T *> *tl) {
+template <typename T>
+static vector<T *> *visitList(MinusIntConverter &v, vector<T *> *tl) {
     if (tl == nullptr || tl->size() == 0) return nullptr;
     vector<T *> *vt = new vector<T *>();
     for (T *x : *tl) {

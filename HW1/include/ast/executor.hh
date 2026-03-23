@@ -18,7 +18,8 @@ class Executor : public ASTVisitor {
     map<string, int> varTable;
     map<string, bool> varDefined;
 
-    Executor() : result(0) {}
+    Executor()
+        : result(0) {}
     void visit(Program *node) override;
     void visit(MainMethod *node) override;
     void visit(Assign *node) override;

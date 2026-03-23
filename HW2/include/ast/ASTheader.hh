@@ -64,7 +64,8 @@ class Pos {
   public:
     size_t sline = 0, scolumn = 0, eline = 0,
            ecolumn = 0; // start and end line and column
-    Pos(size_t sline, size_t scolumn, size_t eline, size_t ecolumn) : sline(sline), scolumn(scolumn), eline(eline), ecolumn(ecolumn) {}
+    Pos(size_t sline, size_t scolumn, size_t eline, size_t ecolumn)
+        : sline(sline), scolumn(scolumn), eline(eline), ecolumn(ecolumn) {}
     Pos *clone() { return new Pos(sline, scolumn, eline, ecolumn); }
     std::string to_str() {
         return "Position(sline: " + std::to_string(sline) + ", scolumn: " + std::to_string(scolumn) + ", eline: " + std::to_string(eline) + ", ecolumn: " + std::to_string(ecolumn) + ")";
@@ -76,7 +77,8 @@ enum class ASTKind; // forwards declaration
 class AST {
   public:
     ~AST() { delete pos; }
-    AST(Pos *pos) : pos(pos) {}
+    AST(Pos *pos)
+        : pos(pos) {}
     Pos *get_pos() { return pos; }
     virtual void accept(AST_Visitor &v) = 0;
     virtual ASTKind getASTKind() = 0;
@@ -163,14 +165,17 @@ enum class ASTKind {
     IntExp = 34,
 }; // Two basic types (string, integer, with position information)
 
-enum class TypeKind { CLASS = 0, INT = 1, ARRAY = 2 };
+enum class TypeKind { CLASS = 0,
+                      INT = 1,
+                      ARRAY = 2 };
 
 // some helper functions for AST
 fdmj::Program *fdmjParser(const std::string &filename, const bool debug);
 fdmj::Program *fdmjParser(std::ifstream &fp, const bool debug);
 std::string ASTKind_string(fdmj::ASTKind k);
 std::string type_kind_string(fdmj::TypeKind typekind);
-template <class T> std::vector<T *> *cloneList(std::vector<T *> *tl);
+template <class T>
+std::vector<T *> *cloneList(std::vector<T *> *tl);
 
 } // namespace fdmj
 

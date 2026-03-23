@@ -12,7 +12,8 @@ Program *constantPropagate(Program *root);
 class ConstantPropagator : public ASTVisitor {
   public:
     AST *cur_node = nullptr; // the current node in the cloned AST being built
-    ConstantPropagator() : cur_node(nullptr) {}
+    ConstantPropagator()
+        : cur_node(nullptr) {}
     void visit(Program *node) override;
     void visit(MainMethod *node) override;
     void visit(Assign *node) override;
