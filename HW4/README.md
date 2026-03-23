@@ -1,11 +1,10 @@
-This is HW3 
+This is HW4
 
-In this assignment, you only need to do the AST2IR translation, with the following assumption:
+In this assignment, you will complete the AST2IR translation, i.e., deal with the array and class types.
 
-1) The program only has the mainmethod (no classes)
-2) Only integer type is used for variables (no array or class types)
-3) The function calls are all external functions (like starttime, putch, putint, getint, ...)
+You will continue use the code base for HW3. 
+ Follow the lab instructions to finish the assignment.
 
-Follow the lab instructions to finish the assignment.
+Look into test directory for test cases.
 
-(We will finish the rest of the translation in HW4)
+*It might be a good practice to finish HW3 before going into HW4.*
