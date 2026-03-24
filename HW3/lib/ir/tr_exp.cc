@@ -31,7 +31,7 @@ Tr_cx *Tr_ex::unCx(Temp_map *tm) {
 }
 
 Tr_ex *Tr_nx::unEx(Temp_map *tm) {
-    return new Tr_ex(new tree::Eseq(tree::Type::INT, stm, new tree::Const(0)));
+    return new Tr_ex(new tree::Eseq(tree::Type::INT, stm, new tree::Const(0))); // since it's a statement, we return 0 as the expression value. Eseq is used to sequence the statement and the expression together, so that when we unNx to get the statement, we can still keep the side effects of the expression (if any) in the correct order.
 }
 
 Tr_nx *Tr_nx::unNx(Temp_map *tm) {
@@ -42,7 +42,7 @@ Tr_cx *Tr_nx::unCx(Temp_map *tm) {
     return nullptr; // should never be called
 }
 
-Tr_ex *Tr_cx::unEx(Temp_map *tm) { // inequality conversion to 0 / 1
+Tr_ex *Tr_cx::unEx(Temp_map *tm) {
     tree::Label *t = tm->newlabel();
     true_list->patch(t);
     tree::Label *f = tm->newlabel();
@@ -52,7 +52,7 @@ Tr_ex *Tr_cx::unEx(Temp_map *tm) { // inequality conversion to 0 / 1
     vector<tree::Stm *> *sl = new vector<tree::Stm *>();
     TempExp *te = new TempExp(tree::Type::INT, tm->newtemp());
     sl->push_back(new Move(te, new Const(0)));
-    sl->push_back(this->stm);
+    sl->push_back(this->stm); // stm is the conditional jump that will jump to t if condition is true, and jump to f if condition is false
     sl->push_back(new tree::LabelStm(t));
     sl->push_back(new Move(te, new Const(1)));
     sl->push_back(new tree::LabelStm(f));

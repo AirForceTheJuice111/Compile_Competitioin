@@ -6,16 +6,37 @@
                 <ESeq>
                     <Sequence>
                         <Move>
-                            <Temp type="INT" temp="102"/>
-                            <BinOp type="INT" op="-">
-                                <Const value="0"/>
-                                <Const value="123"/>
-                            </BinOp>
+                            <Temp type="PTR" temp="102"/>
+                            <ESeq>
+                                <Sequence>
+                                    <Move>
+                                        <Temp type="PTR" temp="101"/>
+                                        <ExtCall extfun="malloc">
+                                            <Arguments>
+                                                <BinOp type="INT" op="*">
+                                                    <BinOp type="INT" op="+">
+                                                        <Const value="1"/>
+                                                        <Const value="1"/>
+                                                    </BinOp>
+                                                    <Const value="4"/>
+                                                </BinOp>
+                                            </Arguments>
+                                        </ExtCall>
+                                    </Move>
+                                    <Move>
+                                        <Memory type="INT">
+                                            <Temp type="PTR" temp="101"/>
+                                        </Memory>
+                                        <Const value="1"/>
+                                    </Move>
+                                </Sequence>
+                                <Temp type="PTR" temp="101"/>
+                            </ESeq>
                         </Move>
                     </Sequence>
                     <Memory type="INT">
                         <BinOp type="PTR" op="+">
-                            <Temp type="PTR" temp="100"/>
+                            <Temp type="PTR" temp="102"/>
                             <BinOp type="INT" op="*">
                                 <BinOp type="INT" op="+">
                                     <ESeq>
@@ -23,16 +44,16 @@
                                             <Move>
                                                 <Temp type="INT" temp="103"/>
                                                 <Memory type="INT">
-                                                    <Temp type="PTR" temp="100"/>
+                                                    <Temp type="PTR" temp="102"/>
                                                 </Memory>
                                             </Move>
                                             <CJump relop="&gt;=" true="101" false="100">
-                                                <Temp type="INT" temp="102"/>
+                                                <Const value="0"/>
                                                 <Const value="0"/>
                                             </CJump>
                                             <Label label="101"/>
                                             <CJump relop="&gt;=" true="100" false="102">
-                                                <Temp type="INT" temp="102"/>
+                                                <Const value="0"/>
                                                 <Temp type="INT" temp="103"/>
                                             </CJump>
                                             <Label label="100"/>
@@ -45,7 +66,7 @@
                                             </ExpressionStatement>
                                             <Label label="102"/>
                                         </Sequence>
-                                        <Temp type="INT" temp="102"/>
+                                        <Const value="0"/>
                                     </ESeq>
                                     <Const value="1"/>
                                 </BinOp>
@@ -54,7 +75,7 @@
                         </BinOp>
                     </Memory>
                 </ESeq>
-                <Const value="4"/>
+                <Const value="0"/>
             </Move>
         </Sequence>
     </FunctionDeclaration>

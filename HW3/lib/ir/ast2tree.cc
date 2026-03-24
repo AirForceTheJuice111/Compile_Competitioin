@@ -57,9 +57,69 @@ Method_var_table *generate_method_var_table(string class_name, string method_nam
     return mvt;
 }
 
-// Generate class table (empty for HW3 since no classes)
+// Resolve which class in the hierarchy actually declares a variable
+// Walk from class_name up through parents until we find one that owns var_name
+static string resolve_var_class(string class_name, string var_name, Name_Maps *nm) {
+    string cur = class_name;
+    while (!cur.empty()) {
+        if (nm->is_class_var(cur, var_name)) return cur;
+        cur = nm->get_parent(cur);
+    }
+    return "";
+}
+
+// Resolve which class in the hierarchy implements a method
+static string resolve_method_class(string class_name, string method_name, Name_Maps *nm) {
+    string cur = class_name;
+    while (!cur.empty()) {
+        if (nm->is_method(cur, method_name)) return cur;
+        cur = nm->get_parent(cur);
+    }
+    return "";
+}
+
+// Generate class table (UOR: Unified Object Record)
+// All classes share the same layout: all class vars first (sorted by ClassName^VarName),
+// then all unique method names (sorted alphabetically). Each entry occupies address_length bytes.
 Class_table *generate_class_table(AST_Semant_Map *semant_map) {
-    return new Class_table();
+    auto ct = new Class_table();
+    auto nm = semant_map->getNameMaps();
+    auto class_list = nm->get_class_list();
+    if (class_list == nullptr || class_list->empty()) return ct;
+
+    int addr_len = compiler_config.at("address_length");
+
+    // Collect all ClassName^VarName keys (skip __$main__ pseudo-class)
+    set<string> all_var_keys;
+    set<string> all_method_names;
+    for (auto &cls : *class_list) {
+        if (cls == "__$main__") continue; // skip main pseudo-class
+        auto vars = nm->get_class_var_list(cls);
+        if (vars != nullptr) {
+            for (auto &v : *vars) all_var_keys.insert(cls + "^" + v);
+            delete vars;
+        }
+        auto methods = nm->get_method_list(cls);
+        if (methods != nullptr) {
+            for (auto &m : *methods) all_method_names.insert(m);
+            delete methods;
+        }
+    }
+    delete class_list;
+
+    // Assign positions: vars first (sorted), then methods (sorted)
+    int pos = 0;
+    for (auto &key : all_var_keys) {
+        ct->var_pos_map[key] = pos;
+        pos += addr_len;
+    }
+    for (auto &m : all_method_names) {
+        ct->method_pos_map[m] = pos;
+        pos += addr_len;
+    }
+
+    ct->print_class_table();
+    return ct;
 }
 
 // Main entry point: convert AST to tree IR
@@ -73,20 +133,26 @@ tree::Program *ast2tree(fdmj::Program *prog, AST_Semant_Map *semant_map) {
 
 // ======================== Visitor Implementations ========================
 
-// Program: visit main method (and class decls in HW4)
+// Program: visit main method and class decls, collect all FuncDecls
 void ASTToTreeVisitor::visit(fdmj::Program *node) {
-    vector<tree::FuncDecl *> *fdl = new vector<tree::FuncDecl *>();
+    auto fdl = new vector<tree::FuncDecl *>();
     // Visit main method
     if (node->main != nullptr) {
         node->main->accept(*this);
-        tree::FuncDecl *fd = static_cast<tree::FuncDecl *>(visit_tree_result);
+        auto fd = static_cast<tree::FuncDecl *>(visit_tree_result);
         if (fd != nullptr) fdl->push_back(fd);
     }
-    // Visit class declarations (HW4)
+    // Visit class declarations: iterate each class's methods directly
     if (node->cdl != nullptr) {
         for (auto cd : *node->cdl) {
-            cd->accept(*this);
-            // In HW4, this would produce FuncDecls for each method
+            current_class = cd->id->id;
+            if (cd->mdl != nullptr) {
+                for (auto md : *cd->mdl) {
+                    md->accept(*this);
+                    auto fd = static_cast<tree::FuncDecl *>(visit_tree_result);
+                    if (fd != nullptr) fdl->push_back(fd);
+                }
+            }
         }
     }
     visit_tree_result = new tree::Program(fdl);
@@ -121,8 +187,14 @@ void ASTToTreeVisitor::visit(fdmj::MainMethod *node) {
         for (auto vd : *node->vdl) {
             vd->accept(*this);
             if (visit_tree_result != nullptr) {
-                tree::Stm *init_stm = static_cast<tree::Stm *>(visit_tree_result);
-                sl->push_back(init_stm);
+                auto init_stm = static_cast<tree::Stm *>(visit_tree_result);
+                // Flatten Seq from VarDecl into the main body
+                if (init_stm->getTreeKind() == tree::Kind::SEQ) {
+                    auto seq = static_cast<tree::Seq *>(init_stm);
+                    if (seq->sl != nullptr) for (auto s : *seq->sl) sl->push_back(s);
+                } else {
+                    sl->push_back(init_stm);
+                }
             }
         }
     }
@@ -161,15 +233,126 @@ void ASTToTreeVisitor::visit(fdmj::Type *node) {
     visit_exp_result = nullptr;
 }
 
-// VarDecl: handle variable initialization (int x = val 不支持; array init 在 HW4 实现)
+// VarDecl: handle variable initialization
+// - Class type: init to Const(0) (null pointer)
+// - Array type without init: init to Const(0) (null pointer)
+// - Array literal init (int[] a = {1,2,3}): malloc + store length + store elements
+// - Int type without init: no action
 void ASTToTreeVisitor::visit(fdmj::VarDecl *node) {
+    auto var_name = node->id->id;
+    auto temp = method_var_table->get_var_temp(var_name);
+    if (temp == nullptr) { visit_tree_result = nullptr; return; }
+    auto type = method_var_table->get_var_type(var_name);
+    int addr_len = compiler_config.at("address_length");
+
+    // Array literal init: int[] a = {1,2,3}
+    // Note: xml2ast sets init to vector<IntExp*>*(nullptr) for arrays without init
+    if (holds_alternative<vector<fdmj::IntExp *> *>(node->init)) {
+        auto init_arr = get<vector<fdmj::IntExp *> *>(node->init);
+        if (init_arr == nullptr) { visit_tree_result = nullptr; return; } // no init
+        int len = init_arr->size();
+        auto sl = new vector<tree::Stm *>();
+
+        // var = malloc((len+1) * addr_len)
+        sl->push_back(new tree::Move(
+            new tree::TempExp(tree::Type::PTR, new tree::Temp(temp->num)),
+            new tree::ExtCall(tree::Type::PTR, "malloc",
+                new vector<tree::Exp *>({new tree::Const((len + 1) * addr_len)}))));
+
+        // Mem[var] = len
+        sl->push_back(new tree::Move(
+            new tree::Mem(tree::Type::INT, new tree::TempExp(tree::Type::PTR, new tree::Temp(temp->num))),
+            new tree::Const(len)));
+
+        // Mem[var + (i+1)*addr_len] = init_arr[i]
+        for (int i = 0; i < len; i++) {
+            sl->push_back(new tree::Move(
+                new tree::Mem(tree::Type::INT,
+                    new tree::Binop(tree::Type::PTR, "+",
+                        new tree::TempExp(tree::Type::PTR, new tree::Temp(temp->num)),
+                        new tree::Const((i + 1) * addr_len))),
+                new tree::Const(init_arr->at(i)->val)));
+        }
+        visit_tree_result = new tree::Seq(sl);
+        return;
+    }
+
+    // Class type without init: init to 0 (null pointer)
+    if (node->type->typeKind == fdmj::TypeKind::CLASS) {
+        visit_tree_result = new tree::Move(
+            new tree::TempExp(type, new tree::Temp(temp->num)),
+            new tree::Const(0));
+        return;
+    }
+
     visit_tree_result = nullptr;
 }
 
-// MethodDecl: HW4
+// MethodDecl: create a FuncDecl for a class method (ClassName^MethodName)
 void ASTToTreeVisitor::visit(fdmj::MethodDecl *node) {
-    visit_tree_result = nullptr;
-    visit_exp_result = nullptr;
+    current_method = node->id->id;
+    string func_name = current_class + "^" + current_method;
+    string return_var = "_^return^_" + current_method;
+
+    // Create temp map for this method
+    method_temp_map = new Temp_map();
+    auto nm = semant_map->getNameMaps();
+
+    // Generate method var table (allocates temps for locals, then formals including _^return^_)
+    method_var_table = generate_method_var_table(current_class, current_method, nm, method_temp_map);
+
+    // Save return type BEFORE overriding _^return^_ type to PTR
+    auto ret_type = typeKind2TreeType(node->type->typeKind);
+
+    // Override _^return^_ type to PTR (it represents the 'this' pointer in class methods)
+    (*method_var_table->var_type_map)[return_var] = tree::Type::PTR;
+
+    // Allocate one extra scratch temp (class method convention)
+    method_temp_map->newtemp();
+
+    // Initialize continue/break labels
+    continue_label = nullptr;
+    break_label = nullptr;
+
+    // Process local variable declarations (handle initializations)
+    auto sl = new vector<tree::Stm *>();
+    if (node->vdl != nullptr) {
+        for (auto vd : *node->vdl) {
+            vd->accept(*this);
+            if (visit_tree_result != nullptr) {
+                auto init_stm = static_cast<tree::Stm *>(visit_tree_result);
+                // Flatten Seq from VarDecl into method body
+                if (init_stm->getTreeKind() == tree::Kind::SEQ) {
+                    auto seq = static_cast<tree::Seq *>(init_stm);
+                    if (seq->sl != nullptr) for (auto s : *seq->sl) sl->push_back(s);
+                } else {
+                    sl->push_back(init_stm);
+                }
+            }
+        }
+    }
+
+    // Process method body statements
+    if (node->sl != nullptr) {
+        for (auto stm : *node->sl) {
+            stm->accept(*this);
+            if (visit_exp_result != nullptr) {
+                auto nx = visit_exp_result->unNx(method_temp_map);
+                if (nx != nullptr && nx->stm != nullptr) sl->push_back(nx->stm);
+            }
+        }
+    }
+
+    tree::Stm *body = new tree::Seq(sl);
+
+    // Build FuncDecl args: [Temp(this_temp)]
+    auto this_temp = method_var_table->get_var_temp(return_var);
+    auto args = new vector<tree::Temp *>({new tree::Temp(this_temp->num)});
+
+    visit_tree_result = new tree::FuncDecl(
+        func_name, args, body, ret_type,
+        method_temp_map->next_temp - 1,
+        method_temp_map->next_label - 1);
 }
 
 // Formal: not directly translated
@@ -306,9 +489,36 @@ void ASTToTreeVisitor::visit(fdmj::Assign *node) {
     visit_exp_result = new Tr_nx(new tree::Move(dst, src));
 }
 
-// CallStm: HW4 (class method calls)
+// CallStm: obj.method(args) as statement (result discarded)
+// Call(Memory[obj + method_offset], [obj, args...])
 void ASTToTreeVisitor::visit(fdmj::CallStm *node) {
-    visit_exp_result = new Tr_nx(new tree::Seq());
+    string method_name = node->name->id;
+    int method_pos = class_table->get_method_pos(method_name);
+
+    // Visit obj
+    node->obj->accept(*this);
+    auto obj_exp = visit_exp_result->unEx(method_temp_map)->exp;
+
+    // Build args: [obj, explicit_params...]
+    auto call_args = new vector<tree::Exp *>({obj_exp});
+    if (node->par != nullptr) {
+        for (auto p : *node->par) {
+            p->accept(*this);
+            call_args->push_back(visit_exp_result->unEx(method_temp_map)->exp);
+        }
+    }
+
+    // Function pointer: Memory[obj + method_offset]
+    auto func_ptr = new tree::Mem(tree::Type::PTR,
+        new tree::Binop(tree::Type::PTR, "+", obj_exp, new tree::Const(method_pos)));
+
+    // Determine return type from semant map
+    auto sem = semant_map->getSemant(node);
+    tree::Type ret_type = tree::Type::INT;
+    if (sem != nullptr) ret_type = typeKind2TreeType(sem->get_type());
+
+    visit_exp_result = new Tr_nx(new tree::ExpStm(
+        new tree::Call(ret_type, method_name, func_ptr, call_args)));
 }
 
 // Continue: jump to continue label
@@ -441,7 +651,7 @@ void ASTToTreeVisitor::visit(fdmj::BinaryOp *node) {
         auto false_list = new Patch_list();
         false_list->add_patch(fl);
 
-        auto cjump = new tree::Cjump(op, left_exp, right_exp, tl, fl);
+        auto cjump = new tree::Cjump(op, left_exp, right_exp, tl, fl); // this is the only place where a Cjump is new-ed, and the labels in this Cjump will be patched later using the patch lists when we generate code for the then/else branches of the if statement (for example)
         visit_exp_result = new Tr_cx(true_list, false_list, cjump);
         return;
     }
@@ -479,39 +689,244 @@ void ASTToTreeVisitor::visit(fdmj::UnaryOp *node) {
     }
 }
 
-// ArrayExp: arr[index] -> HW4 (not needed in HW3)
+// ArrayExp: arr[index] -> bounds-checked Memory access
+// If arr or index is complex (not Temp/Const), materialize to a temp first.
+// Bounds check: CJump(index >= 0, ok, exit), CJump(index >= len, exit, done), exit(-1)
+// Result: Memory[arr + (index + 1) * addr_len]
 void ASTToTreeVisitor::visit(fdmj::ArrayExp *node) {
-    visit_exp_result = new Tr_ex(new tree::Const(0));
+    int addr_len = compiler_config.at("address_length");
+
+    // Visit array expression
+    node->arr->accept(*this);
+    auto arr_raw = visit_exp_result->unEx(method_temp_map)->exp;
+
+    // Visit index expression
+    node->index->accept(*this);
+    auto idx_raw = visit_exp_result->unEx(method_temp_map)->exp;
+
+    // Materialize arr if complex
+    tree::Exp *arr_exp = arr_raw;
+    tree::Stm *arr_pre_stm = nullptr;
+    if (arr_raw->getTreeKind() != tree::Kind::TEMPEXP && arr_raw->getTreeKind() != tree::Kind::CONST) {
+        auto arr_temp = method_temp_map->newtemp();
+        arr_pre_stm = new tree::Seq(new vector<tree::Stm *>({
+            new tree::Move(
+                new tree::TempExp(tree::Type::PTR, new tree::Temp(arr_temp->num)),
+                arr_raw)}));
+        arr_exp = new tree::TempExp(tree::Type::PTR, new tree::Temp(arr_temp->num));
+    }
+
+    // Materialize index if complex
+    tree::Exp *idx_exp = idx_raw;
+    tree::Stm *idx_pre_stm = nullptr;
+    if (idx_raw->getTreeKind() != tree::Kind::TEMPEXP && idx_raw->getTreeKind() != tree::Kind::CONST) {
+        auto idx_temp = method_temp_map->newtemp();
+        idx_pre_stm = new tree::Seq(new vector<tree::Stm *>({
+            new tree::Move(
+                new tree::TempExp(tree::Type::INT, new tree::Temp(idx_temp->num)),
+                idx_raw)}));
+        idx_exp = new tree::TempExp(tree::Type::INT, new tree::Temp(idx_temp->num));
+    }
+
+    // Bounds check
+    auto len_temp = method_temp_map->newtemp();
+    auto exit_label = method_temp_map->newlabel();
+    auto ok_label = method_temp_map->newlabel();
+    auto done_label = method_temp_map->newlabel();
+
+    auto bounds_sl = new vector<tree::Stm *>();
+    // len = Mem[arr]
+    bounds_sl->push_back(new tree::Move(
+        new tree::TempExp(tree::Type::INT, new tree::Temp(len_temp->num)),
+        new tree::Mem(tree::Type::INT, arr_exp)));
+    // CJump(index >= 0, ok, exit)
+    bounds_sl->push_back(new tree::Cjump(">=", idx_exp, new tree::Const(0), ok_label, exit_label));
+    bounds_sl->push_back(new tree::LabelStm(ok_label));
+    // CJump(index >= len, exit, done)
+    bounds_sl->push_back(new tree::Cjump(">=", idx_exp,
+        new tree::TempExp(tree::Type::INT, new tree::Temp(len_temp->num)), exit_label, done_label));
+    bounds_sl->push_back(new tree::LabelStm(exit_label));
+    // exit(-1)
+    bounds_sl->push_back(new tree::ExpStm(
+        new tree::ExtCall(tree::Type::INT, "exit", new vector<tree::Exp *>({new tree::Const(-1)}))));
+    bounds_sl->push_back(new tree::LabelStm(done_label));
+
+    // ESeq: bounds check, returns index
+    auto bounds_eseq = new tree::Eseq(tree::Type::INT, new tree::Seq(bounds_sl), idx_exp);
+
+    // Memory[arr + (bounds_checked_index + 1) * addr_len]
+    auto mem = new tree::Mem(tree::Type::INT,
+        new tree::Binop(tree::Type::PTR, "+", arr_exp,
+            new tree::Binop(tree::Type::INT, "*",
+                new tree::Binop(tree::Type::INT, "+", bounds_eseq, new tree::Const(1)),
+                new tree::Const(addr_len))));
+
+    // Wrap with materialization pre-statements if needed
+    tree::Exp *result = mem;
+    if (idx_pre_stm != nullptr)
+        result = new tree::Eseq(tree::Type::INT, idx_pre_stm, result);
+    if (arr_pre_stm != nullptr)
+        result = new tree::Eseq(tree::Type::INT, arr_pre_stm, result);
+
+    visit_exp_result = new Tr_ex(result);
 }
 
-// CallExp: HW4
+// CallExp: obj.method(args) as expression (result used)
+// Call(Memory[obj + method_offset], [obj, args...])
 void ASTToTreeVisitor::visit(fdmj::CallExp *node) {
-    visit_exp_result = new Tr_ex(new tree::Const(0));
+    string method_name = node->name->id;
+    int method_pos = class_table->get_method_pos(method_name);
+
+    // Visit obj
+    node->obj->accept(*this);
+    auto obj_exp = visit_exp_result->unEx(method_temp_map)->exp;
+
+    // Build args: [obj, explicit_params...]
+    auto call_args = new vector<tree::Exp *>({obj_exp});
+    if (node->par != nullptr) {
+        for (auto p : *node->par) {
+            p->accept(*this);
+            call_args->push_back(visit_exp_result->unEx(method_temp_map)->exp);
+        }
+    }
+
+    // Function pointer: Memory[obj + method_offset]
+    auto func_ptr = new tree::Mem(tree::Type::PTR,
+        new tree::Binop(tree::Type::PTR, "+", obj_exp, new tree::Const(method_pos)));
+
+    // Determine return type from semant map
+    auto sem = semant_map->getSemant(node);
+    tree::Type ret_type = tree::Type::INT;
+    if (sem != nullptr) ret_type = typeKind2TreeType(sem->get_type());
+
+    visit_exp_result = new Tr_ex(
+        new tree::Call(ret_type, method_name, func_ptr, call_args));
 }
 
-// ClassVar: HW4
+// ClassVar: obj.field -> Memory[obj + class_table.get_var_pos(declaring_class, field)]
+// Sets class_var_class_name for chained access (e.g. this.c.j)
 void ASTToTreeVisitor::visit(fdmj::ClassVar *node) {
-    visit_exp_result = new Tr_ex(new tree::Const(0));
+    auto nm = semant_map->getNameMaps();
+
+    // Visit obj to get its translation and determine its class type
+    node->obj->accept(*this);
+    auto obj_exp = visit_exp_result->unEx(method_temp_map)->exp;
+
+    // Determine the class type of the obj expression
+    string obj_class;
+    if (node->obj->getASTKind() == fdmj::ASTKind::This) {
+        obj_class = current_class;
+    } else {
+        // Use class_var_class_name if set by a previous ClassVar visit (chained access)
+        // or look up from semant_map
+        auto sem = semant_map->getSemant(node->obj);
+        if (sem != nullptr && sem->get_type() == fdmj::TypeKind::CLASS)
+            obj_class = get<string>(sem->get_type_par());
+        else
+            obj_class = class_var_class_name;
+    }
+
+    string field_name = node->id->id;
+
+    // Walk up class hierarchy to find which class declares this field
+    string declaring_class = resolve_var_class(obj_class, field_name, nm);
+    int offset = class_table->get_var_pos(declaring_class, field_name);
+
+    // Determine field type from class var declaration
+    auto field_vd = nm->get_class_var(declaring_class, field_name);
+    tree::Type field_type = (field_vd != nullptr) ? typeKind2TreeType(field_vd->type->typeKind) : tree::Type::INT;
+
+    // Set class_var_class_name for chained access
+    if (field_vd != nullptr && field_vd->type->typeKind == fdmj::TypeKind::CLASS)
+        class_var_class_name = field_vd->type->cid->id;
+    else
+        class_var_class_name = "";
+
+    // Memory[obj + offset]
+    auto mem = new tree::Mem(field_type,
+        new tree::Binop(tree::Type::PTR, "+", obj_exp, new tree::Const(offset)));
+    visit_exp_result = new Tr_ex(mem);
 }
 
-// This: HW4
+// This: return TempExp of the 'this' pointer (_^return^_method's temp)
 void ASTToTreeVisitor::visit(fdmj::This *node) {
-    visit_exp_result = new Tr_ex(new tree::Const(0));
+    string return_var = "_^return^_" + current_method;
+    auto temp = method_var_table->get_var_temp(return_var);
+    class_var_class_name = current_class; // for ClassVar chained access
+    visit_exp_result = new Tr_ex(new tree::TempExp(tree::Type::PTR, new tree::Temp(temp->num)));
 }
 
-// Length: HW4 (array length)
+// Length: arr.length -> Memory[arr + 0] = Memory[arr]
 void ASTToTreeVisitor::visit(fdmj::Length *node) {
-    visit_exp_result = new Tr_ex(new tree::Const(0));
+    node->exp->accept(*this);
+    auto arr_exp = visit_exp_result->unEx(method_temp_map)->exp;
+    visit_exp_result = new Tr_ex(new tree::Mem(tree::Type::INT, arr_exp));
 }
 
-// NewArray: HW4
+// NewArray: new int[size] -> ESeq(Seq(malloc, store_length), ptr_temp)
 void ASTToTreeVisitor::visit(fdmj::NewArray *node) {
-    visit_exp_result = new Tr_ex(new tree::Const(0));
+    int addr_len = compiler_config.at("address_length");
+    node->size->accept(*this);
+    auto size_exp = visit_exp_result->unEx(method_temp_map)->exp;
+
+    auto ptr_temp = method_temp_map->newtemp();
+    auto sl = new vector<tree::Stm *>();
+
+    // ptr = malloc((size + 1) * addr_len)
+    sl->push_back(new tree::Move(
+        new tree::TempExp(tree::Type::PTR, new tree::Temp(ptr_temp->num)),
+        new tree::ExtCall(tree::Type::PTR, "malloc",
+            new vector<tree::Exp *>({
+                new tree::Binop(tree::Type::INT, "*",
+                    new tree::Binop(tree::Type::INT, "+", size_exp, new tree::Const(1)),
+                    new tree::Const(addr_len))}))));
+
+    // Mem[ptr] = size
+    sl->push_back(new tree::Move(
+        new tree::Mem(tree::Type::INT, new tree::TempExp(tree::Type::PTR, new tree::Temp(ptr_temp->num))),
+        size_exp));
+
+    visit_exp_result = new Tr_ex(new tree::Eseq(tree::Type::PTR,
+        new tree::Seq(sl),
+        new tree::TempExp(tree::Type::PTR, new tree::Temp(ptr_temp->num))));
 }
 
-// NewObject: HW4
+// NewObject: new ClassName() -> ESeq(Seq(malloc, store method ptrs), ptr_temp)
 void ASTToTreeVisitor::visit(fdmj::NewObject *node) {
-    visit_exp_result = new Tr_ex(new tree::Const(0));
+    auto nm = semant_map->getNameMaps();
+    string class_name = node->id->id;
+
+    // Calculate object size: total entries in UOR * addr_len
+    int total_size = (class_table->var_pos_map.size() + class_table->method_pos_map.size())
+                     * compiler_config.at("address_length");
+
+    auto ptr_temp = method_temp_map->newtemp();
+    auto sl = new vector<tree::Stm *>();
+
+    // ptr = malloc(total_size)
+    sl->push_back(new tree::Move(
+        new tree::TempExp(tree::Type::PTR, new tree::Temp(ptr_temp->num)),
+        new tree::ExtCall(tree::Type::PTR, "malloc",
+            new vector<tree::Exp *>({new tree::Const(total_size)}))));
+
+    // Store method function pointers for this class
+    // For each method in the UOR, resolve which class implements it for class_name
+    for (auto &[method_name, method_pos] : class_table->method_pos_map) {
+        auto impl_class = resolve_method_class(class_name, method_name, nm);
+        if (impl_class.empty()) continue; // this class doesn't have this method
+        // Store Name("ImplClass^method") at Mem[ptr + method_pos]
+        auto sname = method_temp_map->newstringlabel(impl_class + "^" + method_name);
+        sl->push_back(new tree::Move(
+            new tree::Mem(tree::Type::PTR,
+                new tree::Binop(tree::Type::PTR, "+",
+                    new tree::TempExp(tree::Type::PTR, new tree::Temp(ptr_temp->num)),
+                    new tree::Const(method_pos))),
+            new tree::Name(sname)));
+    }
+
+    visit_exp_result = new Tr_ex(new tree::Eseq(tree::Type::PTR,
+        new tree::Seq(sl),
+        new tree::TempExp(tree::Type::PTR, new tree::Temp(ptr_temp->num))));
 }
 
 // GetInt: getint() -> ExtCall("getint", {})

@@ -69,7 +69,7 @@ class Tr_cx : public Tr_Exp { // conditional jump wrapper, contains true/false p
   public:
     Patch_list *true_list;
     Patch_list *false_list;
-    tree::Stm *stm;
+    tree::Stm *stm; // the tree::Cjump statement that will jump to the true label if condition is true, and jump to the false label if condition is false. The labels in this statement will be patched later using the patch lists.
     Tr_cx(Patch_list *t, Patch_list *f, tree::Stm *s) {
         true_list = t;
         false_list = f;
