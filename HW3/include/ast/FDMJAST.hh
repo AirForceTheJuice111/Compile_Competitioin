@@ -195,7 +195,7 @@ class Assign : public Stm {
 
 class CallStm : public Stm {
   public:
-    Exp *obj = nullptr;
+    Exp *obj = nullptr; // the object on which the method is called, could be null for static method calls (not supported in this language but we can still allow obj to be null for uniformity)
     IdExp *name = nullptr;
     vector<Exp *> *par = new vector<Exp *>();
 
@@ -370,7 +370,7 @@ class CallExp : public Exp {
     }
 };
 
-class ClassVar : public Exp {
+class ClassVar : public Exp { // class variable access, e.g. obj.field, this.field, obj1.field1.field2
   public:
     Exp *obj = nullptr;
     IdExp *id = nullptr;

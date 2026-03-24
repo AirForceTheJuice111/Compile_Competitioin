@@ -255,7 +255,7 @@ void ASTToTreeVisitor::visit(fdmj::VarDecl *node) {
 
         // var = malloc((len+1) * addr_len)
         sl->push_back(new tree::Move(
-            new tree::TempExp(tree::Type::PTR, new tree::Temp(temp->num)),
+            new tree::TempExp(tree::Type::PTR, new tree::Temp(temp->num)), // new TempExp is because we want to keep the type information for the temp, which is needed for memory access later. The temp itself is allocated in the method var table and is of type PTR, but we need to wrap it in a TempExp to use it in the IR tree with the correct type.
             new tree::ExtCall(tree::Type::PTR, "malloc",
                 new vector<tree::Exp *>({new tree::Const((len + 1) * addr_len)}))));
 
@@ -307,7 +307,7 @@ void ASTToTreeVisitor::visit(fdmj::MethodDecl *node) {
     // Override _^return^_ type to PTR (it represents the 'this' pointer in class methods)
     (*method_var_table->var_type_map)[return_var] = tree::Type::PTR;
 
-    // Allocate one extra scratch temp (class method convention)
+    // Allocate one extra scratch temp (class method convention), which can be used for various purposes (e.g., storing 'this' pointer, intermediate calculations, etc.)
     method_temp_map->newtemp();
 
     // Initialize continue/break labels
@@ -346,8 +346,8 @@ void ASTToTreeVisitor::visit(fdmj::MethodDecl *node) {
     tree::Stm *body = new tree::Seq(sl);
 
     // Build FuncDecl args: [Temp(this_temp)]
-    auto this_temp = method_var_table->get_var_temp(return_var);
-    auto args = new vector<tree::Temp *>({new tree::Temp(this_temp->num)});
+    auto this_temp = method_var_table->get_var_temp(return_var); // this_temp is the temp allocated for _^return^_, which we repurpose as the 'this' pointer in class methods
+    auto args = new vector<tree::Temp *>({new tree::Temp(this_temp->num)}); // method convention: the first argument is always the 'this' pointer, which is passed in the temp allocated for _^return^_. the other args (formals) are accessed via their allocated temps in the method var table. we don't need to include them in the FuncDecl args list because they are accessed directly via their temps, not passed as arguments in the IR level.
 
     visit_tree_result = new tree::FuncDecl(
         func_name, args, body, ret_type,
@@ -495,7 +495,7 @@ void ASTToTreeVisitor::visit(fdmj::CallStm *node) {
     string method_name = node->name->id;
     int method_pos = class_table->get_method_pos(method_name);
 
-    // Visit obj
+    // Visit obj (the class whose method is being called). obj is the first argument in the method call convention (a.k.a this), and also needed to compute the function pointer for the call
     node->obj->accept(*this);
     auto obj_exp = visit_exp_result->unEx(method_temp_map)->exp;
 
@@ -692,7 +692,7 @@ void ASTToTreeVisitor::visit(fdmj::UnaryOp *node) {
 // ArrayExp: arr[index] -> bounds-checked Memory access
 // If arr or index is complex (not Temp/Const), materialize to a temp first.
 // Bounds check: CJump(index >= 0, ok, exit), CJump(index >= len, exit, done), exit(-1)
-// Result: Memory[arr + (index + 1) * addr_len]
+// Result: Memory[arr + (index + 1) * addr_len], because arr[0] stores the length, so actual data starts from arr + addr_len
 void ASTToTreeVisitor::visit(fdmj::ArrayExp *node) {
     int addr_len = compiler_config.at("address_length");
 
@@ -764,9 +764,9 @@ void ASTToTreeVisitor::visit(fdmj::ArrayExp *node) {
     // Wrap with materialization pre-statements if needed
     tree::Exp *result = mem;
     if (idx_pre_stm != nullptr)
-        result = new tree::Eseq(tree::Type::INT, idx_pre_stm, result);
+        result = new tree::Eseq(tree::Type::INT, idx_pre_stm, result); // idx_pre_stm; return result;
     if (arr_pre_stm != nullptr)
-        result = new tree::Eseq(tree::Type::INT, arr_pre_stm, result);
+        result = new tree::Eseq(tree::Type::INT, arr_pre_stm, result); // arr_pre_stm; return result;
 
     visit_exp_result = new Tr_ex(result);
 }
@@ -822,7 +822,7 @@ void ASTToTreeVisitor::visit(fdmj::ClassVar *node) {
         auto sem = semant_map->getSemant(node->obj);
         if (sem != nullptr && sem->get_type() == fdmj::TypeKind::CLASS)
             obj_class = get<string>(sem->get_type_par());
-        else
+        else // didn't get class type info from semant map because of chained access, eg. this.c.j, where semant map only has type info for 'this' but not for 'this.c', so we rely on class_var_class_name to carry the class type info across chained ClassVar visits
             obj_class = class_var_class_name;
     }
 
@@ -856,7 +856,7 @@ void ASTToTreeVisitor::visit(fdmj::This *node) {
     visit_exp_result = new Tr_ex(new tree::TempExp(tree::Type::PTR, new tree::Temp(temp->num)));
 }
 
-// Length: arr.length -> Memory[arr + 0] = Memory[arr]
+// Length: return Memory[arr], which is the length of the array (stored at arr[0])
 void ASTToTreeVisitor::visit(fdmj::Length *node) {
     node->exp->accept(*this);
     auto arr_exp = visit_exp_result->unEx(method_temp_map)->exp;
@@ -896,7 +896,7 @@ void ASTToTreeVisitor::visit(fdmj::NewObject *node) {
     auto nm = semant_map->getNameMaps();
     string class_name = node->id->id;
 
-    // Calculate object size: total entries in UOR * addr_len
+    // Calculate object size: total entries in UOR * addr_len (UOR is the layout of the object in memory, which includes all fields and method pointers, and is determined by the class hierarchy and the class_table we built during semantic analysis. the size of the UOR determines how much memory we need to allocate for each object of this class, UOR's full name is "Unified Object Representation").
     int total_size = (class_table->var_pos_map.size() + class_table->method_pos_map.size())
                      * compiler_config.at("address_length");
 
@@ -909,7 +909,7 @@ void ASTToTreeVisitor::visit(fdmj::NewObject *node) {
         new tree::ExtCall(tree::Type::PTR, "malloc",
             new vector<tree::Exp *>({new tree::Const(total_size)}))));
 
-    // Store method function pointers for this class
+    // Store method function pointers for this class, which are needed for dynamic dispatch. We get the method positions from the class_table, and resolve which class implements each method for this class using the resolve_method_class function (which walks up the class hierarchy to find the class that implements the method). Then we store a string literal "ImplClass^method" at the corresponding method offset in the object layout, which will be used by the runtime to identify which method to call during dynamic dispatch.
     // For each method in the UOR, resolve which class implements it for class_name
     for (auto &[method_name, method_pos] : class_table->method_pos_map) {
         auto impl_class = resolve_method_class(class_name, method_name, nm);

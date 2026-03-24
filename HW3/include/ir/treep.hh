@@ -241,7 +241,7 @@ class Eseq : public Exp { // evaluate stm first, then exp, return value of exp a
     void accept(Visitor &v) { v.visit(this); }
 };
 
-class Name : public Exp { // convert a label to a ptr (address)
+class Name : public Exp { // Name is used for function names and string labels (for printing string literals), which are represented as labels in the assembly. For function names, we use Label class, which has a number and can generate a unique label string like L1, L2, etc. For string literals, we use String_Label class, which has the actual string content and can generate a label string based on that content (e.g. str_hello_world). We use Name to unify the representation of both function names and string labels in the IR.
   public:
     Label *name;
     String_Label *sname;
