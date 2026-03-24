@@ -8,12 +8,14 @@ using_table_of_content: true
 
 # HW3+HW4 实验报告
 
+本次代码是经ai指导下完成（询问了大量设计上的问题，让其给出了一些示例代码），完成后，让ai为代码增添了大量注释，便于日后快速回想起来。
+
 ## 参考材料
 
 - 虎书第7章 Translation to Intermediate Code，主要参考了 `Tr_ex`/`Tr_nx`/`Tr_cx` 以及 Patch List 回填机制。
 - 课程PPT关于 Tiger IR+ 扩展设计的内容。
 
-## Q1.1: treep.hh 中各 class 的作用
+## Q1.1: `treep.hh`中有许多tigerirp的class，他们分别起到了什么作用？
 
 顶层：`Program` 包含函数列表；`FuncDecl` 表示一个函数，含函数名、参数、函数体、返回类型、最大temp/label编号。
 
@@ -38,7 +40,7 @@ using_table_of_content: true
 - `Call`：类方法调用（带 obj 指针）
 - `ExtCall`：外部函数调用（Tiger IR+ 扩展）
 
-## Q1.2: Tiger IR+ 相对于 Tiger IR 的扩展
+## Q1.2: 相对于虎书中的Tiger IR，我们的Tiger IR+多了哪些内容，为什么需要多的这些内容？
 
 1. **`Return`**：Tiger 没有显式 return，靠特殊寄存器。FDMJ 以 stm 为主体，需要显式返回。
 2. **`ExtCall`**：区分类方法调用（`Call`，带 obj）和外部函数调用（`ExtCall`，用于 `putint`/`getint` 等运行时函数）。
@@ -46,7 +48,7 @@ using_table_of_content: true
 4. **`Exp` 带 `Type` 字段**：区分 `INT` 和 `PTR`，虎书不区分。
 5. **`Seq` 用 `vector<Stm*>`**：虎书的 SEQ 是二叉节点，这里用列表更灵活。
 
-## Q2: 不带 class 的翻译
+## Q2: 在不带class的翻译情况下，你是如何完成各成分的翻译的？
 
 翻译用 Visitor 模式遍历 AST。翻译结果以 `Tr_Exp` 形式传递：`Tr_ex`（有值表达式）、`Tr_nx`（语句）、`Tr_cx`（条件，附带待回填的 Patch_list）。三者可互转。
 
@@ -90,23 +92,23 @@ using_table_of_content: true
 
 `tree::Return(exp.unEx)`。
 
-## Q3: 带 class 和 array 的翻译
+## Q3: 你是如何重命名method的？你是如何处理this的？你是如何记录不同class的变量和方法的？你是如何处理多态的？你是如何翻译有关class的操作的？
 
-### Q3.1: Method 重命名
+### 如何重命名method
 
 每个类方法重命名为 `ClassName^MethodName`（如 `fib^f`），main 方法重命名为 `__$main__^main`。这样不同类中的同名方法会生成不同的函数，避免命名冲突。
 
-### Q3.2: 参数列表差异与 this 处理
+### main method和class method的参数列表有何不同？如何处理class method中的this？
 
 main method 的参数列表只有 `_^return^_main`（类型为 INT）；class method 的参数列表中，`_^return^_method` 形参类型改为 PTR，它就是 `this` 指针，作为 FuncDecl.args 的唯一元素。
 
 在方法体中，`this` 翻译为 `TempExp(this_temp)`，其中 `this_temp` 是 `_^return^_method` 对应的 Temp。方法的其他形参和局部变量分别从 NameMaps 获取并分配 Temp。额外分配一个 scratch temp（使 last_temp 符合约定）。
 
-### Q3.3: UOR（Unified Object Record）
+### 如何记录不同class的变量和方法（Unified Object Record）
 
 所有类共享同一个 object layout。变量 key 为 `ClassName^VarName`（支持字段隐藏），方法 key 为方法名（同名方法共享偏移，支持多态）。`generate_class_table` 跳过 `__$main__`，收集所有类的字段和方法名，按字典序排列（变量在前，方法在后），每个条目占 `address_length=4` 字节。
 
-### Q3.4: 多态处理
+### 如何处理多态
 
 多态通过两个机制实现：
 
@@ -115,7 +117,7 @@ main method 的参数列表只有 `_^return^_main`（类型为 INT）；class me
 
 调用时通过 `Mem[obj + method_pos]` 间接获取函数指针（虚分派），运行时自动跳到正确的实现。
 
-### Q3.5: Class 相关操作的翻译
+### 如何翻译有关class的操作（初始化、访问类变量、访问类方法……）
 
 #### NewObject（对象创建）
 
@@ -169,18 +171,54 @@ a9e9a5c HW3: implement AST to IRP translation for main-only programs (all 8 test
 
 ## 测试结果
 
-HW3 (irtest1-8) + HW4 (irtest9-22) 全部通过：
+irtest1–20 与参考答案完全一致（exact match），irtest21–22 在 temp 编号分配顺序上存在差异但 IR 语义完全等价。
+
+`make run` 输出（截取部分）：
 
 ```
-irtest1: PASS      irtest9: PASS      irtest17: PASS
-irtest2: PASS      irtest10: PASS     irtest18: PASS
-irtest3: PASS      irtest11: PASS     irtest19: PASS
-irtest4: PASS      irtest12: PASS     irtest20: PASS
-irtest5: PASS      irtest13: PASS     irtest21: PASS (functionally equivalent)
-irtest6: PASS      irtest14: PASS     irtest22: PASS (functionally equivalent)
-irtest7: PASS      irtest15: PASS
-irtest8: PASS      irtest16: PASS
+Reading irtest1
+------Reading AST from : irtest1.2-semant.ast------------
+Saving AST (XML) to: irtest1.2-semant-debug.ast
+Converting AST to IR
+Compiler Configuration:: address_length: 4; memory_alignment: 4; int_length: 4; float_length: 4; double_length: 8
+======Class Table:
+======End of Class Table
+Saving IR (XML) to: irtest1.3.irp
+-----Done---
+...
+Reading irtest14
+------Reading AST from : irtest14.2-semant.ast------------
+Saving AST (XML) to: irtest14.2-semant-debug.ast
+Converting AST to IR
+Compiler Configuration:: address_length: 4; memory_alignment: 4; int_length: 4; float_length: 4; double_length: 8
+======Class Table:
+var A^i has pos 0
+method f has pos 4
+======End of Class Table
+Saving IR (XML) to: irtest14.3.irp
+-----Done---
+...
+Reading irtest22
+------Reading AST from : irtest22.2-semant.ast------------
+Saving AST (XML) to: irtest22.2-semant-debug.ast
+Converting AST to IR
+Compiler Configuration:: address_length: 4; memory_alignment: 4; int_length: 4; float_length: 4; double_length: 8
+======Class Table:
+method f has pos 0
+======End of Class Table
+Saving IR (XML) to: irtest22.3.irp
+-----Done---
+...
+Reading irtest9
+------Reading AST from : irtest9.2-semant.ast------------
+Saving AST (XML) to: irtest9.2-semant-debug.ast
+Converting AST to IR
+Compiler Configuration:: address_length: 4; memory_alignment: 4; int_length: 4; float_length: 4; double_length: 8
+======Class Table:
+======End of Class Table
+Saving IR (XML) to: irtest9.3.irp
+-----Done---
 ```
 
-其中 irtest21 和 irtest22 的输出与参考答案在 temp 编号分配顺序上存在差异，但 IR 语义完全等价。
+所有 22 个测试用例均成功运行，无报错。
 
