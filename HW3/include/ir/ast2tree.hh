@@ -118,7 +118,7 @@ class ASTToTreeVisitor : public fdmj::AST_Visitor {
     Temp_map *method_temp_map;          // temp map used within a method (in a class)
     // Below are two vars for getting results back from the visit (of lower level nodes)
     tree::Tree *visit_tree_result; // this is to store the result of a visit with only one tree
-    Tr_Exp *visit_exp_result;
+    Tr_Exp *visit_exp_result; // this is to store the result of a visit with only one exp (used for expressions, but also for statements that return an exp, like CallStm), which can be converted to a tree with unEx, unCx, or unNx depending on the context, and is used to pass the result up to the parent node for further processing. Note that for statements that return an exp, we still use visit_exp_result to store the result, and the parent node will decide how to convert it to a tree (e.g., if it's a CallStm, it will be converted to a Cx for if condition, or unNx for a standalone call statement).
     // Below are for knowing where the current node is (which class and method)
     string current_class;
     string current_method;

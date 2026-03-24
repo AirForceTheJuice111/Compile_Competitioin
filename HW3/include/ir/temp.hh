@@ -15,6 +15,10 @@ class Temp {
     int num;
     Temp(int num)
         : num(num) {}
+    Temp(Temp&& t)
+        : num(t.num) {}
+    Temp(Temp* t)
+        : num(t->num) {}
     int name() {
         return num;
     }

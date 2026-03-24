@@ -42,7 +42,7 @@ Tr_cx *Tr_nx::unCx(Temp_map *tm) {
     return nullptr; // should never be called
 }
 
-Tr_ex *Tr_cx::unEx(Temp_map *tm) {
+Tr_ex *Tr_cx::unEx(Temp_map *tm) { // inequality conversion to 0 / 1
     tree::Label *t = tm->newlabel();
     true_list->patch(t);
     tree::Label *f = tm->newlabel();
@@ -60,10 +60,10 @@ Tr_ex *Tr_cx::unEx(Temp_map *tm) {
 }
 
 Tr_nx *Tr_cx::unNx(Temp_map *tm) {
-    tree::Label *t = tm->newlabel();
+    tree::Label *t = tm->newlabel(); // we need to patch both true and false lists to the same label, since we will jump to that label and then do nothing (since it's a statement, not an expression, so we don't care about the result)
     true_list->patch(t);
     false_list->patch(t);
-    vector<tree::Stm *> *sl = new vector<tree::Stm *>();
+    auto sl = new vector<tree::Stm *>();
     sl->push_back(this->stm);
     sl->push_back(new tree::LabelStm(t));
     return new Tr_nx(new tree::Seq(sl));
