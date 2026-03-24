@@ -12,7 +12,7 @@ using_table_of_content: true
 
 ## 参考材料
 
-- 虎书第7章 Translation to Intermediate Code，主要参考了 `Tr_ex`/`Tr_nx`/`Tr_cx` 以及 Patch List 回填机制。
+- 虎书第7章 Translation to Intermediate Code。
 - 课程PPT关于 Tiger IR+ 扩展设计的内容。
 
 ## Q1.1: `treep.hh`中有许多tigerirp的class，他们分别起到了什么作用？
