@@ -136,7 +136,7 @@ class Stm : public AST { // this is the class for all statements
     virtual ASTKind getASTKind() = 0;
 };
 
-class Nested : public Stm {
+class Nested : public Stm { // Nested 指的是一个花括号括起来的语句块，如 { stm1; stm2; }，需要递归访问其中的每个语句。
   public:
     vector<Stm *> *sl;
     Nested() = delete;
@@ -152,7 +152,7 @@ class Nested : public Stm {
 class If : public Stm {
   public:
     Exp *exp = nullptr;
-    Stm *stm1 = nullptr;
+    Stm *stm1 = nullptr; // then part, could be empty
     Stm *stm2 = nullptr; // else part, could be empty
     If(Pos *pos, Exp *exp, Stm *stm1, Stm *stm2)
         : Stm(pos), exp(exp), stm1(stm1), stm2(stm2) {}
