@@ -74,7 +74,7 @@ using_table_of_content: true
 
 ### If 条件
 
-先翻译条件并**立即 `unCx`**（关键：必须在翻译 body 前调用，否则 body 里的比较会抢占标签编号），再翻译 then/else body，最后分配 true/false/end 三个标签并回填。结构：`Seq(cond, Label(true), then, Jump(end), Label(false), else, Label(end))`。
+先翻译条件并立即 `unCx`，再翻译 then/else body，最后分配 true/false/end 三个标签并回填。结构：`Seq(cond, Label(true), then, Jump(end), Label(false), else, Label(end))`。
 
 ### While 循环
 
@@ -141,7 +141,7 @@ main method 的参数列表只有 `_^return^_main`（类型为 INT）；class me
 
 #### ArrayExp（下标访问+越界检查）
 
-`arr[idx]` 翻译为 ESeq：先将复杂的 arr/idx 表达式物化到临时变量，然后做越界检查：
+`arr[idx]` 翻译为 ESeq：先将复杂的 arr/idx 表达式materialize成临时变量，然后做越界检查：
 
 1. `len = Mem[arr]`（读长度）
 2. `CJump(idx >= 0, ok, exit)`
@@ -171,7 +171,7 @@ a9e9a5c HW3: implement AST to IRP translation for main-only programs (all 8 test
 
 ## 测试结果
 
-irtest1–20 与参考答案完全一致（exact match），irtest21–22 在 temp 编号分配顺序上存在差异但 IR 语义完全等价。
+irtest1–20 与参考答案完全一致，irtest21–22 在 temp 编号分配顺序上存在差异但 IR 语义显然等价。
 
 `make run` 输出（截取部分）：
 
@@ -219,6 +219,3 @@ Compiler Configuration:: address_length: 4; memory_alignment: 4; int_length: 4; 
 Saving IR (XML) to: irtest9.3.irp
 -----Done---
 ```
-
-所有 22 个测试用例均成功运行，无报错。
-
