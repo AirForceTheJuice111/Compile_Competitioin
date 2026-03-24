@@ -1,9 +1,4 @@
 public int main() {
-    int x = 5;
-    int y;
-    y = x + 3;
-    if (x > y) {
-        putint(x);
-    }
-    return y;
+    int[] a;
+    a = new int[3];
 }

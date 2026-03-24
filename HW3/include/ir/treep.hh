@@ -231,7 +231,7 @@ class TempExp : public Exp {
     void accept(Visitor &v) { v.visit(this); }
 };
 
-class Eseq : public Exp {
+class Eseq : public Exp { // evaluate stm first, then exp, return value of exp as the value of the whole Eseq expression. This is used to handle cases where we need to evaluate some statements (e.g. move, jump) before we can get the value of an expression.
   public:
     Stm *stm;
     Exp *exp;
