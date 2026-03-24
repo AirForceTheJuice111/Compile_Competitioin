@@ -19,7 +19,7 @@ using namespace std;
 // Helper: convert fdmj TypeKind to tree::Type
 static tree::Type typeKind2TreeType(fdmj::TypeKind tk) {
     if (tk == fdmj::TypeKind::INT) return tree::Type::INT;
-    return tree::Type::PTR; // ARRAY and CLASS are pointers
+    else return tree::Type::PTR; // ARRAY and CLASS are pointers
 }
 
 // Generate method var table for a given class and method
@@ -100,7 +100,7 @@ void ASTToTreeVisitor::visit(fdmj::MainMethod *node) {
 
     // Create temp map for this method
     method_temp_map = new Temp_map();
-    Name_Maps *nm = semant_map->getNameMaps();
+    auto nm = semant_map->getNameMaps();
 
     // Generate method var table (allocates temps for locals, then formals)
     method_var_table = generate_method_var_table(current_class, current_method, nm, method_temp_map);
@@ -133,7 +133,7 @@ void ASTToTreeVisitor::visit(fdmj::MainMethod *node) {
             stm->accept(*this);
             // visit_exp_result holds the Tr_Exp for the statement
             if (visit_exp_result != nullptr) {
-                Tr_nx *nx = visit_exp_result->unNx(method_temp_map);
+                auto nx = visit_exp_result->unNx(method_temp_map);
                 if (nx != nullptr && nx->stm != nullptr) sl->push_back(nx->stm);
             }
         }
@@ -142,11 +142,11 @@ void ASTToTreeVisitor::visit(fdmj::MainMethod *node) {
     tree::Stm *body = new tree::Seq(sl);
 
     // Build FuncDecl with no args for main
-    tree::FuncDecl *fd = new tree::FuncDecl(
+    visit_tree_result = new tree::FuncDecl(
         func_name, nullptr, body, ret_type,
         method_temp_map->next_temp - 1,
-        method_temp_map->next_label - 1);
-    visit_tree_result = fd;
+        method_temp_map->next_label - 1
+    );
 }
 
 // ClassDecl: HW4
@@ -161,28 +161,8 @@ void ASTToTreeVisitor::visit(fdmj::Type *node) {
     visit_exp_result = nullptr;
 }
 
-// VarDecl: handle variable initialization
+// VarDecl: handle variable initialization (int x = val 不支持; array init 在 HW4 实现)
 void ASTToTreeVisitor::visit(fdmj::VarDecl *node) {
-    string var_name = node->id->id;
-    tree::Temp *temp = method_var_table->get_var_temp(var_name);
-    if (temp == nullptr) {
-        visit_tree_result = nullptr;
-        return;
-    }
-    tree::Type var_type = method_var_table->get_var_type(var_name);
-
-    // Handle initialization
-    if (holds_alternative<fdmj::IntExp *>(node->init)) {
-        // int x = val;
-        fdmj::IntExp *init_val = get<fdmj::IntExp *>(node->init);
-        if (init_val != nullptr) {
-            visit_tree_result = new tree::Move(
-                new tree::TempExp(var_type, new tree::Temp(temp->num)),
-                new tree::Const(init_val->val));
-            return;
-        }
-    }
-    // No initialization or array init (HW4 for arrays)
     visit_tree_result = nullptr;
 }
 
@@ -200,12 +180,12 @@ void ASTToTreeVisitor::visit(fdmj::Formal *node) {
 
 // Nested: translate statement list
 void ASTToTreeVisitor::visit(fdmj::Nested *node) {
-    vector<tree::Stm *> *sl = new vector<tree::Stm *>();
+    auto sl = new vector<tree::Stm *>();
     if (node->sl != nullptr) {
         for (auto stm : *node->sl) {
             stm->accept(*this);
             if (visit_exp_result != nullptr) {
-                Tr_nx *nx = visit_exp_result->unNx(method_temp_map);
+                auto nx = visit_exp_result->unNx(method_temp_map);
                 if (nx != nullptr && nx->stm != nullptr) sl->push_back(nx->stm);
             }
         }
@@ -217,16 +197,15 @@ void ASTToTreeVisitor::visit(fdmj::Nested *node) {
 void ASTToTreeVisitor::visit(fdmj::If *node) {
     // Translate condition expression and get as Tr_cx first
     node->exp->accept(*this);
-    Tr_Exp *cond = visit_exp_result;
-    Tr_cx *cx = cond->unCx(method_temp_map);
+    auto cx = visit_exp_result->unCx(method_temp_map);
 
     // Translate then-body
-    tree::Stm *then_stm = nullptr;
+    tree::Stm *then_stm = nullptr; // then_stm is the translated then-body statement
     if (node->stm1 != nullptr) {
         node->stm1->accept(*this);
         if (visit_exp_result != nullptr) {
-            Tr_nx *nx = visit_exp_result->unNx(method_temp_map);
-            if (nx != nullptr) then_stm = nx->stm;
+            auto nx = visit_exp_result->unNx(method_temp_map);
+            if (nx != nullptr) then_stm = nx->stm; 
         }
     }
 
@@ -235,21 +214,21 @@ void ASTToTreeVisitor::visit(fdmj::If *node) {
     if (node->stm2 != nullptr) {
         node->stm2->accept(*this);
         if (visit_exp_result != nullptr) {
-            Tr_nx *nx = visit_exp_result->unNx(method_temp_map);
+            auto nx = visit_exp_result->unNx(method_temp_map);
             if (nx != nullptr) else_stm = nx->stm;
         }
     }
 
     // Get condition as Tr_cx (already done above)
     // Allocate labels for if
-    tree::Label *true_label = method_temp_map->newlabel();
-    tree::Label *false_label = method_temp_map->newlabel();
-    tree::Label *end_label = method_temp_map->newlabel();
+    auto true_label = method_temp_map->newlabel();
+    auto false_label = method_temp_map->newlabel();
+    auto end_label = method_temp_map->newlabel();
 
     cx->true_list->patch(true_label);
     cx->false_list->patch(false_label);
 
-    vector<tree::Stm *> *sl = new vector<tree::Stm *>();
+    auto sl = new vector<tree::Stm *>();
     sl->push_back(cx->stm);
     sl->push_back(new tree::LabelStm(true_label));
     if (then_stm != nullptr) sl->push_back(then_stm);
@@ -264,30 +243,23 @@ void ASTToTreeVisitor::visit(fdmj::If *node) {
 // While: translate condition + body with continue/break support
 void ASTToTreeVisitor::visit(fdmj::While *node) {
     // Save outer continue/break labels
-    tree::Label *outer_continue = continue_label;
-    tree::Label *outer_break = break_label;
+    auto outer_continue = continue_label;
+    auto outer_break = break_label;
 
     // Translate condition first (before allocating while labels)
     node->exp->accept(*this);
-    Tr_Exp *cond = visit_exp_result;
+    auto cond = visit_exp_result;
 
     // Translate body (before allocating while labels to match label ordering)
     tree::Stm *body_stm = nullptr;
-    // Set up continue/break labels - allocate them after body translation
-    // But we need them during body translation for break/continue...
-    // Actually, we need to allocate continue/break first, then translate body
-
-    // Let me reconsider: from the expected outputs, the continue label is the
-    // first while-specific label allocated. Let me check irtest2:
-    // condition unCx: labels 100, 101; then continue=102, body=103, done=104
 
     // Get condition as Tr_cx
-    Tr_cx *cx = cond->unCx(method_temp_map);
+    auto cx = cond->unCx(method_temp_map);
 
     // Allocate while labels
-    tree::Label *start_label = method_temp_map->newlabel();
-    tree::Label *body_label = method_temp_map->newlabel();
-    tree::Label *done_label = method_temp_map->newlabel();
+    auto start_label = method_temp_map->newlabel();
+    auto body_label = method_temp_map->newlabel();
+    auto done_label = method_temp_map->newlabel();
 
     continue_label = start_label;
     break_label = done_label;
@@ -298,7 +270,7 @@ void ASTToTreeVisitor::visit(fdmj::While *node) {
     if (node->stm != nullptr) {
         node->stm->accept(*this);
         if (visit_exp_result != nullptr) {
-            Tr_nx *nx = visit_exp_result->unNx(method_temp_map);
+            auto nx = visit_exp_result->unNx(method_temp_map);
             if (nx != nullptr) body_stm = nx->stm;
         }
     }
@@ -359,156 +331,131 @@ void ASTToTreeVisitor::visit(fdmj::Break *node) {
 void ASTToTreeVisitor::visit(fdmj::Return *node) {
     if (node->exp != nullptr) {
         node->exp->accept(*this);
-        Tr_Exp *exp = visit_exp_result;
-        tree::Exp *ret_exp = exp->unEx(method_temp_map)->exp;
-        visit_exp_result = new Tr_nx(new tree::Return(ret_exp));
+        auto exp = visit_exp_result;
+        auto ret_exp = exp->unEx(method_temp_map)->exp; // Tr_Exp base class -> Tr_ex wrapper -> tree::Exp node
+        visit_exp_result = new Tr_nx(new tree::Return(ret_exp)); // return <SOMETHING>;
     } else {
-        visit_exp_result = new Tr_nx(new tree::Return(new tree::Const(0)));
+        visit_exp_result = new Tr_nx(new tree::Return(new tree::Const(0))); // return;
     }
 }
 
 // PutInt: putint(exp) -> ExtCall("putint", {exp})
 void ASTToTreeVisitor::visit(fdmj::PutInt *node) {
     node->exp->accept(*this);
-    Tr_Exp *exp = visit_exp_result;
-    tree::Exp *arg = exp->unEx(method_temp_map)->exp;
-    vector<tree::Exp *> *args = new vector<tree::Exp *>();
-    args->push_back(arg);
-    tree::ExtCall *call = new tree::ExtCall(tree::Type::INT, "putint", args);
-    visit_exp_result = new Tr_nx(new tree::ExpStm(call));
+    auto arg = visit_exp_result->unEx(method_temp_map)->exp;
+    visit_exp_result = new Tr_nx(new tree::ExpStm(
+        new tree::ExtCall(tree::Type::INT, "putint", new vector<tree::Exp *>({arg}))));
 }
 
 // PutCh: putch(exp) -> ExtCall("putch", {exp})
 void ASTToTreeVisitor::visit(fdmj::PutCh *node) {
     node->exp->accept(*this);
-    Tr_Exp *exp = visit_exp_result;
-    tree::Exp *arg = exp->unEx(method_temp_map)->exp;
-    vector<tree::Exp *> *args = new vector<tree::Exp *>();
-    args->push_back(arg);
-    tree::ExtCall *call = new tree::ExtCall(tree::Type::INT, "putch", args);
-    visit_exp_result = new Tr_nx(new tree::ExpStm(call));
+    auto arg = visit_exp_result->unEx(method_temp_map)->exp;
+    visit_exp_result = new Tr_nx(new tree::ExpStm(
+        new tree::ExtCall(tree::Type::INT, "putch", new vector<tree::Exp *>({arg}))));
 }
 
 // PutArray: putarray(n, arr) -> ExtCall("putarray", {n, arr})
 void ASTToTreeVisitor::visit(fdmj::PutArray *node) {
     node->n->accept(*this);
-    tree::Exp *n_exp = visit_exp_result->unEx(method_temp_map)->exp;
+    auto n_exp = visit_exp_result->unEx(method_temp_map)->exp;
     node->arr->accept(*this);
-    tree::Exp *arr_exp = visit_exp_result->unEx(method_temp_map)->exp;
-    vector<tree::Exp *> *args = new vector<tree::Exp *>();
-    args->push_back(n_exp);
-    args->push_back(arr_exp);
-    tree::ExtCall *call = new tree::ExtCall(tree::Type::INT, "putarray", args);
-    visit_exp_result = new Tr_nx(new tree::ExpStm(call));
+    auto arr_exp = visit_exp_result->unEx(method_temp_map)->exp;
+    visit_exp_result = new Tr_nx(new tree::ExpStm(
+        new tree::ExtCall(tree::Type::INT, "putarray", new vector<tree::Exp *>({n_exp, arr_exp}))));
 }
 
 // Starttime: ExtCall("starttime", {})
 void ASTToTreeVisitor::visit(fdmj::Starttime *node) {
-    vector<tree::Exp *> *args = new vector<tree::Exp *>();
-    tree::ExtCall *call = new tree::ExtCall(tree::Type::INT, "starttime", args);
-    visit_exp_result = new Tr_nx(new tree::ExpStm(call));
+    visit_exp_result = new Tr_nx(new tree::ExpStm(
+        new tree::ExtCall(tree::Type::INT, "starttime", new vector<tree::Exp *>())));
 }
 
 // Stoptime: ExtCall("stoptime", {})
 void ASTToTreeVisitor::visit(fdmj::Stoptime *node) {
-    vector<tree::Exp *> *args = new vector<tree::Exp *>();
-    tree::ExtCall *call = new tree::ExtCall(tree::Type::INT, "stoptime", args);
-    visit_exp_result = new Tr_nx(new tree::ExpStm(call));
+    visit_exp_result = new Tr_nx(new tree::ExpStm(
+        new tree::ExtCall(tree::Type::INT, "stoptime", new vector<tree::Exp *>())));
 }
 
 // BinaryOp: translate binary operations
 void ASTToTreeVisitor::visit(fdmj::BinaryOp *node) {
-    string op = node->op->op;
+    string op = node->op->op; // BinaryOp -> OpExp -> string
 
     // Short-circuit logical operators
     if (op == "&&") {
         // left && right: left true -> check right; left false -> overall false
         node->left->accept(*this);
-        Tr_Exp *left = visit_exp_result;
-        Tr_cx *left_cx = left->unCx(method_temp_map);
+        auto left = visit_exp_result;
+        auto left_cx = left->unCx(method_temp_map);
 
         node->right->accept(*this);
-        Tr_Exp *right = visit_exp_result;
-        Tr_cx *right_cx = right->unCx(method_temp_map);
+        auto right = visit_exp_result;
+        auto right_cx = right->unCx(method_temp_map);
 
         // left true -> evaluate right
-        tree::Label *middle = method_temp_map->newlabel();
+        auto middle = method_temp_map->newlabel();
         left_cx->true_list->patch(middle);
 
-        // Build combined statement
-        vector<tree::Stm *> *sl = new vector<tree::Stm *>();
-        sl->push_back(left_cx->stm);
-        sl->push_back(new tree::LabelStm(middle));
-        sl->push_back(right_cx->stm);
-
         // Combined: true_list = right's true, false_list = left's false + right's false
-        Patch_list *combined_false = left_cx->false_list;
-        combined_false->add(right_cx->false_list);
-
-        visit_exp_result = new Tr_cx(right_cx->true_list, combined_false, new tree::Seq(sl));
+        left_cx->false_list->add(right_cx->false_list);
+        visit_exp_result = new Tr_cx(right_cx->true_list, left_cx->false_list,
+            new tree::Seq(new vector<tree::Stm *>({left_cx->stm, new tree::LabelStm(middle), right_cx->stm})));
         return;
     }
 
     if (op == "||") {
         // left || right: left true -> overall true; left false -> check right
         node->left->accept(*this);
-        Tr_Exp *left = visit_exp_result;
-        Tr_cx *left_cx = left->unCx(method_temp_map);
+        auto left = visit_exp_result;
+        auto left_cx = left->unCx(method_temp_map);
 
         node->right->accept(*this);
-        Tr_Exp *right = visit_exp_result;
-        Tr_cx *right_cx = right->unCx(method_temp_map);
+        auto right = visit_exp_result;
+        auto right_cx = right->unCx(method_temp_map);
 
         // left false -> evaluate right
-        tree::Label *middle = method_temp_map->newlabel();
+        auto middle = method_temp_map->newlabel();
         left_cx->false_list->patch(middle);
 
-        // Build combined statement
-        vector<tree::Stm *> *sl = new vector<tree::Stm *>();
-        sl->push_back(left_cx->stm);
-        sl->push_back(new tree::LabelStm(middle));
-        sl->push_back(right_cx->stm);
-
         // Combined: true_list = left's true + right's true, false_list = right's false
-        Patch_list *combined_true = left_cx->true_list;
-        combined_true->add(right_cx->true_list);
-
-        visit_exp_result = new Tr_cx(combined_true, right_cx->false_list, new tree::Seq(sl));
+        left_cx->true_list->add(right_cx->true_list);
+        visit_exp_result = new Tr_cx(left_cx->true_list, right_cx->false_list,
+            new tree::Seq(new vector<tree::Stm *>({left_cx->stm, new tree::LabelStm(middle), right_cx->stm})));
         return;
     }
 
     // Comparison operators: produce Tr_cx
     if (op == "<" || op == ">" || op == "<=" || op == ">=" || op == "==" || op == "!=") {
         node->left->accept(*this);
-        Tr_Exp *left = visit_exp_result;
+        auto left = visit_exp_result;
         tree::Exp *left_exp = left->unEx(method_temp_map)->exp;
 
         node->right->accept(*this);
-        Tr_Exp *right = visit_exp_result;
+        auto right = visit_exp_result;
         tree::Exp *right_exp = right->unEx(method_temp_map)->exp;
 
-        tree::Label *tl = method_temp_map->newlabel();
-        tree::Label *fl = method_temp_map->newlabel();
-        Patch_list *true_list = new Patch_list();
+        auto tl = method_temp_map->newlabel();
+        auto fl = method_temp_map->newlabel();
+        auto true_list = new Patch_list();
         true_list->add_patch(tl);
-        Patch_list *false_list = new Patch_list();
+        auto false_list = new Patch_list();
         false_list->add_patch(fl);
 
-        tree::Cjump *cjump = new tree::Cjump(op, left_exp, right_exp, tl, fl);
+        auto cjump = new tree::Cjump(op, left_exp, right_exp, tl, fl);
         visit_exp_result = new Tr_cx(true_list, false_list, cjump);
         return;
     }
 
     // Arithmetic operators: +, -, *, /
     node->left->accept(*this);
-    Tr_Exp *left = visit_exp_result;
-    tree::Exp *left_exp = left->unEx(method_temp_map)->exp;
+    auto left = visit_exp_result;
+    auto left_exp = left->unEx(method_temp_map)->exp;
 
     node->right->accept(*this);
-    Tr_Exp *right = visit_exp_result;
-    tree::Exp *right_exp = right->unEx(method_temp_map)->exp;
+    auto right = visit_exp_result;
+    auto right_exp = right->unEx(method_temp_map)->exp;
 
-    tree::Binop *binop = new tree::Binop(tree::Type::INT, op, left_exp, right_exp);
+    auto binop = new tree::Binop(tree::Type::INT, op, left_exp, right_exp);
     visit_exp_result = new Tr_ex(binop);
 }
 
@@ -516,15 +463,15 @@ void ASTToTreeVisitor::visit(fdmj::BinaryOp *node) {
 void ASTToTreeVisitor::visit(fdmj::UnaryOp *node) {
     string op = node->op->op;
     node->exp->accept(*this);
-    Tr_Exp *operand = visit_exp_result;
+    auto operand = visit_exp_result;
 
     if (op == "-") {
         // -exp -> 0 - exp
-        tree::Exp *exp = operand->unEx(method_temp_map)->exp;
+        auto exp = operand->unEx(method_temp_map)->exp;
         visit_exp_result = new Tr_ex(new tree::Binop(tree::Type::INT, "-", new tree::Const(0), exp));
     } else if (op == "!") {
         // !exp -> 1 xor exp (or flip the cx lists)
-        Tr_cx *cx = operand->unCx(method_temp_map);
+        auto cx = operand->unCx(method_temp_map);
         // Flip true and false lists
         visit_exp_result = new Tr_cx(cx->false_list, cx->true_list, cx->stm);
     } else {
@@ -569,35 +516,31 @@ void ASTToTreeVisitor::visit(fdmj::NewObject *node) {
 
 // GetInt: getint() -> ExtCall("getint", {})
 void ASTToTreeVisitor::visit(fdmj::GetInt *node) {
-    vector<tree::Exp *> *args = new vector<tree::Exp *>();
-    tree::ExtCall *call = new tree::ExtCall(tree::Type::INT, "getint", args);
-    visit_exp_result = new Tr_ex(call);
+    visit_exp_result = new Tr_ex(
+        new tree::ExtCall(tree::Type::INT, "getint", new vector<tree::Exp *>()));
 }
 
 // GetCh: getch() -> ExtCall("getch", {})
 void ASTToTreeVisitor::visit(fdmj::GetCh *node) {
-    vector<tree::Exp *> *args = new vector<tree::Exp *>();
-    tree::ExtCall *call = new tree::ExtCall(tree::Type::INT, "getch", args);
-    visit_exp_result = new Tr_ex(call);
+    visit_exp_result = new Tr_ex(
+        new tree::ExtCall(tree::Type::INT, "getch", new vector<tree::Exp *>()));
 }
 
 // GetArray: getarray(exp) -> ExtCall("getarray", {exp})
 void ASTToTreeVisitor::visit(fdmj::GetArray *node) {
     node->exp->accept(*this);
-    tree::Exp *arg = visit_exp_result->unEx(method_temp_map)->exp;
-    vector<tree::Exp *> *args = new vector<tree::Exp *>();
-    args->push_back(arg);
-    tree::ExtCall *call = new tree::ExtCall(tree::Type::PTR, "getarray", args);
-    visit_exp_result = new Tr_ex(call);
+    auto arg = visit_exp_result->unEx(method_temp_map)->exp;
+    visit_exp_result = new Tr_ex(
+        new tree::ExtCall(tree::Type::PTR, "getarray", new vector<tree::Exp *>({arg})));
 }
 
-// IdExp: look up variable in method var table
+// IdExp: look up variable in method var table, convert to TempExp
 void ASTToTreeVisitor::visit(fdmj::IdExp *node) {
     string name = node->id;
-    tree::Temp *temp = method_var_table->get_var_temp(name);
+    auto temp = method_var_table->get_var_temp(name);
     if (temp != nullptr) {
-        tree::Type t = method_var_table->get_var_type(name);
-        visit_exp_result = new Tr_ex(new tree::TempExp(t, new tree::Temp(temp->num)));
+        auto t = method_var_table->get_var_type(name);
+        visit_exp_result = new Tr_ex(new tree::TempExp(t, new tree::Temp(temp->num))); // same Temp register number, but wrapped in a TempExp with type info
     } else {
         // Variable not found - should not happen in correct programs
         visit_exp_result = new Tr_ex(new tree::Const(0));
