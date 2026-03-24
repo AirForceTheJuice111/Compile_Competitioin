@@ -1,12 +1,12 @@
 ---
-title: "HW3 实验报告"
+title: "HW3+HW4 实验报告"
 author: "王思宇"
 date: \today
 using_title: true
 using_table_of_content: true
 ---
 
-# HW3 实验报告
+# HW3+HW4 实验报告
 
 ## 参考材料
 
@@ -70,15 +70,66 @@ using_table_of_content: true
 
 **Return**：`tree::Return(exp.unEx)`。
 
+## Q3: 带 class 和 array 的翻译
+
+### UOR（Unified Object Record）
+
+所有类共享同一个 object layout。变量 key 为 `ClassName^VarName`（支持字段隐藏），方法 key 为方法名（同名方法共享偏移，支持多态）。`generate_class_table` 跳过 `__$main__`，收集所有类的字段和方法名，按字典序排列（变量在前，方法在后），每个条目占 `address_length=4` 字节。
+
+### NewObject
+
+`new ClassName()` 翻译为 ESeq：先 `malloc(UOR总大小)` 得到对象指针，然后把该类能解析到的每个方法的函数指针（`Name(sname="ImplClass^method")`）存到对应偏移位置。方法实现类通过 `resolve_method_class` 沿继承链向上查找。
+
+### NewArray
+
+`new int[size]` 翻译为 ESeq：`malloc((size+1)*4)`，在 `[0]` 存长度，返回指针。
+
+### 数组字面量初始化
+
+`int[] a = {1,2,3}` 翻译为一系列 Move：`malloc(16)`，`Mem[a]=3`（长度），`Mem[a+4]=1`, `Mem[a+8]=2`, `Mem[a+12]=3`。VarDecl 产生的 Seq 会被 flatten 到方法体的 Seq 中，避免嵌套。
+
+### ArrayExp（下标访问+越界检查）
+
+`arr[idx]` 翻译为 ESeq：先将复杂的 arr/idx 表达式物化到临时变量，然后做越界检查：
+
+1. `len = Mem[arr]`（读长度）
+2. `CJump(idx >= 0, ok, exit)`
+3. `CJump(idx >= len, exit, done)`
+4. exit: `ExtCall("exit", {-1})`
+
+最后返回 `Mem[arr + (idx+1)*4]`。
+
+### ClassVar（字段访问）
+
+`obj.field` 翻译为 `Mem[obj + offset]`，其中 offset 通过 `resolve_var_class` 沿继承链查找字段声明类，再从 class_table 获取。对链式访问（如 `this.c.j`），通过 `class_var_class_name` 传递中间对象的类型。
+
+### CallExp / CallStm（虚方法调用）
+
+`obj.method(args)` 翻译为 `Call(id="method", obj=Mem[obj + method_offset], args=[obj, ...]))`。函数指针通过 `Mem[obj + method_pos]` 间接获取，实现虚分派。CallStm 包装在 ExpStm 中丢弃返回值。
+
+### MethodDecl
+
+每个方法生成一个 FuncDecl，名称为 `ClassName^MethodName`。`_^return^_method` 形参的类型改为 PTR（它就是 `this` 指针），作为 FuncDecl.args 的唯一元素。额外分配一个 scratch temp（使 last_temp 符合约定）。
+
+### This
+
+`this` 翻译为 `TempExp(this_temp)`，其中 this_temp 是 `_^return^_method` 对应的 Temp。
+
+### Length
+
+`arr.length` 翻译为 `Mem[arr]`（长度存在数组首地址）。
+
 ## Git 提交记录
 
 ```
-7e904d6 HW3: add extra test cases irtest9-12 (if-no-else, not-op, while-sum, nested-while)
+57825c2 HW4: array/class AST->IRP translation (irtest9-20 pass)
+840c1df before hw4
+76a9bd5 Merge HW4 test cases from origin
+a1131f1 HW3: rm int init, inline Seq/args, simplify report
+7e904d6 HW3: add extra test cases irtest9-12
 a9e9a5c HW3: implement AST to IRP translation for main-only programs (all 8 tests pass)
-c6e6b18 Merge branch 'master' of https://gitee.com/fudanCompiler/fducompilerh2026
 67c6223 HW3 tests added
 1c436d1 HW3 files
-27f32a0 HW3 files
 ```
 
 ## 测试结果
