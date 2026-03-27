@@ -11,7 +11,7 @@
                 <Const value="0"/>
             </Move>
             <ExpressionStatement>
-                <ExtCall extfun="putint">
+                <ExtCall type="INT" extfun="putint">
                     <Arguments>
                         <BinOp type="INT" op="+">
                             <BinOp type="INT" op="+">
@@ -59,7 +59,7 @@
                 <Temp type="PTR" temp="101"/>
             </Move>
             <ExpressionStatement>
-                <ExtCall extfun="putint">
+                <ExtCall type="INT" extfun="putint">
                     <Arguments>
                         <BinOp type="INT" op="+">
                             <BinOp type="INT" op="+">

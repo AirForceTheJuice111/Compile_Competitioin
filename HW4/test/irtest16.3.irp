@@ -16,7 +16,7 @@
                     <Sequence>
                         <Move>
                             <Temp type="PTR" temp="103"/>
-                            <ExtCall extfun="malloc">
+                            <ExtCall type="PTR" extfun="malloc">
                                 <Arguments>
                                     <Const value="12"/>
                                 </Arguments>
@@ -50,7 +50,7 @@
                     <Sequence>
                         <Move>
                             <Temp type="PTR" temp="104"/>
-                            <ExtCall extfun="malloc">
+                            <ExtCall type="PTR" extfun="malloc">
                                 <Arguments>
                                     <Const value="12"/>
                                 </Arguments>

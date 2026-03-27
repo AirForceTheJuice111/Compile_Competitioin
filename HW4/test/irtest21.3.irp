@@ -4,7 +4,7 @@
         <Sequence>
             <Move>
                 <Temp type="PTR" temp="100"/>
-                <ExtCall extfun="malloc">
+                <ExtCall type="PTR" extfun="malloc">
                     <Arguments>
                         <Const value="32"/>
                     </Arguments>
@@ -93,7 +93,7 @@
                     <Sequence>
                         <Move>
                             <Temp type="PTR" temp="104"/>
-                            <ExtCall extfun="malloc">
+                            <ExtCall type="PTR" extfun="malloc">
                                 <Arguments>
                                     <Const value="8"/>
                                 </Arguments>
@@ -113,7 +113,7 @@
                 </ESeq>
             </Move>
             <ExpressionStatement>
-                <Call id="bubbleSort">
+                <Call type="INT" id="bubbleSort">
                     <Memory type="PTR">
                         <BinOp type="PTR" op="+">
                             <Temp type="PTR" temp="101"/>
@@ -152,7 +152,7 @@
                 <Label label="103"/>
                 <Sequence>
                     <ExpressionStatement>
-                        <ExtCall extfun="putint">
+                        <ExtCall type="INT" extfun="putint">
                             <Arguments>
                                 <Memory type="INT">
                                     <BinOp type="PTR" op="+">
@@ -178,7 +178,7 @@
                                                         </CJump>
                                                         <Label label="105"/>
                                                         <ExpressionStatement>
-                                                            <ExtCall extfun="exit">
+                                                            <ExtCall type="INT" extfun="exit">
                                                                 <Arguments>
                                                                     <Const value="-1"/>
                                                                 </Arguments>
@@ -198,7 +198,7 @@
                         </ExtCall>
                     </ExpressionStatement>
                     <ExpressionStatement>
-                        <ExtCall extfun="putch">
+                        <ExtCall type="INT" extfun="putch">
                             <Arguments>
                                 <Const value="32"/>
                             </Arguments>
@@ -216,7 +216,7 @@
                 <Label label="104"/>
             </Sequence>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="10"/>
                     </Arguments>
@@ -285,7 +285,7 @@
                                                     </CJump>
                                                     <Label label="110"/>
                                                     <ExpressionStatement>
-                                                        <ExtCall extfun="exit">
+                                                        <ExtCall type="INT" extfun="exit">
                                                             <Arguments>
                                                                 <Const value="-1"/>
                                                             </Arguments>
@@ -335,7 +335,7 @@
                                                         </CJump>
                                                         <Label label="113"/>
                                                         <ExpressionStatement>
-                                                            <ExtCall extfun="exit">
+                                                            <ExtCall type="INT" extfun="exit">
                                                                 <Arguments>
                                                                     <Const value="-1"/>
                                                                 </Arguments>
@@ -386,7 +386,7 @@
                                                         </CJump>
                                                         <Label label="118"/>
                                                         <ExpressionStatement>
-                                                            <ExtCall extfun="exit">
+                                                            <ExtCall type="INT" extfun="exit">
                                                                 <Arguments>
                                                                     <Const value="-1"/>
                                                                 </Arguments>
@@ -428,7 +428,7 @@
                                                         </CJump>
                                                         <Label label="121"/>
                                                         <ExpressionStatement>
-                                                            <ExtCall extfun="exit">
+                                                            <ExtCall type="INT" extfun="exit">
                                                                 <Arguments>
                                                                     <Const value="-1"/>
                                                                 </Arguments>
@@ -478,7 +478,7 @@
                                                             </CJump>
                                                             <Label label="124"/>
                                                             <ExpressionStatement>
-                                                                <ExtCall extfun="exit">
+                                                                <ExtCall type="INT" extfun="exit">
                                                                     <Arguments>
                                                                         <Const value="-1"/>
                                                                     </Arguments>
@@ -531,7 +531,7 @@
                                                             </CJump>
                                                             <Label label="127"/>
                                                             <ExpressionStatement>
-                                                                <ExtCall extfun="exit">
+                                                                <ExtCall type="INT" extfun="exit">
                                                                     <Arguments>
                                                                         <Const value="-1"/>
                                                                     </Arguments>
@@ -572,7 +572,7 @@
                 <Label label="109"/>
             </Sequence>
             <Return>
-                <Call id="bubbleSort">
+                <Call type="INT" id="bubbleSort">
                     <Memory type="PTR">
                         <BinOp type="PTR" op="+">
                             <Temp type="PTR" temp="101"/>

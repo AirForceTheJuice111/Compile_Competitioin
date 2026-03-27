@@ -4,7 +4,7 @@
         <Sequence>
             <Move>
                 <Temp type="PTR" temp="100"/>
-                <ExtCall extfun="malloc">
+                <ExtCall type="PTR" extfun="malloc">
                     <Arguments>
                         <Const value="16"/>
                     </Arguments>
@@ -75,7 +75,7 @@
                                         </CJump>
                                         <Label label="100"/>
                                         <ExpressionStatement>
-                                            <ExtCall extfun="exit">
+                                            <ExtCall type="INT" extfun="exit">
                                                 <Arguments>
                                                     <Const value="-1"/>
                                                 </Arguments>
@@ -119,7 +119,7 @@
                                         </CJump>
                                         <Label label="103"/>
                                         <ExpressionStatement>
-                                            <ExtCall extfun="exit">
+                                            <ExtCall type="INT" extfun="exit">
                                                 <Arguments>
                                                     <Const value="-1"/>
                                                 </Arguments>

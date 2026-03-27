@@ -8,7 +8,7 @@
     <FunctionDeclaration name="D^f" return_type="PTR" last_temp="101" last_label="99" arg_temp="100">
         <Sequence>
             <ExpressionStatement>
-                <ExtCall extfun="putint">
+                <ExtCall type="INT" extfun="putint">
                     <Arguments>
                         <BinOp type="INT" op="+">
                             <Memory type="INT">

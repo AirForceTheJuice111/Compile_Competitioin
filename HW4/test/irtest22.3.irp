@@ -16,7 +16,7 @@
                     <Sequence>
                         <Move>
                             <Temp type="PTR" temp="104"/>
-                            <ExtCall extfun="malloc">
+                            <ExtCall type="PTR" extfun="malloc">
                                 <Arguments>
                                     <Const value="4"/>
                                 </Arguments>
@@ -36,175 +36,175 @@
                 </ESeq>
             </Move>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="69"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="110"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="116"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="101"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="114"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="32"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="116"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="104"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="101"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="32"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="110"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="117"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="109"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="98"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="101"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="114"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="32"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="111"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="102"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="32"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="116"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="101"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="114"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="109"/>
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="58"/>
                     </Arguments>
@@ -212,7 +212,7 @@
             </ExpressionStatement>
             <Move>
                 <Temp type="INT" temp="101"/>
-                <ExtCall extfun="getint">
+                <ExtCall type="INT" extfun="getint">
                     <Arguments/>
                 </ExtCall>
             </Move>
@@ -248,9 +248,9 @@
                 <Label label="111"/>
                 <Sequence>
                     <ExpressionStatement>
-                        <ExtCall extfun="putint">
+                        <ExtCall type="INT" extfun="putint">
                             <Arguments>
-                                <Call id="f">
+                                <Call type="INT" id="f">
                                     <Memory type="PTR">
                                         <BinOp type="PTR" op="+">
                                             <Temp type="PTR" temp="102"/>
@@ -266,7 +266,7 @@
                         </ExtCall>
                     </ExpressionStatement>
                     <ExpressionStatement>
-                        <ExtCall extfun="putch">
+                        <ExtCall type="INT" extfun="putch">
                             <Arguments>
                                 <Const value="32"/>
                             </Arguments>
@@ -284,7 +284,7 @@
                 <Label label="112"/>
             </Sequence>
             <ExpressionStatement>
-                <ExtCall extfun="putch">
+                <ExtCall type="INT" extfun="putch">
                     <Arguments>
                         <Const value="10"/>
                     </Arguments>
@@ -317,7 +317,7 @@
                 <Label label="106"/>
                 <Return>
                     <BinOp type="INT" op="+">
-                        <Call id="f">
+                        <Call type="INT" id="f">
                             <Memory type="PTR">
                                 <BinOp type="PTR" op="+">
                                     <Temp type="PTR" temp="100"/>
@@ -332,7 +332,7 @@
                                 </BinOp>
                             </Arguments>
                         </Call>
-                        <Call id="f">
+                        <Call type="INT" id="f">
                             <Memory type="PTR">
                                 <BinOp type="PTR" op="+">
                                     <Temp type="PTR" temp="100"/>

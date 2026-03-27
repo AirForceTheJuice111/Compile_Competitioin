@@ -16,7 +16,7 @@
                     <Sequence>
                         <Move>
                             <Temp type="PTR" temp="103"/>
-                            <ExtCall extfun="malloc">
+                            <ExtCall type="PTR" extfun="malloc">
                                 <Arguments>
                                     <Const value="20"/>
                                 </Arguments>
@@ -50,7 +50,7 @@
                     <Sequence>
                         <Move>
                             <Temp type="PTR" temp="104"/>
-                            <ExtCall extfun="malloc">
+                            <ExtCall type="PTR" extfun="malloc">
                                 <Arguments>
                                     <Const value="20"/>
                                 </Arguments>
@@ -88,9 +88,9 @@
                 <Const value="1"/>
             </Move>
             <ExpressionStatement>
-                <ExtCall extfun="putint">
+                <ExtCall type="INT" extfun="putint">
                     <Arguments>
-                        <Call id="f">
+                        <Call type="INT" id="f">
                             <Memory type="PTR">
                                 <BinOp type="PTR" op="+">
                                     <Temp type="PTR" temp="100"/>
@@ -109,9 +109,9 @@
                 <Temp type="PTR" temp="101"/>
             </Move>
             <ExpressionStatement>
-                <ExtCall extfun="putint">
+                <ExtCall type="INT" extfun="putint">
                     <Arguments>
-                        <Call id="f">
+                        <Call type="INT" id="f">
                             <Memory type="PTR">
                                 <BinOp type="PTR" op="+">
                                     <Temp type="PTR" temp="100"/>
@@ -193,7 +193,7 @@
                                                     </CJump>
                                                     <Label label="100"/>
                                                     <ExpressionStatement>
-                                                        <ExtCall extfun="exit">
+                                                        <ExtCall type="INT" extfun="exit">
                                                             <Arguments>
                                                                 <Const value="-1"/>
                                                             </Arguments>
@@ -211,7 +211,7 @@
                             </Memory>
                         </ESeq>
                     </BinOp>
-                    <Call id="g">
+                    <Call type="INT" id="g">
                         <Memory type="PTR">
                             <BinOp type="PTR" op="+">
                                 <Temp type="PTR" temp="101"/>
@@ -229,7 +229,7 @@
     <FunctionDeclaration name="B^g" return_type="INT" last_temp="101" last_label="99" arg_temp="100">
         <Sequence>
             <Return>
-                <Call id="f">
+                <Call type="INT" id="f">
                     <Memory type="PTR">
                         <BinOp type="PTR" op="+">
                             <Temp type="PTR" temp="100"/>
