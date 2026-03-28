@@ -127,14 +127,14 @@
             </ExpressionStatement>
         </Sequence>
     </FunctionDeclaration>
-    <FunctionDeclaration name="A^f" return_type="INT" last_temp="101" last_label="99" arg_temp="100">
+    <FunctionDeclaration name="A^f" return_type="INT" last_temp="101" last_label="99" arg_temp_0="100">
         <Sequence>
             <Return>
                 <Const value="0"/>
             </Return>
         </Sequence>
     </FunctionDeclaration>
-    <FunctionDeclaration name="B^f" return_type="INT" last_temp="104" last_label="102" arg_temp="101">
+    <FunctionDeclaration name="B^f" return_type="INT" last_temp="104" last_label="102" arg_temp_0="101">
         <Sequence>
             <Move>
                 <Temp type="PTR" temp="100"/>
@@ -226,7 +226,7 @@
             </Return>
         </Sequence>
     </FunctionDeclaration>
-    <FunctionDeclaration name="B^g" return_type="INT" last_temp="101" last_label="99" arg_temp="100">
+    <FunctionDeclaration name="B^g" return_type="INT" last_temp="101" last_label="99" arg_temp_0="100">
         <Sequence>
             <Return>
                 <Call type="INT" id="f">

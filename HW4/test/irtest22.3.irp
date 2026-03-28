@@ -295,7 +295,7 @@
             </Return>
         </Sequence>
     </FunctionDeclaration>
-    <FunctionDeclaration name="fib^f" return_type="INT" last_temp="102" last_label="107" arg_temp="101">
+    <FunctionDeclaration name="fib^f" return_type="INT" last_temp="102" last_label="107" arg_temp_0="100" arg_temp_1="101">
         <Sequence>
             <Sequence>
                 <Sequence>

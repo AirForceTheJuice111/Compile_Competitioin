@@ -110,7 +110,7 @@
             </ExpressionStatement>
         </Sequence>
     </FunctionDeclaration>
-    <FunctionDeclaration name="A^f" return_type="INT" last_temp="101" last_label="99" arg_temp="100"/>
-    <FunctionDeclaration name="B^f" return_type="INT" last_temp="101" last_label="99" arg_temp="100"/>
-    <FunctionDeclaration name="B^g" return_type="INT" last_temp="101" last_label="99" arg_temp="100"/>
+    <FunctionDeclaration name="A^f" return_type="INT" last_temp="101" last_label="99" arg_temp_0="100"/>
+    <FunctionDeclaration name="B^f" return_type="INT" last_temp="101" last_label="99" arg_temp_0="100"/>
+    <FunctionDeclaration name="B^g" return_type="INT" last_temp="101" last_label="99" arg_temp_0="100"/>
 </Program>

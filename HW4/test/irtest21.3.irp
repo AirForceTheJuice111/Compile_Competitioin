@@ -227,7 +227,7 @@
             </Return>
         </Sequence>
     </FunctionDeclaration>
-    <FunctionDeclaration name="b1^bubbleSort" return_type="INT" last_temp="113" last_label="132" arg_temp="103">
+    <FunctionDeclaration name="b1^bubbleSort" return_type="INT" last_temp="113" last_label="132" arg_temp_0="101" arg_temp_1="102" arg_temp_2="103">
         <Sequence>
             <Move>
                 <Temp type="INT" temp="100"/>
