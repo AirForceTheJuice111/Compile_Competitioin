@@ -66,8 +66,10 @@ void Tree2XML::visit(FuncDecl* node) {
     element->SetAttribute("last_temp", node->last_temp_num);
     element->SetAttribute("last_label", node->last_label_num);
     if (node->args != nullptr) {
+        int arg_idx = 0;
         for (auto arg : *node->args) {
-            element->SetAttribute("arg_temp", arg->name());
+            string attr_name = "arg_temp_" + to_string(arg_idx++);
+            element->SetAttribute(attr_name.c_str(), arg->name());
         }
     }
     if (node->stm != nullptr) {
