@@ -11,7 +11,7 @@
                 <Const value="0"/>
             </Move>
             <ExpressionStatement>
-                <ExtCall extfun="putint">
+                <ExtCall type="INT" extfun="putint">
                     <Arguments>
                         <BinOp type="INT" op="+">
                             <BinOp type="INT" op="+">
@@ -59,7 +59,7 @@
                 <Temp type="PTR" temp="101"/>
             </Move>
             <ExpressionStatement>
-                <ExtCall extfun="putint">
+                <ExtCall type="INT" extfun="putint">
                     <Arguments>
                         <BinOp type="INT" op="+">
                             <BinOp type="INT" op="+">
@@ -104,7 +104,7 @@
             </ExpressionStatement>
         </Sequence>
     </FunctionDeclaration>
-    <FunctionDeclaration name="B^f" return_type="INT" last_temp="101" last_label="99" arg_temp="100">
+    <FunctionDeclaration name="B^f" return_type="INT" last_temp="101" last_label="99" arg_temp_0="100">
         <Sequence>
             <Return>
                 <BinOp type="INT" op="+">

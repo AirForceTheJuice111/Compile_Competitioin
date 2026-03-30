@@ -8,7 +8,7 @@
                     <Sequence>
                         <Move>
                             <Temp type="PTR" temp="102"/>
-                            <ExtCall extfun="malloc">
+                            <ExtCall type="PTR" extfun="malloc">
                                 <Arguments>
                                     <BinOp type="INT" op="*">
                                         <BinOp type="INT" op="+">

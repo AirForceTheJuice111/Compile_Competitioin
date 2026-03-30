@@ -4,7 +4,7 @@
         <Sequence>
             <Move>
                 <Temp type="PTR" temp="100"/>
-                <ExtCall extfun="malloc">
+                <ExtCall type="PTR" extfun="malloc">
                     <Arguments>
                         <Const value="16"/>
                     </Arguments>

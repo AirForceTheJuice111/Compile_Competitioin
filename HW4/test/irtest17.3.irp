@@ -16,7 +16,7 @@
                     <Sequence>
                         <Move>
                             <Temp type="PTR" temp="103"/>
-                            <ExtCall extfun="malloc">
+                            <ExtCall type="PTR" extfun="malloc">
                                 <Arguments>
                                     <Const value="16"/>
                                 </Arguments>
@@ -50,7 +50,7 @@
                     <Sequence>
                         <Move>
                             <Temp type="PTR" temp="104"/>
-                            <ExtCall extfun="malloc">
+                            <ExtCall type="PTR" extfun="malloc">
                                 <Arguments>
                                     <Const value="16"/>
                                 </Arguments>
@@ -92,9 +92,9 @@
                 <Temp type="PTR" temp="101"/>
             </Move>
             <ExpressionStatement>
-                <ExtCall extfun="putint">
+                <ExtCall type="INT" extfun="putint">
                     <Arguments>
-                        <Call id="f">
+                        <Call type="INT" id="f">
                             <Memory type="PTR">
                                 <BinOp type="PTR" op="+">
                                     <Temp type="PTR" temp="100"/>
@@ -110,7 +110,7 @@
             </ExpressionStatement>
         </Sequence>
     </FunctionDeclaration>
-    <FunctionDeclaration name="A^f" return_type="INT" last_temp="101" last_label="99" arg_temp="100"/>
-    <FunctionDeclaration name="B^f" return_type="INT" last_temp="101" last_label="99" arg_temp="100"/>
-    <FunctionDeclaration name="B^g" return_type="INT" last_temp="101" last_label="99" arg_temp="100"/>
+    <FunctionDeclaration name="A^f" return_type="INT" last_temp="101" last_label="99" arg_temp_0="100"/>
+    <FunctionDeclaration name="B^f" return_type="INT" last_temp="101" last_label="99" arg_temp_0="100"/>
+    <FunctionDeclaration name="B^g" return_type="INT" last_temp="101" last_label="99" arg_temp_0="100"/>
 </Program>

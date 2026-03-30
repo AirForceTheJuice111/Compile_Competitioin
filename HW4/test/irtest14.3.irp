@@ -12,7 +12,7 @@
                     <Sequence>
                         <Move>
                             <Temp type="PTR" temp="102"/>
-                            <ExtCall extfun="malloc">
+                            <ExtCall type="PTR" extfun="malloc">
                                 <Arguments>
                                     <Const value="8"/>
                                 </Arguments>
@@ -42,5 +42,5 @@
             </Move>
         </Sequence>
     </FunctionDeclaration>
-    <FunctionDeclaration name="A^f" return_type="INT" last_temp="101" last_label="99" arg_temp="100"/>
+    <FunctionDeclaration name="A^f" return_type="INT" last_temp="101" last_label="99" arg_temp_0="100"/>
 </Program>

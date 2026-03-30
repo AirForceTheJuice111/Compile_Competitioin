@@ -37,7 +37,7 @@
                                             </CJump>
                                             <Label label="100"/>
                                             <ExpressionStatement>
-                                                <ExtCall extfun="exit">
+                                                <ExtCall type="INT" extfun="exit">
                                                     <Arguments>
                                                         <Const value="-1"/>
                                                     </Arguments>
