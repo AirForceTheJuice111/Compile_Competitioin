@@ -163,7 +163,7 @@ class QuadFuncDecl : public Quad {
     QuadFuncDecl* clone() const override;
 };
 
-class QuadBlock : public Quad {
+class QuadBlock : public Quad { // a basic block, which is a sequence of QuadStm with no jumps except at the end
   public:
     Label *entry_label;
     vector<Label*> *exit_labels;
