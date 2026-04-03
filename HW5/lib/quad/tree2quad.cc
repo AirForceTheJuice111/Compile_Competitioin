@@ -57,7 +57,7 @@ static vector<QuadBlock*>* splitBlocks(vector<QuadStm*> *stms, Temp_map *tmap) {
             cur = new vector<QuadStm*>();
             entry = static_cast<QuadLabel*>(stm)->label;
             cur->push_back(stm);
-        } else {
+        } else { // QuadStm that is not a label, must belong to the current block
             if (!cur) { cur = new vector<QuadStm*>(); entry = nullptr; }
             cur->push_back(stm);
 
