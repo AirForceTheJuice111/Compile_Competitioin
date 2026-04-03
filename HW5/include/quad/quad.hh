@@ -149,7 +149,7 @@ class QuadProgram : public Quad {
 
 class QuadFuncDecl : public Quad {
   public:
-    vector<QuadBlock*> *quadblocklist;
+    vector<QuadBlock*> *quadblocklist; // a function body is a list of basic blocks
     string funcname;
     vector<Temp*> *params;
     int last_label_num;
@@ -166,7 +166,7 @@ class QuadFuncDecl : public Quad {
 class QuadBlock : public Quad { // a basic block, which is a sequence of QuadStm with no jumps except at the end
   public:
     Label *entry_label;
-    vector<Label*> *exit_labels;
+    vector<Label*> *exit_labels; // exit labels mean the labels that this block can jump to (i.e., the entry labels of its successor blocks)
     vector<QuadStm*> *quadlist;
     QuadBlock(vector<QuadStm*> *quadlist, Label *entry_label, vector<Label*> *exit_labels)
         : Quad(QuadKind::BLOCK), entry_label(entry_label), exit_labels(exit_labels), quadlist(quadlist) {}
