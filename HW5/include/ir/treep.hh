@@ -221,7 +221,7 @@ class TempExp : public Exp {
     void accept(Visitor &v) { v.visit(this); }
 };
 
-class Eseq : public Exp {
+class Eseq : public Exp { // Eseq(stm, exp) means "execute stm, then evaluate exp"
   public:
     Stm *stm;
     Exp *exp;
@@ -232,8 +232,8 @@ class Eseq : public Exp {
 
 class Name : public Exp { //convert a label to a ptr (address)
   public:
-    Label *name;
-    String_Label *sname;
+    Label *name; // if the name is a function/label name, use name. this is for function/label names generated in the code, which have a naming convention of "L" + number and are in the same namespace as labels used in jumps.
+    String_Label *sname; // if the name is from a string literal, use sname instead of name, and set name to nullptr. this is to distinguish string literal names from function/label names, which are generated in different namespaces and have different naming conventions.
     Name(Label *name) : Exp(Type::PTR), name(name), sname(nullptr) {}
     Name(String_Label *sname) : Exp(Type::PTR), name(nullptr), sname(sname) {}
     Kind getTreeKind() { return Kind::NAME; }
@@ -250,7 +250,7 @@ class Const : public Exp {
 
 class Call : public Exp {
   public:
-    string id;
+    string id; // function name (unique name: classname + methodname). we don't use Label* here because function names are in a different namespace from labels used in jumps, and they also have a different naming convention (function names are the original class/method names, while label names are generated in the form of "L" + number).
     Exp *obj;
     std::vector<tree::Exp*> *args;
     Call(tree::Type t, string id, tree::Exp *obj, std::vector<tree::Exp*> *args) : 
