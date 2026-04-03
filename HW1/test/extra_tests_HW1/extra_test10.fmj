@@ -1,0 +1,10 @@
+public int main() {
+	a = 100;
+	b = (a/3);
+	c = (b*3);
+	remainder = (a-c);
+	doubleRem = (remainder+remainder);
+	negResult = (-doubleRem);
+	final = ((negResult+a)-(b*2));
+	return final;
+}
