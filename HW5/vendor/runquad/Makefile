@@ -14,7 +14,7 @@ HOST_ARCH = $(shell uname -m)
 # Detect architecture and select appropriate libsysy
 ARCH = $(shell uname -m)
 ifeq ($(ARCH),x86_64)
-	EXE=$(CURDIR)/runquad-ubuntu-x86
+	EXE=$(CURDIR)/runquad-ubuntu-amd64
 else ifeq ($(ARCH),aarch64)
 	EXE=$(CURDIR)/runquad-ubuntu-aarch64
 else ifeq ($(ARCH),arm64)
