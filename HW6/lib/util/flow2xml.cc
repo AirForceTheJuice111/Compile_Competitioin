@@ -1,7 +1,9 @@
 #include <map>
 #include <set>
+#include <vector>
 
 #include "flowinfo.hh"
+#include "quad2xml.hh"
 #include "flow2xml.hh"
 #include "tinyxml2.hh"
 
@@ -100,8 +102,42 @@ bool flowinfo2xml(set<FuncFlowInfo*>* allFuncFlow, const char* filename) {
     }
 
     XMLDocument doc;
-    XMLElement* root = doc.NewElement("FlowInfoProgram");
+    XMLElement* root = doc.NewElement("QuadWithFlowProgram");
     doc.InsertEndChild(root);
+
+    // Embed full blocked quad program so xml2flow can recover exact statements.
+    vector<QuadFuncDecl*>* funcs = new vector<QuadFuncDecl*>();
+    funcs->reserve(allFuncFlow->size());
+    int maxLastLabelNum = 0;
+    int maxLastTempNum = 0;
+    for (auto* ffi : *allFuncFlow) {
+        if (!ffi || !ffi->dfi || !ffi->dfi->func) {
+            continue;
+        }
+        QuadFuncDecl* f = ffi->dfi->func;
+        funcs->push_back(f);
+        if (f->last_label_num > maxLastLabelNum) {
+            maxLastLabelNum = f->last_label_num;
+        }
+        if (f->last_temp_num > maxLastTempNum) {
+            maxLastTempNum = f->last_temp_num;
+        }
+    }
+    root->SetAttribute("program_last_label_num", maxLastLabelNum);
+    root->SetAttribute("program_last_temp_num", maxLastTempNum);
+
+    if (!funcs->empty()) {
+        QuadProgram embeddedProg(funcs, maxLastLabelNum, maxLastTempNum);
+        XMLDocument quadDoc;
+        Quad2XML q2x(&quadDoc);
+        embeddedProg.accept(q2x);
+        if (quadDoc.RootElement()) {
+            XMLNode* cloned = quadDoc.RootElement()->DeepClone(&doc);
+            if (cloned) {
+                root->InsertEndChild(cloned);
+            }
+        }
+    }
 
     for (auto* ffi : *allFuncFlow) {
         if (!ffi || !ffi->cfi || !ffi->dfi || !ffi->dfi->func) {

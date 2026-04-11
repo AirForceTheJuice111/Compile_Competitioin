@@ -13,6 +13,7 @@ clean:
 	echo "Cleaning build artifacts"; \
 	$(RM) build ; \
 	$(RM) test/*4-block.quad; \
+	$(RM) test/*flow*.quad; \
 
 handin:
 	@if [ ! -f docs/report.pdf ]; then \
