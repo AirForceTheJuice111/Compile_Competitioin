@@ -27,7 +27,7 @@ int main(int argc, const char *argv[]) {
     // boilerplate output filenames (used throughout the compiler pipeline)
     std::string file_quad_xml = file + ".4-xml.quad";
     std::string file_quad_block = file + ".4-block.quad";
-    std::string file_flow_xml = file + ".4-flow-xml.quad";
+    string file_quadwithflow_xml = file + ".4-quadwithflow-xml.quad";
 
     // Read the quad program from the XML file
     std::cout << "Reading Quad from xml: " << file_quad_xml << std::endl;
@@ -72,8 +72,8 @@ int main(int argc, const char *argv[]) {
         allFuncFlow->insert(new FuncFlowInfo(cfi, dfItem));
     }
 
-    if (!flowinfo2xml(allFuncFlow, file_flow_xml.c_str())) {
-        std::cerr << "Error writing flow info XML file: " << file_flow_xml << std::endl;
+    if (!flowinfo2xml(allFuncFlow, file_quadwithflow_xml.c_str())) {
+        std::cerr << "Error writing flow info XML file: " << file_quadwithflow_xml << std::endl;
         return EXIT_FAILURE;
     }
     std::cout << "Done control flow information computing" << std::endl;
