@@ -8,4 +8,4 @@ You need to fill in the code in two files: `controlflowinfo.cc` and `dataflowinf
 
 Follow the class & lab instructions to finish the assignment.
 
-Look into test directory for test cases. The main program takes `*.4-xml.quad` program and blocking it (print to `*.4-block.quad`) and finally output the flow info in `*.4-flow-xml.quad`. The corresponding `.fmj` files are the same as in HW5.
+Look into test directory for test cases. The main program takes `*.4-xml.quad` program and blocking it (print to `*.4-block.quad`) and finally output the flow info in `*.4-quadwithflow-xml.quad`. The corresponding `.fmj` files are the same as in HW5.
