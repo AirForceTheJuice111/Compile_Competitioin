@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program bline="3" bpos="1" eline="7" epos="1">
+    <MainMethod bline="3" bpos="1" eline="7" epos="1">
+        <VarDeclList>
+            <VarDecl bline="4" bpos="5" eline="4" epos="20">
+                <Type typeKind="CLASS" bline="4" bpos="5" eline="4" epos="17">
+                    <IdExp id="Missing" bline="4" bpos="11" eline="4" epos="17"/>
+                </Type>
+                <IdExp id="x" bline="4" bpos="19" eline="4" epos="19"/>
+            </VarDecl>
+        </VarDeclList>
+        <StmList>
+            <Assign bline="5" bpos="5" eline="5" epos="22">
+                <IdExp bline="5" bpos="5" eline="5" epos="5" id="x"/>
+                <NewObject bline="5" bpos="9" eline="5" epos="21">
+                    <Id id="Missing"/>
+                </NewObject>
+            </Assign>
+            <Return bline="6" bpos="5" eline="6" epos="13">
+                <IntExp bline="6" bpos="12" eline="6" epos="12" val="0"/>
+            </Return>
+        </StmList>
+    </MainMethod>
+    <ClassDeclList/>
+</Program>

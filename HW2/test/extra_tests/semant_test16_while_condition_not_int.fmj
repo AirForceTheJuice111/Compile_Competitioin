@@ -1,0 +1,11 @@
+// EXPECT: FAIL
+// Target: while condition must be int.
+public int main() {
+    class A a;
+    a = new A();
+    while (a) ;
+    return 0;
+}
+
+public class A {
+}

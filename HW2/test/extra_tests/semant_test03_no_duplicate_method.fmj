@@ -1,0 +1,15 @@
+// EXPECT: PASS
+// Normal
+public int main() {
+    return 0;
+}
+
+public class A {
+    public int f() {
+        return 0;
+    }
+
+    public int ff() {
+        return 1;
+    }
+}

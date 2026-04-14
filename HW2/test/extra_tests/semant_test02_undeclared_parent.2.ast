@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program bline="3" bpos="1" eline="8" epos="1">
+    <MainMethod bline="3" bpos="1" eline="5" epos="1">
+        <VarDeclList/>
+        <StmList>
+            <Return bline="4" bpos="5" eline="4" epos="13">
+                <IntExp bline="4" bpos="12" eline="4" epos="12" val="0"/>
+            </Return>
+        </StmList>
+    </MainMethod>
+    <ClassDeclList>
+        <ClassDecl bline="7" bpos="1" eline="8" epos="1">
+            <IdExp id="Child" bline="7" bpos="14" eline="7" epos="18"/>
+            <ExtendsId eid="MissingParent" bline="7" bpos="28" eline="7" epos="40"/>
+            <VarDeclList/>
+            <MethodDeclList/>
+        </ClassDecl>
+    </ClassDeclList>
+</Program>

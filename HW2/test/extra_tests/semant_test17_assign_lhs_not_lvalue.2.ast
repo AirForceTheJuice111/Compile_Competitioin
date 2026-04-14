@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program bline="3" bpos="1" eline="6" epos="1">
+    <MainMethod bline="3" bpos="1" eline="6" epos="1">
+        <VarDeclList/>
+        <StmList>
+            <Assign bline="4" bpos="5" eline="4" epos="10">
+                <IntExp bline="4" bpos="5" eline="4" epos="5" val="1"/>
+                <IntExp bline="4" bpos="9" eline="4" epos="9" val="2"/>
+            </Assign>
+            <Return bline="5" bpos="5" eline="5" epos="13">
+                <IntExp bline="5" bpos="12" eline="5" epos="12" val="0"/>
+            </Return>
+        </StmList>
+    </MainMethod>
+    <ClassDeclList/>
+</Program>

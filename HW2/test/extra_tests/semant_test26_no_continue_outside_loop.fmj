@@ -1,0 +1,6 @@
+// EXPECT: PASS
+// Target: continue must be inside while.
+public int main() {
+    while (1) continue;
+    return 0;
+}
