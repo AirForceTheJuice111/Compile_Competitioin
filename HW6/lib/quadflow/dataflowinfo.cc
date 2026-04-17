@@ -15,8 +15,37 @@ void DataFlowInfo::findAllVars() {
 #ifdef DEBUG
     cout << "Finding all variables in function: " << func->funcname << endl;
 #endif
-    //FILE IN THE CODE HERE TO FIND ALL VARIABLES used or defined in the function,
-    //and filling in the allVars set, defs map and uses map 
+    allVars.clear();
+    defs->clear();
+    uses->clear();
+    // Include function parameters as variables
+    if (func->params) {
+        for (auto t : *func->params) allVars.insert(t->num);
+    }
+    // Collect all variables from def/use sets of each statement
+    for (auto block : *func->quadblocklist) {
+        if (!block || !block->quadlist) continue;
+        for (auto stmt : *block->quadlist) {
+            if (!stmt) continue;
+            if (stmt->def) {
+                for (auto t : *stmt->def) {
+                    allVars.insert(t->num);
+                    (*defs)[t->num].insert({block, stmt});
+                }
+            }
+            if (stmt->use) {
+                for (auto t : *stmt->use) {
+                    allVars.insert(t->num);
+                    (*uses)[t->num].insert({block, stmt});
+                }
+            }
+        }
+    }
+#ifdef DEBUG
+    cout << "All variables: ";
+    for (auto v : allVars) cout << "t" << v << " ";
+    cout << endl;
+#endif
 }
 
 // Calculate both live-in and live-out sets for all statements
@@ -24,7 +53,77 @@ void DataFlowInfo::computeLiveness() {
 #ifdef DEBUG
     cout << "Computing liveness for function: " << func->funcname << endl;
 #endif
-    //FILE IN THE CODE HERE TO CALCULATE BOTH LIVE-IN AND LIVE-OUT SETS for all statements in the function,
+    livein->clear();
+    liveout->clear();
+
+    // Build label -> block map for successor lookup
+    map<int, QuadBlock*> labelToBlock;
+    for (auto block : *func->quadblocklist) {
+        if (block && block->entry_label) labelToBlock[block->entry_label->num] = block;
+    }
+
+    // Initialize live-in and live-out to empty for all statements
+    for (auto block : *func->quadblocklist) {
+        if (!block || !block->quadlist) continue;
+        for (auto stmt : *block->quadlist) {
+            (*livein)[stmt] = set<int>();
+            (*liveout)[stmt] = set<int>();
+        }
+    }
+
+    // Iterative backward dataflow analysis until convergence
+    bool changed = true;
+    while (changed) {
+        changed = false;
+        // Process blocks in reverse order for faster convergence
+        for (int i = (int)func->quadblocklist->size() - 1; i >= 0; i--) {
+            auto block = func->quadblocklist->at(i);
+            if (!block || !block->quadlist || block->quadlist->empty()) continue;
+
+            auto &stmts = *block->quadlist;
+
+            // live_out of last statement = union of live_in of first stmts of successor blocks
+            auto lastStmt = stmts.back();
+            set<int> new_liveout;
+            if (block->exit_labels) {
+                for (auto label : *block->exit_labels) {
+                    auto it = labelToBlock.find(label->num);
+                    if (it != labelToBlock.end() && it->second->quadlist && !it->second->quadlist->empty()) {
+                        auto firstStmt = it->second->quadlist->front();
+                        for (auto v : (*livein)[firstStmt]) new_liveout.insert(v);
+                    }
+                }
+            }
+            if (new_liveout != (*liveout)[lastStmt]) {
+                (*liveout)[lastStmt] = new_liveout;
+                changed = true;
+            }
+
+            // Process statements from last to first
+            for (int j = (int)stmts.size() - 1; j >= 0; j--) {
+                auto stmt = stmts[j];
+                // live_in = use ∪ (live_out - def)
+                set<int> new_livein = (*liveout)[stmt];
+                if (stmt->def) {
+                    for (auto t : *stmt->def) new_livein.erase(t->num);
+                }
+                if (stmt->use) {
+                    for (auto t : *stmt->use) new_livein.insert(t->num);
+                }
+                if (new_livein != (*livein)[stmt]) {
+                    (*livein)[stmt] = new_livein;
+                    changed = true;
+                }
+                // live_out of previous statement = live_in of current statement
+                if (j > 0) {
+                    if ((*livein)[stmt] != (*liveout)[stmts[j - 1]]) {
+                        (*liveout)[stmts[j - 1]] = (*livein)[stmt];
+                        changed = true;
+                    }
+                }
+            }
+        }
+    }
 }
 
 set<DataFlowInfo*>* dataFLowProg(QuadProgram* prog) {
