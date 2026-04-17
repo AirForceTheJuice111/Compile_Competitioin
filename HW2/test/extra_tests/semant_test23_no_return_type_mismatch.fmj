@@ -1,0 +1,15 @@
+// EXPECT: PASS
+// Target: return expression type must match method return type.
+public int main() {
+    class A a;
+    int [] b;
+    a = new A();
+    b = a.f();
+    return 0;
+}
+
+public class A {
+    public int[] f() {
+        return new int[1];
+    }
+}

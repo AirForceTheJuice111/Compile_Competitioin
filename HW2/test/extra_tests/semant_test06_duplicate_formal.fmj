@@ -1,0 +1,11 @@
+// EXPECT: FAIL
+// Target: namemap should reject duplicate formal parameters.
+public int main() {
+    return 0;
+}
+
+public class A {
+    public int f(int x, int x) {
+        return x;
+    }
+}

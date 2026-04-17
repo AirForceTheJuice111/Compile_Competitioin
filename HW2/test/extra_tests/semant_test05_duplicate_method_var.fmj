@@ -1,0 +1,7 @@
+// EXPECT: FAIL
+// Target: namemap should reject duplicate local variables in one method.
+public int main() {
+    int x;
+    int x;
+    return 0;
+}

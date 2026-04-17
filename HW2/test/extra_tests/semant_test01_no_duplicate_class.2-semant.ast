@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program bline="2" bpos="1" eline="10" epos="1">
+    <MainMethod bline="2" bpos="1" eline="4" epos="1">
+        <VarDeclList/>
+        <StmList>
+            <Return bline="3" bpos="5" eline="3" epos="13" s_kind="Value" typeKind="Int" lvalue="false">
+                <IntExp bline="3" bpos="12" eline="3" epos="12" s_kind="Value" typeKind="Int" lvalue="false" val="0"/>
+            </Return>
+        </StmList>
+    </MainMethod>
+    <ClassDeclList>
+        <ClassDecl bline="6" bpos="1" eline="7" epos="1">
+            <IdExp id="A" bline="6" bpos="14" eline="6" epos="14"/>
+            <VarDeclList/>
+            <MethodDeclList/>
+        </ClassDecl>
+        <ClassDecl bline="9" bpos="1" eline="10" epos="1">
+            <IdExp id="B" bline="9" bpos="14" eline="9" epos="14"/>
+            <VarDeclList/>
+            <MethodDeclList/>
+        </ClassDecl>
+    </ClassDeclList>
+</Program>

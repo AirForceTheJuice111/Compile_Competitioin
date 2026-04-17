@@ -1,0 +1,8 @@
+// EXPECT: FAIL
+// Target: putint argument must be int.
+public int main() {
+    int[] a;
+    a = new int[2];
+    putint(a);
+    return 0;
+}

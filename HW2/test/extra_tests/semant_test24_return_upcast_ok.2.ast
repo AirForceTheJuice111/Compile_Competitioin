@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program bline="3" bpos="1" eline="17" epos="1">
+    <MainMethod bline="3" bpos="1" eline="5" epos="1">
+        <VarDeclList/>
+        <StmList>
+            <Return bline="4" bpos="5" eline="4" epos="13">
+                <IntExp bline="4" bpos="12" eline="4" epos="12" val="0"/>
+            </Return>
+        </StmList>
+    </MainMethod>
+    <ClassDeclList>
+        <ClassDecl bline="7" bpos="1" eline="8" epos="1">
+            <IdExp id="A" bline="7" bpos="14" eline="7" epos="14"/>
+            <VarDeclList/>
+            <MethodDeclList/>
+        </ClassDecl>
+        <ClassDecl bline="10" bpos="1" eline="11" epos="1">
+            <IdExp id="B" bline="10" bpos="14" eline="10" epos="14"/>
+            <ExtendsId eid="A" bline="10" bpos="24" eline="10" epos="24"/>
+            <VarDeclList/>
+            <MethodDeclList/>
+        </ClassDecl>
+        <ClassDecl bline="13" bpos="1" eline="17" epos="1">
+            <IdExp id="Maker" bline="13" bpos="14" eline="13" epos="18"/>
+            <VarDeclList/>
+            <MethodDeclList>
+                <MethodDecl bline="14" bpos="5" eline="16" epos="5">
+                    <Type typeKind="CLASS" bline="14" bpos="12" eline="14" epos="18">
+                        <IdExp id="A" bline="14" bpos="18" eline="14" epos="18"/>
+                    </Type>
+                    <IdExp id="f" bline="14" bpos="20" eline="14" epos="20"/>
+                    <FormalList/>
+                    <VarDeclList/>
+                    <StmList>
+                        <Return bline="15" bpos="9" eline="15" epos="23">
+                            <NewObject bline="15" bpos="16" eline="15" epos="22">
+                                <Id id="B"/>
+                            </NewObject>
+                        </Return>
+                    </StmList>
+                </MethodDecl>
+            </MethodDeclList>
+        </ClassDecl>
+    </ClassDeclList>
+</Program>

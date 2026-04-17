@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program bline="3" bpos="1" eline="13" epos="1">
+    <MainMethod bline="3" bpos="1" eline="9" epos="1">
+        <VarDeclList>
+            <VarDecl bline="4" bpos="5" eline="4" epos="14">
+                <Type typeKind="CLASS" bline="4" bpos="5" eline="4" epos="11">
+                    <IdExp id="A" bline="4" bpos="11" eline="4" epos="11"/>
+                </Type>
+                <IdExp id="a" bline="4" bpos="13" eline="4" epos="13"/>
+            </VarDecl>
+            <VarDecl bline="5" bpos="5" eline="5" epos="14">
+                <Type typeKind="CLASS" bline="5" bpos="5" eline="5" epos="11">
+                    <IdExp id="A" bline="5" bpos="11" eline="5" epos="11"/>
+                </Type>
+                <IdExp id="b" bline="5" bpos="13" eline="5" epos="13"/>
+            </VarDecl>
+        </VarDeclList>
+        <StmList>
+            <Assign bline="6" bpos="5" eline="6" epos="16">
+                <IdExp bline="6" bpos="5" eline="6" epos="5" id="a"/>
+                <NewObject bline="6" bpos="9" eline="6" epos="15">
+                    <Id id="A"/>
+                </NewObject>
+            </Assign>
+            <Assign bline="7" bpos="5" eline="7" epos="16">
+                <IdExp bline="7" bpos="5" eline="7" epos="5" id="b"/>
+                <NewObject bline="7" bpos="9" eline="7" epos="15">
+                    <Id id="A"/>
+                </NewObject>
+            </Assign>
+            <Return bline="8" bpos="5" eline="8" epos="22">
+                <BinaryOp bline="8" bpos="12" eline="8" epos="21">
+                    <ClassVar bline="8" bpos="12" eline="8" epos="14">
+                        <IdExp bline="8" bpos="12" eline="8" epos="12" id="a"/>
+                        <IdExp id="i" bline="8" bpos="14" eline="8" epos="14"/>
+                    </ClassVar>
+                    <OpExp op="==" bline="8" bpos="16" eline="8" epos="17"/>
+                    <ClassVar bline="8" bpos="19" eline="8" epos="21">
+                        <IdExp bline="8" bpos="19" eline="8" epos="19" id="b"/>
+                        <IdExp id="i" bline="8" bpos="21" eline="8" epos="21"/>
+                    </ClassVar>
+                </BinaryOp>
+            </Return>
+        </StmList>
+    </MainMethod>
+    <ClassDeclList>
+        <ClassDecl bline="11" bpos="1" eline="13" epos="1">
+            <IdExp id="A" bline="11" bpos="14" eline="11" epos="14"/>
+            <VarDeclList>
+                <VarDecl bline="12" bpos="5" eline="12" epos="10">
+                    <Type typeKind="INT" bline="12" bpos="5" eline="12" epos="7"/>
+                    <IdExp id="i" bline="12" bpos="9" eline="12" epos="9"/>
+                </VarDecl>
+            </VarDeclList>
+            <MethodDeclList/>
+        </ClassDecl>
+    </ClassDeclList>
+</Program>

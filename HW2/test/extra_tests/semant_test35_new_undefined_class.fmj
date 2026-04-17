@@ -1,0 +1,7 @@
+// EXPECT: FAIL
+// Target: new should reject undefined class.
+public int main() {
+    class Missing x;
+    x = new Missing();
+    return 0;
+}

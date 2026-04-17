@@ -1,0 +1,11 @@
+// EXPECT: FAIL
+// Target: namemap should reject duplicate class declarations.
+public int main() {
+    return 0;
+}
+
+public class A {
+}
+
+public class A {
+}

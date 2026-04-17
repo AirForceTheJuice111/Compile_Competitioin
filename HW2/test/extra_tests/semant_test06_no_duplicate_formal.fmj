@@ -1,0 +1,13 @@
+// EXPECT: PASS
+// Semantic of return x is clear
+public int main() {
+    return 0;
+}
+
+public class A {
+    int x;
+    public int f(int x) {
+        int x;
+        return x;
+    }
+}

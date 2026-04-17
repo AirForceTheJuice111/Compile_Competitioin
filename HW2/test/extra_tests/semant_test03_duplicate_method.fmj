@@ -1,0 +1,15 @@
+// EXPECT: FAIL
+// Target: namemap should reject duplicate methods in one class.
+public int main() {
+    return 0;
+}
+
+public class A {
+    public int f() {
+        return 0;
+    }
+
+    public int f() {
+        return 1;
+    }
+}
