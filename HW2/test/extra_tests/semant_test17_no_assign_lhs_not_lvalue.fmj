@@ -1,0 +1,6 @@
+// EXPECT: PASS
+// Target: assignment lhs must be an lvalue.
+public int main() {
+    new int[1][0] = 2;
+    return 0;
+}

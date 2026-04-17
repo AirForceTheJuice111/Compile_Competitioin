@@ -1,0 +1,15 @@
+// EXPECT: FAIL
+// Target: class variable must be accessed via object, not bare identifier.
+// Typo!
+public int main() {
+    return 0;
+}
+
+public class A {
+    int x;
+
+    public int f() {
+        thi.x = 1;
+        return this.x;
+    }
+}

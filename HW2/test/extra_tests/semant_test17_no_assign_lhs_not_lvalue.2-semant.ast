@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program bline="3" bpos="1" eline="6" epos="1">
+    <MainMethod bline="3" bpos="1" eline="6" epos="1">
+        <VarDeclList/>
+        <StmList>
+            <Assign bline="4" bpos="5" eline="4" epos="22">
+                <ArrayExp bline="4" bpos="5" eline="4" epos="17" s_kind="Value" typeKind="Int" lvalue="true">
+                    <NewArray bline="4" bpos="5" eline="4" epos="14" s_kind="Value" typeKind="IntArray" lvalue="false" arity="0">
+                        <IntExp bline="4" bpos="13" eline="4" epos="13" s_kind="Value" typeKind="Int" lvalue="false" val="1"/>
+                    </NewArray>
+                    <IntExp bline="4" bpos="16" eline="4" epos="16" s_kind="Value" typeKind="Int" lvalue="false" val="0"/>
+                </ArrayExp>
+                <IntExp bline="4" bpos="21" eline="4" epos="21" s_kind="Value" typeKind="Int" lvalue="false" val="2"/>
+            </Assign>
+            <Return bline="5" bpos="5" eline="5" epos="13" s_kind="Value" typeKind="Int" lvalue="false">
+                <IntExp bline="5" bpos="12" eline="5" epos="12" s_kind="Value" typeKind="Int" lvalue="false" val="0"/>
+            </Return>
+        </StmList>
+    </MainMethod>
+    <ClassDeclList/>
+</Program>

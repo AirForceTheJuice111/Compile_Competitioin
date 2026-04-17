@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program bline="3" bpos="1" eline="15" epos="1">
+    <MainMethod bline="3" bpos="1" eline="9" epos="1">
+        <VarDeclList>
+            <VarDecl bline="4" bpos="5" eline="4" epos="14">
+                <Type typeKind="CLASS" bline="4" bpos="5" eline="4" epos="11">
+                    <IdExp id="A" bline="4" bpos="11" eline="4" epos="11"/>
+                </Type>
+                <IdExp id="a" bline="4" bpos="13" eline="4" epos="13"/>
+            </VarDecl>
+            <VarDecl bline="5" bpos="5" eline="5" epos="14">
+                <Type typeKind="CLASS" bline="5" bpos="5" eline="5" epos="11">
+                    <IdExp id="B" bline="5" bpos="11" eline="5" epos="11"/>
+                </Type>
+                <IdExp id="b" bline="5" bpos="13" eline="5" epos="13"/>
+            </VarDecl>
+        </VarDeclList>
+        <StmList>
+            <Assign bline="6" bpos="5" eline="6" epos="16">
+                <IdExp bline="6" bpos="5" eline="6" epos="5" s_kind="Value" typeKind="Class" lvalue="true" cid="B" id="b"/>
+                <NewObject bline="6" bpos="9" eline="6" epos="15" s_kind="Value" typeKind="Class" lvalue="false" cid="B">
+                    <Id id="B"/>
+                </NewObject>
+            </Assign>
+            <Assign bline="7" bpos="5" eline="7" epos="10">
+                <IdExp bline="7" bpos="5" eline="7" epos="5" s_kind="Value" typeKind="Class" lvalue="true" cid="A" id="a"/>
+                <IdExp bline="7" bpos="9" eline="7" epos="9" s_kind="Value" typeKind="Class" lvalue="true" cid="B" id="b"/>
+            </Assign>
+            <Return bline="8" bpos="5" eline="8" epos="13" s_kind="Value" typeKind="Int" lvalue="false">
+                <IntExp bline="8" bpos="12" eline="8" epos="12" s_kind="Value" typeKind="Int" lvalue="false" val="0"/>
+            </Return>
+        </StmList>
+    </MainMethod>
+    <ClassDeclList>
+        <ClassDecl bline="11" bpos="1" eline="12" epos="1">
+            <IdExp id="A" bline="11" bpos="14" eline="11" epos="14"/>
+            <VarDeclList/>
+            <MethodDeclList/>
+        </ClassDecl>
+        <ClassDecl bline="14" bpos="1" eline="15" epos="1">
+            <IdExp id="B" bline="14" bpos="14" eline="14" epos="14"/>
+            <ExtendsId eid="A" bline="14" bpos="24" eline="14" epos="24"/>
+            <VarDeclList/>
+            <MethodDeclList/>
+        </ClassDecl>
+    </ClassDeclList>
+</Program>

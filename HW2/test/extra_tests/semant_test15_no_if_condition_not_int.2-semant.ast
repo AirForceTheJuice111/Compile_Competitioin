@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program bline="3" bpos="1" eline="8" epos="1">
+    <MainMethod bline="3" bpos="1" eline="8" epos="1">
+        <VarDeclList>
+            <VarDecl bline="4" bpos="5" eline="4" epos="12">
+                <Type typeKind="ARRAY" bline="4" bpos="5" eline="4" epos="9">
+                    <Arity val="0" bline="4" bpos="8" eline="4" epos="8"/>
+                </Type>
+                <IdExp id="a" bline="4" bpos="11" eline="4" epos="11"/>
+            </VarDecl>
+        </VarDeclList>
+        <StmList>
+            <Assign bline="5" bpos="5" eline="5" epos="19">
+                <IdExp bline="5" bpos="5" eline="5" epos="5" s_kind="Value" typeKind="IntArray" lvalue="true" arity="0" id="a"/>
+                <NewArray bline="5" bpos="9" eline="5" epos="18" s_kind="Value" typeKind="IntArray" lvalue="false" arity="0">
+                    <IntExp bline="5" bpos="17" eline="5" epos="17" s_kind="Value" typeKind="Int" lvalue="false" val="2"/>
+                </NewArray>
+            </Assign>
+            <If bline="6" bpos="5" eline="6" epos="23">
+                <ArrayExp bline="6" bpos="9" eline="6" epos="12" s_kind="Value" typeKind="Int" lvalue="true">
+                    <IdExp bline="6" bpos="9" eline="6" epos="9" s_kind="Value" typeKind="IntArray" lvalue="true" arity="0" id="a"/>
+                    <IntExp bline="6" bpos="11" eline="6" epos="11" s_kind="Value" typeKind="Int" lvalue="false" val="0"/>
+                </ArrayExp>
+                <Return bline="6" bpos="15" eline="6" epos="23" s_kind="Value" typeKind="Int" lvalue="false">
+                    <IntExp bline="6" bpos="22" eline="6" epos="22" s_kind="Value" typeKind="Int" lvalue="false" val="1"/>
+                </Return>
+            </If>
+            <Return bline="7" bpos="5" eline="7" epos="13" s_kind="Value" typeKind="Int" lvalue="false">
+                <IntExp bline="7" bpos="12" eline="7" epos="12" s_kind="Value" typeKind="Int" lvalue="false" val="0"/>
+            </Return>
+        </StmList>
+    </MainMethod>
+    <ClassDeclList/>
+</Program>

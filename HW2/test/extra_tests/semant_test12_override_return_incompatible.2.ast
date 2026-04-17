@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program bline="3" bpos="1" eline="26" epos="1">
+    <MainMethod bline="3" bpos="1" eline="5" epos="1">
+        <VarDeclList/>
+        <StmList>
+            <Return bline="4" bpos="5" eline="4" epos="13">
+                <IntExp bline="4" bpos="12" eline="4" epos="12" val="0"/>
+            </Return>
+        </StmList>
+    </MainMethod>
+    <ClassDeclList>
+        <ClassDecl bline="7" bpos="1" eline="8" epos="1">
+            <IdExp id="BaseRet" bline="7" bpos="14" eline="7" epos="20"/>
+            <VarDeclList/>
+            <MethodDeclList/>
+        </ClassDecl>
+        <ClassDecl bline="10" bpos="1" eline="11" epos="1">
+            <IdExp id="GoodRet" bline="10" bpos="14" eline="10" epos="20"/>
+            <ExtendsId eid="BaseRet" bline="10" bpos="30" eline="10" epos="36"/>
+            <VarDeclList/>
+            <MethodDeclList/>
+        </ClassDecl>
+        <ClassDecl bline="13" bpos="1" eline="14" epos="1">
+            <IdExp id="BadRet" bline="13" bpos="14" eline="13" epos="19"/>
+            <VarDeclList/>
+            <MethodDeclList/>
+        </ClassDecl>
+        <ClassDecl bline="16" bpos="1" eline="20" epos="1">
+            <IdExp id="A" bline="16" bpos="14" eline="16" epos="14"/>
+            <VarDeclList/>
+            <MethodDeclList>
+                <MethodDecl bline="17" bpos="5" eline="19" epos="5">
+                    <Type typeKind="CLASS" bline="17" bpos="12" eline="17" epos="24">
+                        <IdExp id="BaseRet" bline="17" bpos="18" eline="17" epos="24"/>
+                    </Type>
+                    <IdExp id="f" bline="17" bpos="26" eline="17" epos="26"/>
+                    <FormalList/>
+                    <VarDeclList/>
+                    <StmList>
+                        <Return bline="18" bpos="9" eline="18" epos="29">
+                            <NewObject bline="18" bpos="16" eline="18" epos="28">
+                                <Id id="BaseRet"/>
+                            </NewObject>
+                        </Return>
+                    </StmList>
+                </MethodDecl>
+            </MethodDeclList>
+        </ClassDecl>
+        <ClassDecl bline="22" bpos="1" eline="26" epos="1">
+            <IdExp id="B" bline="22" bpos="14" eline="22" epos="14"/>
+            <ExtendsId eid="A" bline="22" bpos="24" eline="22" epos="24"/>
+            <VarDeclList/>
+            <MethodDeclList>
+                <MethodDecl bline="23" bpos="5" eline="25" epos="5">
+                    <Type typeKind="CLASS" bline="23" bpos="12" eline="23" epos="23">
+                        <IdExp id="BadRet" bline="23" bpos="18" eline="23" epos="23"/>
+                    </Type>
+                    <IdExp id="f" bline="23" bpos="25" eline="23" epos="25"/>
+                    <FormalList/>
+                    <VarDeclList/>
+                    <StmList>
+                        <Return bline="24" bpos="9" eline="24" epos="28">
+                            <NewObject bline="24" bpos="16" eline="24" epos="27">
+                                <Id id="BadRet"/>
+                            </NewObject>
+                        </Return>
+                    </StmList>
+                </MethodDecl>
+            </MethodDeclList>
+        </ClassDecl>
+    </ClassDeclList>
+</Program>

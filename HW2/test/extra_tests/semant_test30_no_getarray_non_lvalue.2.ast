@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program bline="3" bpos="1" eline="6" epos="1">
+    <MainMethod bline="3" bpos="1" eline="6" epos="1">
+        <VarDeclList>
+            <VarDecl bline="4" bpos="5" eline="4" epos="13">
+                <Type typeKind="ARRAY" bline="4" bpos="5" eline="4" epos="10">
+                    <Arity val="0" bline="4" bpos="9" eline="4" epos="9"/>
+                </Type>
+                <IdExp id="a" bline="4" bpos="12" eline="4" epos="12"/>
+            </VarDecl>
+        </VarDeclList>
+        <StmList>
+            <Return bline="5" bpos="5" eline="5" epos="23">
+                <GetArray bline="5" bpos="12" eline="5" epos="22">
+                    <IdExp bline="5" bpos="21" eline="5" epos="21" id="a"/>
+                </GetArray>
+            </Return>
+        </StmList>
+    </MainMethod>
+    <ClassDeclList/>
+</Program>

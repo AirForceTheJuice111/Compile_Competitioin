@@ -1,0 +1,10 @@
+// EXPECT: FAIL
+// Target: namemap should reject duplicate class variables in one class.
+public int main() {
+    return 0;
+}
+
+public class A {
+    int x;
+    int x;
+}

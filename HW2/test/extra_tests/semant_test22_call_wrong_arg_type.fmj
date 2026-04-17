@@ -1,0 +1,15 @@
+// EXPECT: FAIL
+// Target: method call should reject wrong argument type.
+public int main() {
+    class A a;
+    int[] p;
+    a = new A();
+    p = new int[2];
+    return a.f(p);
+}
+
+public class A {
+    public int f(int x) {
+        return x;
+    }
+}
