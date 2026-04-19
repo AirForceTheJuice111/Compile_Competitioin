@@ -246,17 +246,6 @@
                 </return>
             </block>
         </funcdecl>
-        <funcdecl kind="FUNCDECL" name="B^f" last_label_num="100" last_temp_num="101">
-            <params>
-                <param temp="100"/>
-            </params>
-            <block kind="BLOCK" entry="100">
-                <label kind="LABEL" name="100"/>
-                <return kind="RETURN">
-                    <value kind="CONST" value="200"/>
-                </return>
-            </block>
-        </funcdecl>
         <funcdecl kind="FUNCDECL" name="A^f" last_label_num="100" last_temp_num="101">
             <params>
                 <param temp="100"/>
@@ -265,6 +254,17 @@
                 <label kind="LABEL" name="100"/>
                 <return kind="RETURN">
                     <value kind="CONST" value="100"/>
+                </return>
+            </block>
+        </funcdecl>
+        <funcdecl kind="FUNCDECL" name="B^f" last_label_num="100" last_temp_num="101">
+            <params>
+                <param temp="100"/>
+            </params>
+            <block kind="BLOCK" entry="100">
+                <label kind="LABEL" name="100"/>
+                <return kind="RETURN">
+                    <value kind="CONST" value="200"/>
                 </return>
             </block>
         </funcdecl>
@@ -520,7 +520,7 @@
             </Block>
         </Liveness>
     </Function>
-    <Function name="B^f">
+    <Function name="A^f">
         <ControlFlow>
             <Predecessors>
                 <Block id="100"/>
@@ -556,7 +556,7 @@
             </Block>
         </Liveness>
     </Function>
-    <Function name="A^f">
+    <Function name="B^f">
         <ControlFlow>
             <Predecessors>
                 <Block id="100"/>

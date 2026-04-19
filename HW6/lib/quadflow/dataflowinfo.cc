@@ -82,7 +82,7 @@ void DataFlowInfo::computeLiveness() {
 
             auto &stmts = *block->quadlist;
 
-            // live_out of last statement = union of live_in of first stmts of successor blocks
+            // live_out of last statement = union of live_in of first stmts of successor blocks (successor means immediate successors)
             auto lastStmt = stmts.back();
             set<int> new_liveout;
             if (block->exit_labels) {

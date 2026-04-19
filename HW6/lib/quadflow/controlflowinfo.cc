@@ -136,7 +136,7 @@ void ControlFlowInfo::computeDominators() {
 #endif
     // Iterative dominator algorithm:
     //   dom(entry) = {entry}
-    //   dom(n) = {n} ∪ (∩ dom(p) for all predecessors p of n)
+    //   dom(n) = {n} ∪ (∩ dom(p) for all immediate predecessors p of n)
     dominators.clear();
     for (auto b : allBlocks) {
         if (b == entryBlock) dominators[b] = {b};
@@ -170,7 +170,7 @@ void ControlFlowInfo::computeImmediateDominator() {
     std::cout << "Start to find immediate dominators for: " << func->funcname << endl;
 #endif
     // idom(b) is the strict dominator d of b such that every other strict
-    // dominator of b also dominates d (i.e., d is the closest to b).
+    // dominator of b also dominates d (i.e., d is the closest to b). Obviously, idom is unique if it exists.
     immediateDominator.clear();
     for (auto b : allBlocks) {
         if (b == entryBlock) {
@@ -201,7 +201,7 @@ void ControlFlowInfo::computeDomTree() {
 #ifdef DEBUG
     std::cout << "Computing dominator tree for: " << func->funcname << endl;
 #endif
-    // Build dominator tree from immediate dominators:
+    // Build dominator tree from immediate dominators (idom):
     // each node's children are those whose idom is that node.
     domTree.clear();
     for (auto b : allBlocks) domTree[b] = set<int>();
