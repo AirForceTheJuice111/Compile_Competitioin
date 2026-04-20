@@ -20,7 +20,7 @@ Function __$main__^main() last_label=100 last_temp=121:
     LOAD t11700:int <- Mem(t11600:ptr); def: t11700 use: t11600 
     PTR_CALC t11800:ptr <- t10101:ptr + Const:4; def: t11800 use: t10101 
     LOAD t11900:int <- Mem(t11800:ptr); def: t11900 use: t11800 
-    MOVE_BINOP t10700:int <- (+, t11700:int, t11900:int); def: t10700 use: t11900 t11700 
+    MOVE_BINOP t10700:int <- (+, t11700:int, t11900:int); def: t10700 use: t11700 t11900 
     EXTCALL putint(t10700:int); def: use: t10700 
     EXTCALL putch(Const:10); def: use: 
     RETURN Const:0; def: use: 
