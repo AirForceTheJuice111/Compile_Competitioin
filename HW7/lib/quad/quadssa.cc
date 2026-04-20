@@ -56,7 +56,7 @@ static void placePhi(QuadFuncDecl* func, ControlFlowInfo* domInfo, DataFlowInfo*
         }
     }
 
-    // Step 1: For each variable in allVars with definitions, compute iterated DF
+    // Step 1: For each defined variable, compute iterated DF
     for (int v : liveness->allVars) {
         if (!defBlocksMap.count(v)) continue; // Parameter or unused
         auto defBlocks = defBlocksMap[v];
@@ -80,7 +80,7 @@ static void placePhi(QuadFuncDecl* func, ControlFlowInfo* domInfo, DataFlowInfo*
                 auto* labelStm = yBlock->quadlist->front();
                 if (liveness->livein->count(labelStm) && (*liveness->livein)[labelStm].count(v)) {
                     phiBlocks.insert(Y);
-                    if (!processed.count(Y)) {
+                    if (!processed.count(Y)) { // Inserting PHI means creation of new defs in Y, which may require more PHIs in Y's dominance frontier
                         processed.insert(Y);
                         worklist.push(Y);
                     }
@@ -133,9 +133,10 @@ static Temp* versionUse(Temp* temp, set<int>& paramSet, set<int>& vars,
 static Temp* versionDef(Temp* temp, set<int>& paramSet, set<int>& vars,
                         map<int, int>& count, map<int, stack<int>>& stacks,
                         map<int, int>& pushCnt) {
+    // Difference between paramSet and vars: paramSet are variables that are parameters, which should not be versioned; vars are all non-parameter variables that appear in the function. We only version variables that are in vars but not in paramSet (i.e. non-parameter variables).
     if (!temp) return temp;
     int num = temp->num;
-    if (paramSet.count(num) || !vars.count(num)) return temp;
+    if (paramSet.count(num) || !vars.count(num)) return temp; // Parameters are not versioned
     int ver = count[num]++;
     stacks[num].push(ver);
     pushCnt[num]++;
@@ -266,106 +267,102 @@ static void renameDefs(QuadStm* stm, set<int>& paramSet, set<int>& vars,
     }
 }
 
-// ========== Helper: add temp number from a QuadTerm to a set ==========
-static void addTermNum(QuadTerm* term, set<int>& nums) {
-    if (term && term->kind == QuadTermKind::TEMP) nums.insert(term->get_temp()->temp->num);
+// ========== Helper: add Temp* from a QuadTerm to a set ==========
+static void addTermPtr(QuadTerm* term, set<Temp*>& ptrs) {
+    if (term && term->kind == QuadTermKind::TEMP) ptrs.insert(term->get_temp()->temp);
 }
 
-// Collect def and use temp numbers from a statement's structure
-static void collectDefUseNums(QuadStm* stm, set<int>& defN, set<int>& useN) {
+// Collect def and use Temp* directly from statement's structural fields
+static void collectDefUsePtrs(QuadStm* stm, set<Temp*>& defP, set<Temp*>& useP) {
     switch (stm->kind) {
         case QuadKind::MOVE: {
             auto* s = static_cast<QuadMove*>(stm);
-            defN.insert(s->dst->temp->num);
-            addTermNum(s->src, useN);
+            defP.insert(s->dst->temp);
+            addTermPtr(s->src, useP);
             break;
         }
         case QuadKind::LOAD: {
             auto* s = static_cast<QuadLoad*>(stm);
-            defN.insert(s->dst->temp->num);
-            addTermNum(s->src, useN);
+            defP.insert(s->dst->temp);
+            addTermPtr(s->src, useP);
             break;
         }
         case QuadKind::STORE: {
             auto* s = static_cast<QuadStore*>(stm);
-            addTermNum(s->src, useN);
-            addTermNum(s->dst, useN);
+            addTermPtr(s->src, useP);
+            addTermPtr(s->dst, useP);
             break;
         }
         case QuadKind::MOVE_BINOP: {
             auto* s = static_cast<QuadMoveBinop*>(stm);
-            defN.insert(s->dst->temp->num);
-            addTermNum(s->left, useN);
-            addTermNum(s->right, useN);
+            defP.insert(s->dst->temp);
+            addTermPtr(s->left, useP);
+            addTermPtr(s->right, useP);
             break;
         }
         case QuadKind::CALL: {
             auto* s = static_cast<QuadCall*>(stm);
-            addTermNum(s->obj_term, useN);
-            if (s->args) for (auto* a : *s->args) addTermNum(a, useN);
+            addTermPtr(s->obj_term, useP);
+            if (s->args) for (auto* a : *s->args) addTermPtr(a, useP);
             break;
         }
         case QuadKind::MOVE_CALL: {
             auto* s = static_cast<QuadMoveCall*>(stm);
-            defN.insert(s->dst->temp->num);
+            defP.insert(s->dst->temp);
             if (s->call) {
-                addTermNum(s->call->obj_term, useN);
-                if (s->call->args) for (auto* a : *s->call->args) addTermNum(a, useN);
+                addTermPtr(s->call->obj_term, useP);
+                if (s->call->args) for (auto* a : *s->call->args) addTermPtr(a, useP);
             }
             break;
         }
         case QuadKind::EXTCALL: {
             auto* s = static_cast<QuadExtCall*>(stm);
-            if (s->args) for (auto* a : *s->args) addTermNum(a, useN);
+            if (s->args) for (auto* a : *s->args) addTermPtr(a, useP);
             break;
         }
         case QuadKind::MOVE_EXTCALL: {
             auto* s = static_cast<QuadMoveExtCall*>(stm);
-            defN.insert(s->dst->temp->num);
+            defP.insert(s->dst->temp);
             if (s->extcall && s->extcall->args)
-                for (auto* a : *s->extcall->args) addTermNum(a, useN);
+                for (auto* a : *s->extcall->args) addTermPtr(a, useP);
             break;
         }
         case QuadKind::CJUMP: {
             auto* s = static_cast<QuadCJump*>(stm);
-            addTermNum(s->left, useN);
-            addTermNum(s->right, useN);
+            addTermPtr(s->left, useP);
+            addTermPtr(s->right, useP);
             break;
         }
         case QuadKind::RETURN: {
             auto* s = static_cast<QuadReturn*>(stm);
-            addTermNum(s->exp, useN);
+            addTermPtr(s->exp, useP);
             break;
         }
         case QuadKind::PHI: {
             auto* s = static_cast<QuadPhi*>(stm);
-            defN.insert(s->temp_exp->temp->num);
-            for (auto& [temp, label] : *s->args) useN.insert(temp->num);
+            defP.insert(s->temp_exp->temp);
+            for (auto& [temp, label] : *s->args) useP.insert(temp);
             break;
         }
         case QuadKind::PTR_CALC: {
             auto* s = static_cast<QuadPtrCalc*>(stm);
             if (s->dst && s->dst->kind == QuadTermKind::TEMP)
-                defN.insert(s->dst->get_temp()->temp->num);
-            addTermNum(s->ptr, useN);
-            addTermNum(s->offset, useN);
+                defP.insert(s->dst->get_temp()->temp);
+            addTermPtr(s->ptr, useP);
+            addTermPtr(s->offset, useP);
             break;
         }
         default: break;
     }
 }
 
-// Rebuild def/use sets for all statements
+// Rebuild def/use sets using the actual Temp* already in the statement's fields. It is necessary because after renaming, the Temp* in the fields have been updated to versioned temps, but the def/use sets still contain the old unversioned temps. This is a helper for renameVariables to call at the end to sync everything up.
 static void rebuildDefUseSets(QuadFuncDecl* func) {
     for (auto* block : *func->quadblocklist) {
         for (auto* stm : *block->quadlist) {
-            set<int> defN, useN;
-            collectDefUseNums(stm, defN, useN);
-            // Allocate Temps in sorted number order
             auto* newDef = new set<Temp*>();
-            for (int n : defN) newDef->insert(new Temp(n));
             auto* newUse = new set<Temp*>();
-            for (int n : useN) newUse->insert(new Temp(n));
+            collectDefUsePtrs(stm, *newDef, *newUse);
             stm->def = newDef;
             stm->use = newUse;
         }
@@ -381,7 +378,7 @@ static void renameBlock(int blockLabel, ControlFlowInfo* domInfo,
 
     // Process each statement in the block
     for (auto* stm : *block->quadlist) {
-        if (stm->kind != QuadKind::PHI) renameUses(stm, paramSet, vars, stacks);
+        if (stm->kind != QuadKind::PHI) renameUses(stm, paramSet, vars, stacks); // PHI uses are handled in successor blocks
         renameDefs(stm, paramSet, vars, count, stacks, pushCnt);
     }
 
@@ -393,7 +390,7 @@ static void renameBlock(int blockLabel, ControlFlowInfo* domInfo,
                 if (stm->kind == QuadKind::PHI) {
                     auto* phi = static_cast<QuadPhi*>(stm);
                     for (auto& arg : *phi->args) {
-                        if (arg.second->num != blockLabel) continue;
+                        if (arg.second->num != blockLabel) continue; // Not the arg from our current block. arg.second means the label of the predecessor block for this PHI arg
                         int origNum = arg.first->num;
                         if (vars.count(origNum) && !stacks[origNum].empty())
                             arg.first = new Temp(VersionedTemp::versionedTempNum(origNum, stacks[origNum].top()));
@@ -410,7 +407,7 @@ static void renameBlock(int blockLabel, ControlFlowInfo* domInfo,
     }
 
     // Pop stacks back to previous state
-    for (auto& [v, cnt] : pushCnt)
+    for (auto& [v, cnt] : pushCnt) // cnt is how many times we pushed a new version for variable v in this block and its children
         for (int i = 0; i < cnt; i++) stacks[v].pop();
 }
 
@@ -446,7 +443,6 @@ static void renameVariables(QuadFuncDecl* func, ControlFlowInfo* domInfo) {
     rebuildDefUseSets(func);
 }
 
-// ========== cleanupUnusedPhi ==========
 static void cleanupUnusedPhi(QuadFuncDecl* func) {
 #ifdef DEBUG
     cout << "Cleaning up unused phi functions for function: " << func->funcname << endl;
@@ -492,10 +488,10 @@ quad::QuadProgram *quad2ssa(set<FuncFlowInfo*>* allFuncFlow) {
         return nullptr; // Invalid program
     }
 
-    // Sort functions by QuadFuncDecl* address to preserve original declaration order
+    // Sort functions by funcname (alphabetical) to match XML declaration order
     vector<FuncFlowInfo*> sorted(allFuncFlow->begin(), allFuncFlow->end());
     sort(sorted.begin(), sorted.end(), [](auto* a, auto* b) {
-        return a->cfi->func < b->cfi->func;
+        return a->cfi->func->funcname < b->cfi->func->funcname;
     });
 
     auto* funcs = new vector<QuadFuncDecl*>();
