@@ -1,3 +1,31 @@
+Function A^f(t100) last_label=100 last_temp=103:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    PTR_CALC t10200:ptr <- t100:ptr + Const:0; def: t10200 use: t100 
+    STORE Const:1 -> Mem(t10200:ptr); def: use: t10200 
+    PTR_CALC t10300:ptr <- t100:ptr + Const:4; def: t10300 use: t100 
+    STORE Const:2 -> Mem(t10300:ptr); def: use: t10300 
+    RETURN Const:0; def: use: 
+Function B^f(t100) last_label=100 last_temp=112:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    PTR_CALC t10200:ptr <- t100:ptr + Const:0; def: t10200 use: t100 
+    STORE Const:4 -> Mem(t10200:ptr); def: use: t10200 
+    PTR_CALC t10300:ptr <- t100:ptr + Const:8; def: t10300 use: t100 
+    STORE Const:30 -> Mem(t10300:ptr); def: use: t10300 
+    PTR_CALC t10400:ptr <- t100:ptr + Const:12; def: t10400 use: t100 
+    STORE Const:100 -> Mem(t10400:ptr); def: use: t10400 
+    PTR_CALC t10500:ptr <- t100:ptr + Const:0; def: t10500 use: t100 
+    LOAD t10600:int <- Mem(t10500:ptr); def: t10600 use: t10500 
+    PTR_CALC t10700:ptr <- t100:ptr + Const:8; def: t10700 use: t100 
+    LOAD t10800:int <- Mem(t10700:ptr); def: t10800 use: t10700 
+    MOVE_BINOP t10900:int <- (+, t10600:int, t10800:int); def: t10900 use: t10600 t10800 
+    PTR_CALC t11000:ptr <- t100:ptr + Const:12; def: t11000 use: t100 
+    LOAD t11100:int <- Mem(t11000:ptr); def: t11100 use: t11000 
+    MOVE_BINOP t11200:int <- (+, t10900:int, t11100:int); def: t11200 use: t10900 t11100 
+    RETURN t11200:int; def: use: t11200 
 Function __$main__^main() last_label=100 last_temp=151:
   Block: Entry Label: L100
     Exit labels: 
@@ -14,10 +42,10 @@ Function __$main__^main() last_label=100 last_temp=151:
     MOVE t10101:ptr <- t10400:ptr; def: t10101 use: t10400 
     PTR_CALC t12100:ptr <- t10001:ptr + Const:16; def: t12100 use: t10001 
     LOAD t10700:ptr <- Mem(t12100:ptr); def: t10700 use: t12100 
-    CALL f[t10700:ptr] (t10001:ptr); def: use: t10001 t10700 
+    CALL f[t10700:ptr] (t10001:ptr); def: use: t10700 t10001 
     PTR_CALC t12300:ptr <- t10101:ptr + Const:16; def: t12300 use: t10101 
     LOAD t10900:ptr <- Mem(t12300:ptr); def: t10900 use: t12300 
-    CALL f[t10900:ptr] (t10101:ptr); def: use: t10101 t10900 
+    CALL f[t10900:ptr] (t10101:ptr); def: use: t10900 t10101 
     PTR_CALC t12500:ptr <- t10001:ptr + Const:0; def: t12500 use: t10001 
     LOAD t12600:int <- Mem(t12500:ptr); def: t12600 use: t12500 
     PTR_CALC t12700:ptr <- t10001:ptr + Const:4; def: t12700 use: t10001 
@@ -49,31 +77,3 @@ Function __$main__^main() last_label=100 last_temp=151:
     EXTCALL putint(t11400:int); def: use: t11400 
     EXTCALL putch(Const:10); def: use: 
     RETURN Const:1; def: use: 
-Function A^f(t100) last_label=100 last_temp=103:
-  Block: Entry Label: L100
-    Exit labels: 
-    LABEL L100; def: use: 
-    PTR_CALC t10200:ptr <- t100:ptr + Const:0; def: t10200 use: t100 
-    STORE Const:1 -> Mem(t10200:ptr); def: use: t10200 
-    PTR_CALC t10300:ptr <- t100:ptr + Const:4; def: t10300 use: t100 
-    STORE Const:2 -> Mem(t10300:ptr); def: use: t10300 
-    RETURN Const:0; def: use: 
-Function B^f(t100) last_label=100 last_temp=112:
-  Block: Entry Label: L100
-    Exit labels: 
-    LABEL L100; def: use: 
-    PTR_CALC t10200:ptr <- t100:ptr + Const:0; def: t10200 use: t100 
-    STORE Const:4 -> Mem(t10200:ptr); def: use: t10200 
-    PTR_CALC t10300:ptr <- t100:ptr + Const:8; def: t10300 use: t100 
-    STORE Const:30 -> Mem(t10300:ptr); def: use: t10300 
-    PTR_CALC t10400:ptr <- t100:ptr + Const:12; def: t10400 use: t100 
-    STORE Const:100 -> Mem(t10400:ptr); def: use: t10400 
-    PTR_CALC t10500:ptr <- t100:ptr + Const:0; def: t10500 use: t100 
-    LOAD t10600:int <- Mem(t10500:ptr); def: t10600 use: t10500 
-    PTR_CALC t10700:ptr <- t100:ptr + Const:8; def: t10700 use: t100 
-    LOAD t10800:int <- Mem(t10700:ptr); def: t10800 use: t10700 
-    MOVE_BINOP t10900:int <- (+, t10600:int, t10800:int); def: t10900 use: t10600 t10800 
-    PTR_CALC t11000:ptr <- t100:ptr + Const:12; def: t11000 use: t100 
-    LOAD t11100:int <- Mem(t11000:ptr); def: t11100 use: t11000 
-    MOVE_BINOP t11200:int <- (+, t10900:int, t11100:int); def: t11200 use: t10900 t11100 
-    RETURN t11200:int; def: use: t11200 

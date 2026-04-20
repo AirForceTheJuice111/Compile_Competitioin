@@ -62,7 +62,7 @@ Function __$main__^main() last_label=113 last_temp=170:
     LABEL L111; def: use: 
     PTR_CALC t16600:ptr <- t10201:ptr + Const:0; def: t16600 use: t10201 
     LOAD t13200:ptr <- Mem(t16600:ptr); def: t13200 use: t16600 
-    MOVE_CALL t13300:int <- f[t13200:ptr] (t10201:ptr, t10001:int); def: t13300 use: t10001 t10201 t13200 
+    MOVE_CALL t13300:int <- f[t13200:ptr] (t10201:ptr, t10001:int); def: t13300 use: t13200 t10201 t10001 
     EXTCALL putint(t13300:int); def: use: t13300 
     EXTCALL putch(Const:32); def: use: 
     MOVE_BINOP t10002:int <- (+, t10001:int, Const:1); def: t10002 use: t10001 
@@ -93,7 +93,7 @@ Function fib^f(t100, t101) last_label=108 last_temp=118:
     MOVE t10600:ptr <- t10300:ptr; def: t10600 use: t10300 
     MOVE t10500:ptr <- t100:ptr; def: t10500 use: t100 
     MOVE_BINOP t10400:int <- (-, t101:int, Const:1); def: t10400 use: t101 
-    MOVE_CALL t10700:int <- f[t10600:ptr] (t10500:ptr, t10400:int); def: t10700 use: t10400 t10600 t10500 
+    MOVE_CALL t10700:int <- f[t10600:ptr] (t10500:ptr, t10400:int); def: t10700 use: t10600 t10500 t10400 
     MOVE t11300:int <- t10700:int; def: t11300 use: t10700 
     PTR_CALC t11600:ptr <- t100:ptr + Const:0; def: t11600 use: t100 
     LOAD t10800:ptr <- Mem(t11600:ptr); def: t10800 use: t11600 
@@ -101,5 +101,5 @@ Function fib^f(t100, t101) last_label=108 last_temp=118:
     MOVE t11000:ptr <- t100:ptr; def: t11000 use: t100 
     MOVE_BINOP t10900:int <- (-, t101:int, Const:2); def: t10900 use: t101 
     MOVE_CALL t11200:int <- f[t11100:ptr] (t11000:ptr, t10900:int); def: t11200 use: t11100 t11000 t10900 
-    MOVE_BINOP t11800:int <- (+, t11300:int, t11200:int); def: t11800 use: t11200 t11300 
+    MOVE_BINOP t11800:int <- (+, t11300:int, t11200:int); def: t11800 use: t11300 t11200 
     RETURN t11800:int; def: use: t11800 
