@@ -30,7 +30,7 @@ Function __$main__^main() last_label=108 last_temp=140:
     MOVE t11200:ptr <- t10101:ptr; def: t11200 use: t10101 
     MOVE t11100:ptr <- t10000:ptr; def: t11100 use: t10000 
     LOAD t10500:int <- Mem(t10000:ptr); def: t10500 use: t10000 
-    CALL bubbleSort[t11300:ptr] (t11200:ptr, t11100:ptr, t10500:int); def: use: t10500 t11100 t11200 t11300 
+    CALL bubbleSort[t11300:ptr] (t11200:ptr, t11100:ptr, t10500:int); def: use: t11300 t11200 t11100 t10500 
     JUMP L102; def: use: 
   Block: Entry Label: L102
     Exit labels: L103 L104 
@@ -38,7 +38,7 @@ Function __$main__^main() last_label=108 last_temp=140:
     PHI t10201:int <- Phi([t10202, L107], [t10200, L108]); def: t10201 use: t10200 t10202 
     MOVE t11500:int <- t10201:int; def: t11500 use: t10201 
     LOAD t10600:int <- Mem(t10000:ptr); def: t10600 use: t10000 
-    CJUMP < t11500:int t10600:int? L103 : L104; def: use: t10600 t11500 
+    CJUMP < t11500:int t10600:int? L103 : L104; def: use: t11500 t10600 
   Block: Entry Label: L103
     Exit labels: L106 L105 
     LABEL L103; def: use: 
@@ -156,7 +156,7 @@ Function b1^bubbleSort(t101, t102, t103) last_label=133 last_temp=165:
     MOVE_BINOP t14600:int <- (*, t14500:int, Const:4); def: t14600 use: t14500 
     PTR_CALC t14700:ptr <- t12000:ptr + t14600:int; def: t14700 use: t12000 t14600 
     LOAD t14800:int <- Mem(t14700:ptr); def: t14800 use: t14700 
-    STORE t14800:int -> Mem(t14400:ptr); def: use: t14400 t14800 
+    STORE t14800:int -> Mem(t14400:ptr); def: use: t14800 t14400 
     MOVE t12200:ptr <- t102:ptr; def: t12200 use: t102 
     LOAD t10900:int <- Mem(t102:ptr); def: t10900 use: t102 
     CJUMP >= t10001:int Const:0? L122 : L121; def: use: t10001 
@@ -193,7 +193,7 @@ Function b1^bubbleSort(t101, t102, t103) last_label=133 last_temp=165:
     MOVE_BINOP t15500:int <- (*, t15400:int, Const:4); def: t15500 use: t15400 
     PTR_CALC t15600:ptr <- t12400:ptr + t15500:int; def: t15600 use: t12400 t15500 
     LOAD t15700:int <- Mem(t15600:ptr); def: t15700 use: t15600 
-    STORE t15700:int -> Mem(t15300:ptr); def: use: t15300 t15700 
+    STORE t15700:int -> Mem(t15300:ptr); def: use: t15700 t15300 
     MOVE_BINOP t11200:int <- (+, t10001:int, Const:1); def: t11200 use: t10001 
     MOVE t12600:ptr <- t102:ptr; def: t12600 use: t102 
     LOAD t11300:int <- Mem(t102:ptr); def: t11300 use: t102 
@@ -214,7 +214,7 @@ Function b1^bubbleSort(t101, t102, t103) last_label=133 last_temp=165:
     PTR_CALC t16100:ptr <- t12600:ptr + t16000:int; def: t16100 use: t12600 t16000 
     PTR_CALC t16200:ptr <- t101:ptr + Const:0; def: t16200 use: t101 
     LOAD t16300:int <- Mem(t16200:ptr); def: t16300 use: t16200 
-    STORE t16300:int -> Mem(t16100:ptr); def: use: t16100 t16300 
+    STORE t16300:int -> Mem(t16100:ptr); def: use: t16300 t16100 
     JUMP L132; def: use: 
   Block: Entry Label: L131
     Exit labels: L132 
@@ -234,5 +234,5 @@ Function b1^bubbleSort(t101, t102, t103) last_label=133 last_temp=165:
     MOVE t13000:ptr <- t101:ptr; def: t13000 use: t101 
     MOVE t12900:ptr <- t102:ptr; def: t12900 use: t102 
     MOVE_BINOP t12800:int <- (-, t103:int, Const:1); def: t12800 use: t103 
-    MOVE_CALL t13200:int <- bubbleSort[t13100:ptr] (t13000:ptr, t12900:ptr, t12800:int); def: t13200 use: t12800 t12900 t13000 t13100 
+    MOVE_CALL t13200:int <- bubbleSort[t13100:ptr] (t13000:ptr, t12900:ptr, t12800:int); def: t13200 use: t13100 t13000 t12900 t12800 
     RETURN t13200:int; def: use: t13200 

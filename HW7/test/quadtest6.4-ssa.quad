@@ -22,7 +22,7 @@ Function __$main__^main() last_label=108 last_temp=123:
     PHI t10101:int <- Phi([t10102, L107], [t10100, L108]); def: t10101 use: t10100 t10102 
     MOVE t10600:int <- t10101:int; def: t10600 use: t10101 
     LOAD t10300:int <- Mem(t10000:ptr); def: t10300 use: t10000 
-    CJUMP < t10600:int t10300:int? L103 : L104; def: use: t10300 t10600 
+    CJUMP < t10600:int t10300:int? L103 : L104; def: use: t10600 t10300 
   Block: Entry Label: L103
     Exit labels: L106 L105 
     LABEL L103; def: use: 
