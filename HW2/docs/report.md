@@ -8,7 +8,138 @@ using_table_of_content: true
 
 # HW2 实验报告
 
-本次代码是经ai指导下完成（询问了大量设计上的问题，让其给出了一些示例代码），完成后，让ai为代码增添了大量注释，便于日后快速回想起来。
+## Quiz 报告
+
+分别有两个检查：
+
+### namemap注册类名时，判断是否有子父类immutability不一致性
+
+首先定义辅助函数用以检查immutability：
+
+```cpp
+bool check_immutability_by_name(string class_name) {
+    return class_name.length() >= 10 && class_name.substr(class_name.length() - 10) == "_Immutable";
+}
+```
+
+然后，visit(ClassDecl *node)时，
+
+1. 设置immutability：
+
+```cpp
+   if(check_immutability_by_name(class_name)) {
+        name_maps->set_class_immutable(class_name, true);
+    }
+```
+
+2. 检查子父类是否有不一致性：
+
+```cpp
+if (!check_immutability_by_name(class_name) && check_immutability_by_name(parent_name)) {
+    cerr << "Error: at position " << node->eid->get_pos()->to_str() << endl;
+    cerr << "Error: Class " << class_name << " extends immutable class " << parent_name << " but is not marked as immutable. Immutability is hereditary." << endl;
+}
+if (check_immutability_by_name(class_name) && !check_immutability_by_name(parent_name)) {
+    cerr << "Error: at position " << node->eid->get_pos()->to_str() << endl;
+    cerr << "Error: Class " << class_name << " extends mutable class " << parent_name << " but is marked as immutable. Immutability is hereditary." << endl;
+}
+```
+
+如上所示，有不一致则报错。
+
+之所以没有使用 name_maps->is_class_immutable(parent_name) 来判断父类是否immutable，是因为在子类定义时父类可能还没被定义。
+
+编写额外的测试用例验证了两种子父类不匹配的情况都覆盖到了：
+
+```
+public class A {
+    int a;
+}
+public class C_Immutable extends A {
+    int c;
+}
+```
+
+结果：
+
+```
+Error: at position Position(sline: 21, scolumn: 34, eline: 21, ecolumn: 34)
+Error: Class C_Immutable extends mutable class A but is marked as immutable. Immutability is hereditary.
+```
+
+```
+public class B extends TestClass_Immutable {
+    int i;
+}
+```
+
+结果：
+
+```
+Error: at position Position(sline: 14, scolumn: 24, eline: 14, ecolumn: 42)
+Error: Class B extends immutable class TestClass_Immutable but is not marked as immutable. Immutability is hereditary.
+```
+
+### 是否有Assign node修改了immutable class的ClassVar
+
+显然只有Assign node能够修改一个变量的值。因此，只需在visit(Assign* node)的时候判断一下：
+
+1. node->left是否为ClassVar
+2. 如果是，其obj的class_name是否在name_maps中被注册为immutable，若是则报错
+
+相关代码：
+
+```cpp
+    // get the class of the left node if it's ClassVar, and check immutability
+    if (node->left->getASTKind() == ASTKind::ClassVar) {
+        auto cast_left = dynamic_cast<ClassVar*>(node->left);
+        AST_Semant *obj_sem = (cast_left->obj != nullptr) ? semant_map->getSemant(cast_left->obj) : nullptr;
+        string class_name = get<string>(obj_sem->get_type_par());
+        if (name_maps->is_class_immutable(class_name)) {
+            cerr << "Error: at position " << node->get_pos()->to_str() << endl;
+            cerr << "Cannot assign to a member of an immutable object of type " << class_name << endl;
+        }
+    }
+```
+
+这并没有过度检查（没有检查成深不可变类），因为只有A.a这样的形式的变量才为A的ClassVar，像：
+
+1. A.a[0]，其最外层为ArrayExp，因此不是。
+2. A.a.b，其最外层也为ClassVar，但检查的是A.a这个class是否immutable，不是检查的A，也被我们的检查覆盖到了。
+
+immutabletest1输出结果：
+
+```
+Error: at position Position(sline: 3, scolumn: 5, eline: 3, ecolumn: 21)
+Cannot assign to a member of an immutable object of type A_Immutable
+Error: at position Position(sline: 4, scolumn: 5, eline: 4, ecolumn: 36)
+Cannot assign to a member of an immutable object of type A_Immutable
+```
+
+在其基础上，编写了额外的测试用例确认没检测成深不可变类：
+
+```
+public int main() {
+    class A_Immutable a;
+    a.b[2] = 1;
+}
+
+public class TestClass_Immutable {
+    int a;
+    int[] b = {1,2,3};
+
+    public class TestClass_Immutable test1(class TestClass_Immutable a) {
+        int[] a;
+    }
+}
+
+public class A_Immutable extends TestClass_Immutable {
+   int a;
+   class TestClass_Immutable o;
+}
+```
+
+a.b[2] = 1并未报错，因此无误。
 
 ## 参考资料
 
