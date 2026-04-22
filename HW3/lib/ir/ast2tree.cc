@@ -16,6 +16,10 @@
 
 using namespace std;
 
+tree::TempExp* new_temp_exp_of(tree::Temp* temp) {
+    return new tree::TempExp(tree::Type::PTR, new tree::Temp(temp->num));
+}
+
 // Helper: convert fdmj TypeKind to tree::Type
 static tree::Type typeKind2TreeType(fdmj::TypeKind tk) {
     if (tk == fdmj::TypeKind::INT) return tree::Type::INT;
