@@ -16,8 +16,18 @@
 
 using namespace std;
 
-tree::TempExp* new_temp_exp_of(tree::Temp* temp) {
+static tree::TempExp* new_temp_exp_of(tree::Temp* temp) {
     return new tree::TempExp(tree::Type::PTR, new tree::Temp(temp->num));
+}
+
+static tree::ExpStm* new_exit_minus_1() {
+    return new tree::ExpStm(
+        new tree::ExtCall(
+            tree::Type::INT,
+            "exit",
+            new vector<tree::Exp *>({new tree::Const(-1)})
+        )
+    );
 }
 
 // Helper: convert fdmj TypeKind to tree::Type
