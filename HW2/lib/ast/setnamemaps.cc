@@ -28,6 +28,11 @@
 using namespace std;
 using namespace fdmj;
 
+bool check_immutability_by_name(string class_name) {
+    return class_name.length() >= 10 && class_name.substr(class_name.length() - 10) == "_Immutable";
+}
+
+
 void AST_Name_Map_Visitor::visit(Program *node) {
 #ifdef DEBUG
     std::cout << "Visiting Program" << std::endl;
@@ -93,6 +98,10 @@ void AST_Name_Map_Visitor::visit(ClassDecl *node) {
     string class_name = node->id->id;
     current_visiting_class = class_name;
     // 类名已经在 visit(Program*) 中预注册
+    
+    if(check_immutability_by_name(class_name)) {
+        name_maps->set_class_immutable(class_name, true);
+    }
 
     // 注册继承关系
     if (node->eid != nullptr) {
@@ -101,6 +110,14 @@ void AST_Name_Map_Visitor::visit(ClassDecl *node) {
             cerr << "Error: at position " << node->eid->get_pos()->to_str() << endl;
             cerr << "Error: Parent class " << parent_name << " not found" << endl;
         } else {
+            if (!check_immutability_by_name(class_name) && check_immutability_by_name(parent_name)) {
+                cerr << "Error: at position " << node->eid->get_pos()->to_str() << endl;
+                cerr << "Error: Class " << class_name << " extends immutable class " << parent_name << " but is not marked as immutable. Immutability is hereditary." << endl;
+            }
+            if (check_immutability_by_name(class_name) && !check_immutability_by_name(parent_name)) {
+                cerr << "Error: at position " << node->eid->get_pos()->to_str() << endl;
+                cerr << "Error: Class " << class_name << " extends mutable class " << parent_name << " but is marked as immutable. Immutability is hereditary." << endl;
+            }
             name_maps->add_class_hiearchy(class_name, parent_name);
         }
     }
