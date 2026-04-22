@@ -297,6 +297,18 @@ void AST_Semant_Visitor::visit(Assign *node) {
         cerr << "Error: Assign node has a different type between left and right" << endl;
         exit(1);
     }
+    
+    // get the class of the left node if it's ClassVar, and check immutability
+    if (node->left->getASTKind() == ASTKind::ClassVar) {
+        auto cast_left = dynamic_cast<ClassVar*>(node->left);
+        AST_Semant *obj_sem = (cast_left->obj != nullptr) ? semant_map->getSemant(cast_left->obj) : nullptr;
+        string class_name = get<string>(obj_sem->get_type_par());
+        if (name_maps->is_class_immutable(class_name)) {
+            cerr << "Error: at position " << node->get_pos()->to_str() << endl;
+            cerr << "Cannot assign to a member of an immutable object of type " << class_name << endl;
+        }
+        
+    }
 }
 
 void AST_Semant_Visitor::visit(CallStm *node) { // CallStm 代表方法调用语句，CallExp 代表方法调用表达式

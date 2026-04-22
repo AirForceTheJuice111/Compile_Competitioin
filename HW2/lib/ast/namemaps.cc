@@ -1,16 +1,16 @@
 #define DEBUG
 #undef DEBUG
 
-#include "namemaps.hh"
-#include "semant.hh"
 #include <iostream>
 #include <map>
 #include <vector>
+#include "semant.hh"
+#include "namemaps.hh"
 
 using namespace std;
 using namespace fdmj;
 
-Name_Maps *makeNameMaps(Program *node) {
+Name_Maps* makeNameMaps(Program* node) {
     AST_Name_Map_Visitor name_visitor;
     node->accept(name_visitor);
     return name_visitor.getNameMaps();
@@ -21,19 +21,25 @@ bool Name_Maps::is_class(string class_name) {
 }
 
 bool Name_Maps::add_class(string class_name) {
-    if (Name_Maps::is_class(class_name)) return false;
+    if (Name_Maps::is_class(class_name)) {
+        return false;
+    }
     classes.insert(class_name);
     return true;
 }
 
 bool Name_Maps::add_class_hiearchy(string class_name, string parent_name) {
-    if (!Name_Maps::is_class(class_name) || !Name_Maps::is_class(parent_name)) return false;
+    if (!Name_Maps::is_class(class_name) || !Name_Maps::is_class(parent_name)) {
+        return false;
+    }
     classHierachy[class_name] = parent_name;
     return true;
 }
 
 string Name_Maps::get_parent(string class_name) {
-    if (classHierachy.find(class_name) == classHierachy.end()) return "";
+    if (classHierachy.find(class_name) == classHierachy.end()) {
+        return "";
+    }
     return classHierachy[class_name];
 }
 
@@ -43,7 +49,9 @@ bool Name_Maps::is_method(string class_name, string method_name) {
 }
 
 bool Name_Maps::add_method(string class_name, string method_name) {
-    if (Name_Maps::is_method(class_name, method_name)) return false;
+    if (Name_Maps::is_method(class_name, method_name)) {
+        return false;
+    }
     methods.insert(pair<string, string>(class_name, method_name));
     return true;
 }
@@ -53,15 +61,19 @@ bool Name_Maps::is_class_var(string class_name, string var_name) {
     return classVar.find(p) != classVar.end();
 }
 
-bool Name_Maps::add_class_var(string class_name, string var_name, VarDecl *varDecl) {
+bool Name_Maps::add_class_var(string class_name, string var_name, VarDecl* varDecl) {
     pair<string, string> p(class_name, var_name);
-    if (Name_Maps::is_class_var(class_name, var_name)) return false;
+    if (Name_Maps::is_class_var(class_name, var_name)) {
+        return false;
+    }
     classVar[p] = varDecl;
     return true;
 }
 
-VarDecl *Name_Maps::get_class_var(string class_name, string var_name) {
-    if (!Name_Maps::is_class_var(class_name, var_name)) return nullptr;
+VarDecl* Name_Maps::get_class_var(string class_name, string var_name) {
+    if (!Name_Maps::is_class_var(class_name, var_name)) {
+        return nullptr;
+    }
     pair<string, string> p(class_name, var_name);
     return classVar[p];
 }
@@ -71,49 +83,61 @@ bool Name_Maps::is_method_var(string class_name, string method_name, string var_
     return methodVar.find(t) != methodVar.end();
 }
 
-bool Name_Maps::add_method_var(string class_name, string method_name, string var_name, VarDecl *vd) {
-    if (Name_Maps::is_method_var(class_name, method_name, var_name)) return false;
+bool Name_Maps::add_method_var(string class_name, string method_name, string var_name, VarDecl* vd) {
+    if (Name_Maps::is_method_var(class_name, method_name, var_name)) {
+        return false;
+    }
     methodVar[tuple<string, string, string>(class_name, method_name, var_name)] = vd;
     return true;
 }
 
-VarDecl *Name_Maps::get_method_var(string class_name, string method_name, string var_name) {
-    if (!Name_Maps::is_method_var(class_name, method_name, var_name)) return nullptr;
+VarDecl* Name_Maps::get_method_var(string class_name, string method_name, string var_name) {
+    if (!Name_Maps::is_method_var(class_name, method_name, var_name)) {
+        return nullptr;
+    }
     return methodVar[tuple<string, string, string>(class_name, method_name, var_name)];
 }
 
 bool Name_Maps::is_method_formal(string class_name, string method_name, string var_name) {
-    tuple<string, string, string> t(class_name, method_name, var_name);
+    tuple <string, string, string> t(class_name, method_name, var_name);
     return methodFormal.find(t) != methodFormal.end();
 }
 
-bool Name_Maps::add_method_formal(string class_name, string method_name, string var_name, Formal *f) {
-    if (Name_Maps::is_method_formal(class_name, method_name, var_name)) return false;
+bool Name_Maps::add_method_formal(string class_name, string method_name, string var_name, Formal* f) {
+    if (Name_Maps::is_method_formal(class_name, method_name, var_name)) {
+        return false;
+    }
     methodFormal[tuple<string, string, string>(class_name, method_name, var_name)] = f;
     return true;
 }
 
-Formal *Name_Maps::get_method_formal(string class_name, string method_name, string var_name) {
-    if (!Name_Maps::is_method_formal(class_name, method_name, var_name)) return nullptr;
+Formal* Name_Maps::get_method_formal(string class_name, string method_name, string var_name) {
+    if (!Name_Maps::is_method_formal(class_name, method_name, var_name)) {
+        return nullptr;
+    }
     return methodFormal[tuple<string, string, string>(class_name, method_name, var_name)];
 }
 
-// method_formal_list: 形参列表，最后一个元素是返回类型（伪形参）
 bool Name_Maps::add_method_formal_list(string class_name, string method_name, vector<string> vl) {
-    if (!Name_Maps::is_method(class_name, method_name)) return false;
+    if (!Name_Maps::is_method(class_name, method_name)) {
+        return false;
+    }
     methodFormalList[pair<string, string>(class_name, method_name)] = vl;
     return true;
 }
 
-vector<Formal *> *Name_Maps::get_method_formal_list(string class_name, string method_name) {
-    vector<Formal *> *fl = new vector<Formal *>();
+vector<Formal*>* Name_Maps::get_method_formal_list(string class_name, string method_name) {
+    vector<Formal*>* fl = new vector<Formal*>();
     pair<string, string> p(class_name, method_name);
-    if (methodFormalList.find(p) == methodFormalList.end()) return nullptr;
+    if (methodFormalList.find(p) == methodFormalList.end()) {
+        return nullptr;
+    }
     vector<string> vl = methodFormalList[pair<string, string>(class_name, method_name)];
     for (auto v : vl) {
         if (Name_Maps::is_method_formal(class_name, method_name, v)) {
             fl->push_back(Name_Maps::get_method_formal(class_name, method_name, v));
-        } else {
+        }
+        else {
             cerr << "Error: Method Formal: " << class_name << "->" << method_name << "->" << v << " not found" << endl;
             return nullptr;
         }
@@ -121,32 +145,62 @@ vector<Formal *> *Name_Maps::get_method_formal_list(string class_name, string me
     return fl;
 }
 
+bool Name_Maps::set_class_immutable(string class_name, bool immutable) {
+    if (!is_class(class_name)) {
+        return false; // Class not found
+    }
+    classImmutability[class_name] = immutable;
+    return true;
+}
+
+bool Name_Maps::is_class_immutable(string class_name) {
+    if (!is_class(class_name)) {
+        return false; // Class not found, or not explicitly marked immutable
+    }
+    // If a class is not in the map, it's implicitly mutable.
+    // If it's in the map, return its stored immutability.
+    auto it = classImmutability.find(class_name);
+    if (it != classImmutability.end()) {
+        return it->second;
+    }
+    return false; // Default to mutable if not explicitly set
+}
+
 void Name_Maps::print() {
     cout << "Classes: ";
-    for (auto c : classes) cout << c << " ; ";
+    for (auto c : classes) {
+        cout << c << " ; ";
+    }
     cout << endl;
     cout << "Class Hiearchy: ";
-    for (auto it = classHierachy.begin(); it != classHierachy.end(); it++) cout << it->first << "->" << it->second << " ; ";
+    for (auto it = classHierachy.begin(); it != classHierachy.end(); it++) {
+        cout << it->first << "->" << it->second << " ; ";
+    }
     cout << endl;
     cout << "Methods: ";
-    for (auto m : methods) cout << m.first << "->" << m.second << " ; ";
+    for (auto m : methods) {
+        cout << m.first << "->" << m.second << " ; ";
+    }
     cout << endl;
     cout << "Class Variables: ";
     for (auto it = classVar.begin(); it != classVar.end(); it++) {
-        VarDecl *vd = it->second;
-        cout << (it->first).first << "->" << (it->first).second << " with type=" << type_kind_string(vd->type->typeKind) << " ; ";
+        VarDecl* vd = it->second;
+        cout << (it->first).first << "->" << (it->first).second << " with type=" << 
+            type_kind_string(vd->type->typeKind) << " ; ";
     }
     cout << endl;
     cout << "Method Variables: ";
     for (auto it = methodVar.begin(); it != methodVar.end(); it++) {
-        VarDecl *vd = it->second;
-        cout << get<0>(it->first) << "->" << get<1>(it->first) << "->" << get<2>(it->first) << " with type=" << type_kind_string(vd->type->typeKind) << " ; ";
+        VarDecl* vd = it->second;
+        cout << get<0>(it->first) << "->" << get<1>(it->first) << "->" << get<2>(it->first) << 
+            " with type=" << type_kind_string(vd->type->typeKind) <<  " ; ";
     }
     cout << endl;
     cout << "Method Formals: ";
     for (auto it = methodFormal.begin(); it != methodFormal.end(); it++) {
         Type *t = it->second->type;
-        cout << get<0>(it->first) << "->" << get<1>(it->first) << "->" << get<2>(it->first) << " with type=" << type_kind_string(t->typeKind) << " ; ";
+        cout << get<0>(it->first) << "->" << get<1>(it->first) << "->" << get<2>(it->first) <<
+            " with type=" << type_kind_string(t->typeKind) << " ; ";
     }
     cout << endl;
 }
