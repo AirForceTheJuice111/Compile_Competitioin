@@ -497,32 +497,35 @@ void ASTToTreeVisitor::visit(fdmj::While *node) {
 }
 
 // Assign: move src into dst
+// Correctness order:
+//   1. Visit LHS with suppress_lhs_shadow_check=true → get bare TempExp (no shadow check)
+//   2. Visit RHS normally → may contain shadow check (catches uninitialized use)
+//   3. Move(dst, src)                  ← RHS check runs here; if it exits, shadow stays 0
+//   4. Move(shadow=1, Const(1))        ← only reached if RHS check passed
 void ASTToTreeVisitor::visit(fdmj::Assign *node) {
-    // Translate left (destination)
+    // Translate left (destination) without shadow check: it's a write target
+    suppress_lhs_shadow_check = true;
     node->left->accept(*this);
+    suppress_lhs_shadow_check = false;
     Tr_Exp *left = visit_exp_result;
 
-    // Translate right (source)
+    // Translate right (source) normally — shadow check is inserted here
     node->exp->accept(*this);
     Tr_Exp *right = visit_exp_result;
 
     tree::Exp *dst = left->unEx(method_temp_map)->exp;
     tree::Exp *src = right->unEx(method_temp_map)->exp;
-    
+
     auto sl = new vector<tree::Stm *>;
-    if(node->left->getASTKind() == ASTKind::IdExp && dst->type == tree::Type::INT) {
-        // move: VARIABLE_NAME^^shadow <- 1
+    // Do the assignment first (RHS shadow check runs inside src's ESeq)
+    sl->push_back(new tree::Move(dst, src));
+    // Only after successful assignment, mark LHS variable as initialized
+    if (node->left->getASTKind() == ASTKind::IdExp && dst->type == tree::Type::INT) {
         auto nodel = static_cast<IdExp*>(node->left);
         string shadow_temp_name = nodel->id + shadow_suffix;
         auto shadow_temp = method_var_table->get_var_temp(shadow_temp_name);
-        sl->push_back(new tree::Move(new_temp_exp_of(shadow_temp), new tree::Const(1)));
-        
-        // // strip the eseq checking code
-        // auto eseq_dst = static_cast<tree::Eseq*>(dst);
-        // if(eseq_dst->exp) *dst = *(eseq_dst->exp);
+        if (shadow_temp != nullptr) sl->push_back(new tree::Move(new_temp_exp_of(shadow_temp), new tree::Const(1)));
     }
-    
-    sl->push_back(new tree::Move(dst, src));
     visit_exp_result = new Tr_nx(new tree::Seq(sl));
 }
 
@@ -994,28 +997,34 @@ void ASTToTreeVisitor::visit(fdmj::IdExp *node) {
         auto t = method_var_table->get_var_type(name);
         
         if(t == tree::Type::INT) {
-            // add shadow temp checking here. when and only when it's used in Assign's dst node, strip this checking.
+            // add shadow temp checking here, unless:
+            // - suppress_lhs_shadow_check is true (LHS of Assign: writing, not reading)
+            // - shadow_temp is nullptr (formal parameter: considered initialized on entry)
             string shadow_name = name + shadow_suffix;
             auto shadow_temp = method_var_table->get_var_temp(shadow_name);
-            
-            auto exit_label = method_temp_map->newlabel();
-            auto ok_label = method_temp_map->newlabel();
-            
-            //
-            auto sl = new vector<tree::Stm*> {
-                new tree::Cjump("==", new_temp_exp_of(shadow_temp), new tree::Const(1), ok_label, exit_label),
-                new tree::LabelStm(exit_label),
-                new_exit(-101),
-                new tree::LabelStm(ok_label),
-            };
-           
-            visit_exp_result = new Tr_ex(
-                new tree::Eseq(
-                    tree::Type::INT,
-                    new tree::Seq(sl),
-                    new tree::TempExp(t, new tree::Temp(temp->num))
-                )
-            );
+
+            if (shadow_temp == nullptr || suppress_lhs_shadow_check) {
+                // formal parameter or write-target: no shadow check
+                visit_exp_result = new Tr_ex(new tree::TempExp(t, new tree::Temp(temp->num)));
+            } else {
+                auto exit_label = method_temp_map->newlabel();
+                auto ok_label = method_temp_map->newlabel();
+
+                auto sl = new vector<tree::Stm*> {
+                    new tree::Cjump("==", new_temp_exp_of(shadow_temp), new tree::Const(1), ok_label, exit_label),
+                    new tree::LabelStm(exit_label),
+                    new_exit(-101),
+                    new tree::LabelStm(ok_label),
+                };
+
+                visit_exp_result = new Tr_ex(
+                    new tree::Eseq(
+                        tree::Type::INT,
+                        new tree::Seq(sl),
+                        new tree::TempExp(t, new tree::Temp(temp->num))
+                    )
+                );
+            }
 
         } else {
             visit_exp_result = new Tr_ex(

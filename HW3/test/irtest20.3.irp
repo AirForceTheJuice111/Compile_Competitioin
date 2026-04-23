@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Program>
-    <FunctionDeclaration name="__$main__^main" return_type="INT" last_temp="102" last_label="99">
+    <FunctionDeclaration name="__$main__^main" return_type="INT" last_temp="104" last_label="99">
         <Sequence>
             <Move>
                 <Temp type="PTR" temp="100"/>
                 <Const value="0"/>
             </Move>
             <Move>
-                <Temp type="PTR" temp="101"/>
+                <Temp type="PTR" temp="102"/>
                 <Const value="0"/>
             </Move>
             <ExpressionStatement>
@@ -32,21 +32,21 @@
                                     </BinOp>
                                     <Memory type="INT">
                                         <BinOp type="PTR" op="+">
-                                            <Temp type="PTR" temp="101"/>
+                                            <Temp type="PTR" temp="102"/>
                                             <Const value="0"/>
                                         </BinOp>
                                     </Memory>
                                 </BinOp>
                                 <Memory type="INT">
                                     <BinOp type="PTR" op="+">
-                                        <Temp type="PTR" temp="101"/>
+                                        <Temp type="PTR" temp="102"/>
                                         <Const value="8"/>
                                     </BinOp>
                                 </Memory>
                             </BinOp>
                             <Memory type="INT">
                                 <BinOp type="PTR" op="+">
-                                    <Temp type="PTR" temp="101"/>
+                                    <Temp type="PTR" temp="102"/>
                                     <Const value="12"/>
                                 </BinOp>
                             </Memory>
@@ -54,10 +54,12 @@
                     </Arguments>
                 </ExtCall>
             </ExpressionStatement>
-            <Move>
-                <Temp type="PTR" temp="100"/>
-                <Temp type="PTR" temp="101"/>
-            </Move>
+            <Sequence>
+                <Move>
+                    <Temp type="PTR" temp="100"/>
+                    <Temp type="PTR" temp="102"/>
+                </Move>
+            </Sequence>
             <ExpressionStatement>
                 <ExtCall extfun="putint">
                     <Arguments>
@@ -80,21 +82,21 @@
                                     </BinOp>
                                     <Memory type="INT">
                                         <BinOp type="PTR" op="+">
-                                            <Temp type="PTR" temp="101"/>
+                                            <Temp type="PTR" temp="102"/>
                                             <Const value="0"/>
                                         </BinOp>
                                     </Memory>
                                 </BinOp>
                                 <Memory type="INT">
                                     <BinOp type="PTR" op="+">
-                                        <Temp type="PTR" temp="101"/>
+                                        <Temp type="PTR" temp="102"/>
                                         <Const value="8"/>
                                     </BinOp>
                                 </Memory>
                             </BinOp>
                             <Memory type="INT">
                                 <BinOp type="PTR" op="+">
-                                    <Temp type="PTR" temp="101"/>
+                                    <Temp type="PTR" temp="102"/>
                                     <Const value="12"/>
                                 </BinOp>
                             </Memory>
@@ -104,7 +106,7 @@
             </ExpressionStatement>
         </Sequence>
     </FunctionDeclaration>
-    <FunctionDeclaration name="B^f" return_type="INT" last_temp="101" last_label="99" arg_temp="100">
+    <FunctionDeclaration name="B^f" return_type="INT" last_temp="101" last_label="99" arg_temp_0="100">
         <Sequence>
             <Return>
                 <BinOp type="INT" op="+">
