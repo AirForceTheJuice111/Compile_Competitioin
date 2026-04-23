@@ -8,6 +8,110 @@ using_table_of_content: true
 
 # HW3+HW4 实验报告
 
+## Quiz报告
+
+### Quiz解决方案
+
+**一些测试用例中转xml的过程segfault了，可能需要修改转xml的文件才能解决。在未segfault的测试中，人工检查正确。**
+
+1. generate_method_var_table时，加入新的shadow_temp的注册：
+
+```cpp
+// quiz new: init shadow temp
+tree::Temp* shadow_t = tm->newtemp();
+string shadow_temp_name = var_name + shadow_suffix;
+(*mvt->var_temp_map)[shadow_temp_name] = shadow_t;
+(*mvt->var_type_map)[shadow_temp_name] = tree::Type::INT;
+```
+
+2. 在IDExp node处，若dst为整形变量，则加入对shadow_temp是否为1的检查（cjump），若不为1则exit：
+
+```cpp
+void ASTToTreeVisitor::visit(fdmj::IdExp *node) {
+    string name = node->id;
+    auto temp = method_var_table->get_var_temp(name);
+    if (temp != nullptr) {
+        auto t = method_var_table->get_var_type(name);
+        
+        if(t == tree::Type::INT) {
+            // add shadow temp checking here. when and only when it's used in Assign's dst node, strip this checking.
+            string shadow_name = name + shadow_suffix;
+            auto shadow_temp = method_var_table->get_var_temp(shadow_name);
+            
+            auto exit_label = method_temp_map->newlabel();
+            auto ok_label = method_temp_map->newlabel();
+            
+            //
+            auto sl = new vector<tree::Stm*> {
+                new tree::Cjump("==", new_temp_exp_of(shadow_temp), new tree::Const(1), ok_label, exit_label),
+                new tree::LabelStm(exit_label),
+                new_exit(-101),
+                new tree::LabelStm(ok_label),
+            };
+           
+            visit_exp_result = new Tr_ex(
+                new tree::Eseq(
+                    tree::Type::INT,
+                    new tree::Seq(sl),
+                    new tree::TempExp(t, new tree::Temp(temp->num))
+                )
+            );
+
+        } else {
+            visit_exp_result = new Tr_ex(
+                new tree::TempExp(t, new tree::Temp(temp->num))
+            );
+        }
+    } else {
+        // Variable not found - should not happen in correct programs
+        visit_exp_result = new Tr_ex(new tree::Const(0));
+    }
+}
+```
+
+3. 在Assign node处，加入move(shadow_temp, 1)：
+
+```cpp
+auto sl = new vector<tree::Stm *>;
+if(node->left->getASTKind() == ASTKind::IdExp && dst->type == tree::Type::INT) {
+    // move: VARIABLE_NAME^^shadow <- 1
+    auto nodel = static_cast<IdExp*>(node->left);
+    string shadow_temp_name = nodel->id + shadow_suffix;
+    auto shadow_temp = method_var_table->get_var_temp(shadow_temp_name);
+    sl->push_back(new tree::Move(new_temp_exp_of(shadow_temp), new tree::Const(1)));
+}
+
+sl->push_back(new tree::Move(dst, src));
+visit_exp_result = new Tr_nx(new tree::Seq(sl));
+```
+
+**这样做虽然会导致Assign的左值为整形变量时加入了多余的对shadow_temp的检查，但该检查在赋shadow_temp为1之后，故没有问题，只是程序变慢了一点而已。**
+
+### 思考题
+
+对类变量也加上去的话会失效的原因：如果使用当前方法，一个类的一个变量在所有该类实例中共享一个shadow_temp：
+
+```java
+public int main() {
+    class B b1;
+    class B b2;
+    b1.c = 1;
+    return b2.c;
+}
+
+public class B {
+	int c;
+}
+```
+
+这个例子中，如果c就只有一个shadow_temp对应它，则b1.c使得shadow_temp = 1，但b2.c实际上没有被初始化，判断错误。
+
+**解决方法：**需要对每个实例化的class的所有类变量都建立shadow_temp。
+
+在这个例子中，需要对b1和b2各自新建shadow_temp_map，在b1.c = 1时只对b1对应的shadow_temp赋为1，这样就能正确判断b2.c未初始化。
+
+## HW3,4报告
+
 HW3和4一起完成了，故两次HW交的是相同的这份实验报告和相同的代码。
 
 本次代码是经ai指导下完成（询问了大量设计上的问题，让其给出了一些示例代码），完成后，让ai为代码增添了大量注释，便于日后快速回想起来。

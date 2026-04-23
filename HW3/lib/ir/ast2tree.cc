@@ -19,7 +19,8 @@ using namespace std;
 static string shadow_suffix = "^^shadow";
 
 static tree::TempExp* new_temp_exp_of(tree::Temp* temp) {
-    return new tree::TempExp(tree::Type::PTR, new tree::Temp(temp->num));
+    if(temp) return new tree::TempExp(tree::Type::PTR, new tree::Temp(temp->num));
+    else return nullptr;
 }
 
 static tree::ExpStm* new_exit(int code) {
@@ -516,9 +517,9 @@ void ASTToTreeVisitor::visit(fdmj::Assign *node) {
         auto shadow_temp = method_var_table->get_var_temp(shadow_temp_name);
         sl->push_back(new tree::Move(new_temp_exp_of(shadow_temp), new tree::Const(1)));
         
-        // strip the eseq checking code
-        auto eseq_dst = static_cast<tree::Eseq*>(dst);
-        delete eseq_dst->stm; eseq_dst->stm = nullptr;
+        // // strip the eseq checking code
+        // auto eseq_dst = static_cast<tree::Eseq*>(dst);
+        // if(eseq_dst->exp) *dst = *(eseq_dst->exp);
     }
     
     sl->push_back(new tree::Move(dst, src));
@@ -992,28 +993,35 @@ void ASTToTreeVisitor::visit(fdmj::IdExp *node) {
     if (temp != nullptr) {
         auto t = method_var_table->get_var_type(name);
         
-        // add shadow temp checking here. when and only when it's used in Assign's dst node, strip this checking.
-        string shadow_name = name + shadow_suffix;
-        auto shadow_temp = method_var_table->get_var_temp(shadow_name);
-        
-        auto exit_label = method_temp_map->newlabel();
-        auto ok_label = method_temp_map->newlabel();
-        
-        //
-        auto sl = new vector<tree::Stm*> {
-            new tree::Cjump("==", new_temp_exp_of(shadow_temp), new tree::Const(1), ok_label, exit_label),
-            new tree::LabelStm(exit_label),
-            new_exit(-101),
-            new tree::LabelStm(ok_label),
-        };
-        
-        visit_exp_result = new Tr_ex(
-            new tree::Eseq(
-                tree::Type::INT,
-                new tree::Seq(sl),
+        if(t == tree::Type::INT) {
+            // add shadow temp checking here. when and only when it's used in Assign's dst node, strip this checking.
+            string shadow_name = name + shadow_suffix;
+            auto shadow_temp = method_var_table->get_var_temp(shadow_name);
+            
+            auto exit_label = method_temp_map->newlabel();
+            auto ok_label = method_temp_map->newlabel();
+            
+            //
+            auto sl = new vector<tree::Stm*> {
+                new tree::Cjump("==", new_temp_exp_of(shadow_temp), new tree::Const(1), ok_label, exit_label),
+                new tree::LabelStm(exit_label),
+                new_exit(-101),
+                new tree::LabelStm(ok_label),
+            };
+           
+            visit_exp_result = new Tr_ex(
+                new tree::Eseq(
+                    tree::Type::INT,
+                    new tree::Seq(sl),
+                    new tree::TempExp(t, new tree::Temp(temp->num))
+                )
+            );
+
+        } else {
+            visit_exp_result = new Tr_ex(
                 new tree::TempExp(t, new tree::Temp(temp->num))
-            )
-        );
+            );
+        }
     } else {
         // Variable not found - should not happen in correct programs
         visit_exp_result = new Tr_ex(new tree::Const(0));
