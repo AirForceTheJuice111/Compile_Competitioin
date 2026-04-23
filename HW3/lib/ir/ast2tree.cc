@@ -16,16 +16,18 @@
 
 using namespace std;
 
+static string shadow_suffix = "^^shadow";
+
 static tree::TempExp* new_temp_exp_of(tree::Temp* temp) {
     return new tree::TempExp(tree::Type::PTR, new tree::Temp(temp->num));
 }
 
-static tree::ExpStm* new_exit_minus_1() {
+static tree::ExpStm* new_exit(int code) {
     return new tree::ExpStm(
         new tree::ExtCall(
             tree::Type::INT,
             "exit",
-            new vector<tree::Exp *>({new tree::Const(-1)})
+            new vector<tree::Exp *>({new tree::Const(code)})
         )
     );
 }
@@ -50,6 +52,12 @@ Method_var_table *generate_method_var_table(string class_name, string method_nam
             fdmj::VarDecl *vd = nm->get_method_var(class_name, method_name, var_name);
             if (vd != nullptr) (*mvt->var_type_map)[var_name] = typeKind2TreeType(vd->type->typeKind);
             else (*mvt->var_type_map)[var_name] = tree::Type::INT;
+            
+            // quiz new: init shadow temp
+            tree::Temp* shadow_t = tm->newtemp();
+            string shadow_temp_name = var_name + shadow_suffix;
+            (*mvt->var_temp_map)[shadow_temp_name] = shadow_t;
+            (*mvt->var_type_map)[shadow_temp_name] = tree::Type::INT;
         }
         delete var_list;
     }
@@ -499,8 +507,22 @@ void ASTToTreeVisitor::visit(fdmj::Assign *node) {
 
     tree::Exp *dst = left->unEx(method_temp_map)->exp;
     tree::Exp *src = right->unEx(method_temp_map)->exp;
-
-    visit_exp_result = new Tr_nx(new tree::Move(dst, src));
+    
+    auto sl = new vector<tree::Stm *>;
+    if(node->left->getASTKind() == ASTKind::IdExp && dst->type == tree::Type::INT) {
+        // move: VARIABLE_NAME^^shadow <- 1
+        auto nodel = static_cast<IdExp*>(node->left);
+        string shadow_temp_name = nodel->id + shadow_suffix;
+        auto shadow_temp = method_var_table->get_var_temp(shadow_temp_name);
+        sl->push_back(new tree::Move(new_temp_exp_of(shadow_temp), new tree::Const(1)));
+        
+        // strip the eseq checking code
+        auto eseq_dst = static_cast<tree::Eseq*>(dst);
+        delete eseq_dst->stm; eseq_dst->stm = nullptr;
+    }
+    
+    sl->push_back(new tree::Move(dst, src));
+    visit_exp_result = new Tr_nx(new tree::Seq(sl));
 }
 
 // CallStm: obj.method(args) as statement (result discarded)
@@ -969,7 +991,29 @@ void ASTToTreeVisitor::visit(fdmj::IdExp *node) {
     auto temp = method_var_table->get_var_temp(name);
     if (temp != nullptr) {
         auto t = method_var_table->get_var_type(name);
-        visit_exp_result = new Tr_ex(new tree::TempExp(t, new tree::Temp(temp->num))); // same Temp register number, but wrapped in a TempExp with type info
+        
+        // add shadow temp checking here. when and only when it's used in Assign's dst node, strip this checking.
+        string shadow_name = name + shadow_suffix;
+        auto shadow_temp = method_var_table->get_var_temp(shadow_name);
+        
+        auto exit_label = method_temp_map->newlabel();
+        auto ok_label = method_temp_map->newlabel();
+        
+        //
+        auto sl = new vector<tree::Stm*> {
+            new tree::Cjump("==", new_temp_exp_of(shadow_temp), new tree::Const(1), ok_label, exit_label),
+            new tree::LabelStm(exit_label),
+            new_exit(-101),
+            new tree::LabelStm(ok_label),
+        };
+        
+        visit_exp_result = new Tr_ex(
+            new tree::Eseq(
+                tree::Type::INT,
+                new tree::Seq(sl),
+                new tree::TempExp(t, new tree::Temp(temp->num))
+            )
+        );
     } else {
         // Variable not found - should not happen in correct programs
         visit_exp_result = new Tr_ex(new tree::Const(0));
