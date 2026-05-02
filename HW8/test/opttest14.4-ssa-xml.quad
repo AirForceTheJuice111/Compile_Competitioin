@@ -1,0 +1,49 @@
+<!-- Test 14: PTR_CALC + STORE + LOAD conservative handling
+     All three instructions are always kept (PTR_CALC and LOAD produce MANY,
+     STORE has no defined temp). Verifies these code paths are not dropped. -->
+<Program kind="PROGRAM" last_label_num="102" last_temp_num="103">
+    <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="102" last_temp_num="103">
+        <block kind="BLOCK" entry="102">
+            <label kind="LABEL" name="102"/>
+            <moveextcall kind="MOVE_EXTCALL" dst="10000" temp_type="int">
+                <extcall kind="EXTCALL" name="getint"/>
+                <def>
+                    <temp id="10000"/>
+                </def>
+            </moveextcall>
+            <ptr_calc kind="PTR_CALC">
+                <dst kind="TEMP" id="10001" type="ptr"/>
+                <ptr kind="TEMP" id="10000" type="int"/>
+                <offset kind="CONST" value="4"/>
+                <def>
+                    <temp id="10001"/>
+                </def>
+                <use>
+                    <temp id="10000"/>
+                </use>
+            </ptr_calc>
+            <store kind="STORE">
+                <src kind="CONST" value="42"/>
+                <dst kind="TEMP" id="10001" type="ptr"/>
+                <use>
+                    <temp id="10001"/>
+                </use>
+            </store>
+            <load kind="LOAD" dst="10002" temp_type="int">
+                <src kind="TEMP" id="10001" type="ptr"/>
+                <def>
+                    <temp id="10002"/>
+                </def>
+                <use>
+                    <temp id="10001"/>
+                </use>
+            </load>
+            <return kind="RETURN">
+                <value kind="TEMP" id="10002" type="int"/>
+                <use>
+                    <temp id="10002"/>
+                </use>
+            </return>
+        </block>
+    </funcdecl>
+</Program>

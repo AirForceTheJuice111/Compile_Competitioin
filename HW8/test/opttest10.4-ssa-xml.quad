@@ -1,0 +1,52 @@
+<!-- Test 10: Pure constant folding chain (no phi, no control flow)
+     t10000=2, t10001=t10000+3=5, t10002=t10001*4=20, t10003=t10002-1=19
+     Expected: all assignments removed, RETURN Const:19 -->
+<Program kind="PROGRAM" last_label_num="102" last_temp_num="104">
+    <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="102" last_temp_num="104">
+        <block kind="BLOCK" entry="102">
+            <label kind="LABEL" name="102"/>
+            <move kind="MOVE" dst="10000" temp_type="int">
+                <src kind="CONST" value="2"/>
+                <def>
+                    <temp id="10000"/>
+                </def>
+            </move>
+            <movebinop kind="MOVE_BINOP" dst="10001" temp_type="int" op="+">
+                <left kind="TEMP" id="10000" type="int"/>
+                <right kind="CONST" value="3"/>
+                <def>
+                    <temp id="10001"/>
+                </def>
+                <use>
+                    <temp id="10000"/>
+                </use>
+            </movebinop>
+            <movebinop kind="MOVE_BINOP" dst="10002" temp_type="int" op="*">
+                <left kind="TEMP" id="10001" type="int"/>
+                <right kind="CONST" value="4"/>
+                <def>
+                    <temp id="10002"/>
+                </def>
+                <use>
+                    <temp id="10001"/>
+                </use>
+            </movebinop>
+            <movebinop kind="MOVE_BINOP" dst="10003" temp_type="int" op="-">
+                <left kind="TEMP" id="10002" type="int"/>
+                <right kind="CONST" value="1"/>
+                <def>
+                    <temp id="10003"/>
+                </def>
+                <use>
+                    <temp id="10002"/>
+                </use>
+            </movebinop>
+            <return kind="RETURN">
+                <value kind="TEMP" id="10003" type="int"/>
+                <use>
+                    <temp id="10003"/>
+                </use>
+            </return>
+        </block>
+    </funcdecl>
+</Program>

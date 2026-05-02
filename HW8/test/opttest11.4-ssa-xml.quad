@@ -1,0 +1,23 @@
+<!-- Test 11: Division by zero with explicit Const:0 divisor
+     t10000 = 5 / 0 → evalBinop returns MANY (not folded)
+     Expected: MOVE_BINOP kept, RETURN t10000 -->
+<Program kind="PROGRAM" last_label_num="102" last_temp_num="101">
+    <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="102" last_temp_num="101">
+        <block kind="BLOCK" entry="102">
+            <label kind="LABEL" name="102"/>
+            <movebinop kind="MOVE_BINOP" dst="10000" temp_type="int" op="/">
+                <left kind="CONST" value="5"/>
+                <right kind="CONST" value="0"/>
+                <def>
+                    <temp id="10000"/>
+                </def>
+            </movebinop>
+            <return kind="RETURN">
+                <value kind="TEMP" id="10000" type="int"/>
+                <use>
+                    <temp id="10000"/>
+                </use>
+            </return>
+        </block>
+    </funcdecl>
+</Program>

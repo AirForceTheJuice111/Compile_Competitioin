@@ -1,0 +1,9 @@
+Function __$main__^main() last_label=102 last_temp=103:
+  Block: Entry Label: L102
+    Exit labels: 
+    LABEL L102; def: use: 
+    MOVE_EXTCALL t10000:int <- getint(); def: t10000 use: 
+    PTR_CALC t10001:ptr <- t10000:int + Const:4; def: t10001 use: t10000 
+    STORE Const:42 -> Mem(t10001:ptr); def: use: t10001 
+    LOAD t10002:int <- Mem(t10001:ptr); def: t10002 use: t10001 
+    RETURN t10002:int; def: use: t10002 
