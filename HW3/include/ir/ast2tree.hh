@@ -125,7 +125,6 @@ class ASTToTreeVisitor : public fdmj::AST_Visitor {
     Label *continue_label;       // the continue label for the current while loop
     Label *break_label;          // the break label for the current while loop
     string class_var_class_name; // the class name of the object in ClassVar (for looking up var offset). eg. for this.c.j, when visiting j, we can set class_var_class_name to the class of c, so that we can look up the offset of j in that class, even though the obj expression is this.
-    bool suppress_lhs_shadow_check = false; // when true, IdExp::visit skips shadow check (used for LHS of Assign)
 
     ~ASTToTreeVisitor() {
         delete semant_map;
@@ -152,7 +151,6 @@ class ASTToTreeVisitor : public fdmj::AST_Visitor {
         continue_label = nullptr;
         break_label = nullptr;
         class_var_class_name.clear();
-        suppress_lhs_shadow_check = false;
     }
 
     tree::Tree *getTree() { return visit_tree_result; } // return the tree from a single visit (program returns a single tree)

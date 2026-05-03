@@ -438,9 +438,10 @@ void Opt::modifyFunc() {
                         int input_num = new_args->at(0).first->num;
                         bool is_live = live_temps.count(phi_dst) > 0;
                         RtValue input_val = getRtValue(input_num);
-                        // Convert to MOVE when:
+                        // Convert to MOVE only in special cases:
                         // (a) input is NO_VALUE and result is live (undefined var propagated), OR
                         // (b) the single-input situation arose from a CJUMP fold and result is live.
+                        // Otherwise keep as a single-input phi (expected output format).
                         bool to_move = is_live &&
                             (had_cjump_fold || input_val.getType() == ValueType::NO_VALUE);
                         if (to_move) {
@@ -449,7 +450,7 @@ void Opt::modifyFunc() {
                                 : new QuadTerm(new QuadTemp(new Temp(input_num), phi->temp_exp->type));
                             new_quadlist->push_back(new QuadMove(phi->temp_exp->clone(), src, nullptr, nullptr));
                         } else {
-                            // Keep as single-input phi (dead result or MANY input without fold).
+                            // Keep as single-input phi (dead result, or MANY_VALUES input without fold).
                             new_quadlist->push_back(new QuadPhi(phi->temp_exp->clone(), new_args, nullptr, nullptr));
                         }
                     } else {
