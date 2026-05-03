@@ -273,7 +273,7 @@ class QuadCall : public QuadStm{
     QuadCall* clone() const override;
 };
 
-class QuadMoveCall : public QuadStm{
+class QuadMoveCall : public QuadStm{ // a call with a return value assigned to a temp
   public:
     QuadTemp *dst;
     QuadCall *call;
