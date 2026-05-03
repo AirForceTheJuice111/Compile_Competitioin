@@ -10,7 +10,7 @@ Function __$main__^main() last_label=110 last_temp=105:
   Block: Entry Label: L104
     Exit labels: L108 
     LABEL L104; 
-    PHI t10001:int <- Phi([t100, L103]); 
+    MOVE t10001:int <- t100:int; 
     JUMP L108; 
   Block: Entry Label: L108
     Exit labels: 
