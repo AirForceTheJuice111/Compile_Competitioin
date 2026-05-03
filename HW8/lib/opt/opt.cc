@@ -17,7 +17,7 @@ using namespace quad;
 
 static bool isSameRtValue(RtValue lhs, RtValue rhs) {
     if (lhs.getType() != rhs.getType()) return false;
-    if (lhs.getType() != ValueType::ONE_VALUE) return true;
+    if (lhs.getType() != ValueType::ONE_VALUE) return true; // both NO_VALUE or both MANY_VALUES
     return lhs.getIntValue() == rhs.getIntValue();
 }
 
@@ -30,7 +30,7 @@ static RtValue joinRtValue(RtValue current, RtValue incoming) {
     return RtValue(ValueType::MANY_VALUES);
 }
 
-static bool updateRtValue(map<int, RtValue> &temp_value, int temp_num, RtValue incoming) {
+static bool updateRtValue(map<int, RtValue> &temp_value, int temp_num, RtValue incoming) { // update temp_value[temp_num] by joining with incoming; return true if changed
     RtValue current = temp_value.count(temp_num) ? temp_value[temp_num] : RtValue();
     RtValue joined = joinRtValue(current, incoming);
     if (isSameRtValue(current, joined)) return false;
@@ -38,7 +38,7 @@ static bool updateRtValue(map<int, RtValue> &temp_value, int temp_num, RtValue i
     return true;
 }
 
-static bool updateExecutable(map<int, bool> &block_executable, int label_num) {
+static bool updateExecutable(map<int, bool> &block_executable, int label_num) { // update block_executable[label_num] to true; return true if changed
     if (block_executable[label_num]) return false;
     block_executable[label_num] = true;
     return true;
@@ -77,7 +77,7 @@ static RtValue evalBinop(const string &binop, int left, int right) {
     return RtValue(ValueType::MANY_VALUES);
 }
 
-static bool evalRelop(const string &relop, int left, int right) {
+static bool evalRelop(const string &relop, int left, int right) { // relop is short for "relational operator", but can also be equality or logical operators used in CJUMP conditions
     if (relop == "==") return left == right;
     if (relop == "!=") return left != right;
     if (relop == "<") return left < right;
@@ -87,7 +87,7 @@ static bool evalRelop(const string &relop, int left, int right) {
     return true;
 }
 
-static QuadTerm *rewriteTerm(Opt *opt, QuadTerm *term) {
+static QuadTerm *rewriteTerm(Opt *opt, QuadTerm *term) { // rewrite term by replacing TEMP with known constant value when possible; return new term (may be same as input)
     if (term == nullptr) return nullptr;
     if (term->kind != QuadTermKind::TEMP) return term->clone();
     int temp_num = term->get_temp()->temp->num;
@@ -117,7 +117,22 @@ static RtValue evalTerm(Opt *opt, QuadTerm *term) {
     return RtValue(ValueType::MANY_VALUES);
 }
 
-static RtValue evalPhi(Opt *opt, QuadPhi *phi) {
+// Like evalTerm, but called for uses in REACHABLE blocks outside of phi nodes.
+// If the temp still has NO_VALUE at use time, the program contains undefined behavior:
+// report the error, promote to MANY_VALUES, and continue (per README).
+static RtValue evalTermChecked(Opt *opt, QuadTerm *term, bool &changed) {
+    if (term == nullptr || term->kind != QuadTermKind::TEMP) return evalTerm(opt, term);
+    int num = term->get_temp()->temp->num;
+    RtValue val = opt->getRtValue(num);
+    if (val.getType() == ValueType::NO_VALUE) {
+        cerr << "Warning: t" << num << " used in reachable block with no determined value (undefined use); promoting to MANY_VALUES" << endl;
+        changed |= updateRtValue(opt->temp_value, num, RtValue(ValueType::MANY_VALUES));
+        return RtValue(ValueType::MANY_VALUES);
+    }
+    return val;
+}
+
+static RtValue evalPhi(Opt *opt, QuadPhi *phi) { // if phi has no executable inputs, return NO_VALUE; else if all executable inputs have the same ONE_VALUE, return that value; else if any executable input is MANY_VALUES, return MANY_VALUES; else return NO_VALUE (executable inputs with no value)
     RtValue result;
     bool seen_executable_input = false;
     if (phi->args == nullptr) return result;
@@ -127,7 +142,7 @@ static RtValue evalPhi(Opt *opt, QuadPhi *phi) {
         seen_executable_input = true;
         RtValue incoming = opt->getRtValue(arg.first->num);
         if (incoming.getType() == ValueType::NO_VALUE) continue;
-        if (incoming.getType() == ValueType::MANY_VALUES) return incoming;
+        if (incoming.getType() == ValueType::MANY_VALUES) return incoming; // all MANY_VALUES RtValues are the same, just return it
         result = joinRtValue(result, incoming);
         if (result.getType() == ValueType::MANY_VALUES) return result;
     }
@@ -135,7 +150,7 @@ static RtValue evalPhi(Opt *opt, QuadPhi *phi) {
     return result;
 }
 
-void Opt::calculateBT() {
+void Opt::calculateBT() { // Backward dataflow to determine executable blocks and constant values. BT = "block tracing"
     bool changed = true;
     while (changed) {
         changed = false;
@@ -147,7 +162,7 @@ void Opt::calculateBT() {
                 switch (stm->kind) {
                     case QuadKind::MOVE: {
                         auto *move = static_cast<QuadMove*>(stm);
-                        changed |= updateRtValue(temp_value, move->dst->temp->num, evalTerm(this, move->src));
+                        changed |= updateRtValue(temp_value, move->dst->temp->num, evalTermChecked(this, move->src, changed));
                         break;
                     }
                     case QuadKind::LOAD: {
@@ -163,8 +178,8 @@ void Opt::calculateBT() {
                         break;
                     case QuadKind::MOVE_BINOP: {
                         auto *binop = static_cast<QuadMoveBinop*>(stm);
-                        RtValue left = evalTerm(this, binop->left);
-                        RtValue right = evalTerm(this, binop->right);
+                        RtValue left = evalTermChecked(this, binop->left, changed);
+                        RtValue right = evalTermChecked(this, binop->right, changed);
                         RtValue result;
                         if (left.getType() == ValueType::MANY_VALUES || right.getType() == ValueType::MANY_VALUES)
                             result = RtValue(ValueType::MANY_VALUES);
@@ -190,8 +205,8 @@ void Opt::calculateBT() {
                     }
                     case QuadKind::CJUMP: {
                         auto *cjump = static_cast<QuadCJump*>(stm);
-                        RtValue left = evalTerm(this, cjump->left);
-                        RtValue right = evalTerm(this, cjump->right);
+                        RtValue left = evalTermChecked(this, cjump->left, changed);
+                        RtValue right = evalTermChecked(this, cjump->right, changed);
                         if (left.getType() == ValueType::ONE_VALUE && right.getType() == ValueType::ONE_VALUE) {
                             if (evalRelop(cjump->relop, left.getIntValue(), right.getIntValue()))
                                 changed |= updateExecutable(block_executable, cjump->t->num);
@@ -212,7 +227,7 @@ void Opt::calculateBT() {
                         int dst_num = ptr_calc->dst != nullptr && ptr_calc->dst->kind == QuadTermKind::TEMP
                             ? ptr_calc->dst->get_temp()->temp->num : -1;
                         if (dst_num >= 0)
-                            changed |= updateRtValue(temp_value, dst_num, RtValue(ValueType::MANY_VALUES));
+                            changed |= updateRtValue(temp_value, dst_num, RtValue(ValueType::MANY_VALUES)); // address is not int (can be 64 bits), so can't fit into ONE_VALUE
                         break;
                     }
                     default:
@@ -225,15 +240,14 @@ void Opt::calculateBT() {
 
 void Opt::modifyFunc() {
     // Lambda: check if edge (pred -> curr) is executable.
-    // Sets *is_cjump_fold to true when pred IS executable but CJUMP folds away from curr.
+    // Sets *is_cjump_fold to true when pred IS executable but CJUMP folds away from curr. (fold means curr is eliminated from executable blocks because the condition is known at compile time, so the edge is not executable even though pred is executable)
     auto isEdgeExec = [&](int pred, int curr, bool *is_cjump_fold = nullptr) -> bool {
         if (is_cjump_fold) *is_cjump_fold = false;
         if (!isExecutable(block_executable, pred)) return false;
         auto it = label2block.find(pred);
         if (it == label2block.end()) return true;
         for (auto *s : *it->second->quadlist) {
-            if (s->kind == QuadKind::JUMP)
-                return static_cast<QuadJump*>(s)->label->num == curr;
+            if (s->kind == QuadKind::JUMP) return static_cast<QuadJump*>(s)->label->num == curr;
             if (s->kind == QuadKind::CJUMP) {
                 auto *cj = static_cast<QuadCJump*>(s);
                 RtValue lv = evalTerm(this, cj->left), rv = evalTerm(this, cj->right);
@@ -386,7 +400,7 @@ void Opt::modifyFunc() {
                     } else if (!t_exec && f_exec) {
                         new_exits->push_back(new Label(cjump->f->num));
                         new_quadlist->push_back(new QuadJump(new Label(cjump->f->num), nullptr, nullptr));
-                    } else {
+                    } else { // both branches executable or both not executable (shouldn't be both not executable since current block is executable, but handle conservatively just in case), keep CJUMP but update exits
                         if (t_exec) new_exits->push_back(new Label(cjump->t->num));
                         if (f_exec) new_exits->push_back(new Label(cjump->f->num));
                         new_quadlist->push_back(cjump);
@@ -478,11 +492,13 @@ QuadFuncDecl* Opt::optFunc() {
     block_executable.clear();
     temp_value.clear();
 
+    // Initialize temp_value for parameters (assume unknown value coming in from caller).
     if (func->params != nullptr) {
         for (auto *param : *func->params)
             if (param != nullptr) temp_value[param->num] = RtValue(ValueType::MANY_VALUES);
     }
 
+    // Initialize block_executable: only the entry block is executable at the start; others will be discovered by BT. Also build label2block for quick block lookup by label.
     if (func->quadblocklist != nullptr) {
         for (auto *block : *func->quadblocklist) {
             if (block == nullptr || block->entry_label == nullptr) continue;
