@@ -132,19 +132,41 @@ static RtValue evalTermChecked(Opt *opt, QuadTerm *term, bool &changed) {
     return val;
 }
 
-static RtValue evalPhi(Opt *opt, QuadPhi *phi) { // if phi has no executable inputs, return NO_VALUE; else if all executable inputs have the same ONE_VALUE, return that value; else if any executable input is MANY_VALUES, return MANY_VALUES; else return NO_VALUE (executable inputs with no value)
+// Check if the edge pred→curr is actually executable, accounting for CJUMP fold.
+// Needed during calculateBT where the isEdgeExec lambda isn't available.
+static bool isEdgeExecutable(Opt *opt, int pred, int curr) {
+    if (!isExecutable(opt->block_executable, pred)) return false;
+    auto it = opt->label2block.find(pred);
+    if (it == opt->label2block.end()) return true;
+    for (auto *s : *it->second->quadlist) {
+        if (s->kind == QuadKind::JUMP) return static_cast<QuadJump*>(s)->label->num == curr;
+        if (s->kind == QuadKind::CJUMP) {
+            auto *cj = static_cast<QuadCJump*>(s);
+            RtValue lv = evalTerm(opt, cj->left), rv = evalTerm(opt, cj->right);
+            if (lv.getType() == ValueType::ONE_VALUE && rv.getType() == ValueType::ONE_VALUE) {
+                bool taken = evalRelop(cj->relop, lv.getIntValue(), rv.getIntValue());
+                return taken ? cj->t->num == curr : cj->f->num == curr;
+            }
+            return true; // condition unknown: both branches potentially executable
+        }
+    }
+    return true;
+}
+
+static RtValue evalPhi(Opt *opt, QuadPhi *phi, int curr_label) {
+    // Evaluate the phi by joining values from executable-EDGE predecessors only.
+    // NO_VALUE inputs from executable edges taint the result to MANY_VALUES;
+    // we do NOT promote the source temp here so that modifyFunc can later
+    // perform a liveness-aware warning pass for those cases.
     RtValue result;
     bool seen_executable_input = false;
     if (phi->args == nullptr) return result;
     for (auto &arg : *phi->args) {
         int pred_label = arg.second->num;
-        if (!isExecutable(opt->block_executable, pred_label)) continue;
+        if (!isEdgeExecutable(opt, pred_label, curr_label)) continue;
         seen_executable_input = true;
         RtValue incoming = opt->getRtValue(arg.first->num);
-        if (incoming.getType() == ValueType::NO_VALUE) {
-            bool changed;
-            result = evalTermChecked(opt, new QuadTerm(new QuadTemp(new Temp(arg.first->num), phi->temp_exp->type)), changed);
-        }
+        if (incoming.getType() == ValueType::NO_VALUE) return RtValue(ValueType::MANY_VALUES); // taint
         if (incoming.getType() == ValueType::MANY_VALUES) return incoming;
         result = joinRtValue(result, incoming);
         if (result.getType() == ValueType::MANY_VALUES) return result;
@@ -222,7 +244,7 @@ void Opt::calculateBT() { // Backward dataflow to determine executable blocks an
                     }
                     case QuadKind::PHI: {
                         auto *phi = static_cast<QuadPhi*>(stm);
-                        changed |= updateRtValue(temp_value, phi->temp_exp->temp->num, evalPhi(this, phi));
+                        changed |= updateRtValue(temp_value, phi->temp_exp->temp->num, evalPhi(this, phi, label_num));
                         break;
                     }
                     case QuadKind::PTR_CALC: {
@@ -273,6 +295,27 @@ void Opt::modifyFunc() {
         if (!isExecutable(block_executable, block->entry_label->num)) continue;
         for (auto *stm : *block->quadlist)
             if (stm->use) for (auto *t : *stm->use) live_temps.insert(t->num);
+    }
+
+    // Warning pass: warn about undefined phi inputs from executable edges, but only when
+    // the phi result is live (actually reachable). This defers the warning from evalPhi
+    // so we can filter out dead phi results (e.g. phi only used in an unreachable block).
+    for (auto *block : *func->quadblocklist) {
+        int curr = block->entry_label->num;
+        if (!isExecutable(block_executable, curr)) continue;
+        for (auto *stm : *block->quadlist) {
+            if (stm->kind != QuadKind::PHI) continue;
+            auto *phi = static_cast<QuadPhi*>(stm);
+            int phi_dst = phi->temp_exp->temp->num;
+            if (!live_temps.count(phi_dst)) continue; // dead result: undefined input is harmless
+            if (!phi->args) continue;
+            for (auto &arg : *phi->args) {
+                int pred = arg.second->num;
+                if (!isEdgeExec(pred, curr)) continue;
+                if (getRtValue(arg.first->num).getType() == ValueType::NO_VALUE)
+                    cerr << "Warning: t" << arg.first->num << " used in reachable block with no determined value (undefined use); promoting to MANY_VALUES" << endl;
+            }
+        }
     }
 
     // Phase 2: Pre-scan phi nodes to identify constant inputs needing fresh temps.
