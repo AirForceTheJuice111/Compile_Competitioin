@@ -1,4 +1,4 @@
-Function __$main__^main() last_label=110 last_temp=109:
+Function __$main__^main() last_label=110 last_temp=110:
   Block: Entry Label: L110
     Exit labels: L102 L103 
     LABEL L110; 
@@ -8,6 +8,7 @@ Function __$main__^main() last_label=110 last_temp=109:
     Exit labels: L104 
     LABEL L102; 
     MOVE t106:int <- Const:1; 
+    MOVE t108:int <- Const:9; 
     JUMP L104; 
   Block: Entry Label: L103
     Exit labels: L104 
@@ -18,11 +19,12 @@ Function __$main__^main() last_label=110 last_temp=109:
     Exit labels: L107 L108 
     LABEL L104; 
     PHI t10102:int <- Phi([t106, L102], [t107, L103]); 
+    PHI t10001:int <- Phi([t108, L102], [t100, L103]); 
     CJUMP != t10102:int Const:0? L107 : L108; 
   Block: Entry Label: L107
     Exit labels: 
     LABEL L107; 
-    RETURN Const:9; 
+    RETURN t10001:int; 
   Block: Entry Label: L108
     Exit labels: 
     LABEL L108; 
