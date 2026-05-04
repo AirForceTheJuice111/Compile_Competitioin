@@ -93,6 +93,8 @@ static QuadTerm *rewriteTerm(Opt *opt, QuadTerm *term) { // rewrite term by repl
     int temp_num = term->get_temp()->temp->num;
     RtValue value = opt->getRtValue(temp_num);
     if (value.getType() == ValueType::ONE_VALUE) return new QuadTerm(value.getIntValue());
+    if (value.getType() == ValueType::NO_VALUE)
+        cerr << "Warning: t" << temp_num << " used in reachable block with no determined value (undefined use); promoting to MANY_VALUES" << endl;
     return term->clone();
 }
 
@@ -133,7 +135,7 @@ static RtValue evalTermChecked(Opt *opt, QuadTerm *term, bool &changed) {
 }
 
 // Check if the edge pred→curr is actually executable, accounting for CJUMP fold.
-// Needed during calculateBT where the isEdgeExec lambda isn't available.
+// Sets *is_cjump_fold to true when pred IS executable but CJUMP folds away from curr.
 static bool isEdgeExecutable(Opt *opt, int pred, int curr) {
     if (!isExecutable(opt->block_executable, pred)) return false;
     auto it = opt->label2block.find(pred);
@@ -145,7 +147,9 @@ static bool isEdgeExecutable(Opt *opt, int pred, int curr) {
             RtValue lv = evalTerm(opt, cj->left), rv = evalTerm(opt, cj->right);
             if (lv.getType() == ValueType::ONE_VALUE && rv.getType() == ValueType::ONE_VALUE) {
                 bool taken = evalRelop(cj->relop, lv.getIntValue(), rv.getIntValue());
-                return taken ? cj->t->num == curr : cj->f->num == curr;
+                int tgt = taken ? cj->t->num : cj->f->num;
+                bool exec = (tgt == curr);
+                return exec;
             }
             return true; // condition unknown: both branches potentially executable
         }
@@ -264,31 +268,6 @@ void Opt::calculateBT() { // Backward dataflow to determine executable blocks an
 }
 
 void Opt::modifyFunc() {
-    // Lambda: check if edge (pred -> curr) is executable.
-    // Sets *is_cjump_fold to true when pred IS executable but CJUMP folds away from curr. (fold means curr is eliminated from executable blocks because the condition is known at compile time, so the edge is not executable even though pred is executable)
-    auto isEdgeExec = [&](int pred, int curr, bool *is_cjump_fold = nullptr) -> bool {
-        if (is_cjump_fold) *is_cjump_fold = false;
-        if (!isExecutable(block_executable, pred)) return false;
-        auto it = label2block.find(pred);
-        if (it == label2block.end()) return true;
-        for (auto *s : *it->second->quadlist) {
-            if (s->kind == QuadKind::JUMP) return static_cast<QuadJump*>(s)->label->num == curr;
-            if (s->kind == QuadKind::CJUMP) {
-                auto *cj = static_cast<QuadCJump*>(s);
-                RtValue lv = evalTerm(this, cj->left), rv = evalTerm(this, cj->right);
-                if (lv.getType() == ValueType::ONE_VALUE && rv.getType() == ValueType::ONE_VALUE) {
-                    bool taken = evalRelop(cj->relop, lv.getIntValue(), rv.getIntValue());
-                    int tgt = taken ? cj->t->num : cj->f->num;
-                    bool exec = (tgt == curr);
-                    if (!exec && is_cjump_fold) *is_cjump_fold = true;
-                    return exec;
-                }
-                return true; // both branches executable when condition unknown
-            }
-        }
-        return true;
-    };
-
     // Phase 1: Collect temps used in reachable blocks (liveness).
     set<int> live_temps;
     for (auto *block : *func->quadblocklist) {
@@ -311,7 +290,7 @@ void Opt::modifyFunc() {
             if (!phi->args) continue;
             for (auto &arg : *phi->args) {
                 int pred = arg.second->num;
-                if (!isEdgeExec(pred, curr)) continue;
+                if (!isEdgeExecutable(this, pred, curr)) continue;
                 if (getRtValue(arg.first->num).getType() == ValueType::NO_VALUE)
                     cerr << "Warning: t" << arg.first->num << " used in reachable block with no determined value (undefined use); promoting to MANY_VALUES" << endl;
             }
@@ -335,7 +314,7 @@ void Opt::modifyFunc() {
             if (!phi->args) continue;
             for (auto &arg : *phi->args) {
                 int pred = arg.second->num;
-                if (!isEdgeExec(pred, curr)) continue;
+                if (!isEdgeExecutable(this, pred, curr)) continue;
                 int src_num = arg.first->num;
                 if (getRtValue(src_num).getType() != ValueType::ONE_VALUE) continue;
                 // This constant-valued phi input will have its definition removed;
@@ -434,8 +413,8 @@ void Opt::modifyFunc() {
                     auto *cjump = static_cast<QuadCJump*>(stm->clone());
                     cjump->left = rewriteTerm(this, cjump->left);
                     cjump->right = rewriteTerm(this, cjump->right);
-                    bool t_exec = isEdgeExec(curr, cjump->t->num);
-                    bool f_exec = isEdgeExec(curr, cjump->f->num);
+                    bool t_exec = isEdgeExecutable(this, curr, cjump->t->num);
+                    bool f_exec = isEdgeExecutable(this, curr, cjump->f->num);
                     // Insert fresh MOVEs before exit.
                     for (auto &[fn, fv, ft] : fmoves)
                         new_quadlist->push_back(new QuadMove(
@@ -465,8 +444,7 @@ void Opt::modifyFunc() {
                     if (phi->args) {
                         for (auto &arg : *phi->args) {
                             int pred = arg.second->num;
-                            bool cjump_fold = false;
-                            if (!isEdgeExec(pred, curr, &cjump_fold)) continue;
+                            if (!isEdgeExecutable(this, pred, curr)) continue;
                             
                             // Apply fresh-temp substitution for constant inputs.
                             auto key = make_pair(arg.first->num, pred);
@@ -553,7 +531,7 @@ QuadFuncDecl* Opt::optFunc() {
 
 QuadProgram* optProg(QuadProgram* prog) {
     QuadProgram* newProg = new QuadProgram(new vector<QuadFuncDecl*>(), prog->last_label_num, prog->last_temp_num);
-    for (int i=0; i < prog->quadFuncDeclList->size(); i++) {
+    for (int i = 0; i < prog->quadFuncDeclList->size(); i++) {
         Opt optthis(prog->quadFuncDeclList->at(i));
         newProg->quadFuncDeclList->push_back(optthis.optFunc());
     }
