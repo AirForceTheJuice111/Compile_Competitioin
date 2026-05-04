@@ -72,19 +72,71 @@ using_table_of_content: true
 - 跳过不可达块。
 - `MOVE` / `MOVE_BINOP`：结果为 `ONE_VALUE` 时直接删去赋值（使用点已经被 `rewriteTerm` 替换成常量）。
 - `CJUMP`：用 `isEdgeExec` 判断真/假两条边是否可达，若只有一条可达则改写成 `JUMP`，否则保留 `CJUMP`。
-- `PHI`：先用 `isEdgeExec` 过滤不可达边的输入；若只剩一个输入，在特定情况下改写为 `MOVE`（见下文）；若结果为 `ONE_VALUE` 则删去整个 phi。
+- `PHI`：先用 `isEdgeExec` 过滤不可达边的输入；若只剩一个输入，改写为 `MOVE`；若结果为 `ONE_VALUE` 则删去整个 phi。
 
-为了与预期输出格式一致，对单输入 phi 做如下处理：  
-删除不可达前驱后，phi 可能只剩一个输入。此时仅在以下两种情况将其改写成 `MOVE`：
 
-1. 边消失是因为 CJUMP 折叠（`had_cjump_fold == true`），且目标 temp 被使用（live）。
-2. 输入 temp 的值为 `NO_VALUE`（未定义传播），且目标 temp 被使用（live）。
+## 关于多报warning的问题（请助教读一下）
 
-其余情况保留单输入 phi。（也就是说，只改写本轮优化中制造出来的单输入 phi，不改写原来就是单输入的phi）
+测试下来，opttest6和9会多报warning（Warning: txx used in reachable block with no determined value (undefined use); promoting to MANY_VALUES），但这应该是SCCP这个算法的局限性/我们SSA这种形式的局限性，以opptest6为例：
 
-## 遇到的问题与解决方案
+```java
+public int main() {
+    int i;
+    int i_shadow;
+    i_shadow = 0;
 
-最初实现 phi 过滤时只检查 `block_executable[pred]`，而 opttest9 的输入里有一个前驱块本身是可执行的，但其内部 `CJUMP` 折叠后选择了另一条边，导致 `pred → curr` 这条边实际不可达。引入 `isEdgeExec` lambda 后，phi 过滤和 CJUMP 改写都能正确区分两种情况。
+    if (0) {
+       i = 9;
+       i_shadow = 1;
+    }
+
+    if (i_shadow) 
+       return i;
+    else
+       return -101;
+}
+```
+
+原始SSA版本是：
+
+```
+Function __$main__^main() last_label=110 last_temp=103:
+  Block: Entry Label: L110
+    Exit labels: L102 L103 
+    LABEL L110; def: use: 
+    MOVE t10100:int <- Const:0; def: t10100 use: 
+    CJUMP != Const:0 Const:0? L102 : L103; def: use: 
+  Block: Entry Label: L102
+    Exit labels: L104 
+    LABEL L102; def: use: 
+    MOVE t10000:int <- Const:9; def: t10000 use: 
+    MOVE t10101:int <- Const:1; def: t10101 use: 
+    JUMP L104; def: use: 
+  Block: Entry Label: L103
+    Exit labels: L104 
+    LABEL L103; def: use: 
+    JUMP L104; def: use: 
+  Block: Entry Label: L104
+    Exit labels: L107 L108 
+    LABEL L104; def: use: 
+    PHI t10102:int <- Phi([t10101, L102], [t10100, L103]); def: t10102 use: t10101 t10100 
+    PHI t10001:int <- Phi([t10000, L102], [t100, L103]); def: t10001 use: t10000 t100 
+    CJUMP != t10102:int Const:0? L107 : L108; def: use: t10102 
+  Block: Entry Label: L107
+    Exit labels: 
+    LABEL L107; def: use: 
+    RETURN t10001:int; def: use: t10001 
+  Block: Entry Label: L108
+    Exit labels: 
+    LABEL L108; def: use: 
+    MOVE_BINOP t10300:int <- (-, Const:0, Const:101); def: t10300 use: 
+    RETURN t10300:int; def: use: t10300 
+```
+
+可以看到，
+    PHI t10001:int <- Phi([t10000, L102], [t100, L103]); def: t10001 use: t10000 t100 
+
+
 
 ## 新增测试说明
 

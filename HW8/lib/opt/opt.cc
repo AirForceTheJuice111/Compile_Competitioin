@@ -132,10 +132,9 @@ static RtValue evalTermChecked(Opt *opt, QuadTerm *term, bool &changed) {
     return val;
 }
 
-static RtValue evalPhi(Opt *opt, QuadPhi *phi) { // if phi has no executable inputs, return NO_VALUE; else if all executable inputs have the same ONE_VALUE, return that value; else if any executable input is MANY_VALUES, return MANY_VALUES; else if NO_VALUE mixes with ONE_VALUE return MANY_VALUES; else return NO_VALUE
+static RtValue evalPhi(Opt *opt, QuadPhi *phi) { // if phi has no executable inputs, return NO_VALUE; else if all executable inputs have the same ONE_VALUE, return that value; else if any executable input is MANY_VALUES, return MANY_VALUES; else return NO_VALUE (executable inputs with no value)
     RtValue result;
     bool seen_executable_input = false;
-    bool has_no_value_input = false;
     if (phi->args == nullptr) return result;
     for (auto &arg : *phi->args) {
         int pred_label = arg.second->num;
@@ -143,23 +142,14 @@ static RtValue evalPhi(Opt *opt, QuadPhi *phi) { // if phi has no executable inp
         seen_executable_input = true;
         RtValue incoming = opt->getRtValue(arg.first->num);
         if (incoming.getType() == ValueType::NO_VALUE) {
-            // Defer: track that at least one executable input has no value yet.
-            // Will promote to MANY_VALUES only if another input is ONE_VALUE (taint).
-            has_no_value_input = true;
-            continue;
+            bool changed;
+            result = evalTermChecked(opt, new QuadTerm(new QuadTemp(new Temp(arg.first->num), phi->temp_exp->type)), changed);
         }
         if (incoming.getType() == ValueType::MANY_VALUES) return incoming;
         result = joinRtValue(result, incoming);
         if (result.getType() == ValueType::MANY_VALUES) return result;
     }
     if (!seen_executable_input) return RtValue();
-    // If a determined value coexists with NO_VALUE inputs, the undefined variable
-    // taints the result: promote to MANY_VALUES so that if the phi result is later
-    // used in a reachable operation, evalTermChecked will fire the warning.
-    // If ALL executable inputs were NO_VALUE, return NO_VALUE so the undefinedness
-    // propagates and evalTermChecked fires exactly at the downstream use site.
-    if (result.getType() == ValueType::ONE_VALUE && has_no_value_input)
-        return RtValue(ValueType::MANY_VALUES);
     return result;
 }
 
