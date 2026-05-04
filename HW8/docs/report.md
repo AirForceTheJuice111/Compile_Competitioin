@@ -49,7 +49,7 @@ using_table_of_content: true
 - `LOAD`、`MOVE_CALL`、`MOVE_EXTCALL`、`PTR_CALC` —— 保守地直接记为 `MANY_VALUES`。
 - `JUMP` —— 将目标块置为可执行。
 - `CJUMP` —— 两侧都是 `ONE_VALUE` 时只放行唯一确定的后继；否则同时打开两条边。
-- `PHI` —— 只读取来自可执行前驱的输入；`NO_VALUE` 输入表示"前驱尚未分析完"，正常跳过；多个可执行前驱给出不同常量时提升为 `MANY_VALUES`。
+- `PHI` —— 只读取来自可执行前驱的输入；`NO_VALUE` 输入表示可能存在UB，提升为 `MANY_VALUES`；多个可执行前驱给出不同常量时提升为 `MANY_VALUES`。
 
 可达块中的未定义值检测：`evalTermChecked` 在发现某 temp 在可达块被使用时仍为 `NO_VALUE` 时，向 `cerr` 输出警告，并将该 temp 提升为 `MANY_VALUES` 后继续分析——这样 CJUMP 就不会因操作数未知而错误地不标记任何后继为可达。
 
@@ -60,6 +60,10 @@ using_table_of_content: true
 #### 阶段一（Liveness 收集）
 
 扫描所有可达块中语句的 `use` 集合，得到 `live_temps`，用于判断某 phi 的目标是否被后续语句引用。
+
+#### Phi Warning 
+
+专门处理 phi的参数中有NO_VALUE的情形，三个条件同时满足才报警：边可达 + 源 temp 仍为 NO_VALUE + phi 目标在 live_temps 中。
 
 #### 阶段二（常量 phi 输入的 fresh temp 分配）
   
@@ -73,70 +77,6 @@ using_table_of_content: true
 - `MOVE` / `MOVE_BINOP`：结果为 `ONE_VALUE` 时直接删去赋值（使用点已经被 `rewriteTerm` 替换成常量）。
 - `CJUMP`：用 `isEdgeExec` 判断真/假两条边是否可达，若只有一条可达则改写成 `JUMP`，否则保留 `CJUMP`。
 - `PHI`：先用 `isEdgeExec` 过滤不可达边的输入；若只剩一个输入，改写为 `MOVE`；若结果为 `ONE_VALUE` 则删去整个 phi。
-
-
-## 关于多报warning的问题（请助教读一下）
-
-测试下来，opttest6和9会多报warning（Warning: txx used in reachable block with no determined value (undefined use); promoting to MANY_VALUES），但这应该是SCCP这个算法的局限性/我们SSA这种形式的局限性，以opptest6为例：
-
-```java
-public int main() {
-    int i;
-    int i_shadow;
-    i_shadow = 0;
-
-    if (0) {
-       i = 9;
-       i_shadow = 1;
-    }
-
-    if (i_shadow) 
-       return i;
-    else
-       return -101;
-}
-```
-
-原始SSA版本是：
-
-```
-Function __$main__^main() last_label=110 last_temp=103:
-  Block: Entry Label: L110
-    Exit labels: L102 L103 
-    LABEL L110; def: use: 
-    MOVE t10100:int <- Const:0; def: t10100 use: 
-    CJUMP != Const:0 Const:0? L102 : L103; def: use: 
-  Block: Entry Label: L102
-    Exit labels: L104 
-    LABEL L102; def: use: 
-    MOVE t10000:int <- Const:9; def: t10000 use: 
-    MOVE t10101:int <- Const:1; def: t10101 use: 
-    JUMP L104; def: use: 
-  Block: Entry Label: L103
-    Exit labels: L104 
-    LABEL L103; def: use: 
-    JUMP L104; def: use: 
-  Block: Entry Label: L104
-    Exit labels: L107 L108 
-    LABEL L104; def: use: 
-    PHI t10102:int <- Phi([t10101, L102], [t10100, L103]); def: t10102 use: t10101 t10100 
-    PHI t10001:int <- Phi([t10000, L102], [t100, L103]); def: t10001 use: t10000 t100 
-    CJUMP != t10102:int Const:0? L107 : L108; def: use: t10102 
-  Block: Entry Label: L107
-    Exit labels: 
-    LABEL L107; def: use: 
-    RETURN t10001:int; def: use: t10001 
-  Block: Entry Label: L108
-    Exit labels: 
-    LABEL L108; def: use: 
-    MOVE_BINOP t10300:int <- (-, Const:0, Const:101); def: t10300 use: 
-    RETURN t10300:int; def: use: t10300 
-```
-
-可以看到，
-    PHI t10001:int <- Phi([t10000, L102], [t100, L103]); def: t10001 use: t10000 t100 
-
-
 
 ## 新增测试说明
 
@@ -168,6 +108,8 @@ dce8e17 (origin/master, origin/HEAD) HW8 added
 
 ## 测试结果
 
+只有opttest5,7有warning，符合实际情形。（假定死代码中的UB就不发warning了）
+
 ```text
 make build
 
@@ -196,6 +138,7 @@ Writing optimized Quad to file: opttest4.4-ssa-opt.quad
 -----Done---
 Reading opttest5.4-ssa-xml.quad
 Reading Quad (SSA) from xml: opttest5.4-ssa-xml.quad
+Warning: t100 used in reachable block with no determined value (undefined use); promoting to MANY_VALUES
 Writing optimized Quad to file: opttest5.4-ssa-opt.quad
 -----Done---
 Reading opttest6.4-ssa-xml.quad

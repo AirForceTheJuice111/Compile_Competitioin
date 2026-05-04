@@ -14,18 +14,3 @@ public int main() {
        return -101;
 }
 
-public int main() {
-    int i;
-    int i_shadow;
-    i_shadow = 0;
-
-    if (getint()) {
-       i = getint();
-       i_shadow = 1;
-    }
-
-    if (i_shadow) 
-       return i;
-    else
-       return -101;
-}
