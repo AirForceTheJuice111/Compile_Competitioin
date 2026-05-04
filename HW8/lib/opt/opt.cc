@@ -135,18 +135,32 @@ static RtValue evalTermChecked(Opt *opt, QuadTerm *term, bool &changed) {
 static RtValue evalPhi(Opt *opt, QuadPhi *phi) { // if phi has no executable inputs, return NO_VALUE; else if all executable inputs have the same ONE_VALUE, return that value; else if any executable input is MANY_VALUES, return MANY_VALUES; else return NO_VALUE (executable inputs with no value)
     RtValue result;
     bool seen_executable_input = false;
+    vector<int> no_value_inputs; // temps from executable predecessors whose value is NO_VALUE
     if (phi->args == nullptr) return result;
     for (auto &arg : *phi->args) {
         int pred_label = arg.second->num;
         if (!isExecutable(opt->block_executable, pred_label)) continue;
         seen_executable_input = true;
         RtValue incoming = opt->getRtValue(arg.first->num);
-        if (incoming.getType() == ValueType::NO_VALUE) continue;
-        if (incoming.getType() == ValueType::MANY_VALUES) return incoming; // all MANY_VALUES RtValues are the same, just return it
+        if (incoming.getType() == ValueType::NO_VALUE) {
+            no_value_inputs.push_back(arg.first->num); // defer warning until we know if other inputs are determined
+            continue;
+        }
+        if (incoming.getType() == ValueType::MANY_VALUES) return incoming;
         result = joinRtValue(result, incoming);
         if (result.getType() == ValueType::MANY_VALUES) return result;
     }
     if (!seen_executable_input) return RtValue();
+    // Only report UB when a determined value (ONE_VALUE) coexists with NO_VALUE inputs:
+    // the undefined variable genuinely "taints" an otherwise-constant result.
+    // If ALL executable inputs were NO_VALUE, the phi just propagates undefinedness -- no warning.
+    if (result.getType() == ValueType::ONE_VALUE && !no_value_inputs.empty()) {
+        for (int num : no_value_inputs) {
+            bool changed = false;
+            evalTermChecked(opt, new QuadTerm(new QuadTemp(new Temp(num), phi->temp_exp->type)), changed);
+        }
+        return RtValue(ValueType::MANY_VALUES);
+    }
     return result;
 }
 
@@ -276,7 +290,7 @@ void Opt::modifyFunc() {
     // For a phi with MANY_VALUES result, if a reachable-edge input has a constant value,
     // we must create a fresh MOVE in the predecessor block to replace the removed assignment.
     map<int, vector<tuple<int, int, QuadType>>> fresh_moves; // pred_label -> [(fresh_num, const_val, type)]
-    map<pair<int,int>, int> phi_subst; // (old_temp_num, pred_label) -> fresh_temp_num
+    map<pair<int,int>, int> phi_substitute; // (old_temp_num, pred_label) -> fresh_temp_num
 
     for (auto *block : *func->quadblocklist) {
         int curr = block->entry_label->num;
@@ -297,7 +311,7 @@ void Opt::modifyFunc() {
                 int fresh = ++func->last_temp_num;
                 int const_val = getRtValue(src_num).getIntValue();
                 fresh_moves[pred].emplace_back(fresh, const_val, phi->temp_exp->type);
-                phi_subst[{src_num, pred}] = fresh;
+                phi_substitute[{src_num, pred}] = fresh;
             }
         }
     }
@@ -416,18 +430,15 @@ void Opt::modifyFunc() {
 
                     // Filter inputs by edge executability; track if any removal was a CJUMP fold.
                     auto *new_args = new vector<pair<Temp*, Label*>>();
-                    bool had_cjump_fold = false;
                     if (phi->args) {
                         for (auto &arg : *phi->args) {
                             int pred = arg.second->num;
                             bool cjump_fold = false;
-                            if (!isEdgeExec(pred, curr, &cjump_fold)) {
-                                if (cjump_fold) had_cjump_fold = true;
-                                continue;
-                            }
+                            if (!isEdgeExec(pred, curr, &cjump_fold)) continue;
+                            
                             // Apply fresh-temp substitution for constant inputs.
                             auto key = make_pair(arg.first->num, pred);
-                            int src = phi_subst.count(key) ? phi_subst.at(key) : arg.first->num;
+                            int src = phi_substitute.count(key) ? phi_substitute.at(key) : arg.first->num;
                             new_args->push_back({new Temp(src), new Label(pred)});
                         }
                     }
@@ -438,21 +449,11 @@ void Opt::modifyFunc() {
                         int input_num = new_args->at(0).first->num;
                         bool is_live = live_temps.count(phi_dst) > 0;
                         RtValue input_val = getRtValue(input_num);
-                        // Convert to MOVE only in special cases:
-                        // (a) input is NO_VALUE and result is live (undefined var propagated), OR
-                        // (b) the single-input situation arose from a CJUMP fold and result is live.
-                        // Otherwise keep as a single-input phi (expected output format).
-                        bool to_move = is_live &&
-                            (had_cjump_fold || input_val.getType() == ValueType::NO_VALUE);
-                        if (to_move) {
-                            QuadTerm *src = (input_val.getType() == ValueType::ONE_VALUE)
-                                ? new QuadTerm(input_val.getIntValue())
-                                : new QuadTerm(new QuadTemp(new Temp(input_num), phi->temp_exp->type));
-                            new_quadlist->push_back(new QuadMove(phi->temp_exp->clone(), src, nullptr, nullptr));
-                        } else {
-                            // Keep as single-input phi (dead result, or MANY_VALUES input without fold).
-                            new_quadlist->push_back(new QuadPhi(phi->temp_exp->clone(), new_args, nullptr, nullptr));
-                        }
+                        // Convert to move
+                        QuadTerm *src = (input_val.getType() == ValueType::ONE_VALUE)
+                            ? new QuadTerm(input_val.getIntValue())
+                            : new QuadTerm(new QuadTemp(new Temp(input_num), phi->temp_exp->type));
+                        new_quadlist->push_back(new QuadMove(phi->temp_exp->clone(), src, nullptr, nullptr));
                     } else {
                         // Multiple inputs: keep phi with updated args.
                         auto *np = static_cast<QuadPhi*>(stm->clone());
