@@ -127,7 +127,7 @@ static RtValue evalTermChecked(Opt *opt, QuadTerm *term, bool &changed) {
     int num = term->get_temp()->temp->num;
     RtValue val = opt->getRtValue(num);
     if (val.getType() == ValueType::NO_VALUE) {
-        cerr << "Warning: t" << num << " used in reachable block with no determined value (undefined use); promoting to MANY_VALUES" << endl;
+        cerr << "Warning: t" << num << " used in reachable block with no determined value (undefined use); promoting to MANY_VALUES" << endl; // 一般不会被执行，以防漏网之鱼而已
         changed |= updateRtValue(opt->temp_value, num, RtValue(ValueType::MANY_VALUES));
         return RtValue(ValueType::MANY_VALUES);
     }
@@ -199,12 +199,30 @@ void Opt::calculateBT() { // Backward dataflow to determine executable blocks an
                         changed |= updateRtValue(temp_value, load->dst->temp->num, RtValue(ValueType::MANY_VALUES));
                         break;
                     }
-                    case QuadKind::STORE:
-                    case QuadKind::CALL:
-                    case QuadKind::EXTCALL:
-                    case QuadKind::LABEL:
-                    case QuadKind::RETURN:
+                    case QuadKind::STORE: {
+                        auto *store = static_cast<QuadStore*>(stm);
+                        evalTermChecked(this, store->src, changed);
+                        evalTermChecked(this, store->dst, changed);
                         break;
+                    }
+                    case QuadKind::CALL: {
+                        auto *call = static_cast<QuadCall*>(stm);
+                        evalTermChecked(this, call->obj_term, changed);
+                        if (call->args) for (auto *arg : *call->args) evalTermChecked(this, arg, changed);
+                        break;
+                    }
+                    case QuadKind::EXTCALL: {
+                        auto *extcall = static_cast<QuadExtCall*>(stm);
+                        if (extcall->args) for (auto *arg : *extcall->args) evalTermChecked(this, arg, changed);
+                        break;
+                    }
+                    case QuadKind::LABEL:
+                        break;
+                    case QuadKind::RETURN: {
+                        auto *ret = static_cast<QuadReturn*>(stm);
+                        evalTermChecked(this, ret->exp, changed);
+                        break;
+                    }
                     case QuadKind::MOVE_BINOP: {
                         auto *binop = static_cast<QuadMoveBinop*>(stm);
                         RtValue left = evalTermChecked(this, binop->left, changed);
