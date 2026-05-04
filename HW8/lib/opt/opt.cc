@@ -132,35 +132,26 @@ static RtValue evalTermChecked(Opt *opt, QuadTerm *term, bool &changed) {
     return val;
 }
 
-static RtValue evalPhi(Opt *opt, QuadPhi *phi) { // if phi has no executable inputs, return NO_VALUE; else if all executable inputs have the same ONE_VALUE, return that value; else if any executable input is MANY_VALUES, return MANY_VALUES; else return NO_VALUE (executable inputs with no value)
+static RtValue evalPhi(Opt *opt, QuadPhi *phi) { // if phi has no executable inputs, return NO_VALUE; else if all executable inputs have the same ONE_VALUE, return that value; else if any executable input is MANY_VALUES or NO_VALUE, return MANY_VALUES; else return NO_VALUE
     RtValue result;
     bool seen_executable_input = false;
-    vector<int> no_value_inputs; // temps from executable predecessors whose value is NO_VALUE
     if (phi->args == nullptr) return result;
     for (auto &arg : *phi->args) {
         int pred_label = arg.second->num;
         if (!isExecutable(opt->block_executable, pred_label)) continue;
         seen_executable_input = true;
         RtValue incoming = opt->getRtValue(arg.first->num);
-        if (incoming.getType() == ValueType::NO_VALUE) {
-            no_value_inputs.push_back(arg.first->num); // defer warning until we know if other inputs are determined
-            continue;
-        }
+        // NO_VALUE from an executable predecessor means the variable is indeterminate
+        // on this control-flow path; treat conservatively as MANY_VALUES.
+        // The warning (if any) will fire downstream when the phi result is actually
+        // consumed by a MOVE / CJUMP operand via evalTermChecked.
+        if (incoming.getType() == ValueType::NO_VALUE)
+            incoming = RtValue(ValueType::MANY_VALUES);
         if (incoming.getType() == ValueType::MANY_VALUES) return incoming;
         result = joinRtValue(result, incoming);
         if (result.getType() == ValueType::MANY_VALUES) return result;
     }
     if (!seen_executable_input) return RtValue();
-    // Only report UB when a determined value (ONE_VALUE) coexists with NO_VALUE inputs:
-    // the undefined variable genuinely "taints" an otherwise-constant result.
-    // If ALL executable inputs were NO_VALUE, the phi just propagates undefinedness -- no warning.
-    if (result.getType() == ValueType::ONE_VALUE && !no_value_inputs.empty()) {
-        for (int num : no_value_inputs) {
-            bool changed = false;
-            evalTermChecked(opt, new QuadTerm(new QuadTemp(new Temp(num), phi->temp_exp->type)), changed);
-        }
-        return RtValue(ValueType::MANY_VALUES);
-    }
     return result;
 }
 
