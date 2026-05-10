@@ -1,0 +1,11 @@
+Function __$main__^extra_no_loop() last_label=301 last_temp=2:
+  Block: Entry Label: L300
+    Exit labels: L301 
+    LABEL L300; 
+    MOVE t1:int <- Const:5; 
+    MOVE_BINOP t2:int <- (+, t1:int, Const:3); 
+    JUMP L301; 
+  Block: Entry Label: L301
+    Exit labels: 
+    LABEL L301; 
+    RETURN t2:int; 
