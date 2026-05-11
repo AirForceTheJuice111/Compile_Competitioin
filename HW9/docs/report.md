@@ -12,35 +12,22 @@ using_table_of_content: true
 
 ## 参考资料
 
-1. 课程 README 和已有代码框架：明确本次只需要实现 `findloopheader.cc` 和 `loophoistfunc.cc`，并规定 call、load、store 相关语句的保守处理方式。
+虎书第 18 章 Optimizing for Memory Hierarchies / Loop Optimizations 相关内容。
 
-2. 虎书第 18 章 Optimizing for Memory Hierarchies / Loop Optimizations 相关内容：复习自然循环、循环不变量和代码外提的基本思想。
-
-3. Andrew W. Appel, *Modern Compiler Implementation in C*，Cambridge University Press 页面：[https://www.cambridge.org/core/books/modern-compiler-implementation-in-c/](https://www.cambridge.org/core/books/modern-compiler-implementation-in-c/)
-
-4. LLVM Loop Terminology 文档：参考 loop header、preheader、backedge 等术语定义：[https://llvm.org/docs/LoopTerminology.html](https://llvm.org/docs/LoopTerminology.html)
-
-5. LLVM LICM Pass 文档：参考循环不变量代码移动的工程化处理边界：[https://llvm.org/docs/Passes.html#licm-loop-invariant-code-motion](https://llvm.org/docs/Passes.html#licm-loop-invariant-code-motion)
-
-## 关键技术实现
-
-### 循环头发现 (`findloopheader.cc`)
+## 循环头发现 (`findloopheader.cc`)
 
 循环头通过 CFG 中的 back edge 识别。对每条 CFG 边 `tail -> header`，如果 `header` 支配 `tail`，说明控制流从循环体尾部回到了已经支配它的块，因此 `header` 是循环头。
 
 识别到 back edge 后，使用自然循环的反向收集算法得到循环体：
 
 1. 初始时将 `header` 和 `tail` 加入循环体。
-
 2. 从 `tail` 开始沿 predecessor 反向遍历。
-
 3. 新访问到的前驱块加入循环体，并继续向前扩展。
-
 4. 遇到已经加入的块则跳过，直到工作栈为空。
 
 同一个 header 可能有多条 back edge，因此实现中用 `map<int, set<int>>` 按 header 合并所有自然循环体，最后写入 `LoopHeaderMap`。
 
-### 循环不变量判断 (`loophoistfunc.cc`)
+## 循环不变量判断 (`loophoistfunc.cc`)
 
 本次优化采用保守策略，只考虑无副作用、不会读取内存的语句：
 
@@ -50,9 +37,9 @@ using_table_of_content: true
 
 以下语句不会被外提：
 
-- `LOAD`：作业假设每次内存读取都可能得到不同值。
+- `LOAD`：假设每次内存读取都可能得到不同值。
 - `STORE`：会修改内存。
-- `CALL`、`MOVE_CALL`、`EXTCALL`、`MOVE_EXTCALL`：作业假设所有调用都可能有副作用。
+- `CALL`、`MOVE_CALL`、`EXTCALL`、`MOVE_EXTCALL`：假设所有调用都可能有副作用。
 - `PHI`、`CJUMP`、`JUMP`、`RETURN`：控制流或 SSA 结构语句不能直接移动。
 
 对候选语句，判断它所有 use 的变量是否稳定：
@@ -68,7 +55,6 @@ using_table_of_content: true
 README 假设每个 loop header 已经有 preheader。实现中按以下规则查找 preheader：
 
 1. preheader 不属于循环体。
-
 2. preheader 的 `exit_labels` 中包含 loop header。
 
 找到 preheader 后，将可外提语句插入到 preheader 的终结语句之前。终结语句通常是 `JUMP`、`CJUMP` 或 `RETURN`，如果插到终结语句之后，移动出的代码会不可达。
@@ -78,9 +64,7 @@ README 假设每个 loop header 已经有 preheader。实现中按以下规则�
 循环优化先按循环体大小排序，优先处理较小的循环，通常对应内层循环。整体再做一层固定点迭代：
 
 1. 先把内层循环的不变量移动到内层 preheader。
-
 2. 如果该 preheader 仍在外层循环中，下一轮外层循环可能继续发现这些语句对外层也是不变量。
-
 3. 重复直到没有新的语句被移动。
 
 这样可以处理嵌套循环中不变量逐层向外提升的情况。
@@ -95,20 +79,9 @@ README 假设每个 loop header 已经有 preheader。实现中按以下规则�
 | `extra_ptrcalc_memory` | `PTR_CALC`、`LOAD`、`STORE` | `PTR_CALC` 可外提；`LOAD`、`STORE` 和依赖 load 的计算不会被外提。 |
 | `extra_multi_backedge` | 多条 back edge 指向同一 header | 测试同一 loop header 的多个自然循环体合并，以及跨 block 的链式不变量外提。 |
 
-每个额外测试均包含输入文件和期望输出文件：
-
-- `*.4-ssa-withflow-xml.quad`
-- `*.4-ssa-loopopt.quad`
-
 ## 遇到的问题
 
-### 函数输出顺序
-
-`xml2flow` 返回的是 `set<FuncFlowInfo*>`，按指针值排序，因此多函数测试中函数输出顺序可能受内存分配影响。`opttest6` 的优化结果中各函数内容正确，但与原参考文件相比可能出现函数先后顺序不同的问题。由于 README 要求只修改 `findloopheader.cc` 和 `loophoistfunc.cc`，本次没有修改 `main.cc` 或 `xml2flow` 的容器类型。
-
-### CMake 文件大小写
-
-本地构建时发现 `HW9/lib/quadflow` 下存在 `CmakeLists.txt` 与 CMake 默认查找的 `CMakeLists.txt` 大小写问题。当前工作区已有对应大小写文件后，`make build` 可以正常通过。本次核心代码提交未包含该文件的额外修改。
+`xml2flow` 返回的是 `set<FuncFlowInfo*>`，按指针值排序，因此多函数测试中函数输出顺序可能受内存分配影响。`opttest6` 的优化结果中各函数内容正确，但与原参考文件相比可能出现函数先后顺序不同的问题。
 
 ## Git 提交记录
 
@@ -128,33 +101,6 @@ b4eceed fix: evalPhi taint approach - propagate NO_VALUE to fire warning at use 
 ```
 
 ## 测试结果
-
-构建命令：
-
-```
-make build
-```
-
-构建通过，关键输出如下：
-
-```
--- Configuring done
--- Generating done
--- Build files have been written to: /home/wsy/fducompilerh2026/HW9/build
-[14/14] Linking CXX executable tools/main/main
-```
-
-为避免覆盖仓库中的参考输出，测试时将 `HW9/test/*.4-ssa-withflow-xml.quad` 复制到临时目录，再调用 `HW9/build/tools/main/main`。测试命令等价于：
-
-```
-tmpdir=$(mktemp -d /tmp/hw9report.XXXXXX)
-cp HW9/test/*.4-ssa-withflow-xml.quad "$tmpdir"/
-cd "$tmpdir"
-for file in *.4-ssa-withflow-xml.quad; do
-    echo "Reading $file"
-    /home/wsy/fducompilerh2026/HW9/build/tools/main/main "${file%%.*}"
-done
-```
 
 测试输出摘要如下：
 
@@ -240,5 +186,3 @@ Optimized function __$main__^main
 Writing optimized Quad to file: opttest9.4-ssa-loopopt.quad
 -----Done---
 ```
-
-额外测试的输出文件与期望输出逐个 `diff -q` 比对通过。原有 10 个测试均能运行完成，其中 `opttest6` 与参考输出仅存在函数打印顺序差异，优化后函数内容一致。

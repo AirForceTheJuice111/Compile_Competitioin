@@ -16,7 +16,7 @@ LoopHeaderMap *findLoopHeaders(QuadFuncDecl* func, FuncFlowInfo *ffi) {
     }
 
     ControlFlowInfo *cfi = ffi->cfi;
-    map<int, set<int>> loops;
+    map<int, set<int>> loops; // header -> body blocks
 
     for (auto edgeFrom : cfi->successors) {
         int tail = edgeFrom.first;
