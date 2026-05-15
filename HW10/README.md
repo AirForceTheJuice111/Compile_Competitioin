@@ -19,3 +19,5 @@
 对于`loopheaderwithflow.cc`中需要的代码，你可以从HW9直接抄（copy）过来。
 
 注意，除了上面提到你需要修改的 `.cc` 文件（即：`loopiductionbasic.cc`，`loopinductionderived.cc`，`loopstrengthreduction.cc`，`loopinductionelimination.cc`， 以及copy的`loopheaderwithflow.cc`)，其他文件都不要进行改变。
+
+最后，`vendor/genAndrunQuad` 提供可以自行从 fmj 文件产生 quad 程序，并直接运行 quad 程序的能力，供测试你的代码优化程序。具体运行方式见那边的 README 文件。
