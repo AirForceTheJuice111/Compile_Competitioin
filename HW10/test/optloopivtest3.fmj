@@ -1,0 +1,20 @@
+public int main() {
+    int j;
+    int k;
+    int s;
+    int a;
+    int b;
+    j = 0;
+    k = getint();
+    s = getint();
+    a = getint();
+    b = getint();
+    while (k>0) {
+       k = k-s;
+       j = a*k+b;
+       putint(j);
+       putch(32);
+    }
+    putch(10);
+    return j;
+}

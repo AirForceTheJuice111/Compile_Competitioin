@@ -1,0 +1,28 @@
+public int main() {
+    int i;
+    int j;
+    int k;
+    int k1;
+    k1 = -100;
+    i = getint();
+    while (i>0) {
+        j = getint();
+        while (j>0) {
+            k = getint();
+            k1 = k*j+1;
+            while (k>0) {
+                putint(i*k+j);
+                putch(32);
+                k=k-1;
+                k1=k1-1;
+            }
+            putch(10);
+            j = j-1;
+        }
+        putch(10);
+        i=i-1;
+    }
+    putint(k1);
+    putch(10);
+    return k1;
+}
