@@ -1,11 +1,11 @@
-Function __$main__^main() last_label=105 last_temp=113:
+Function __$main__^main() last_label=105 last_temp=111:
   Block: Entry Label: L105
     Exit labels: L102 
     LABEL L105; 
     MOVE_EXTCALL t10000:int <- getint(); 
-    MOVE_BINOP t10305:int <- (-, t10000:int, Const:1); 
-    MOVE_BINOP t10304:int <- (*, t10305:int, Const:4); 
-    MOVE_BINOP t10302:int <- (+, t10304:int, Const:2); 
+    MOVE_BINOP t10304:int <- (-, t10000:int, Const:1); 
+    MOVE_BINOP t10305:int <- (*, t10304:int, Const:4); 
+    MOVE_BINOP t10302:int <- (+, t10305:int, Const:2); 
     JUMP L102; 
   Block: Entry Label: L102
     Exit labels: L103 L104 

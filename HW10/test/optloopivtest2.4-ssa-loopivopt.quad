@@ -1,4 +1,4 @@
-Function __$main__^main() last_label=105 last_temp=115:
+Function __$main__^main() last_label=105 last_temp=113:
   Block: Entry Label: L105
     Exit labels: L102 
     LABEL L105; 

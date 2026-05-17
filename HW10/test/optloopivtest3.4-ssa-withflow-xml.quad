@@ -1,6 +1,6 @@
-<QuadWithFlowProgram program_last_label_num="105" program_last_temp_num="120">
-    <Program kind="PROGRAM" last_label_num="105" last_temp_num="120">
-        <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="105" last_temp_num="120">
+<QuadWithFlowProgram program_last_label_num="105" program_last_temp_num="116">
+    <Program kind="PROGRAM" last_label_num="105" last_temp_num="116">
+        <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="105" last_temp_num="116">
             <block kind="BLOCK" entry="105">
                 <exits>
                     <exit label="102"/>
@@ -24,18 +24,6 @@
                         <temp id="10400"/>
                     </def>
                 </moveextcall>
-                <moveextcall kind="MOVE_EXTCALL" dst="10000" temp_type="int">
-                    <extcall kind="EXTCALL" name="getint"/>
-                    <def>
-                        <temp id="10000"/>
-                    </def>
-                </moveextcall>
-                <moveextcall kind="MOVE_EXTCALL" dst="10100" temp_type="int">
-                    <extcall kind="EXTCALL" name="getint"/>
-                    <def>
-                        <temp id="10100"/>
-                    </def>
-                </moveextcall>
                 <jump kind="JUMP" target="102"/>
             </block>
             <block kind="BLOCK" entry="102">
@@ -53,8 +41,8 @@
                         <temp id="10301"/>
                     </def>
                     <use>
-                        <temp id="10300"/>
                         <temp id="10302"/>
+                        <temp id="10300"/>
                     </use>
                 </phi>
                 <phi kind="PHI" dst="10201" temp_type="int">
@@ -90,30 +78,28 @@
                         <temp id="10302"/>
                     </def>
                     <use>
-                        <temp id="10301"/>
                         <temp id="10400"/>
+                        <temp id="10301"/>
                     </use>
                 </movebinop>
-                <movebinop kind="MOVE_BINOP" dst="11700" temp_type="int" op="*">
-                    <left kind="TEMP" id="10000" type="int"/>
+                <movebinop kind="MOVE_BINOP" dst="11300" temp_type="int" op="*">
+                    <left kind="CONST" value="8"/>
                     <right kind="TEMP" id="10302" type="int"/>
                     <def>
-                        <temp id="11700"/>
+                        <temp id="11300"/>
                     </def>
                     <use>
-                        <temp id="10000"/>
                         <temp id="10302"/>
                     </use>
                 </movebinop>
                 <movebinop kind="MOVE_BINOP" dst="10202" temp_type="int" op="+">
-                    <left kind="TEMP" id="11700" type="int"/>
-                    <right kind="TEMP" id="10100" type="int"/>
+                    <left kind="TEMP" id="11300" type="int"/>
+                    <right kind="CONST" value="7"/>
                     <def>
                         <temp id="10202"/>
                     </def>
                     <use>
-                        <temp id="11700"/>
-                        <temp id="10100"/>
+                        <temp id="11300"/>
                     </use>
                 </movebinop>
                 <extcall kind="EXTCALL" name="putint">
@@ -260,45 +246,13 @@
                         <Var id="10400"/>
                     </LiveOut>
                 </Statement>
-                <Statement kind="MOVE_EXTCALL">
-                    <LiveIn>
-                        <Var id="10200"/>
-                        <Var id="10300"/>
-                        <Var id="10400"/>
-                    </LiveIn>
-                    <LiveOut>
-                        <Var id="10000"/>
-                        <Var id="10200"/>
-                        <Var id="10300"/>
-                        <Var id="10400"/>
-                    </LiveOut>
-                </Statement>
-                <Statement kind="MOVE_EXTCALL">
-                    <LiveIn>
-                        <Var id="10000"/>
-                        <Var id="10200"/>
-                        <Var id="10300"/>
-                        <Var id="10400"/>
-                    </LiveIn>
-                    <LiveOut>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
-                        <Var id="10200"/>
-                        <Var id="10300"/>
-                        <Var id="10400"/>
-                    </LiveOut>
-                </Statement>
                 <Statement kind="JUMP">
                     <LiveIn>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10200"/>
                         <Var id="10300"/>
                         <Var id="10400"/>
                     </LiveIn>
                     <LiveOut>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10200"/>
                         <Var id="10300"/>
                         <Var id="10400"/>
@@ -308,8 +262,6 @@
             <Block id="102">
                 <Statement kind="LABEL">
                     <LiveIn>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10200"/>
                         <Var id="10202"/>
                         <Var id="10300"/>
@@ -317,8 +269,6 @@
                         <Var id="10400"/>
                     </LiveIn>
                     <LiveOut>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10200"/>
                         <Var id="10202"/>
                         <Var id="10300"/>
@@ -328,8 +278,6 @@
                 </Statement>
                 <Statement kind="PHI">
                     <LiveIn>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10200"/>
                         <Var id="10202"/>
                         <Var id="10300"/>
@@ -337,8 +285,6 @@
                         <Var id="10400"/>
                     </LiveIn>
                     <LiveOut>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10200"/>
                         <Var id="10202"/>
                         <Var id="10301"/>
@@ -347,16 +293,12 @@
                 </Statement>
                 <Statement kind="PHI">
                     <LiveIn>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10200"/>
                         <Var id="10202"/>
                         <Var id="10301"/>
                         <Var id="10400"/>
                     </LiveIn>
                     <LiveOut>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10201"/>
                         <Var id="10301"/>
                         <Var id="10400"/>
@@ -364,15 +306,11 @@
                 </Statement>
                 <Statement kind="CJUMP">
                     <LiveIn>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10201"/>
                         <Var id="10301"/>
                         <Var id="10400"/>
                     </LiveIn>
                     <LiveOut>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10201"/>
                         <Var id="10301"/>
                         <Var id="10400"/>
@@ -382,58 +320,42 @@
             <Block id="103">
                 <Statement kind="LABEL">
                     <LiveIn>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10301"/>
                         <Var id="10400"/>
                     </LiveIn>
                     <LiveOut>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10301"/>
                         <Var id="10400"/>
                     </LiveOut>
                 </Statement>
                 <Statement kind="MOVE_BINOP">
                     <LiveIn>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10301"/>
                         <Var id="10400"/>
                     </LiveIn>
                     <LiveOut>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10302"/>
                         <Var id="10400"/>
                     </LiveOut>
                 </Statement>
                 <Statement kind="MOVE_BINOP">
                     <LiveIn>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10302"/>
                         <Var id="10400"/>
                     </LiveIn>
                     <LiveOut>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10302"/>
                         <Var id="10400"/>
-                        <Var id="11700"/>
+                        <Var id="11300"/>
                     </LiveOut>
                 </Statement>
                 <Statement kind="MOVE_BINOP">
                     <LiveIn>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10302"/>
                         <Var id="10400"/>
-                        <Var id="11700"/>
+                        <Var id="11300"/>
                     </LiveIn>
                     <LiveOut>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10202"/>
                         <Var id="10302"/>
                         <Var id="10400"/>
@@ -441,15 +363,11 @@
                 </Statement>
                 <Statement kind="EXTCALL">
                     <LiveIn>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10202"/>
                         <Var id="10302"/>
                         <Var id="10400"/>
                     </LiveIn>
                     <LiveOut>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10202"/>
                         <Var id="10302"/>
                         <Var id="10400"/>
@@ -457,15 +375,11 @@
                 </Statement>
                 <Statement kind="EXTCALL">
                     <LiveIn>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10202"/>
                         <Var id="10302"/>
                         <Var id="10400"/>
                     </LiveIn>
                     <LiveOut>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10202"/>
                         <Var id="10302"/>
                         <Var id="10400"/>
@@ -473,15 +387,11 @@
                 </Statement>
                 <Statement kind="JUMP">
                     <LiveIn>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10202"/>
                         <Var id="10302"/>
                         <Var id="10400"/>
                     </LiveIn>
                     <LiveOut>
-                        <Var id="10000"/>
-                        <Var id="10100"/>
                         <Var id="10202"/>
                         <Var id="10302"/>
                         <Var id="10400"/>
