@@ -1,4 +1,3 @@
-#include "defusechain.hh"
 #include "loopinductionopt.hh"
 #include "loopstrengthreduction.hh"
 #include "loopheader.hh"
@@ -72,8 +71,7 @@ QuadProgram* loopInductionCleanupPass(QuadProgram* prog) {
             continue;
         }
         for (int iter = 0; iter < 3; ++iter) {
-            DefUseChain du(func);
-            func = eliminateUnusedInductionVars(func, du);
+            func = eliminateUnusedInductionVars(func);
         }
         out->quadFuncDeclList->at(i) = func;
     }
