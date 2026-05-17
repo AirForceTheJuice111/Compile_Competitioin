@@ -9,57 +9,51 @@ class StrengthReductionPlan {
 public:
 	struct ReplacementIV {
 		struct TempMap {
-			int headerLabel = -1;
-			int oldTempNum = -1;
-			int basicTempNum = -1;
-			int newPhiTemp = -1;
-			int newBackedgeTemp = -1;
+			int headerLabel = -1;      // Loop header label where this replacement is applied
+			int oldTempNum = -1;       // Original derived IV temp being replaced
+			int basicTempNum = -1;     // Basic IV temp that the derived IV is based on
+			int newPhiTemp = -1;       // Temp number for the new PHI node introduced by strength reduction
+			int newBackedgeTemp = -1;  // Temp number for the backedge value feeding the new PHI node
 		};
 
 		struct InitExpr {
-			int initTempNum = -1;
-			int basicCoeffConst = 1;
-			int basicCoeffInvTempNum = -1;
-			int constant = 0;
-			int invOffsetTempNum = -1;
-			int invOffsetScale = 1;
-			bool invOffsetNegative = false;
-			bool sourceAfterBasicUpdate = false;
-			int basicStepTempNum = -1;
-			int basicStepValue = 0;
+			int initTempNum = -1;            // Temp holding the original initialization value used to build the affine init
+			int basicCoeff = 1;              // Coefficient a in k = a*i + b
+			int constant = 0;                // Constant offset b in k = a*i + b
+			bool sourceAfterBasicUpdate = false; // True when the source init is computed after the basic IV update
+			int basicStepTempNum = -1;       // Temp number of the basic IV step value when it is represented as a temp
+			int basicStepValue = 0;          // Constant step value of the basic IV when it is not temp-based
 		};
 
 		struct InitTemps {
-			int newInitTemp = -1;
-			int newInitAdjustedSourceTemp = -1;
-			int newInitIntermediateTemp = -1;
-			int newInitScaleTemp = -1;
-			int newInitOffsetTemp = -1;
+			int newInitTemp = -1;             // Final temp that holds the affine initial value for the new IV
+			int newInitAdjustedSourceTemp = -1; // Optional temp that stores the source adjusted by the basic IV step first
+			int newInitIntermediateTemp = -1; // Optional temp used for intermediate multiply-then-add initialization
 		};
 
 		struct StepExpr {
-			int stepIncrementValue = 0;
-			int stepIncrementTempNum = -1;
-			bool stepIncrementNegative = false;
-			int stepTempScaleFactor = 1;
-			int newStepTemp = -1;
+			int stepIncrementValue = 0;      // Constant step increment for the new backedge update
+			int stepIncrementTempNum = -1;   // Temp-based step increment when the basic IV step is temp-based
+			bool stepIncrementNegative = false; // Sign flag for temp-based step increments
+			int stepTempScaleFactor = 1;     // Scaling factor applied to the step source temp
+			int newStepTemp = -1;            // Temp holding the prepared step value if one must be materialized
 			int stepSourceTempNum = -1;      // Primary source temp for step preparation
 			int stepSecondaryTempNum = -1;   // Optional secondary source when step needs temp*temp
 			int stepMulTemp = -1;            // Optional intermediate temp for (temp*temp)*const
 		};
 
 		struct Placement {
-			int initLabel = -1;
-			int backedgeLabel = -1;
+			int initLabel = -1;              // Label of the block where the new init statements should be inserted
+			int backedgeLabel = -1;          // Label of the loop backedge block where the update should be inserted
 		};
 
-		size_t sourceOrder = 0;
+		size_t sourceOrder = 0;              // Source statement order used to keep replacements stable and to detect init timing
 
-		TempMap map;
-		InitExpr initExpr;
-		InitTemps initTemps;
-		StepExpr stepExpr;
-		Placement placement;
+		TempMap map;                         // Temp rewrites for the replacement IV
+		InitExpr initExpr;                   // Initialization expression needed to materialize the new IV value
+		InitTemps initTemps;                 // Temps allocated for init expression construction
+		StepExpr stepExpr;                   // Step expression needed for the loop backedge update
+		Placement placement;                 // Block labels where init and backedge updates are inserted
 	};
 
 	// Mapping from original derived IV temp to replacement temp
@@ -73,8 +67,8 @@ public:
 	map<int, pair<int, int>> phiStmtsToAdd;
 	
 	// Map of new update statements to add to loop body
-	// temp -> (new update statement info)
-	map<int, pair<int, int>> updateStmtsToAdd; // temp -> (scale factor, offset)
+	// temp -> (scale factor, offset)
+	map<int, pair<int, int>> updateStmtsToAdd;
 
 	// Concrete replacement records used for statement insertion in apply stage.
 	vector<ReplacementIV> replacements;
@@ -85,39 +79,6 @@ public:
 			return;
 		}
 
-		auto printSignedConst = [](int value, bool& printedAny) {
-			if (value == 0) {
-				return;
-			}
-			if (!printedAny) {
-				std::cout << value;
-				printedAny = true;
-				return;
-			}
-			if (value > 0) {
-				std::cout << " + " << value;
-			} else {
-				std::cout << " - " << (-value);
-			}
-		};
-
-		auto printSignedTemp = [](int tempNum, bool negative, int scale, bool& printedAny) {
-			if (tempNum == -1) {
-				return;
-			}
-			if (!printedAny) {
-				if (negative) {
-					std::cout << "-";
-				}
-			} else {
-				std::cout << (negative ? " - " : " + ");
-			}
-			if (scale != 1) {
-				std::cout << scale << "*";
-			}
-			std::cout << "t" << tempNum;
-			printedAny = true;
-		};
 		
 		std::cout << "=== STRENGTH REDUCTION PLAN ===" << std::endl;
 		std::cout << "Total replacements: " << replacements.size() << std::endl;
@@ -139,31 +100,34 @@ public:
 			std::cout << "  Init expr: ";
 
 			bool printedInit = false;
-			if (repl.initExpr.basicCoeffConst != 0) {
-				if (repl.initExpr.basicCoeffConst < 0) {
+			if (repl.initExpr.basicCoeff != 0) {
+				if (repl.initExpr.basicCoeff < 0) {
 					std::cout << "-";
 				}
-				int absCoeff = repl.initExpr.basicCoeffConst >= 0
-					? repl.initExpr.basicCoeffConst
-					: -repl.initExpr.basicCoeffConst;
+				int absCoeff = repl.initExpr.basicCoeff >= 0
+					? repl.initExpr.basicCoeff
+					: -repl.initExpr.basicCoeff;
 				if (absCoeff != 1) {
 					std::cout << absCoeff << "*";
-				}
-				if (repl.initExpr.basicCoeffInvTempNum != -1) {
-					std::cout << "t" << repl.initExpr.basicCoeffInvTempNum << "*";
 				}
 				std::cout << "t" << repl.map.basicTempNum;
 				printedInit = true;
 			}
 
-			printSignedTemp(
-				repl.initExpr.invOffsetTempNum,
-				repl.initExpr.invOffsetNegative,
-				repl.initExpr.invOffsetScale,
-				printedInit
-			);
-			printSignedConst(repl.initExpr.constant, printedInit);
-
+			if (repl.initExpr.constant != 0 || !printedInit) {
+				if (printedInit) {
+					if (repl.initExpr.constant > 0) {
+						std::cout << " + ";
+					} else {
+						std::cout << " - ";
+					}
+				} else if (repl.initExpr.constant < 0) {
+					std::cout << "-";
+				}
+				std::cout << (repl.initExpr.constant >= 0 ? repl.initExpr.constant : -repl.initExpr.constant);
+				printedInit = true;
+			}
+			
 			if (!printedInit) {
 				std::cout << "0";
 			}

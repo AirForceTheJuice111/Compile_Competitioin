@@ -5,22 +5,37 @@
 #include <iostream>
 
 struct AffineIVExpr {
+	// The basic induction variable temp number (e.g., 10000 for loop counter)
 	int basicTempNum;
-	int basicCoeffConst;
-	int basicCoeffInvTempNum;
+	
+	// The coefficient multiplying the basic IV (a in k = a*i + b)
+	int basicCoeff;
+	
+	// The constant offset (b in k = a*i + b)
 	int constant;
-	int invOffsetTempNum;
-	int invOffsetScale;
-	bool invOffsetNegative;
 };
 
 class DerivedInductionVar {
 public:
+	// Label of the loop header this DIV belongs to
 	int headerLabel;
+	
+	// The temporary number of this derived IV (e.g., 10002)
 	int tempNum;
+	
+	// The temporary number of the immediate source of this DIV
+	// (the value used in the expression that computes this DIV)
 	int sourceTempNum;
+	
+	// Order of the source statement in its block; used to determine if DIV
+	// is computed after the basic IV's step increment (sourceAfterBasicUpdate)
 	size_t sourceOrder;
+	
+	// The affine expression: basicCoeff * basicIV + constant
+	// where basicIV is the basic induction variable this DIV is derived from
 	AffineIVExpr expr;
+	
+	// The statement that defines this DIV (t_k = basicCoeff * t_i + constant)
 	quad::QuadStm* defStm;
 
 	DerivedInductionVar(
@@ -38,40 +53,6 @@ public:
 		defStm(defStm) {}
 	
 	void print() const {
-		auto printSignedConst = [](int value, bool& printedAny) {
-			if (value == 0) {
-				return;
-			}
-			if (!printedAny) {
-				std::cout << value;
-				printedAny = true;
-				return;
-			}
-			if (value > 0) {
-				std::cout << " + " << value;
-			} else {
-				std::cout << " - " << (-value);
-			}
-		};
-
-		auto printSignedTemp = [](int tempNum, bool negative, int scale, bool& printedAny) {
-			if (tempNum == -1) {
-				return;
-			}
-			if (!printedAny) {
-				if (negative) {
-					std::cout << "-";
-				}
-			} else {
-				std::cout << (negative ? " - " : " + ");
-			}
-			if (scale != 1) {
-				std::cout << scale << "*";
-			}
-			std::cout << "t" << tempNum;
-			printedAny = true;
-		};
-
 		std::cout << "  t" << tempNum << " (derived IV)" << std::endl;
 		std::cout << "    Depends on: t" << sourceTempNum << std::endl;
 		std::cout << "    Source order: ";
@@ -83,33 +64,43 @@ public:
 		std::cout << "    Expression: ";
 
 		bool printedExpr = false;
-		if (expr.basicCoeffConst != 0) {
-			if (expr.basicCoeffConst < 0) {
+
+		if (expr.basicCoeff != 0) {
+			if (expr.basicCoeff < 0) {
 				std::cout << "-";
 			}
-			int absCoeff = expr.basicCoeffConst >= 0
-				? expr.basicCoeffConst
-				: -expr.basicCoeffConst;
+			int absCoeff = expr.basicCoeff >= 0
+				? expr.basicCoeff
+				: -expr.basicCoeff;
 			if (absCoeff != 1) {
 				std::cout << absCoeff << "*";
-			}
-			if (expr.basicCoeffInvTempNum != -1) {
-				std::cout << "t" << expr.basicCoeffInvTempNum << "*";
 			}
 			std::cout << "t" << expr.basicTempNum;
 			printedExpr = true;
 		}
 
-		printSignedTemp(
-			expr.invOffsetTempNum,
-			expr.invOffsetNegative,
-			expr.invOffsetScale,
-			printedExpr
-		);
-		printSignedConst(expr.constant, printedExpr);
-
+		if (expr.constant != 0 || !printedExpr) {
+			if (printedExpr) {
+				if (expr.constant > 0) {
+					std::cout << " + ";
+				} else {
+					std::cout << " - ";
+				}
+			} else if (expr.constant < 0) {
+				std::cout << "-";
+			}
+			std::cout << (expr.constant >= 0 ? expr.constant : -expr.constant);
+			printedExpr = true;
+		}
 		if (!printedExpr) {
 			std::cout << "0";
+		}
+		std::cout << std::endl;
+		std::cout << "    Definition: ";
+		if (defStm != nullptr) {
+			std::string defStr;
+			defStm->print(defStr, 0, false);
+			std::cout << defStr;
 		}
 		std::cout << std::endl;
 	}

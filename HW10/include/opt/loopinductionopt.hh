@@ -11,7 +11,7 @@ std::map<int, quad::QuadBlock*> buildLabelToBlock(quad::QuadFuncDecl* func);
 
 // Staged program-level passes for loop induction optimization pipeline
 quad::QuadProgram* loopInductionStrengthReductionPass(quad::QuadProgram* prog, ControlFlowInfo* flowInfo = nullptr);
-quad::QuadFuncDecl* eliminateUnusedInductionVars(quad::QuadFuncDecl* func, DefUseChain& du);
+quad::QuadFuncDecl* eliminateUnusedInductionVars(quad::QuadFuncDecl* func);
 quad::QuadProgram* loopInductionCleanupPass(quad::QuadProgram* prog);
 
 #endif
