@@ -5,7 +5,7 @@
 using namespace std;
 using namespace quad;
 
-QuadFuncDecl* eliminateUnusedInductionVars(QuadFuncDecl* func, DefUseChain& du) {
+QuadFuncDecl* eliminateUnusedInductionVars(QuadFuncDecl* func) {
     if (func == nullptr || func->quadblocklist == nullptr) {
         return func;
     }
