@@ -12,9 +12,11 @@
 输入：`.4-ssa-withflow-xml.quad`文件。
 输出：在standard out 打印 loop induction variables 及 strength reduction plan 信息，以及优化过的 quad（`.4-ssa-loopivopt.quad`）文件。
 
+在 .fmj 文件中，加上了相应 4-ssa.quad 在进行优化时，其 basic induction var，derived induction var 以及 strength reduction plan 的 printout，供参考。
+
 假设：
 *  每个 loop header 总是已经有了一个 preheader了. 
-*  我们只处理“一阶”derived induction variable，并且一定是这样形状的：`j = a * i + b` （或由交换率变化的，比如` j = b + a * i`），其中 `a` 和 `b` 是constants或 （当前）loop invariants, `i` 是（当前loop的）basic induction。 variable。
+*  我们只处理“一阶”derived induction variable，并且一定是这样形状的：`j = a * i + b` （或由交换率变化的，比如` j = b + a * i`），其中 `a` 和 `b` 是constants, `i` 是（当前loop的）basic induction。 variable。 (注意：basic induction var我们仍假设 i = i + k，其中 k 可以是constant或者(当前) loop invariant。)
 
 对于`loopheaderwithflow.cc`中需要的代码，你可以从HW9直接抄（copy）过来。
 
