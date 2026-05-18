@@ -25,10 +25,15 @@ int termTempNum(QuadTerm* term) {
     return quadTemp->temp->num;
 }
 
-bool isLoopInvariantTemp(int temp, const set<int>& loopDefs) {
-    // In SSA form, a temp defined outside the loop cannot be changed inside the
-    // loop. That is enough for this homework's "loop invariant step" check.
-    return temp != -1 && !loopDefs.count(temp);
+bool isPureInvariantCandidate(QuadStm* stm) {
+    if (stm == nullptr) return false;
+    return stm->kind == QuadKind::MOVE ||
+           stm->kind == QuadKind::MOVE_BINOP ||
+           stm->kind == QuadKind::PTR_CALC;
+}
+
+bool isLoopInvariantTemp(int temp, const set<int>& invariantTemps) {
+    return temp != -1 && invariantTemps.count(temp);
 }
 
 set<int> defsInLoop(QuadFuncDecl* func, const set<int>& bodyBlocks, const DefUseChain& du) {
@@ -46,6 +51,70 @@ set<int> defsInLoop(QuadFuncDecl* func, const set<int>& bodyBlocks, const DefUse
     return defs;
 }
 
+set<int> allTempsInFunc(QuadFuncDecl* func, const DefUseChain& du) {
+    set<int> temps;
+    if (func == nullptr || func->quadblocklist == nullptr) return temps;
+
+    for (auto entry : du.getAllDefs()) temps.insert(entry.first);
+    if (func->params != nullptr) {
+        for (auto param : *func->params) {
+            if (param != nullptr) temps.insert(param->num);
+        }
+    }
+
+    for (auto block : *func->quadblocklist) {
+        if (block == nullptr || block->quadlist == nullptr) continue;
+        for (auto stm : *block->quadlist) {
+            auto uses = du.getUsesBy(stm);
+            temps.insert(uses.begin(), uses.end());
+        }
+    }
+    return temps;
+}
+
+set<int> computeLoopInvariantTemps(QuadFuncDecl* func, const set<int>& bodyBlocks, const DefUseChain& du) {
+    set<int> loopDefs = defsInLoop(func, bodyBlocks, du);
+    set<int> invariantTemps;
+
+    // Base case: in SSA, any temp not defined in the loop is stable for this
+    // loop. This includes parameters and temps whose definitions are outside
+    // the natural loop body.
+    for (int temp : allTempsInFunc(func, du)) {
+        if (!loopDefs.count(temp)) invariantTemps.insert(temp);
+    }
+
+    bool changed = true;
+    while (changed) {
+        changed = false;
+        for (auto block : *func->quadblocklist) {
+            if (!bodyBlocks.count(blockLabel(block)) || block->quadlist == nullptr) continue;
+            for (auto stm : *block->quadlist) {
+                // Only pure calculations may produce a new invariant value.
+                // Loads/calls/stores/control-flow are deliberately excluded:
+                // even when their operands are invariant, they may observe or
+                // modify state across iterations.
+                if (!isPureInvariantCandidate(stm)) continue;
+
+                bool allUsesInvariant = true;
+                for (int use : du.getUsesBy(stm)) {
+                    if (invariantTemps.count(use)) continue;
+                    allUsesInvariant = false;
+                    break;
+                }
+                if (!allUsesInvariant) continue;
+
+                for (int def : du.getDefsBy(stm)) {
+                    if (invariantTemps.count(def)) continue;
+                    invariantTemps.insert(def);
+                    changed = true;
+                }
+            }
+        }
+    }
+
+    return invariantTemps;
+}
+
 int statementOrder(QuadFuncDecl* func, QuadStm* target) {
     // A flat function-level order is enough to compare "basic update happens
     // before/after derived computation" in the generated Quad used by HW10.
@@ -60,7 +129,7 @@ int statementOrder(QuadFuncDecl* func, QuadStm* target) {
     return -1;
 }
 
-bool parseUpdate(QuadStm* stm, int phiTemp, const set<int>& loopDefs, int& step, int& stepTempNum) {
+bool parseUpdate(QuadStm* stm, int phiTemp, const set<int>& invariantTemps, int& step, int& stepTempNum) {
     auto binop = dynamic_cast<QuadMoveBinop*>(stm);
     if (binop == nullptr) return false;
 
@@ -85,12 +154,12 @@ bool parseUpdate(QuadStm* stm, int phiTemp, const set<int>& loopDefs, int& step,
             stepTempNum = -1;
             return true;
         }
-        if (leftTemp == phiTemp && isLoopInvariantTemp(rightTemp, loopDefs)) {
+        if (leftTemp == phiTemp && isLoopInvariantTemp(rightTemp, invariantTemps)) {
             step = 0;
             stepTempNum = rightTemp;
             return true;
         }
-        if (rightTemp == phiTemp && isLoopInvariantTemp(leftTemp, loopDefs)) {
+        if (rightTemp == phiTemp && isLoopInvariantTemp(leftTemp, invariantTemps)) {
             step = 0;
             stepTempNum = leftTemp;
             return true;
@@ -103,7 +172,7 @@ bool parseUpdate(QuadStm* stm, int phiTemp, const set<int>& loopDefs, int& step,
             stepTempNum = -1;
             return true;
         }
-        if (leftTemp == phiTemp && isLoopInvariantTemp(rightTemp, loopDefs)) {
+        if (leftTemp == phiTemp && isLoopInvariantTemp(rightTemp, invariantTemps)) {
             step = 0;
             stepTempNum = -rightTemp;
             return true;
@@ -127,7 +196,7 @@ map<int, vector<BasicInductionVar>> discoverBasicInductionVars(QuadFuncDecl* fun
         if (loop == nullptr || !cfi.labelToBlock.count(loop->headerLabel)) continue;
         QuadBlock* header = cfi.labelToBlock.at(loop->headerLabel);
         if (header == nullptr || header->quadlist == nullptr) continue;
-        set<int> loopDefs = defsInLoop(func, loop->bodyBlocks, du);
+        set<int> invariantTemps = computeLoopInvariantTemps(func, loop->bodyBlocks, du);
 
         // A basic IV is anchored by a PHI in the loop header:
         //
@@ -150,7 +219,7 @@ map<int, vector<BasicInductionVar>> discoverBasicInductionVars(QuadFuncDecl* fun
 
                 int step = 0;
                 int stepTempNum = -1;
-                if (!parseUpdate(def->defStm, phiTemp, loopDefs, step, stepTempNum)) continue;
+                if (!parseUpdate(def->defStm, phiTemp, invariantTemps, step, stepTempNum)) continue;
 
                 // The initial value is the PHI input whose predecessor is outside
                 // the natural loop. README assumes a preheader exists, so this is
