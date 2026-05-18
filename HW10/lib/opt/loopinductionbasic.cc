@@ -26,10 +26,15 @@ int termTempNum(QuadTerm* term) {
 }
 
 bool isLoopInvariantTemp(int temp, const set<int>& loopDefs) {
+    // In SSA form, a temp defined outside the loop cannot be changed inside the
+    // loop. That is enough for this homework's "loop invariant step" check.
     return temp != -1 && !loopDefs.count(temp);
 }
 
 set<int> defsInLoop(QuadFuncDecl* func, const set<int>& bodyBlocks, const DefUseChain& du) {
+    // DefUseChain already knows each statement's SSA definitions. Collecting all
+    // defs in loop blocks lets us cheaply distinguish loop-local temps from
+    // invariant inputs.
     set<int> defs;
     for (auto block : *func->quadblocklist) {
         if (!bodyBlocks.count(blockLabel(block)) || block->quadlist == nullptr) continue;
@@ -42,6 +47,8 @@ set<int> defsInLoop(QuadFuncDecl* func, const set<int>& bodyBlocks, const DefUse
 }
 
 int statementOrder(QuadFuncDecl* func, QuadStm* target) {
+    // A flat function-level order is enough to compare "basic update happens
+    // before/after derived computation" in the generated Quad used by HW10.
     int order = 0;
     for (auto block : *func->quadblocklist) {
         if (block == nullptr || block->quadlist == nullptr) continue;
@@ -57,6 +64,11 @@ bool parseUpdate(QuadStm* stm, int phiTemp, const set<int>& loopDefs, int& step,
     auto binop = dynamic_cast<QuadMoveBinop*>(stm);
     if (binop == nullptr) return false;
 
+    // Accept only the update forms required by README:
+    //   i' = i + c, i' = c + i, i' = i - c,
+    //   i' = i + invariant, invariant + i, i' = i - invariant.
+    // A temp step is encoded with its sign in stepTempNum. For example,
+    // stepTempNum = -10400 means "subtract t10400" on each iteration.
     int leftTemp = termTempNum(binop->left);
     int rightTemp = termTempNum(binop->right);
     bool leftConst = binop->left != nullptr && binop->left->kind == QuadTermKind::CONST;
@@ -117,6 +129,12 @@ map<int, vector<BasicInductionVar>> discoverBasicInductionVars(QuadFuncDecl* fun
         if (header == nullptr || header->quadlist == nullptr) continue;
         set<int> loopDefs = defsInLoop(func, loop->bodyBlocks, du);
 
+        // A basic IV is anchored by a PHI in the loop header:
+        //
+        //   i = phi([i_next, backedge], [i_init, preheader])
+        //
+        // The incoming value from the loop body must be defined by an accepted
+        // update expression using this PHI temp.
         for (auto stm : *header->quadlist) {
             auto phi = dynamic_cast<QuadPhi*>(stm);
             if (phi == nullptr || phi->temp_exp == nullptr || phi->temp_exp->temp == nullptr || phi->args == nullptr) continue;
@@ -134,6 +152,9 @@ map<int, vector<BasicInductionVar>> discoverBasicInductionVars(QuadFuncDecl* fun
                 int stepTempNum = -1;
                 if (!parseUpdate(def->defStm, phiTemp, loopDefs, step, stepTempNum)) continue;
 
+                // The initial value is the PHI input whose predecessor is outside
+                // the natural loop. README assumes a preheader exists, so this is
+                // the value used to seed the optimized replacement IV.
                 int initTemp = -1;
                 for (auto otherArg : *phi->args) {
                     int otherLabel = otherArg.second == nullptr ? -1 : otherArg.second->num;
@@ -172,6 +193,9 @@ void classifyRelatedTemps(
 
             for (int temp : biv.relatedTemps) {
                 auto def = du.getDef(temp);
+                // Temps only used by the PHI/update pair are cyclic book-keeping.
+                // If any use escapes that family, the value still contributes to
+                // computation and must be kept after strength reduction.
                 bool useful = temp == biv.phiTempNum;
                 if (def != nullptr) {
                     for (auto use : def->useSet) {

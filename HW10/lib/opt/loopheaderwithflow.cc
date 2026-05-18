@@ -18,12 +18,19 @@ LoopHeaderMap* findLoopHeadersWithFlow(QuadFuncDecl* func, ControlFlowInfo* flow
     LoopHeaderMap* loopHeaderMap = new LoopHeaderMap();
     loopHeaderMap->initFunc(func);
 
+    // A natural loop is recognized from a back edge tail -> header.
+    // In a reducible CFG, the edge is a back edge exactly when header dominates tail.
+    // Multiple back edges may point to the same header, so loops are first merged by
+    // header label before being converted to LoopHeader objects.
     map<int, set<int>> loops;
     for (auto edgeFrom : flowInfo->successors) {
         int tail = edgeFrom.first;
         for (int header : edgeFrom.second) {
             if (!flowInfo->dominators.count(tail) || !flowInfo->dominators.at(tail).count(header)) continue;
 
+            // Collect the natural loop body by walking predecessors backwards from
+            // the back-edge tail. The header is included immediately and stops
+            // backward expansion, matching the standard Tiger-book algorithm.
             set<int> bodyBlocks;
             stack<int> worklist;
             bodyBlocks.insert(header);

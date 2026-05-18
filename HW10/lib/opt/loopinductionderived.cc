@@ -10,9 +10,14 @@ using namespace quad;
 namespace {
 
 struct AffineValue {
+    // Represents coeff * basicTemp + constant.
+    // basicTemp == -1 means this is a pure constant.
     int basicTemp = -1;
     int coeff = 0;
     int constant = 0;
+    // The immediate SSA temp that produced this affine value. This is used later
+    // to tell whether the derived expression was computed from the basic IV's
+    // backedge value or from the header PHI value.
     int sourceTemp = -1;
 };
 
@@ -29,6 +34,8 @@ int termTempNum(QuadTerm* term) {
 }
 
 optional<AffineValue> valueOfTerm(QuadTerm* term, const map<int, AffineValue>& values) {
+    // Constants are affine values with no basic variable; temps are affine only
+    // after they have been seen in the local propagation table.
     if (term == nullptr) return nullopt;
     if (term->kind == QuadTermKind::CONST) return AffineValue{-1, 0, term->get_const(), -1};
     int temp = termTempNum(term);
@@ -49,6 +56,8 @@ int statementOrder(QuadFuncDecl* func, QuadStm* target) {
 }
 
 bool sameBase(const AffineValue& a, const AffineValue& b) {
+    // A pure constant can combine with any base. Two non-constant affine values
+    // may combine only if they are derived from the same basic IV.
     return a.basicTemp == -1 || b.basicTemp == -1 || a.basicTemp == b.basicTemp;
 }
 
@@ -66,6 +75,9 @@ optional<AffineValue> evalBinop(QuadMoveBinop* binop, const map<int, AffineValue
     auto right = valueOfTerm(binop->right, values);
     if (!left || !right) return nullopt;
 
+    // Keep the recognizer intentionally small: HW10 only asks for first-order
+    // affine expressions a * i + b. Multiplication is therefore accepted only
+    // when one operand is already known to be a pure constant.
     if (binop->binop == "+" && sameBase(*left, *right)) return combineAdd(*left, *right, 1);
     if (binop->binop == "-" && sameBase(*left, *right)) return combineAdd(*left, *right, -1);
 
@@ -96,6 +108,8 @@ bool hasExternalUse(const DefUseChain& du, QuadStm* defStm, int temp) {
 }
 
 bool hasNonAffineConsumer(const DefUseChain& du, QuadStm* defStm, int temp) {
+    // Avoid optimizing temporary products such as t1 = 4 * i when they are only
+    // consumed by t2 = t1 + 2. The externally meaningful derived IV is t2, not t1.
     auto def = du.getDef(temp);
     if (def == nullptr) return false;
     for (auto use : def->useSet) {
@@ -128,6 +142,9 @@ map<int, vector<DerivedInductionVar>> discoverDerivedInductionVars(QuadFuncDecl*
     for (auto loop : loopHeaderMap->funcLoopHeaders[func]) {
         if (loop == nullptr || !basicByHeader.count(loop->headerLabel)) continue;
 
+        // Seed the affine table with each basic IV family. Both the PHI temp and
+        // the backedge temp represent the same symbolic variable for recognition;
+        // sourceTemp still records which one appeared syntactically.
         map<int, AffineValue> values;
         set<int> basicTemps;
         for (auto biv : basicByHeader[loop->headerLabel]) {
@@ -140,6 +157,9 @@ map<int, vector<DerivedInductionVar>> discoverDerivedInductionVars(QuadFuncDecl*
         for (auto block : *func->quadblocklist) {
             if (block == nullptr || block->quadlist == nullptr || !loop->bodyBlocks.count(blockLabel(block))) continue;
             for (auto stm : *block->quadlist) {
+                // SSA order in the block list is used as a forward propagation
+                // order. If a statement computes a new affine value, later
+                // statements can build on it.
                 auto binop = dynamic_cast<QuadMoveBinop*>(stm);
                 if (binop == nullptr || binop->dst == nullptr || binop->dst->temp == nullptr) continue;
                 auto value = evalBinop(binop, values);
@@ -150,6 +170,9 @@ map<int, vector<DerivedInductionVar>> discoverDerivedInductionVars(QuadFuncDecl*
                 value->sourceTemp = value->sourceTemp == -1 ? value->basicTemp : value->sourceTemp;
                 values[dst] = *value;
 
+                // Only report values that escape the affine chain. This matches
+                // the reference output and prevents duplicate strength reductions
+                // for intermediate arithmetic temps.
                 if (!hasExternalUse(du, stm, dst) || !hasNonAffineConsumer(du, stm, dst)) continue;
 
                 AffineIVExpr expr{value->basicTemp, value->coeff, value->constant};
