@@ -37,11 +37,15 @@ bool hasSideEffect(QuadStm* stm) {
 }
 
 QuadFuncDecl* eliminateUnusedInductionVars(QuadFuncDecl* func) {
+    // 前面只删除了旧Derived-IV的定义，但它的旧Basic-IV定义和新PHI定义仍然可能变成死代码。这个函数通过标记所有有副作用的语句及其依赖的定义为有用，然后删除不在这些有用语句依赖链上的纯定义来清理这些死代码。
+     if (func == nullptr || func->quadblocklist == nullptr) {
+        return func;
+    }
     if (func == nullptr || func->quadblocklist == nullptr) {
         return func;
     }
     bool changed = true;
-    while (changed) {
+    while (changed) { // actually one-pass is sufficient, but we keep the fixed-point loop anyways. (for future extensions)
         changed = false;
         DefUseChain du(func);
         set<QuadStm*> useful;

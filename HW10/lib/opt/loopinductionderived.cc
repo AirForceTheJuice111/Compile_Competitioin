@@ -120,6 +120,7 @@ bool hasNonAffineConsumer(const DefUseChain& du, QuadStm* defStm, int temp) {
 }
 
 int immediateAffineSource(QuadMoveBinop* binop, const map<int, AffineValue>& values) {
+    // If this affine value is computed directly from a single basic IV temp, return that temp. Otherwise return -1.
     int leftTemp = termTempNum(binop->left);
     int rightTemp = termTempNum(binop->right);
     if (leftTemp != -1 && values.count(leftTemp) && values.at(leftTemp).basicTemp != -1) return leftTemp;
@@ -145,8 +146,8 @@ map<int, vector<DerivedInductionVar>> discoverDerivedInductionVars(QuadFuncDecl*
         // Seed the affine table with each basic IV family. Both the PHI temp and
         // the backedge temp represent the same symbolic variable for recognition;
         // sourceTemp still records which one appeared syntactically.
-        map<int, AffineValue> values;
-        set<int> basicTemps;
+        map<int, AffineValue> values; // temp num -> affine value it represents in terms of the basic IV
+        set<int> basicTemps; // All temps representing the basic IV (PHI and backedge) are seeded as affine values, but they should not be considered as derived IV candidates.
         for (auto biv : basicByHeader[loop->headerLabel]) {
             values[biv.phiTempNum] = AffineValue{biv.phiTempNum, 1, 0, biv.phiTempNum};
             values[biv.backedgeTempNum] = AffineValue{biv.phiTempNum, 1, 0, biv.backedgeTempNum};
