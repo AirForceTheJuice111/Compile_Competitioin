@@ -9,6 +9,9 @@ using namespace quad;
 namespace {
 
 bool isPureDef(QuadStm* stm) {
+    // These statements only define temps and have no observable effect by
+    // themselves. If their definitions cannot reach a useful side-effecting
+    // statement, they can be deleted safely.
     if (stm == nullptr) return false;
     return stm->kind == QuadKind::MOVE ||
            stm->kind == QuadKind::MOVE_BINOP ||
@@ -17,6 +20,8 @@ bool isPureDef(QuadStm* stm) {
 }
 
 bool hasSideEffect(QuadStm* stm) {
+    // Treat labels and control-flow statements as roots. Calls and stores are
+    // conservatively rooted because they may observe or change program state.
     if (stm == nullptr) return true;
     return stm->kind == QuadKind::STORE ||
            stm->kind == QuadKind::CALL ||
@@ -42,6 +47,7 @@ QuadFuncDecl* eliminateUnusedInductionVars(QuadFuncDecl* func) {
         set<QuadStm*> useful;
         queue<QuadStm*> worklist;
 
+        // Mark observable statements as roots of usefulness.
         for (auto block : *func->quadblocklist) {
             if (block == nullptr || block->quadlist == nullptr) continue;
             for (auto stm : *block->quadlist) {
@@ -51,6 +57,8 @@ QuadFuncDecl* eliminateUnusedInductionVars(QuadFuncDecl* func) {
             }
         }
 
+        // Walk backwards through SSA def-use edges. If a useful statement uses a
+        // temp, the statement defining that temp is also useful.
         while (!worklist.empty()) {
             QuadStm* stm = worklist.front();
             worklist.pop();
@@ -62,6 +70,9 @@ QuadFuncDecl* eliminateUnusedInductionVars(QuadFuncDecl* func) {
             }
         }
 
+        // Remove pure definitions that are not reachable from any useful root.
+        // The outer fixed point matters for PHI/update self-cycles: removing one
+        // dead layer may expose another layer as dead in the next iteration.
         for (auto block : *func->quadblocklist) {
             if (block == nullptr || block->quadlist == nullptr) continue;
             auto oldSize = block->quadlist->size();

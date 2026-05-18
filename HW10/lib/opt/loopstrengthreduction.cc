@@ -22,6 +22,9 @@ QuadBlock* findBlock(QuadFuncDecl* func, int label) {
 }
 
 set<int> collectTempNums(QuadFuncDecl* func, const DefUseChain& du) {
+    // New temps are chosen from currently used SSA temp numbers. The printed IR
+    // does not depend on pointer identity, so temp-number uniqueness is what
+    // matters here.
     set<int> temps;
     for (auto entry : du.getAllDefs()) temps.insert(entry.first);
     if (func != nullptr && func->params != nullptr) {
@@ -33,6 +36,8 @@ set<int> collectTempNums(QuadFuncDecl* func, const DefUseChain& du) {
 }
 
 int nextFreeTemp(set<int>& used, int start) {
+    // Prefer numbers near the original derived IV so the generated output stays
+    // close to the homework reference files, while still avoiding collisions.
     int temp = start;
     while (used.count(temp)) ++temp;
     used.insert(temp);
@@ -40,6 +45,8 @@ int nextFreeTemp(set<int>& used, int start) {
 }
 
 QuadBlock* findPreheader(QuadFuncDecl* func, LoopHeader* loop) {
+    // README guarantees each loop has a preheader. We identify it structurally:
+    // it is outside the loop and has an outgoing edge to the header.
     if (loop == nullptr) return nullptr;
     for (auto block : *func->quadblocklist) {
         int label = blockLabel(block);
@@ -52,6 +59,9 @@ QuadBlock* findPreheader(QuadFuncDecl* func, LoopHeader* loop) {
 }
 
 int backedgeLabel(QuadFuncDecl* func, LoopHeader* loop) {
+    // For the HW10 tests, each optimized loop has one canonical backedge block.
+    // The inserted recurrence update is placed immediately before that block's
+    // terminating jump back to the header.
     if (loop == nullptr) return -1;
     for (auto block : *func->quadblocklist) {
         int label = blockLabel(block);
@@ -98,6 +108,8 @@ set<Temp*>* uses(initializer_list<int> nums) {
 }
 
 QuadMoveBinop* makeBinop(int dst, QuadTerm* left, const string& op, QuadTerm* right, initializer_list<int> useTemps) {
+    // Centralize QuadMoveBinop construction so def/use sets stay consistent with
+    // the expression operands after we synthesize new IR.
     return new QuadMoveBinop(qtemp(dst), left, op, right, defs(dst), uses(useTemps));
 }
 
@@ -113,6 +125,9 @@ void replaceTempInArgs(vector<QuadTerm*>* args, int oldTemp, int newTemp) {
 }
 
 void replaceTempInStmt(QuadStm* stm, int oldTemp, int newTemp) {
+    // Strength reduction replaces uses of the old derived temp with the new PHI
+    // temp. This has to handle all statement shapes that may contain QuadTerms,
+    // plus PHI arguments which store raw Temp* values instead of QuadTerm*.
     if (stm == nullptr) return;
     switch (stm->kind) {
         case QuadKind::MOVE: {
@@ -195,6 +210,9 @@ void replaceTempInStmt(QuadStm* stm, int oldTemp, int newTemp) {
 void rewriteCJumpLimit(QuadStm* stm, const StrengthReductionPlan::ReplacementIV& repl) {
     auto cjump = dynamic_cast<QuadCJump*>(stm);
     if (cjump == nullptr) return;
+    // When the loop condition uses the basic IV and the derived IV is monotonic
+    // with a constant affine relation, rewrite the limit into the derived IV's
+    // coordinate system. Example: k > 0 and j = 4*k + 2 becomes j > 2.
     auto rewriteSide = [&] (QuadTerm*& term, QuadTerm*& other) {
         if (term == nullptr || term->kind != QuadTermKind::TEMP) return;
         auto quadTemp = term->get_temp();
@@ -215,6 +233,11 @@ vector<QuadStm*> buildInitStatements(const StrengthReductionPlan::ReplacementIV&
     vector<QuadStm*> out;
     int source = repl.initExpr.initTempNum;
     if (repl.initExpr.sourceAfterBasicUpdate) {
+        // Some test cases compute the derived value after the basic IV update:
+        //   i_next = i - 1
+        //   j = 4 * i_next + 2
+        // The first value of the replacement PHI must therefore be based on
+        // init(i) - 1, not directly on init(i).
         int adjusted = repl.initTemps.newInitAdjustedSourceTemp;
         if (repl.initExpr.basicStepTempNum != -1) {
             int stepTemp = abs(repl.initExpr.basicStepTempNum);
@@ -229,6 +252,8 @@ vector<QuadStm*> buildInitStatements(const StrengthReductionPlan::ReplacementIV&
     }
 
     if (repl.initExpr.basicCoeff == 1) {
+        // Avoid emitting a multiply by one. The generated code remains simpler,
+        // and cleanup has less dead arithmetic to remove.
         if (repl.initExpr.constant == 0) {
             out.push_back(new QuadMove(qtemp(repl.initTemps.newInitTemp), tempTerm(source), defs(repl.initTemps.newInitTemp), uses({source})));
         } else {
@@ -239,6 +264,10 @@ vector<QuadStm*> buildInitStatements(const StrengthReductionPlan::ReplacementIV&
     }
 
     int product = repl.initExpr.constant == 0 ? repl.initTemps.newInitTemp : repl.initTemps.newInitIntermediateTemp;
+    // General initialization:
+    //   product = source * coeff
+    //   init    = product +/- constant
+    // If constant is zero, product itself is the final init temp.
     out.push_back(makeBinop(product, tempTerm(source), "*", constTerm(repl.initExpr.basicCoeff), {source}));
     if (repl.initExpr.constant != 0) {
         string op = repl.initExpr.constant < 0 ? "-" : "+";
@@ -251,6 +280,9 @@ vector<QuadStm*> buildStepPreparation(const StrengthReductionPlan::ReplacementIV
     vector<QuadStm*> out;
     if (repl.stepExpr.newStepTemp == -1) return out;
     if (repl.stepExpr.stepTempScaleFactor == 1) return out;
+    // Temp-based basic step needs scaling once in the preheader. For example,
+    // i = i - step and j = 8*i + 7 produces prepared step 8*step, then the
+    // loop only performs j = j - prepared_step.
     out.push_back(makeBinop(
         repl.stepExpr.newStepTemp,
         tempTerm(repl.stepExpr.stepSourceTempNum),
@@ -263,11 +295,13 @@ vector<QuadStm*> buildStepPreparation(const StrengthReductionPlan::ReplacementIV
 
 QuadStm* buildUpdateStatement(const StrengthReductionPlan::ReplacementIV& repl) {
     if (repl.stepExpr.stepIncrementTempNum != -1) {
+        // Temp step: j_next = j +/- preparedStepTemp.
         int stepTemp = repl.stepExpr.newStepTemp != -1 ? repl.stepExpr.newStepTemp : repl.stepExpr.stepIncrementTempNum;
         string op = repl.stepExpr.stepIncrementNegative ? "-" : "+";
         return makeBinop(repl.map.newBackedgeTemp, tempTerm(repl.map.newPhiTemp), op, tempTerm(stepTemp), {repl.map.newPhiTemp, stepTemp});
     }
     string op = repl.stepExpr.stepIncrementValue < 0 ? "-" : "+";
+    // Constant step: j_next = j +/- abs(a * basicStep).
     return makeBinop(repl.map.newBackedgeTemp, tempTerm(repl.map.newPhiTemp), op, constTerm(abs(repl.stepExpr.stepIncrementValue)), {repl.map.newPhiTemp});
 }
 
@@ -301,6 +335,11 @@ StrengthReductionPlan generateStrengthReductionPlan(
             if (basicIt == basicIVsByHeader.at(loop->headerLabel).end()) continue;
             const BasicInductionVar& biv = *basicIt;
 
+            // One replacement introduces:
+            //   newInitTemp      in the preheader,
+            //   newPhiTemp       in the loop header,
+            //   newBackedgeTemp  before the backedge jump.
+            // tempReplacement then rewrites old derived-temp uses to newPhiTemp.
             StrengthReductionPlan::ReplacementIV repl;
             repl.sourceOrder = div.sourceOrder;
             repl.map.headerLabel = loop->headerLabel;
@@ -323,8 +362,11 @@ StrengthReductionPlan generateStrengthReductionPlan(
             if (div.expr.basicCoeff != 1 && div.expr.constant != 0) repl.initTemps.newInitIntermediateTemp = nextFreeTemp(usedTemps, nextTemp++);
 
             if (biv.stepTempNum == -1) {
+                // Constant basic step k means derived step is a*k.
                 repl.stepExpr.stepIncrementValue = div.expr.basicCoeff * biv.step;
             } else {
+                // Temp basic step keeps the temp identity and sign. The scale
+                // factor abs(a) is materialized in the preheader when needed.
                 repl.stepExpr.stepIncrementTempNum = abs(biv.stepTempNum);
                 repl.stepExpr.stepIncrementNegative = biv.stepTempNum < 0;
                 repl.stepExpr.stepTempScaleFactor = abs(div.expr.basicCoeff);
@@ -356,6 +398,8 @@ QuadFuncDecl* applyStrengthReduction(
     if (plan.tempReplacement.empty()) {
         return func;
     }
+    // First rewrite all uses. It is done before insertion/removal so newly
+    // inserted PHI/update statements are not accidentally rewritten.
     for (auto block : *func->quadblocklist) {
         if (block == nullptr || block->quadlist == nullptr) continue;
         for (auto stm : *block->quadlist) {
@@ -370,6 +414,8 @@ QuadFuncDecl* applyStrengthReduction(
         QuadBlock* backedge = findBlock(func, repl.placement.backedgeLabel);
         if (preheader == nullptr || header == nullptr || backedge == nullptr) continue;
 
+        // Insert preheader initialization before the terminator, otherwise the
+        // new value would be placed after the jump and become unreachable.
         auto initPos = preheader->quadlist->end();
         if (initPos != preheader->quadlist->begin()) {
             auto last = initPos;
@@ -390,9 +436,13 @@ QuadFuncDecl* applyStrengthReduction(
         phiArgs->push_back({temp(repl.initTemps.newInitTemp), label(repl.placement.initLabel)});
         auto phi = new QuadPhi(qtemp(repl.map.newPhiTemp), phiArgs, defs(repl.map.newPhiTemp), uses({repl.map.newBackedgeTemp, repl.initTemps.newInitTemp}));
         auto phiPos = header->quadlist->begin();
+        // PHI nodes must stay together at the top of a SSA block, after LABEL
+        // and before executable statements.
         while (phiPos != header->quadlist->end() && ((*phiPos)->kind == QuadKind::LABEL || (*phiPos)->kind == QuadKind::PHI)) ++phiPos;
         header->quadlist->insert(phiPos, phi);
 
+        // Insert recurrence update immediately before the backedge terminator so
+        // the new PHI receives the value from the correct iteration.
         auto updatePos = backedge->quadlist->end();
         if (updatePos != backedge->quadlist->begin()) {
             auto last = updatePos;
@@ -404,6 +454,8 @@ QuadFuncDecl* applyStrengthReduction(
 
     for (auto block : *func->quadblocklist) {
         if (block == nullptr || block->quadlist == nullptr) continue;
+        // Only remove the top-level derived definition here. Its now-dead
+        // operands and old basic-IV cycles are removed by the cleanup pass.
         block->quadlist->erase(remove_if(block->quadlist->begin(), block->quadlist->end(), [&] (QuadStm* stm) {
             return plan.stmtsToRemove.count(stm);
         }), block->quadlist->end());
