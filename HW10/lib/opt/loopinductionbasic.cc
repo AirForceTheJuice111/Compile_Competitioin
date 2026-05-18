@@ -248,7 +248,7 @@ map<int, vector<BasicInductionVar>> discoverBasicInductionVars(QuadFuncDecl* fun
 // Classify related temps as useless (only in backedges) or useful (in computations)
 void classifyRelatedTemps(
     QuadFuncDecl* func,
-    map<int, vector<BasicInductionVar>>& basicByHeader,
+    map<int, vector<BasicInductionVar>>& basicByHeader, // header label -> basic IVs in that loop
     const DefUseChain& du
 ) {
     if (func == nullptr || func->quadblocklist == nullptr) {
@@ -268,7 +268,7 @@ void classifyRelatedTemps(
                 bool useful = temp == biv.phiTempNum;
                 if (def != nullptr) {
                     for (auto use : def->useSet) {
-                        if (!familyStmts.count(use.second)) useful = true;
+                        if (!familyStmts.count(use.second)) useful = true; // A statement used this temp outside the core IV update family, so it's useful for computation.
                     }
                 }
                 if (useful) biv.markUseful(temp);

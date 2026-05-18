@@ -170,7 +170,7 @@ int defTempOfStmt(QuadStm* stm) {
     return temp->num;
 }
 
-QuadStm* clonePureDefWithDst(QuadStm* stm, int newDst, map<int, int>& tempMap) {
+QuadStm* clonePureDefWithDst(QuadStm* stm, int newDst, map<int, int>& tempMap) { // newDst is the temp number for the cloned statement's definition. tempMap is used to rewrite operand temps if they have been materialized in preheader.
     if (stm == nullptr) return nullptr;
     if (stm->kind == QuadKind::MOVE) {
         auto move = dynamic_cast<QuadMove*>(stm);
@@ -219,7 +219,7 @@ int materializeInvariantTempInPreheader(
     // Recreate the invariant computation in the preheader using fresh temps.
     // Loop-local invariant temps cannot be referenced directly from preheader,
     // because their original definitions execute only after entering the loop.
-    map<int, int> operandMap;
+    map<int, int> operandMap; // original temp num -> materialized temp num for operands of the cloned statement. This is needed when the invariant computation has multiple levels and we need to materialize intermediate results in preheader to preserve use-def consistency.
     for (int use : tempUsesOfStmt(def->defStm)) {
         int materializedUse = materializeInvariantTempInPreheader(
             func,
@@ -366,13 +366,13 @@ vector<QuadStm*> buildInitStatements(const StrengthReductionPlan::ReplacementIV&
         // The first value of the replacement PHI must therefore be based on
         // init(i) - 1, not directly on init(i).
         int adjusted = repl.initTemps.newInitAdjustedSourceTemp;
-        if (repl.initExpr.basicStepTempNum != -1) {
+        if (repl.initExpr.basicStepTempNum != -1) { // not const
             int stepTemp = abs(repl.initExpr.basicStepTempNum);
             string op = repl.initExpr.basicStepTempNum < 0 ? "-" : "+";
             out.push_back(makeBinop(adjusted, tempTerm(source), op, tempTerm(stepTemp), {source, stepTemp}));
-        } else if (repl.initExpr.basicStepValue < 0) {
+        } else if (repl.initExpr.basicStepValue < 0) { // const negative step
             out.push_back(makeBinop(adjusted, tempTerm(source), "-", constTerm(-repl.initExpr.basicStepValue), {source}));
-        } else {
+        } else { // const non-negative step
             out.push_back(makeBinop(adjusted, tempTerm(source), "+", constTerm(repl.initExpr.basicStepValue), {source}));
         }
         source = adjusted;
@@ -408,7 +408,7 @@ vector<QuadStm*> buildStepPreparation(const StrengthReductionPlan::ReplacementIV
     if (repl.stepExpr.newStepTemp == -1) return out;
     if (repl.stepExpr.stepTempScaleFactor == 1) return out;
     // Temp-based basic step needs scaling once in the preheader. For example,
-    // i = i - step and j = 8*i + 7 produces prepared step 8*step, then the
+    // i = i - step and j = 8*i + 7 produces prepared_step = 8*step, then the
     // loop only performs j = j - prepared_step.
     out.push_back(makeBinop(
         repl.stepExpr.newStepTemp,
@@ -421,6 +421,7 @@ vector<QuadStm*> buildStepPreparation(const StrengthReductionPlan::ReplacementIV
 }
 
 QuadStm* buildUpdateStatement(const StrengthReductionPlan::ReplacementIV& repl) {
+    // Build the recurrence update statement for the new PHI temp at the backedge. The update is either based on a prepared step temp or directly on the step value, depending on whether the basic IV step is temp-based or constant.
     if (repl.stepExpr.stepIncrementTempNum != -1) {
         // Temp step: j_next = j +/- preparedStepTemp.
         int stepTemp = repl.stepExpr.newStepTemp != -1 ? repl.stepExpr.newStepTemp : repl.stepExpr.stepIncrementTempNum;
@@ -456,6 +457,7 @@ StrengthReductionPlan generateStrengthReductionPlan(
         if (preheader == nullptr || backedge == -1) continue;
 
         for (auto div : derivedIVsByHeader.at(loop->headerLabel)) {
+            // Find the basic IV corresponding to this derived IV. The README guarantees each derived IV has exactly one basic IV with the same source temp, so we match by that.
             auto basicIt = find_if(basicIVsByHeader.at(loop->headerLabel).begin(), basicIVsByHeader.at(loop->headerLabel).end(), [&] (const BasicInductionVar& biv) {
                 return biv.phiTempNum == div.expr.basicTempNum;
             });
@@ -478,7 +480,7 @@ StrengthReductionPlan generateStrengthReductionPlan(
             repl.initExpr.initTempNum = biv.initTempNum;
             repl.initExpr.basicCoeff = div.expr.basicCoeff;
             repl.initExpr.constant = div.expr.constant;
-            repl.initExpr.sourceAfterBasicUpdate = div.sourceTempNum == biv.backedgeTempNum || static_cast<int>(div.sourceOrder) > biv.updateOrder;
+            repl.initExpr.sourceAfterBasicUpdate = div.sourceTempNum == biv.backedgeTempNum || static_cast<int>(div.sourceOrder) > biv.updateOrder; // If the derived IV source is updated in the backedge or after the basic IV update, the init value must be based on the basic IV after its first update, not directly on the basic IV init value.
             repl.initExpr.basicStepTempNum = biv.stepTempNum;
             repl.initExpr.basicStepValue = biv.step;
             repl.placement.initLabel = blockLabel(preheader);
@@ -532,7 +534,7 @@ QuadFuncDecl* applyStrengthReduction(
         if (block == nullptr || block->quadlist == nullptr) continue;
         for (auto stm : *block->quadlist) {
             for (auto repl : plan.replacements) rewriteCJumpLimit(stm, repl);
-            for (auto entry : plan.tempReplacement) replaceTempInStmt(stm, entry.first, entry.second);
+            for (auto entry : plan.tempReplacement) replaceTempInStmt(stm, entry.first, entry.second); // Replace old derived temp with new PHI temp.
         }
     }
 
@@ -545,7 +547,7 @@ QuadFuncDecl* applyStrengthReduction(
         vector<QuadStm*> materializedInvariantStmts;
         map<int, int> materializedTemps;
         int signedStepTemp = repl.initExpr.basicStepTempNum;
-        if (signedStepTemp != -1) {
+        if (signedStepTemp != -1) { // need to materialize the invariant if it's not a constant value, because the step preparation and update statements need to reference it.
             int materializedStep = materializeInvariantTempInPreheader(
                 func,
                 abs(signedStepTemp),
@@ -581,6 +583,7 @@ QuadFuncDecl* applyStrengthReduction(
             ++initPos;
         }
 
+        // Insert the new PHI node with the new derived IV temp as destination and the backedge/basic-IV-based init temps as arguments. It is placed at the top of the header block to ensure it dominates all its uses.
         auto phiArgs = new vector<pair<Temp*, Label*>>();
         phiArgs->push_back({temp(repl.map.newBackedgeTemp), label(repl.placement.backedgeLabel)});
         phiArgs->push_back({temp(repl.initTemps.newInitTemp), label(repl.placement.initLabel)});
@@ -606,6 +609,7 @@ QuadFuncDecl* applyStrengthReduction(
         if (block == nullptr || block->quadlist == nullptr) continue;
         // Only remove the top-level derived definition here. Its now-dead
         // operands and old basic-IV cycles are removed by the cleanup pass.
+        // remove_if + erase: the elements that need to be removed are moved to the end of the vector together, then erased in one go. This is more efficient than erasing while iterating, which would cause repeated shifting of elements.
         block->quadlist->erase(remove_if(block->quadlist->begin(), block->quadlist->end(), [&] (QuadStm* stm) {
             return plan.stmtsToRemove.count(stm);
         }), block->quadlist->end());
