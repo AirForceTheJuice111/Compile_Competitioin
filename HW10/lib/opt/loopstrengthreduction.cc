@@ -502,6 +502,7 @@ StrengthReductionPlan generateStrengthReductionPlan(
                 if (repl.stepExpr.stepTempScaleFactor != 1) {
                     repl.stepExpr.newStepTemp = nextFreeTemp(usedTemps, nextTemp++);
                     repl.stepExpr.stepSourceTempNum = abs(biv.stepTempNum);
+                    repl.stepExpr.stepIncrementTempNum = repl.stepExpr.newStepTemp;
                 }
             }
 
