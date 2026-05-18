@@ -210,7 +210,7 @@ Loop at header L102:
     Update order: 8
     Step: -t10100 (loop-invariant)
     Related temps: t10000 t10001 t10002 t10100 
-    Useless (cyclic only): t10000 t10100 
+    Useless (cyclic only): t10000 
 
 === DERIVED INDUCTION VARIABLES ===
 Loop at header L102:
@@ -231,7 +231,7 @@ Replacement 1:
   Source order: 10
   Init adjusted for update order: yes
   Init expr: 6*t10001 + 1
-  Step expr: -t10100
+  Step expr: -t10506
 
 Optimized function __$main__^main
 Writing optimized Quad to file: optloopivextra3.4-ssa-loopivopt.quad
@@ -249,7 +249,7 @@ Loop at header L102:
     Update order: 13
     Step: -t10200 (loop-invariant)
     Related temps: t10100 t10101 t10102 t10200 
-    Useless (cyclic only): t10100 t10102 t10200 
+    Useless (cyclic only): t10100 t10102 
 
 === DERIVED INDUCTION VARIABLES ===
 Loop at header L102:
@@ -270,7 +270,7 @@ Replacement 1:
   Source order: 10
   Init adjusted for update order: no
   Init expr: 3*t10101 + 2
-  Step expr: -t10200
+  Step expr: -t10605
 
 Optimized function __$main__^main
 Writing optimized Quad to file: optloopivextra4.4-ssa-loopivopt.quad
@@ -288,7 +288,7 @@ Loop at header L102:
     Update order: 9
     Step: -t10200 (loop-invariant)
     Related temps: t10100 t10101 t10102 t10200 
-    Useless (cyclic only): t10100 t10200 
+    Useless (cyclic only): t10100 
 
 === DERIVED INDUCTION VARIABLES ===
 Loop at header L102:
@@ -309,7 +309,7 @@ Replacement 1:
   Source order: 11
   Init adjusted for update order: yes
   Init expr: 3*t10101 + 2
-  Step expr: -t10200
+  Step expr: -t10606
 
 Optimized function __$main__^main
 Writing optimized Quad to file: optloopivextra5.4-ssa-loopivopt.quad
@@ -405,7 +405,7 @@ Loop at header L102:
     Update order: 10
     Step: -t10400 (loop-invariant)
     Related temps: t10300 t10301 t10302 t10400 
-    Useless (cyclic only): t10300 t10400 
+    Useless (cyclic only): t10300 
 
 === DERIVED INDUCTION VARIABLES ===
 Loop at header L102:
@@ -426,7 +426,7 @@ Replacement 1:
   Source order: 12
   Init adjusted for update order: yes
   Init expr: 8*t10301 + 7
-  Step expr: -t10400
+  Step expr: -t10208
 
 Optimized function __$main__^main
 Writing optimized Quad to file: optloopivtest3.4-ssa-loopivopt.quad
