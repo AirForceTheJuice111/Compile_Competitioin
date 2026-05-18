@@ -135,8 +135,11 @@ public:
 
 			std::cout << "  Step expr: ";
 			if (repl.stepExpr.stepIncrementTempNum != -1) {
+				int printedStepTemp = repl.stepExpr.newStepTemp != -1
+					? repl.stepExpr.newStepTemp
+					: repl.stepExpr.stepIncrementTempNum;
 				std::cout << (repl.stepExpr.stepIncrementNegative ? "-" : "+")
-				          << "t" << repl.stepExpr.stepIncrementTempNum;
+				          << "t" << printedStepTemp;
 			} else {
 				std::cout << repl.stepExpr.stepIncrementValue;
 			}

@@ -265,7 +265,8 @@ void classifyRelatedTemps(
                 // Temps only used by the PHI/update pair are cyclic book-keeping.
                 // If any use escapes that family, the value still contributes to
                 // computation and must be kept after strength reduction.
-                bool useful = temp == biv.phiTempNum;
+                bool useful = temp == biv.phiTempNum ||
+                              (biv.stepTempNum != -1 && temp == abs(biv.stepTempNum));
                 if (def != nullptr) {
                     for (auto use : def->useSet) {
                         if (!familyStmts.count(use.second)) useful = true; // A statement used this temp outside the core IV update family, so it's useful for computation.
