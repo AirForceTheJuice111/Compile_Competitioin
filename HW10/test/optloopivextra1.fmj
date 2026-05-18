@@ -1,0 +1,11 @@
+public int main() {
+    int i;
+    i = 0;
+    while (i < 5) {
+        putint(2 * i + 3);
+        putch(32);
+        i = i + 1;
+    }
+    putch(10);
+    return i;
+}
