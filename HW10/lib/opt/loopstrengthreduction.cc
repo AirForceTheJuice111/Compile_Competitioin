@@ -2,9 +2,276 @@
 #include "loopinductionopt.hh"
 #include "defusechain.hh"
 #include <cstdlib>
+#include <algorithm>
 
 using namespace std;
 using namespace quad;
+
+namespace {
+
+int blockLabel(QuadBlock* block) {
+    if (block == nullptr || block->entry_label == nullptr) return -1;
+    return block->entry_label->num;
+}
+
+QuadBlock* findBlock(QuadFuncDecl* func, int label) {
+    for (auto block : *func->quadblocklist) {
+        if (blockLabel(block) == label) return block;
+    }
+    return nullptr;
+}
+
+set<int> collectTempNums(QuadFuncDecl* func, const DefUseChain& du) {
+    set<int> temps;
+    for (auto entry : du.getAllDefs()) temps.insert(entry.first);
+    if (func != nullptr && func->params != nullptr) {
+        for (auto param : *func->params) {
+            if (param != nullptr) temps.insert(param->num);
+        }
+    }
+    return temps;
+}
+
+int nextFreeTemp(set<int>& used, int start) {
+    int temp = start;
+    while (used.count(temp)) ++temp;
+    used.insert(temp);
+    return temp;
+}
+
+QuadBlock* findPreheader(QuadFuncDecl* func, LoopHeader* loop) {
+    if (loop == nullptr) return nullptr;
+    for (auto block : *func->quadblocklist) {
+        int label = blockLabel(block);
+        if (loop->bodyBlocks.count(label) || block == nullptr || block->exit_labels == nullptr) continue;
+        for (auto exitLabel : *block->exit_labels) {
+            if (exitLabel != nullptr && exitLabel->num == loop->headerLabel) return block;
+        }
+    }
+    return nullptr;
+}
+
+int backedgeLabel(QuadFuncDecl* func, LoopHeader* loop) {
+    if (loop == nullptr) return -1;
+    for (auto block : *func->quadblocklist) {
+        int label = blockLabel(block);
+        if (!loop->bodyBlocks.count(label) || block == nullptr || block->exit_labels == nullptr) continue;
+        for (auto exitLabel : *block->exit_labels) {
+            if (exitLabel != nullptr && exitLabel->num == loop->headerLabel) return label;
+        }
+    }
+    return -1;
+}
+
+Temp* temp(int num) {
+    return new Temp(num);
+}
+
+Label* label(int num) {
+    return new Label(num);
+}
+
+QuadTemp* qtemp(int num) {
+    return new QuadTemp(temp(num), QuadType::INT);
+}
+
+QuadTerm* tempTerm(int num) {
+    return new QuadTerm(qtemp(num));
+}
+
+QuadTerm* constTerm(int value) {
+    return new QuadTerm(value);
+}
+
+set<Temp*>* defs(int num) {
+    auto out = new set<Temp*>();
+    out->insert(temp(num));
+    return out;
+}
+
+set<Temp*>* uses(initializer_list<int> nums) {
+    auto out = new set<Temp*>();
+    for (int num : nums) {
+        if (num != -1) out->insert(temp(num));
+    }
+    return out;
+}
+
+QuadMoveBinop* makeBinop(int dst, QuadTerm* left, const string& op, QuadTerm* right, initializer_list<int> useTemps) {
+    return new QuadMoveBinop(qtemp(dst), left, op, right, defs(dst), uses(useTemps));
+}
+
+void replaceTempInTerm(QuadTerm*& term, int oldTemp, int newTemp) {
+    if (term == nullptr || term->kind != QuadTermKind::TEMP) return;
+    auto quadTemp = term->get_temp();
+    if (quadTemp != nullptr && quadTemp->temp != nullptr && quadTemp->temp->num == oldTemp) term = tempTerm(newTemp);
+}
+
+void replaceTempInArgs(vector<QuadTerm*>* args, int oldTemp, int newTemp) {
+    if (args == nullptr) return;
+    for (auto& arg : *args) replaceTempInTerm(arg, oldTemp, newTemp);
+}
+
+void replaceTempInStmt(QuadStm* stm, int oldTemp, int newTemp) {
+    if (stm == nullptr) return;
+    switch (stm->kind) {
+        case QuadKind::MOVE: {
+            auto q = dynamic_cast<QuadMove*>(stm);
+            replaceTempInTerm(q->src, oldTemp, newTemp);
+            break;
+        }
+        case QuadKind::LOAD: {
+            auto q = dynamic_cast<QuadLoad*>(stm);
+            replaceTempInTerm(q->src, oldTemp, newTemp);
+            break;
+        }
+        case QuadKind::STORE: {
+            auto q = dynamic_cast<QuadStore*>(stm);
+            replaceTempInTerm(q->src, oldTemp, newTemp);
+            replaceTempInTerm(q->dst, oldTemp, newTemp);
+            break;
+        }
+        case QuadKind::MOVE_BINOP: {
+            auto q = dynamic_cast<QuadMoveBinop*>(stm);
+            replaceTempInTerm(q->left, oldTemp, newTemp);
+            replaceTempInTerm(q->right, oldTemp, newTemp);
+            break;
+        }
+        case QuadKind::PTR_CALC: {
+            auto q = dynamic_cast<QuadPtrCalc*>(stm);
+            replaceTempInTerm(q->ptr, oldTemp, newTemp);
+            replaceTempInTerm(q->offset, oldTemp, newTemp);
+            break;
+        }
+        case QuadKind::EXTCALL: {
+            auto q = dynamic_cast<QuadExtCall*>(stm);
+            replaceTempInArgs(q->args, oldTemp, newTemp);
+            break;
+        }
+        case QuadKind::MOVE_EXTCALL: {
+            auto q = dynamic_cast<QuadMoveExtCall*>(stm);
+            if (q->extcall != nullptr) replaceTempInArgs(q->extcall->args, oldTemp, newTemp);
+            break;
+        }
+        case QuadKind::CALL: {
+            auto q = dynamic_cast<QuadCall*>(stm);
+            replaceTempInTerm(q->obj_term, oldTemp, newTemp);
+            replaceTempInArgs(q->args, oldTemp, newTemp);
+            break;
+        }
+        case QuadKind::MOVE_CALL: {
+            auto q = dynamic_cast<QuadMoveCall*>(stm);
+            if (q->call != nullptr) {
+                replaceTempInTerm(q->call->obj_term, oldTemp, newTemp);
+                replaceTempInArgs(q->call->args, oldTemp, newTemp);
+            }
+            break;
+        }
+        case QuadKind::CJUMP: {
+            auto q = dynamic_cast<QuadCJump*>(stm);
+            replaceTempInTerm(q->left, oldTemp, newTemp);
+            replaceTempInTerm(q->right, oldTemp, newTemp);
+            break;
+        }
+        case QuadKind::RETURN: {
+            auto q = dynamic_cast<QuadReturn*>(stm);
+            replaceTempInTerm(q->exp, oldTemp, newTemp);
+            break;
+        }
+        case QuadKind::PHI: {
+            auto q = dynamic_cast<QuadPhi*>(stm);
+            if (q != nullptr && q->args != nullptr) {
+                for (auto& arg : *q->args) {
+                    if (arg.first != nullptr && arg.first->num == oldTemp) arg.first = temp(newTemp);
+                }
+            }
+            break;
+        }
+        default:
+            break;
+    }
+}
+
+void rewriteCJumpLimit(QuadStm* stm, const StrengthReductionPlan::ReplacementIV& repl) {
+    auto cjump = dynamic_cast<QuadCJump*>(stm);
+    if (cjump == nullptr) return;
+    auto rewriteSide = [&] (QuadTerm*& term, QuadTerm*& other) {
+        if (term == nullptr || term->kind != QuadTermKind::TEMP) return;
+        auto quadTemp = term->get_temp();
+        if (quadTemp == nullptr || quadTemp->temp == nullptr || quadTemp->temp->num != repl.map.basicTempNum) return;
+        if (other == nullptr || other->kind != QuadTermKind::CONST) return;
+        int limit = other->get_const();
+        int adjusted = repl.initExpr.sourceAfterBasicUpdate && repl.initExpr.basicStepTempNum == -1
+            ? limit + repl.initExpr.basicStepValue
+            : limit;
+        term = tempTerm(repl.map.newPhiTemp);
+        other = constTerm(repl.initExpr.basicCoeff * adjusted + repl.initExpr.constant);
+    };
+    rewriteSide(cjump->left, cjump->right);
+    rewriteSide(cjump->right, cjump->left);
+}
+
+vector<QuadStm*> buildInitStatements(const StrengthReductionPlan::ReplacementIV& repl) {
+    vector<QuadStm*> out;
+    int source = repl.initExpr.initTempNum;
+    if (repl.initExpr.sourceAfterBasicUpdate) {
+        int adjusted = repl.initTemps.newInitAdjustedSourceTemp;
+        if (repl.initExpr.basicStepTempNum != -1) {
+            int stepTemp = abs(repl.initExpr.basicStepTempNum);
+            string op = repl.initExpr.basicStepTempNum < 0 ? "-" : "+";
+            out.push_back(makeBinop(adjusted, tempTerm(source), op, tempTerm(stepTemp), {source, stepTemp}));
+        } else if (repl.initExpr.basicStepValue < 0) {
+            out.push_back(makeBinop(adjusted, tempTerm(source), "-", constTerm(-repl.initExpr.basicStepValue), {source}));
+        } else {
+            out.push_back(makeBinop(adjusted, tempTerm(source), "+", constTerm(repl.initExpr.basicStepValue), {source}));
+        }
+        source = adjusted;
+    }
+
+    if (repl.initExpr.basicCoeff == 1) {
+        if (repl.initExpr.constant == 0) {
+            out.push_back(new QuadMove(qtemp(repl.initTemps.newInitTemp), tempTerm(source), defs(repl.initTemps.newInitTemp), uses({source})));
+        } else {
+            string op = repl.initExpr.constant < 0 ? "-" : "+";
+            out.push_back(makeBinop(repl.initTemps.newInitTemp, tempTerm(source), op, constTerm(abs(repl.initExpr.constant)), {source}));
+        }
+        return out;
+    }
+
+    int product = repl.initExpr.constant == 0 ? repl.initTemps.newInitTemp : repl.initTemps.newInitIntermediateTemp;
+    out.push_back(makeBinop(product, tempTerm(source), "*", constTerm(repl.initExpr.basicCoeff), {source}));
+    if (repl.initExpr.constant != 0) {
+        string op = repl.initExpr.constant < 0 ? "-" : "+";
+        out.push_back(makeBinop(repl.initTemps.newInitTemp, tempTerm(product), op, constTerm(abs(repl.initExpr.constant)), {product}));
+    }
+    return out;
+}
+
+vector<QuadStm*> buildStepPreparation(const StrengthReductionPlan::ReplacementIV& repl) {
+    vector<QuadStm*> out;
+    if (repl.stepExpr.newStepTemp == -1) return out;
+    if (repl.stepExpr.stepTempScaleFactor == 1) return out;
+    out.push_back(makeBinop(
+        repl.stepExpr.newStepTemp,
+        tempTerm(repl.stepExpr.stepSourceTempNum),
+        "*",
+        constTerm(repl.stepExpr.stepTempScaleFactor),
+        {repl.stepExpr.stepSourceTempNum}
+    ));
+    return out;
+}
+
+QuadStm* buildUpdateStatement(const StrengthReductionPlan::ReplacementIV& repl) {
+    if (repl.stepExpr.stepIncrementTempNum != -1) {
+        int stepTemp = repl.stepExpr.newStepTemp != -1 ? repl.stepExpr.newStepTemp : repl.stepExpr.stepIncrementTempNum;
+        string op = repl.stepExpr.stepIncrementNegative ? "-" : "+";
+        return makeBinop(repl.map.newBackedgeTemp, tempTerm(repl.map.newPhiTemp), op, tempTerm(stepTemp), {repl.map.newPhiTemp, stepTemp});
+    }
+    string op = repl.stepExpr.stepIncrementValue < 0 ? "-" : "+";
+    return makeBinop(repl.map.newBackedgeTemp, tempTerm(repl.map.newPhiTemp), op, constTerm(abs(repl.stepExpr.stepIncrementValue)), {repl.map.newPhiTemp});
+}
+
+}
 
 StrengthReductionPlan generateStrengthReductionPlan(
     QuadFuncDecl* func,
@@ -18,9 +285,62 @@ StrengthReductionPlan generateStrengthReductionPlan(
         return plan;
     }
 
-    // fill in the code to generate a strength reduction plan based on the discovered basic and derived IVs,
-    // and the loop structure in loopHeaderMap. The plan should include which derived IVs to replace with new PHI+update,
-    // how to compute the new PHI and update values, where to place the new statements, and which original statements to remove. 
+    DefUseChain du(func);
+    set<int> usedTemps = collectTempNums(func, du);
+
+    for (auto loop : loopHeaderMap->funcLoopHeaders[func]) {
+        if (loop == nullptr || !derivedIVsByHeader.count(loop->headerLabel) || !basicIVsByHeader.count(loop->headerLabel)) continue;
+        QuadBlock* preheader = findPreheader(func, loop);
+        int backedge = backedgeLabel(func, loop);
+        if (preheader == nullptr || backedge == -1) continue;
+
+        for (auto div : derivedIVsByHeader.at(loop->headerLabel)) {
+            auto basicIt = find_if(basicIVsByHeader.at(loop->headerLabel).begin(), basicIVsByHeader.at(loop->headerLabel).end(), [&] (const BasicInductionVar& biv) {
+                return biv.phiTempNum == div.expr.basicTempNum;
+            });
+            if (basicIt == basicIVsByHeader.at(loop->headerLabel).end()) continue;
+            const BasicInductionVar& biv = *basicIt;
+
+            StrengthReductionPlan::ReplacementIV repl;
+            repl.sourceOrder = div.sourceOrder;
+            repl.map.headerLabel = loop->headerLabel;
+            repl.map.oldTempNum = div.tempNum;
+            repl.map.basicTempNum = biv.phiTempNum;
+            repl.map.newPhiTemp = nextFreeTemp(usedTemps, div.tempNum + 1);
+            repl.initTemps.newInitTemp = nextFreeTemp(usedTemps, repl.map.newPhiTemp + 1);
+            repl.map.newBackedgeTemp = nextFreeTemp(usedTemps, repl.initTemps.newInitTemp + 1);
+            repl.initExpr.initTempNum = biv.initTempNum;
+            repl.initExpr.basicCoeff = div.expr.basicCoeff;
+            repl.initExpr.constant = div.expr.constant;
+            repl.initExpr.sourceAfterBasicUpdate = div.sourceTempNum == biv.backedgeTempNum || static_cast<int>(div.sourceOrder) > biv.updateOrder;
+            repl.initExpr.basicStepTempNum = biv.stepTempNum;
+            repl.initExpr.basicStepValue = biv.step;
+            repl.placement.initLabel = blockLabel(preheader);
+            repl.placement.backedgeLabel = backedge;
+
+            int nextTemp = repl.map.newBackedgeTemp + 1;
+            if (repl.initExpr.sourceAfterBasicUpdate) repl.initTemps.newInitAdjustedSourceTemp = nextFreeTemp(usedTemps, nextTemp++);
+            if (div.expr.basicCoeff != 1 && div.expr.constant != 0) repl.initTemps.newInitIntermediateTemp = nextFreeTemp(usedTemps, nextTemp++);
+
+            if (biv.stepTempNum == -1) {
+                repl.stepExpr.stepIncrementValue = div.expr.basicCoeff * biv.step;
+            } else {
+                repl.stepExpr.stepIncrementTempNum = abs(biv.stepTempNum);
+                repl.stepExpr.stepIncrementNegative = biv.stepTempNum < 0;
+                repl.stepExpr.stepTempScaleFactor = abs(div.expr.basicCoeff);
+                if (repl.stepExpr.stepTempScaleFactor != 1) {
+                    repl.stepExpr.newStepTemp = nextFreeTemp(usedTemps, nextTemp++);
+                    repl.stepExpr.stepSourceTempNum = abs(biv.stepTempNum);
+                }
+            }
+
+            plan.tempReplacement[div.tempNum] = repl.map.newPhiTemp;
+            if (div.defStm != nullptr) plan.stmtsToRemove.insert(div.defStm);
+            plan.phiStmtsToAdd[repl.map.newPhiTemp] = {repl.initTemps.newInitTemp, repl.map.newBackedgeTemp};
+            plan.updateStmtsToAdd[repl.map.newBackedgeTemp] = {div.expr.basicCoeff, repl.stepExpr.stepIncrementValue};
+            plan.replacements.push_back(repl);
+        }
+    }
 
     return plan;
 }
@@ -36,8 +356,58 @@ QuadFuncDecl* applyStrengthReduction(
     if (plan.tempReplacement.empty()) {
         return func;
     }
-    // fill in the code to apply the strength reduction plan to func, 
-    // by modifying the quads in the func
+    for (auto block : *func->quadblocklist) {
+        if (block == nullptr || block->quadlist == nullptr) continue;
+        for (auto stm : *block->quadlist) {
+            for (auto repl : plan.replacements) rewriteCJumpLimit(stm, repl);
+            for (auto entry : plan.tempReplacement) replaceTempInStmt(stm, entry.first, entry.second);
+        }
+    }
+
+    for (auto repl : plan.replacements) {
+        QuadBlock* preheader = findBlock(func, repl.placement.initLabel);
+        QuadBlock* header = findBlock(func, repl.map.headerLabel);
+        QuadBlock* backedge = findBlock(func, repl.placement.backedgeLabel);
+        if (preheader == nullptr || header == nullptr || backedge == nullptr) continue;
+
+        auto initPos = preheader->quadlist->end();
+        if (initPos != preheader->quadlist->begin()) {
+            auto last = initPos;
+            --last;
+            if ((*last)->kind == QuadKind::JUMP || (*last)->kind == QuadKind::CJUMP || (*last)->kind == QuadKind::RETURN) initPos = last;
+        }
+        for (auto stm : buildInitStatements(repl)) {
+            initPos = preheader->quadlist->insert(initPos, stm);
+            ++initPos;
+        }
+        for (auto stm : buildStepPreparation(repl)) {
+            initPos = preheader->quadlist->insert(initPos, stm);
+            ++initPos;
+        }
+
+        auto phiArgs = new vector<pair<Temp*, Label*>>();
+        phiArgs->push_back({temp(repl.map.newBackedgeTemp), label(repl.placement.backedgeLabel)});
+        phiArgs->push_back({temp(repl.initTemps.newInitTemp), label(repl.placement.initLabel)});
+        auto phi = new QuadPhi(qtemp(repl.map.newPhiTemp), phiArgs, defs(repl.map.newPhiTemp), uses({repl.map.newBackedgeTemp, repl.initTemps.newInitTemp}));
+        auto phiPos = header->quadlist->begin();
+        while (phiPos != header->quadlist->end() && ((*phiPos)->kind == QuadKind::LABEL || (*phiPos)->kind == QuadKind::PHI)) ++phiPos;
+        header->quadlist->insert(phiPos, phi);
+
+        auto updatePos = backedge->quadlist->end();
+        if (updatePos != backedge->quadlist->begin()) {
+            auto last = updatePos;
+            --last;
+            if ((*last)->kind == QuadKind::JUMP || (*last)->kind == QuadKind::CJUMP || (*last)->kind == QuadKind::RETURN) updatePos = last;
+        }
+        backedge->quadlist->insert(updatePos, buildUpdateStatement(repl));
+    }
+
+    for (auto block : *func->quadblocklist) {
+        if (block == nullptr || block->quadlist == nullptr) continue;
+        block->quadlist->erase(remove_if(block->quadlist->begin(), block->quadlist->end(), [&] (QuadStm* stm) {
+            return plan.stmtsToRemove.count(stm);
+        }), block->quadlist->end());
+    }
 
     return func;
 }
