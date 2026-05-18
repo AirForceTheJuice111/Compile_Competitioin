@@ -35,6 +35,12 @@ set<int> collectTempNums(QuadFuncDecl* func, const DefUseChain& du) {
     return temps;
 }
 
+set<int> collectTempNumsFromFunc(QuadFuncDecl* func) {
+    if (func == nullptr || func->quadblocklist == nullptr) return set<int>();
+    DefUseChain du(func);
+    return collectTempNums(func, du);
+}
+
 int nextFreeTemp(set<int>& used, int start) {
     // Prefer numbers near the original derived IV so the generated output stays
     // close to the homework reference files, while still avoiding collisions.
@@ -111,6 +117,127 @@ QuadMoveBinop* makeBinop(int dst, QuadTerm* left, const string& op, QuadTerm* ri
     // Centralize QuadMoveBinop construction so def/use sets stay consistent with
     // the expression operands after we synthesize new IR.
     return new QuadMoveBinop(qtemp(dst), left, op, right, defs(dst), uses(useTemps));
+}
+
+int useNumFromTerm(QuadTerm* term) {
+    if (term == nullptr || term->kind != QuadTermKind::TEMP) return -1;
+    auto quadTemp = term->get_temp();
+    if (quadTemp == nullptr || quadTemp->temp == nullptr) return -1;
+    return quadTemp->temp->num;
+}
+
+QuadTerm* cloneTermWithTempMap(QuadTerm* term, map<int, int>& tempMap) {
+    if (term == nullptr) return nullptr;
+    if (term->kind != QuadTermKind::TEMP) return term->clone();
+
+    int num = useNumFromTerm(term);
+    if (tempMap.count(num)) return tempTerm(tempMap[num]);
+    return term->clone();
+}
+
+bool isPureInvariantCandidate(QuadStm* stm) {
+    if (stm == nullptr) return false;
+    return stm->kind == QuadKind::MOVE ||
+           stm->kind == QuadKind::MOVE_BINOP ||
+           stm->kind == QuadKind::PTR_CALC;
+}
+
+QuadBlock* blockOfStmt(QuadFuncDecl* func, QuadStm* target) {
+    if (func == nullptr || func->quadblocklist == nullptr) return nullptr;
+    for (auto block : *func->quadblocklist) {
+        if (block == nullptr || block->quadlist == nullptr) continue;
+        for (auto stm : *block->quadlist) {
+            if (stm == target) return block;
+        }
+    }
+    return nullptr;
+}
+
+vector<int> tempUsesOfStmt(QuadStm* stm) {
+    vector<int> out;
+    if (stm == nullptr) return out;
+    if (stm->use == nullptr) return out;
+    for (auto temp : *stm->use) {
+        if (temp != nullptr) out.push_back(temp->num);
+    }
+    return out;
+}
+
+int defTempOfStmt(QuadStm* stm) {
+    if (stm == nullptr || stm->def == nullptr || stm->def->empty()) return -1;
+    auto temp = *stm->def->begin();
+    if (temp == nullptr) return -1;
+    return temp->num;
+}
+
+QuadStm* clonePureDefWithDst(QuadStm* stm, int newDst, map<int, int>& tempMap) {
+    if (stm == nullptr) return nullptr;
+    if (stm->kind == QuadKind::MOVE) {
+        auto move = dynamic_cast<QuadMove*>(stm);
+        if (move == nullptr) return nullptr;
+        auto src = cloneTermWithTempMap(move->src, tempMap);
+        int use = useNumFromTerm(src);
+        return new QuadMove(qtemp(newDst), src, defs(newDst), uses({use}));
+    }
+    if (stm->kind == QuadKind::MOVE_BINOP) {
+        auto binop = dynamic_cast<QuadMoveBinop*>(stm);
+        if (binop == nullptr) return nullptr;
+        auto left = cloneTermWithTempMap(binop->left, tempMap);
+        auto right = cloneTermWithTempMap(binop->right, tempMap);
+        return makeBinop(newDst, left, binop->binop, right, {useNumFromTerm(left), useNumFromTerm(right)});
+    }
+    if (stm->kind == QuadKind::PTR_CALC) {
+        auto ptrCalc = dynamic_cast<QuadPtrCalc*>(stm);
+        if (ptrCalc == nullptr) return nullptr;
+        auto dst = tempTerm(newDst);
+        auto ptr = cloneTermWithTempMap(ptrCalc->ptr, tempMap);
+        auto offset = cloneTermWithTempMap(ptrCalc->offset, tempMap);
+        return new QuadPtrCalc(dst, ptr, offset, defs(newDst), uses({useNumFromTerm(ptr), useNumFromTerm(offset)}));
+    }
+    return nullptr;
+}
+
+int materializeInvariantTempInPreheader(
+    QuadFuncDecl* func,
+    int tempNum,
+    int preheaderLabel,
+    vector<QuadStm*>& preheaderStmts,
+    set<int>& usedTemps,
+    map<int, int>& materializedTemps
+) {
+    if (tempNum == -1) return -1;
+    if (materializedTemps.count(tempNum)) return materializedTemps[tempNum];
+
+    DefUseChain du(func);
+    auto def = du.getDef(tempNum);
+    if (def == nullptr || def->defStm == nullptr) return tempNum;
+
+    QuadBlock* defBlock = blockOfStmt(func, def->defStm);
+    if (blockLabel(defBlock) == preheaderLabel) return tempNum;
+    if (!isPureInvariantCandidate(def->defStm)) return tempNum;
+
+    // Recreate the invariant computation in the preheader using fresh temps.
+    // Loop-local invariant temps cannot be referenced directly from preheader,
+    // because their original definitions execute only after entering the loop.
+    map<int, int> operandMap;
+    for (int use : tempUsesOfStmt(def->defStm)) {
+        int materializedUse = materializeInvariantTempInPreheader(
+            func,
+            use,
+            preheaderLabel,
+            preheaderStmts,
+            usedTemps,
+            materializedTemps
+        );
+        if (materializedUse != use) operandMap[use] = materializedUse;
+    }
+
+    int originalDef = defTempOfStmt(def->defStm);
+    int newDef = nextFreeTemp(usedTemps, originalDef + 1);
+    materializedTemps[tempNum] = newDef;
+    auto cloned = clonePureDefWithDst(def->defStm, newDef, operandMap);
+    if (cloned != nullptr) preheaderStmts.push_back(cloned);
+    return cloned == nullptr ? tempNum : newDef;
 }
 
 void replaceTempInTerm(QuadTerm*& term, int oldTemp, int newTemp) {
@@ -398,6 +525,7 @@ QuadFuncDecl* applyStrengthReduction(
     if (plan.tempReplacement.empty()) {
         return func;
     }
+    set<int> usedTemps = collectTempNumsFromFunc(func);
     // First rewrite all uses. It is done before insertion/removal so newly
     // inserted PHI/update statements are not accidentally rewritten.
     for (auto block : *func->quadblocklist) {
@@ -414,6 +542,24 @@ QuadFuncDecl* applyStrengthReduction(
         QuadBlock* backedge = findBlock(func, repl.placement.backedgeLabel);
         if (preheader == nullptr || header == nullptr || backedge == nullptr) continue;
 
+        vector<QuadStm*> materializedInvariantStmts;
+        map<int, int> materializedTemps;
+        int signedStepTemp = repl.initExpr.basicStepTempNum;
+        if (signedStepTemp != -1) {
+            int materializedStep = materializeInvariantTempInPreheader(
+                func,
+                abs(signedStepTemp),
+                repl.placement.initLabel,
+                materializedInvariantStmts,
+                usedTemps,
+                materializedTemps
+            );
+            signedStepTemp = signedStepTemp < 0 ? -materializedStep : materializedStep;
+            repl.initExpr.basicStepTempNum = signedStepTemp;
+            repl.stepExpr.stepIncrementTempNum = abs(signedStepTemp);
+            repl.stepExpr.stepSourceTempNum = abs(signedStepTemp);
+        }
+
         // Insert preheader initialization before the terminator, otherwise the
         // new value would be placed after the jump and become unreachable.
         auto initPos = preheader->quadlist->end();
@@ -421,6 +567,10 @@ QuadFuncDecl* applyStrengthReduction(
             auto last = initPos;
             --last;
             if ((*last)->kind == QuadKind::JUMP || (*last)->kind == QuadKind::CJUMP || (*last)->kind == QuadKind::RETURN) initPos = last;
+        }
+        for (auto stm : materializedInvariantStmts) {
+            initPos = preheader->quadlist->insert(initPos, stm);
+            ++initPos;
         }
         for (auto stm : buildInitStatements(repl)) {
             initPos = preheader->quadlist->insert(initPos, stm);
