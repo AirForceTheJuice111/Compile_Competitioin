@@ -1,0 +1,104 @@
+[
+{
+  "directory": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build",
+  "command": "/usr/bin/clang++ -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/ir -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quad -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/util -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quadflow -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/instr -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/vendor/tinyxml2 -O3 -DNDEBUG -std=gnu++17 -arch arm64 -w -o lib/util/CMakeFiles/util.dir/print_config.cc.o -c /Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/util/print_config.cc",
+  "file": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/util/print_config.cc",
+  "output": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/lib/util/CMakeFiles/util.dir/print_config.cc.o"
+},
+{
+  "directory": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build",
+  "command": "/usr/bin/clang++ -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/ir -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quad -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/util -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quadflow -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/instr -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/vendor/tinyxml2 -O3 -DNDEBUG -std=gnu++17 -arch arm64 -w -o lib/util/CMakeFiles/util.dir/quad2xml.cc.o -c /Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/util/quad2xml.cc",
+  "file": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/util/quad2xml.cc",
+  "output": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/lib/util/CMakeFiles/util.dir/quad2xml.cc.o"
+},
+{
+  "directory": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build",
+  "command": "/usr/bin/clang++ -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/ir -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quad -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/util -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quadflow -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/instr -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/vendor/tinyxml2 -O3 -DNDEBUG -std=gnu++17 -arch arm64 -w -o lib/util/CMakeFiles/util.dir/xml2flow.cc.o -c /Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/util/xml2flow.cc",
+  "file": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/util/xml2flow.cc",
+  "output": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/lib/util/CMakeFiles/util.dir/xml2flow.cc.o"
+},
+{
+  "directory": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build",
+  "command": "/usr/bin/clang++ -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/ir -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quad -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/util -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quadflow -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/instr -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/vendor/tinyxml2 -O3 -DNDEBUG -std=gnu++17 -arch arm64 -w -o lib/util/CMakeFiles/util.dir/xml2quad.cc.o -c /Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/util/xml2quad.cc",
+  "file": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/util/xml2quad.cc",
+  "output": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/lib/util/CMakeFiles/util.dir/xml2quad.cc.o"
+},
+{
+  "directory": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build",
+  "command": "/usr/bin/clang++ -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/ir -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quad -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/util -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quadflow -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/instr -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/vendor/tinyxml2 -O3 -DNDEBUG -std=gnu++17 -arch arm64 -w -o lib/quad/CMakeFiles/quad.dir/quad.cc.o -c /Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/quad/quad.cc",
+  "file": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/quad/quad.cc",
+  "output": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/lib/quad/CMakeFiles/quad.dir/quad.cc.o"
+},
+{
+  "directory": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build",
+  "command": "/usr/bin/clang++ -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/ir -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quad -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/util -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quadflow -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/instr -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/vendor/tinyxml2 -O3 -DNDEBUG -std=gnu++17 -arch arm64 -w -o lib/quadflow/CMakeFiles/quadflow.dir/controlflowinfo.cc.o -c /Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/quadflow/controlflowinfo.cc",
+  "file": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/quadflow/controlflowinfo.cc",
+  "output": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/lib/quadflow/CMakeFiles/quadflow.dir/controlflowinfo.cc.o"
+},
+{
+  "directory": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build",
+  "command": "/usr/bin/clang++ -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/ir -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quad -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/util -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quadflow -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/instr -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/vendor/tinyxml2 -O3 -DNDEBUG -std=gnu++17 -arch arm64 -w -o lib/quadflow/CMakeFiles/quadflow.dir/dataflowinfo.cc.o -c /Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/quadflow/dataflowinfo.cc",
+  "file": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/quadflow/dataflowinfo.cc",
+  "output": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/lib/quadflow/CMakeFiles/quadflow.dir/dataflowinfo.cc.o"
+},
+{
+  "directory": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build",
+  "command": "/usr/bin/clang++ -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/ir -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quad -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/util -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quadflow -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/instr -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/vendor/tinyxml2 -O3 -DNDEBUG -std=gnu++17 -arch arm64 -w -o lib/quadflow/CMakeFiles/quadflow.dir/flowinfo.cc.o -c /Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/quadflow/flowinfo.cc",
+  "file": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/quadflow/flowinfo.cc",
+  "output": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/lib/quadflow/CMakeFiles/quadflow.dir/flowinfo.cc.o"
+},
+{
+  "directory": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build",
+  "command": "/usr/bin/clang++ -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/ir -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quad -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/util -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quadflow -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/instr -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/vendor/tinyxml2 -O3 -DNDEBUG -std=gnu++17 -arch arm64 -w -o lib/instr/CMakeFiles/instr.dir/advDFG.cc.o -c /Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/instr/advDFG.cc",
+  "file": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/instr/advDFG.cc",
+  "output": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/lib/instr/CMakeFiles/instr.dir/advDFG.cc.o"
+},
+{
+  "directory": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build",
+  "command": "/usr/bin/clang++ -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/ir -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quad -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/util -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quadflow -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/instr -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/vendor/tinyxml2 -O3 -DNDEBUG -std=gnu++17 -arch arm64 -w -o lib/instr/CMakeFiles/instr.dir/buildAdvDFG.cc.o -c /Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/instr/buildAdvDFG.cc",
+  "file": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/instr/buildAdvDFG.cc",
+  "output": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/lib/instr/CMakeFiles/instr.dir/buildAdvDFG.cc.o"
+},
+{
+  "directory": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build",
+  "command": "/usr/bin/clang++ -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/ir -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quad -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/util -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quadflow -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/instr -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/vendor/tinyxml2 -O3 -DNDEBUG -std=gnu++17 -arch arm64 -w -o lib/instr/CMakeFiles/instr.dir/buildPreSchedule.cc.o -c /Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/instr/buildPreSchedule.cc",
+  "file": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/instr/buildPreSchedule.cc",
+  "output": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/lib/instr/CMakeFiles/instr.dir/buildPreSchedule.cc.o"
+},
+{
+  "directory": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build",
+  "command": "/usr/bin/clang++ -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/ir -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quad -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/util -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quadflow -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/instr -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/vendor/tinyxml2 -O3 -DNDEBUG -std=gnu++17 -arch arm64 -w -o lib/instr/CMakeFiles/instr.dir/fileSchedule.cc.o -c /Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/instr/fileSchedule.cc",
+  "file": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/instr/fileSchedule.cc",
+  "output": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/lib/instr/CMakeFiles/instr.dir/fileSchedule.cc.o"
+},
+{
+  "directory": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build",
+  "command": "/usr/bin/clang++ -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/ir -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quad -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/util -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quadflow -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/instr -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/vendor/tinyxml2 -O3 -DNDEBUG -std=gnu++17 -arch arm64 -w -o lib/instr/CMakeFiles/instr.dir/preSchedule.cc.o -c /Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/instr/preSchedule.cc",
+  "file": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/instr/preSchedule.cc",
+  "output": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/lib/instr/CMakeFiles/instr.dir/preSchedule.cc.o"
+},
+{
+  "directory": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build",
+  "command": "/usr/bin/clang++ -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/ir -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quad -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/util -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quadflow -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/instr -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/vendor/tinyxml2 -O3 -DNDEBUG -std=gnu++17 -arch arm64 -w -o lib/instr/CMakeFiles/instr.dir/schedule.cc.o -c /Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/instr/schedule.cc",
+  "file": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/instr/schedule.cc",
+  "output": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/lib/instr/CMakeFiles/instr.dir/schedule.cc.o"
+},
+{
+  "directory": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build",
+  "command": "/usr/bin/clang++ -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/ir -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quad -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/util -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quadflow -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/instr -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/vendor/tinyxml2 -O3 -DNDEBUG -std=gnu++17 -arch arm64 -w -o lib/instr/CMakeFiles/instr.dir/selectInstr.cc.o -c /Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/instr/selectInstr.cc",
+  "file": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/lib/instr/selectInstr.cc",
+  "output": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/lib/instr/CMakeFiles/instr.dir/selectInstr.cc.o"
+},
+{
+  "directory": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build",
+  "command": "/usr/bin/clang++ -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/ir -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quad -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/util -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quadflow -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/instr -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/vendor/tinyxml2 -O3 -DNDEBUG -std=gnu++17 -arch arm64 -w -o tools/main/CMakeFiles/main.dir/main.cc.o -c /Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/tools/main/main.cc",
+  "file": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/tools/main/main.cc",
+  "output": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/tools/main/CMakeFiles/main.dir/main.cc.o"
+},
+{
+  "directory": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build",
+  "command": "/usr/bin/clang++ -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/ir -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quad -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/util -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quadflow -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/instr -I/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/vendor/tinyxml2  -Wno-unused-result --std=c++17 -O3 -DNDEBUG -std=gnu++17 -arch arm64 -w -o vendor/tinyxml2/CMakeFiles/vendor_xml.dir/tinyxml2.cc.o -c /Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/vendor/tinyxml2/tinyxml2.cc",
+  "file": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/vendor/tinyxml2/tinyxml2.cc",
+  "output": "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/vendor/tinyxml2/CMakeFiles/vendor_xml.dir/tinyxml2.cc.o"
+}
+]

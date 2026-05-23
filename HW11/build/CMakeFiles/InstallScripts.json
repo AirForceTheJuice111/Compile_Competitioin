@@ -1,0 +1,16 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/cmake_install.cmake",
+		"/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/lib/cmake_install.cmake",
+		"/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/lib/util/cmake_install.cmake",
+		"/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/lib/quad/cmake_install.cmake",
+		"/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/lib/quadflow/cmake_install.cmake",
+		"/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/lib/instr/cmake_install.cmake",
+		"/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/tools/cmake_install.cmake",
+		"/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/tools/main/cmake_install.cmake",
+		"/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/vendor/cmake_install.cmake",
+		"/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/build/vendor/tinyxml2/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

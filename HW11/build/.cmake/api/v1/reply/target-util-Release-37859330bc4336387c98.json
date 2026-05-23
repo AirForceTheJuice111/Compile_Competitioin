@@ -1,0 +1,200 @@
+{
+	"artifacts" : 
+	[
+		{
+			"path" : "lib/util/CMakeFiles/util.dir/./print_config.cc.o"
+		},
+		{
+			"path" : "lib/util/CMakeFiles/util.dir/./quad2xml.cc.o"
+		},
+		{
+			"path" : "lib/util/CMakeFiles/util.dir/./xml2flow.cc.o"
+		},
+		{
+			"path" : "lib/util/CMakeFiles/util.dir/./xml2quad.cc.o"
+		}
+	],
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_library",
+			"add_compile_options",
+			"include_directories"
+		],
+		"files" : 
+		[
+			"lib/util/CMakeLists.txt",
+			"CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 2,
+				"parent" : 0
+			},
+			{
+				"file" : 1
+			},
+			{
+				"command" : 1,
+				"file" : 1,
+				"line" : 5,
+				"parent" : 2
+			},
+			{
+				"command" : 2,
+				"file" : 1,
+				"line" : 11,
+				"parent" : 2
+			},
+			{
+				"command" : 2,
+				"file" : 1,
+				"line" : 12,
+				"parent" : 2
+			},
+			{
+				"command" : 2,
+				"file" : 1,
+				"line" : 13,
+				"parent" : 2
+			},
+			{
+				"command" : 2,
+				"file" : 1,
+				"line" : 14,
+				"parent" : 2
+			},
+			{
+				"command" : 2,
+				"file" : 1,
+				"line" : 15,
+				"parent" : 2
+			},
+			{
+				"command" : 2,
+				"file" : 1,
+				"line" : 16,
+				"parent" : 2
+			}
+		]
+	},
+	"codemodelVersion" : 
+	{
+		"major" : 2,
+		"minor" : 10
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : "-O3 -DNDEBUG -std=gnu++17 -arch arm64"
+				},
+				{
+					"backtrace" : 3,
+					"fragment" : "-w"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 4,
+					"path" : "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/ir"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quad"
+				},
+				{
+					"backtrace" : 6,
+					"path" : "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/util"
+				},
+				{
+					"backtrace" : 7,
+					"path" : "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/quadflow"
+				},
+				{
+					"backtrace" : 8,
+					"path" : "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/include/instr"
+				},
+				{
+					"backtrace" : 9,
+					"path" : "/Users/xywang/gitFolder/hwsolfducompilerh2026/HW11/vendor/tinyxml2"
+				}
+			],
+			"language" : "CXX",
+			"languageStandard" : 
+			{
+				"backtraces" : 
+				[
+					1
+				],
+				"standard" : "17"
+			},
+			"sourceIndexes" : 
+			[
+				0,
+				1,
+				2,
+				3
+			]
+		}
+	],
+	"id" : "util::@cc8e4066b47865546cb0",
+	"name" : "util",
+	"paths" : 
+	{
+		"build" : "lib/util",
+		"source" : "lib/util"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				0,
+				1,
+				2,
+				3
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "lib/util/print_config.cc",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "lib/util/quad2xml.cc",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "lib/util/xml2flow.cc",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "lib/util/xml2quad.cc",
+			"sourceGroupIndex" : 0
+		}
+	],
+	"type" : "OBJECT_LIBRARY"
+}
