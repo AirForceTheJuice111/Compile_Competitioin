@@ -10,6 +10,225 @@
 
 namespace instr {
 
+static tree::Temp *newTemp(int &nextTempNum) {
+    return new tree::Temp(nextTempNum++);
+}
+
+static tree::Temp *termTemp(const quad::QuadTerm *term) {
+    if (term == nullptr || term->kind != quad::QuadTermKind::TEMP) {
+        return nullptr;
+    }
+    auto *mutableTerm = const_cast<quad::QuadTerm*>(term);
+    auto *quadTemp = mutableTerm->get_temp();
+    return quadTemp == nullptr ? nullptr : quadTemp->temp;
+}
+
+static int termConst(const quad::QuadTerm *term) {
+    return const_cast<quad::QuadTerm*>(term)->get_const();
+}
+
+static std::string termName(const quad::QuadTerm *term) {
+    return const_cast<quad::QuadTerm*>(term)->get_name();
+}
+
+static void emitLoadConst(preScheduleBlock &schedBlock, tree::Temp *dst, int value) {
+    uint32_t bits = static_cast<uint32_t>(value);
+    uint32_t low = bits & 0xffffu;
+    uint32_t high = (bits >> 16) & 0xffffu;
+    schedBlock.addSelectedInstruction(AssemInstr::Oper(
+        "movw `d0, #" + std::to_string(low),
+        {dst},
+        {},
+        AssemTargets()
+    ));
+    if (high != 0) {
+        schedBlock.addSelectedInstruction(AssemInstr::Oper(
+            "movt `d0, #" + std::to_string(high),
+            {dst},
+            {},
+            AssemTargets()
+        ));
+    }
+}
+
+static tree::Temp *materializeTerm(
+    const quad::QuadTerm *term,
+    preScheduleBlock &schedBlock,
+    int &nextTempNum
+) {
+    if (term == nullptr) {
+        return nullptr;
+    }
+    if (term->kind == quad::QuadTermKind::TEMP) {
+        return termTemp(term);
+    }
+
+    auto *tmp = newTemp(nextTempNum);
+    if (term->kind == quad::QuadTermKind::CONST) {
+        emitLoadConst(schedBlock, tmp, termConst(term));
+    } else if (term->kind == quad::QuadTermKind::NAME) {
+        schedBlock.addSelectedInstruction(AssemInstr::Oper(
+            "adr `d0, " + termName(term),
+            {tmp},
+            {},
+            AssemTargets()
+        ));
+    }
+    return tmp;
+}
+
+static void emitMove(preScheduleBlock &schedBlock, tree::Temp *dst, tree::Temp *src) {
+    if (dst == nullptr || src == nullptr || dst->num == src->num) {
+        return;
+    }
+    schedBlock.addSelectedInstruction(AssemInstr::Move("mov `d0, `s0", {dst}, {src}));
+}
+
+static void emitMoveToRegister(preScheduleBlock &schedBlock, const std::string &reg, tree::Temp *src) {
+    if (src == nullptr) {
+        return;
+    }
+    schedBlock.addSelectedInstruction(AssemInstr::Oper("mov " + reg + ", `s0", {}, {src}, AssemTargets()));
+}
+
+static void emitMoveFromRegister(preScheduleBlock &schedBlock, tree::Temp *dst, const std::string &reg) {
+    if (dst == nullptr) {
+        return;
+    }
+    schedBlock.addSelectedInstruction(AssemInstr::Oper("mov `d0, " + reg, {dst}, {}, AssemTargets()));
+}
+
+static void emitArgs(
+    preScheduleBlock &schedBlock,
+    const std::vector<quad::QuadTerm*> *args,
+    int &nextTempNum,
+    int firstReg
+) {
+    if (args == nullptr) {
+        return;
+    }
+    int reg = firstReg;
+    for (auto *arg : *args) {
+        auto *src = materializeTerm(arg, schedBlock, nextTempNum);
+        emitMoveToRegister(schedBlock, "r" + std::to_string(reg++), src);
+    }
+}
+
+static void selectCall(
+    preScheduleBlock &schedBlock,
+    const quad::QuadCall *call,
+    tree::Temp *dst,
+    int &nextTempNum
+) {
+    if (call == nullptr) {
+        return;
+    }
+
+    if (call->obj_term != nullptr) {
+        auto *target = materializeTerm(call->obj_term, schedBlock, nextTempNum);
+        emitArgs(schedBlock, call->args, nextTempNum, 0);
+        schedBlock.addSelectedInstruction(AssemInstr::Oper("blx `s0", {}, {target}, AssemTargets()));
+    } else {
+        emitArgs(schedBlock, call->args, nextTempNum, 0);
+        schedBlock.addSelectedInstruction(AssemInstr::Call("bl " + call->name, {}, {}));
+    }
+
+    if (dst != nullptr) {
+        emitMoveFromRegister(schedBlock, dst, "r0");
+    }
+}
+
+static void selectExtCall(
+    preScheduleBlock &schedBlock,
+    const quad::QuadExtCall *call,
+    tree::Temp *dst,
+    int &nextTempNum
+) {
+    if (call == nullptr) {
+        return;
+    }
+    emitArgs(schedBlock, call->args, nextTempNum, 0);
+    schedBlock.addSelectedInstruction(AssemInstr::ExtCall("bl " + call->extfun, {}, {}));
+    if (dst != nullptr) {
+        emitMoveFromRegister(schedBlock, dst, "r0");
+    }
+}
+
+static void selectStatement(
+    const quad::QuadStm *stm,
+    preScheduleBlock &schedBlock,
+    int &nextTempNum
+) {
+    if (stm == nullptr) {
+        return;
+    }
+
+    switch (stm->kind) {
+        case quad::QuadKind::MOVE: {
+            auto *move = dynamic_cast<const quad::QuadMove*>(stm);
+            auto *src = materializeTerm(move->src, schedBlock, nextTempNum);
+            emitMove(schedBlock, move->dst->temp, src);
+            break;
+        }
+        case quad::QuadKind::LOAD: {
+            auto *load = dynamic_cast<const quad::QuadLoad*>(stm);
+            auto *addr = materializeTerm(load->src, schedBlock, nextTempNum);
+            schedBlock.addSelectedInstruction(AssemInstr::Oper("ldr `d0, [`s0]", {load->dst->temp}, {addr}, AssemTargets()));
+            break;
+        }
+        case quad::QuadKind::STORE: {
+            auto *store = dynamic_cast<const quad::QuadStore*>(stm);
+            auto *src = materializeTerm(store->src, schedBlock, nextTempNum);
+            auto *addr = materializeTerm(store->dst, schedBlock, nextTempNum);
+            schedBlock.addSelectedInstruction(AssemInstr::Oper("str `s0, [`s1]", {}, {src, addr}, AssemTargets()));
+            break;
+        }
+        case quad::QuadKind::MOVE_BINOP: {
+            auto *binop = dynamic_cast<const quad::QuadMoveBinop*>(stm);
+            auto *left = materializeTerm(binop->left, schedBlock, nextTempNum);
+            auto *right = materializeTerm(binop->right, schedBlock, nextTempNum);
+            std::string op = "add";
+            if (binop->binop == "-") {
+                op = "sub";
+            } else if (binop->binop == "*") {
+                op = "mul";
+            } else if (binop->binop == "/") {
+                op = "sdiv";
+            }
+            schedBlock.addSelectedInstruction(AssemInstr::Oper(op + " `d0, `s0, `s1", {binop->dst->temp}, {left, right}, AssemTargets()));
+            break;
+        }
+        case quad::QuadKind::PTR_CALC: {
+            auto *ptrCalc = dynamic_cast<const quad::QuadPtrCalc*>(stm);
+            auto *base = materializeTerm(ptrCalc->ptr, schedBlock, nextTempNum);
+            auto *offset = materializeTerm(ptrCalc->offset, schedBlock, nextTempNum);
+            auto *dst = termTemp(ptrCalc->dst);
+            schedBlock.addSelectedInstruction(AssemInstr::Oper("add `d0, `s0, `s1", {dst}, {base, offset}, AssemTargets()));
+            break;
+        }
+        case quad::QuadKind::CALL: {
+            selectCall(schedBlock, dynamic_cast<const quad::QuadCall*>(stm), nullptr, nextTempNum);
+            break;
+        }
+        case quad::QuadKind::MOVE_CALL: {
+            auto *moveCall = dynamic_cast<const quad::QuadMoveCall*>(stm);
+            selectCall(schedBlock, moveCall->call, moveCall->dst->temp, nextTempNum);
+            break;
+        }
+        case quad::QuadKind::EXTCALL: {
+            selectExtCall(schedBlock, dynamic_cast<const quad::QuadExtCall*>(stm), nullptr, nextTempNum);
+            break;
+        }
+        case quad::QuadKind::MOVE_EXTCALL: {
+            auto *moveExtCall = dynamic_cast<const quad::QuadMoveExtCall*>(stm);
+            selectExtCall(schedBlock, moveExtCall->extcall, moveExtCall->dst->temp, nextTempNum);
+            break;
+        }
+        default:
+            break;
+    }
+}
+
 // Main instruction selection for a block
 void selectInstructionsForBlock(
     const advDFGblock &blockGraph,
@@ -22,7 +241,13 @@ void selectInstructionsForBlock(
         return;
     }
 
-    //fill in necessary code 
+    for (auto *node : nodes) {
+        if (node == nullptr || node->quadStatement == nullptr ||
+            node->type == NodeType::ExitStatement) {
+            continue;
+        }
+        selectStatement(node->quadStatement, schedBlock, nextTempNum);
+    }
 
     return;
 }
