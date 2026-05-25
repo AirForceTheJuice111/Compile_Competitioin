@@ -5,7 +5,7 @@ push {r4-r10, fp, lr}
 sub sp, sp, #4
 add fp, sp, #36
 mov t100, r0
-ldr t10300, [t100, #0]
+ldr t10300, [t100]
 mov r0, t10300
 sub sp, fp, #36
 add sp, sp, #4
@@ -29,6 +29,8 @@ bl malloc
 mov t10500, r0
 movw t137, #4
 str t137, [t10500]
+mov t12400, t10400
+add t12500, t10400, #4
 mov t10600, t10400
 movw t138, #1
 str t138, [t10500, #4]

@@ -9,9 +9,9 @@ mov r0, t112
 bl malloc
 mov t10100, r0
 adr t113, C^max
-str t113, [t10800]
+str t113, [t10100]
 mov t10200, t10100
-ldr t10400, [t10200, #0]
+ldr t10400, [t10200]
 movw t114, #100
 movw t115, #200
 mov r0, t10200

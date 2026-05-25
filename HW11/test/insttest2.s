@@ -14,6 +14,7 @@ mov r0, t131
 bl malloc
 mov t10400, r0
 str t130, [t10400]
+mov t12100, t10300
 mov t10000, t10300
 movw t132, #1
 str t132, [t10400, #4]
@@ -40,7 +41,7 @@ pop {r4-r10, fp, lr}
 bx lr
 L103:
 sub t10102, t10101, #1
-ldr t10500, [t10000, #0]
+ldr t10500, [t10000]
 mov t11000, t10500
 ldr t10600, [t10500]
 movw t140, #0
