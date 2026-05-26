@@ -36,9 +36,9 @@ L106:
 mov t10104, t10101
 b L109
 L105:
+sub t10202, t10201, #1
 movw t115, #3
 mul t11000, t115, t10201
-sub t10202, t10201, #1
 add t10102, t11000, #2
 mov r0, t10102
 bl putint

@@ -17,7 +17,7 @@ add sp, sp, #4
 pop {r4-r10, fp, lr}
 bx lr
 L102:
-ldr t10400, [t100, #0]
+ldr t10400, [t100]
 mov r0, t10400
 sub sp, fp, #36
 add sp, sp, #4
@@ -40,6 +40,9 @@ bl malloc
 mov t10400, r0
 movw t150, #4
 str t150, [t10400]
+mov t12900, t10300
+add t13600, t10300, #4
+add t13700, t10300, #8
 mov t10600, t10300
 movw t151, #1
 str t151, [t10400, #4]
@@ -55,6 +58,7 @@ bl malloc
 mov t10500, r0
 movw t155, #5
 str t155, [t10500]
+add t13800, t10600, #8
 mov t11400, t10600
 str t155, [t10500, #4]
 movw t156, #6
