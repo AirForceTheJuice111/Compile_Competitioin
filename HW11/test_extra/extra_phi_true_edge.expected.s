@@ -1,17 +1,15 @@
 .global extra^phiTrueEdge
 extra^phiTrueEdge:
+L100:
 push {r4-r10, fp, lr}
 sub sp, sp, #4
 add fp, sp, #36
-L100:
-movw t103, #5
-mov t100, t103
-movw t105, #10
-cmp t100, t105
+mov t100, #5
+movw t103, #10
+cmp t100, t103
 blt L104
 L102:
-movw t104, #7
-mov t102, t104
+mov t102, #7
 mov t101, t102
 L101:
 mov r0, t101

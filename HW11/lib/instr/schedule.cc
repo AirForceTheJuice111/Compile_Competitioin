@@ -129,9 +129,9 @@ static void appendPhiCopies(
             continue;
         }
         for (const auto &arg : *phi->args) {
-            if (arg.first != nullptr && sameLabel(arg.second, fromLabel)) {
+            if (arg.first != nullptr && sameLabel(arg.second, fromLabel)) { // this arg has a copy from the block we're coming from, so we need to emit a move for it
                 func.addLinearizedInstruction(AssemInstr::Move(
-                    "mov `d0, `s0",
+                    "mov `d0, `s0", // this means "move the value from the source temporary to the destination temporary"
                     {phi->temp_exp->temp},
                     {arg.first}
                 ));
@@ -194,25 +194,6 @@ ScheduleProg *scheduleProg(preScheduleProg *preScheduleProgram) {
         auto *func = new ScheduleFunc(preFunc->quadFunc);
         out->addFunc(func);
 
-        func->addLinearizedInstruction(AssemInstr::Oper("push {r4-r10, fp, lr}", {}, {}, AssemTargets()));
-        func->addLinearizedInstruction(AssemInstr::Oper("sub sp, sp, #4", {}, {}, AssemTargets()));
-        func->addLinearizedInstruction(AssemInstr::Oper("add fp, sp, #36", {}, {}, AssemTargets()));
-
-        if (preFunc->quadFunc->params != nullptr) {
-            int reg = 0;
-            for (auto *param : *preFunc->quadFunc->params) {
-                if (param != nullptr && reg <= 3) {
-                    func->addLinearizedInstruction(AssemInstr::Oper(
-                        "mov `d0, r" + std::to_string(reg),
-                        {param},
-                        {},
-                        AssemTargets()
-                    ));
-                }
-                ++reg;
-            }
-        }
-
         std::unordered_map<int, preScheduleBlock*> labelToBlock;
         for (auto *block : preFunc->blockSchedules) {
             if (block != nullptr && block->entryLabel != nullptr) {
@@ -221,6 +202,7 @@ ScheduleProg *scheduleProg(preScheduleProg *preScheduleProgram) {
         }
 
         std::unordered_set<int> visited;
+        auto *entryBlock = preFunc->blockSchedules.empty() ? nullptr : preFunc->blockSchedules.front();
         std::function<void(preScheduleBlock*)> appendBlock = [&](preScheduleBlock *block) {
             if (block == nullptr || block->entryLabel == nullptr ||
                 visited.find(block->entryLabel->num) != visited.end()) {
@@ -229,7 +211,27 @@ ScheduleProg *scheduleProg(preScheduleProg *preScheduleProgram) {
 
             visited.insert(block->entryLabel->num);
             func->addLinearizedInstruction(AssemInstr::Label(block->entryLabel->str() + ":", block->entryLabel));
-            func->linearizedInstructions.extend(block->selectedInstructions);
+            if (block == entryBlock) {
+                func->addLinearizedInstruction(AssemInstr::Oper("push {r4-r10, fp, lr}", {}, {}, AssemTargets()));
+                func->addLinearizedInstruction(AssemInstr::Oper("sub sp, sp, #4", {}, {}, AssemTargets()));
+                func->addLinearizedInstruction(AssemInstr::Oper("add fp, sp, #36", {}, {}, AssemTargets()));
+
+                if (preFunc->quadFunc->params != nullptr) {
+                    int reg = 0;
+                    for (auto *param : *preFunc->quadFunc->params) {
+                        if (param != nullptr && reg <= 3) {
+                            func->addLinearizedInstruction(AssemInstr::Oper(
+                                "mov `d0, r" + std::to_string(reg),
+                                {param},
+                                {},
+                                AssemTargets()
+                            ));
+                        }
+                        ++reg;
+                    }
+                }
+            }
+            func->linearizedInstructions.extend(block->selectedInstructions); // because selectedInstructions is already in the correct order for this block, we can just extend it directly
 
             auto *last = block->lastInstruction;
             if (last == nullptr || isExitCallStmt(last)) {
@@ -265,7 +267,7 @@ ScheduleProg *scheduleProg(preScheduleProg *preScheduleProgram) {
                 auto *trueBlock = cjump->t == nullptr ? nullptr : labelToBlock[cjump->t->num];
                 bool trueNeedsPhi = hasPhiCopies(trueBlock, block->entryLabel);
 
-                if (trueNeedsPhi) {
+                if (trueNeedsPhi) { // if the true block needs phi copies, we need to emit the branch to the false block first, so that the phi copies for the false block can jump to the edge label we emit later
                     auto *edgeLabel = new tree::Label(++const_cast<quad::QuadFuncDecl*>(preFunc->quadFunc)->last_label_num);
                     func->addLinearizedInstruction(AssemInstr::Oper(
                         branchMnemonic(cjump->relop) + " `j0",
@@ -279,7 +281,7 @@ ScheduleProg *scheduleProg(preScheduleProg *preScheduleProgram) {
                     } else if (cjump->f != nullptr) {
                         func->addLinearizedInstruction(AssemInstr::Oper("b `j0", {}, {}, AssemTargets({cjump->f})));
                     }
-                    func->addLinearizedInstruction(AssemInstr::Label(edgeLabel->str() + ":", edgeLabel));
+                    func->addLinearizedInstruction(AssemInstr::Label(edgeLabel->str() + ":", edgeLabel)); // emit the edge label right before the true block, so that the phi copies for the true block can jump to it
                     appendPhiCopies(*func, trueBlock, block->entryLabel);
                     if (trueBlock != nullptr && visited.find(trueBlock->entryLabel->num) == visited.end()) {
                         appendBlock(trueBlock);
