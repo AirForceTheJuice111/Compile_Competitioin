@@ -402,6 +402,67 @@ static bool selectFoldedMemoryAccess(
     return false;
 }
 
+static bool useSetContainsTemp(const quad::QuadStm *stm, const tree::Temp *temp) {
+    if (stm == nullptr || temp == nullptr || stm->use == nullptr) {
+        return false;
+    }
+    for (auto *used : *stm->use) {
+        if (sameTemp(used, temp)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool memoryAddressUsesTemp(const quad::QuadStm *stm, const tree::Temp *temp) {
+    if (stm == nullptr || temp == nullptr) {
+        return false;
+    }
+    if (stm->kind == quad::QuadKind::LOAD) {
+        auto *load = dynamic_cast<const quad::QuadLoad*>(stm);
+        tree::Temp *addr = nullptr;
+        return load != nullptr && isTempTerm(load->src, &addr) && sameTemp(addr, temp);
+    }
+    if (stm->kind == quad::QuadKind::STORE) {
+        auto *store = dynamic_cast<const quad::QuadStore*>(stm);
+        tree::Temp *addr = nullptr;
+        return store != nullptr && isTempTerm(store->dst, &addr) && sameTemp(addr, temp);
+    }
+    return false;
+}
+
+static bool shouldDeferIndexedPtrCalc(
+    const quad::QuadPtrCalc *ptrCalc,
+    const std::vector<quad::QuadStm*> &quadList,
+    size_t index
+) {
+    if (ptrCalc == nullptr || ptrCalc->offset == nullptr ||
+        ptrCalc->offset->kind != quad::QuadTermKind::TEMP) {
+        return false;
+    }
+
+    auto *dst = termTemp(ptrCalc->dst);
+    if (dst == nullptr) {
+        return false;
+    }
+
+    int useCount = 0;
+    bool onlyUseIsMemoryAddress = false;
+    for (size_t i = index + 1; i < quadList.size(); ++i) {
+        auto *stm = quadList[i];
+        if (!useSetContainsTemp(stm, dst)) {
+            continue;
+        }
+        ++useCount;
+        onlyUseIsMemoryAddress = memoryAddressUsesTemp(stm, dst);
+        if (useCount > 1 || !onlyUseIsMemoryAddress) {
+            return false;
+        }
+    }
+
+    return useCount == 1 && onlyUseIsMemoryAddress;
+}
+
 static bool isScheduledBySchedulePass(const quad::QuadStm *stm) {
     if (stm == nullptr) {
         return false;
@@ -428,6 +489,7 @@ void selectInstructionsForBlock(
 
     if (blockGraph.quadBlock != nullptr && blockGraph.quadBlock->quadlist != nullptr) {
         const auto &quadList = *blockGraph.quadBlock->quadlist;
+        std::unordered_map<int, const quad::QuadPtrCalc*> deferredIndexedPtrCalc;
         for (size_t i = 0; i < quadList.size(); ++i) {
             auto *stm = quadList[i];
             if (stm == nullptr || stm->kind == quad::QuadKind::LABEL ||
@@ -441,6 +503,35 @@ void selectInstructionsForBlock(
                 if (selectFoldedMemoryAccess(ptrCalc, quadList[i + 1], schedBlock, nextTempNum)) {
                     ++i;
                     continue;
+                }
+                auto *dst = ptrCalc == nullptr ? nullptr : termTemp(ptrCalc->dst);
+                if (dst != nullptr && shouldDeferIndexedPtrCalc(ptrCalc, quadList, i)) {
+                    deferredIndexedPtrCalc[dst->num] = ptrCalc;
+                    continue;
+                }
+            }
+
+            if (stm->kind == quad::QuadKind::LOAD || stm->kind == quad::QuadKind::STORE) {
+                tree::Temp *addr = nullptr;
+                if (stm->kind == quad::QuadKind::LOAD) {
+                    auto *load = dynamic_cast<const quad::QuadLoad*>(stm);
+                    if (load != nullptr) {
+                        isTempTerm(load->src, &addr);
+                    }
+                } else {
+                    auto *store = dynamic_cast<const quad::QuadStore*>(stm);
+                    if (store != nullptr) {
+                        isTempTerm(store->dst, &addr);
+                    }
+                }
+
+                if (addr != nullptr) {
+                    auto found = deferredIndexedPtrCalc.find(addr->num);
+                    if (found != deferredIndexedPtrCalc.end() &&
+                        selectFoldedMemoryAccess(found->second, stm, schedBlock, nextTempNum)) {
+                        deferredIndexedPtrCalc.erase(found);
+                        continue;
+                    }
                 }
             }
 
