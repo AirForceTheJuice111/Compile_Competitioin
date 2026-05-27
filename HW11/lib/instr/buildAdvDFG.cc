@@ -91,7 +91,7 @@ advDFGprog *buildAdvDFGprog(const quad::QuadProgram *program) {
                 node->tempDefined = firstDefTemp(stm);
                 node->tempsUsed = usedTemps(stm);
 
-                if (touchesMemoryOrCall(stm)) {
+                if (touchesMemoryOrCall(stm)) { // new position in CFG chain
                     node->chainDefined = nextChain++;
                     if (lastChainDef != nullptr) {
                         node->chainUsed = lastChainDef->chainDefined;
@@ -109,11 +109,11 @@ advDFGprog *buildAdvDFGprog(const quad::QuadProgram *program) {
                     }
                 }
 
-                if (node->tempsUsed.empty() && node->chainUsed < 0) {
+                if (node->tempsUsed.empty() && node->chainUsed < 0) { // chainUsed < 0 means no chain dependency, so just connect to previous node in block
                     blockGraph->graph.addEdge(previousNode, node);
                 }
 
-                if (node->tempDefined >= 0) {
+                if (node->tempDefined >= 0) { // tempDefined >= 0 means this node defines a temporary, so update lastTempDef
                     lastTempDef[node->tempDefined] = node;
                 }
 

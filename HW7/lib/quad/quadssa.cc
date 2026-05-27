@@ -372,7 +372,7 @@ static void rebuildDefUseSets(QuadFuncDecl* func) {
 // Recursive dominator-tree walk for renaming
 static void renameBlock(int blockLabel, ControlFlowInfo* domInfo,
                         set<int>& paramSet, set<int>& vars,
-                        map<int, int>& count, map<int, stack<int>>& stacks) {
+                        map<int, int>& count, map<int, stack<int>>& stacks) { // count: global re-def count for a temp, never decreases. stacks: the version that should be used in "use" now
     auto* block = domInfo->labelToBlock[blockLabel];
     map<int, int> pushCnt; // Track pushes per variable for rollback
 
@@ -458,7 +458,7 @@ static void cleanupUnusedPhi(QuadFuncDecl* func) {
                     auto* phi = static_cast<QuadPhi*>(stm);
                     int defNum = phi->temp_exp->temp->num;
                     if (stm->use) for (auto* t : *(stm->use))
-                        if (t->num != defNum) usedTemps.insert(t->num);
+                        if (t->num != defNum) usedTemps.insert(t->num); // if not using the var it defined
                 } else {
                     if (stm->use) for (auto* t : *(stm->use)) usedTemps.insert(t->num);
                 }

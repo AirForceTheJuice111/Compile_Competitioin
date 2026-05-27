@@ -457,14 +457,13 @@ void Opt::modifyFunc() {
                     // Remove phi if result is a known constant (substituted at use sites).
                     if (phi_val.getType() == ValueType::ONE_VALUE) break;
 
-                    // Filter inputs by edge executability; track if any removal was a CJUMP fold.
+                    // Apply fresh-temp substitution for constant inputs.
                     auto *new_args = new vector<pair<Temp*, Label*>>();
                     if (phi->args) {
                         for (auto &arg : *phi->args) {
                             int pred = arg.second->num;
                             if (!isEdgeExecutable(this, pred, curr)) continue;
                             
-                            // Apply fresh-temp substitution for constant inputs.
                             auto key = make_pair(arg.first->num, pred);
                             int src = phi_substitute.count(key) ? phi_substitute.at(key) : arg.first->num;
                             new_args->push_back({new Temp(src), new Label(pred)});
