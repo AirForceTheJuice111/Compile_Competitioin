@@ -785,20 +785,6 @@ static void verifySSA(QuadFuncDecl* func, ControlFlowInfo* cfi) {
 
 ---
 
-## 更新后的概率排序
-
-| 题目 | 基础HW | 概率 | 风格匹配度 |
-|------|--------|------|-----------|
-| 整数溢出动态检测 | HW8 | ★★★★★ | 完全类比 Quiz 2，动态插桩 |
-| Null Pointer 动态检测 | HW7/HW8 | ★★★★☆ | 完全类比 Quiz 2，动态插桩 |
-| 代数化简 | HW8 | ★★★★☆ | 优化pass，case多 |
-| SSA 正确性验证 | HW7 | ★★★☆☆ | 类比 Quiz 1，静态检查 |
-| Copy Propagation | HW7/HW8 | ★★★☆☆ | 经典优化，未被HW覆盖 |
-| GVN/CSE | HW7/HW8 | ★★★☆☆ | 经典优化，难度稍高 |
-| General DCE | HW7 | ★★☆☆☆ | HW8已部分实现 |
-
-
-
   Global CSE（跨块公共子表达式消除）
 
   这是你点名要的，也确实是高概率题。
@@ -968,6 +954,252 @@ static void verifySSA(QuadFuncDecl* func, ControlFlowInfo* cfi) {
           }
       }
   }
+
+  跨块版本（更完整，适合题目明确要求跨 basic block）：
+
+  核心思想：
+  - 给每个基本块维护入口/出口的"最近一次确定 STORE"信息。
+  - `in_store[label]` 表示进入块 `label` 时，哪些地址 temp 已知最近被写入了什么值。
+  - `out_store[label]` 表示执行完块 `label` 后，这些地址 temp 的已知写入值。
+  - 多个前驱汇合时，只保留所有前驱都存在、且写入值完全相同的地址；否则该地址退化为未知。
+  - 遇到任意可能改内存的语句（未知地址 STORE、CALL、EXTCALL、MOVE_CALL、MOVE_EXTCALL）就清空或 kill 对应信息。
+
+  数据结构：
+```cpp
+  using StoreState = map<int, QuadTerm*>; // addr_temp_num -> stored_value
+
+  static int termTempNum(QuadTerm *term) {
+      if (term == nullptr || term->kind != QuadTermKind::TEMP) return -1;
+      return term->get_temp()->temp->num;
+  }
+
+  static bool sameTerm(QuadTerm *a, QuadTerm *b) {
+      if (a == nullptr || b == nullptr) return a == b;
+      return a->print() == b->print();
+  }
+
+  static StoreState cloneStoreState(const StoreState &src) {
+      StoreState dst;
+      for (auto &[addr, val] : src) dst[addr] = val->clone();
+      return dst;
+  }
+
+  static bool sameStoreState(const StoreState &a, const StoreState &b) {
+      if (a.size() != b.size()) return false;
+      for (auto &[addr, av] : a) {
+          auto it = b.find(addr);
+          if (it == b.end()) return false;
+          if (!sameTerm(av, it->second)) return false;
+      }
+      return true;
+  }
+```
+
+  构造前驱表：
+```cpp
+  map<int, QuadBlock*> label2block;
+  map<int, vector<int>> preds;
+
+  for (auto *block : *func->quadblocklist) {
+      int label = block->entry_label->num;
+      label2block[label] = block;
+  }
+
+  for (auto *block : *func->quadblocklist) {
+      int from = block->entry_label->num;
+      if (!block->exit_labels) continue;
+      for (auto *lab : *block->exit_labels) {
+          if (lab && label2block.count(lab->num))
+              preds[lab->num].push_back(from);
+      }
+  }
+```
+
+  meet 函数：只保留所有前驱都同意的 store 信息。
+```cpp
+  static StoreState meetStoreStates(const vector<int> &preds,
+                                    const map<int, StoreState> &out_store) {
+      StoreState result;
+      bool first = true;
+
+      for (int pred : preds) {
+          auto it = out_store.find(pred);
+          if (it == out_store.end()) return StoreState();
+
+          if (first) {
+              result = cloneStoreState(it->second);
+              first = false;
+              continue;
+          }
+
+          for (auto rit = result.begin(); rit != result.end(); ) {
+              auto jt = it->second.find(rit->first);
+              if (jt == it->second.end() || !sameTerm(rit->second, jt->second))
+                  rit = result.erase(rit);
+              else
+                  ++rit;
+          }
+      }
+
+      return result;
+  }
+```
+
+  transfer 函数：模拟执行一个 block，计算出口状态。
+```cpp
+  auto transferBlock = [&](QuadBlock *block, const StoreState &input) {
+      StoreState state = cloneStoreState(input);
+
+      for (auto *stm : *block->quadlist) {
+          if (stm->kind == QuadKind::STORE) {
+              auto *s = static_cast<QuadStore*>(stm);
+              int addr = termTempNum(s->dst);
+
+              if (addr >= 0) {
+                  // 写同一地址后，后续 LOAD 可转发这个值。
+                  state[addr] = s->src->clone();
+              } else {
+                  // STORE 到未知地址，可能改任意内存，保守清空。
+                  state.clear();
+              }
+          } else if (stm->kind == QuadKind::CALL || stm->kind == QuadKind::EXTCALL ||
+                     stm->kind == QuadKind::MOVE_CALL || stm->kind == QuadKind::MOVE_EXTCALL) {
+              // 调用可能修改任意内存，保守清空。
+              state.clear();
+          }
+      }
+
+      return state;
+  };
+```
+
+  不动点求解：
+```cpp
+  map<int, StoreState> in_store;
+  map<int, StoreState> out_store;
+
+  if (!func->quadblocklist->empty()) {
+      int entry = func->quadblocklist->front()->entry_label->num;
+
+      for (auto *block : *func->quadblocklist) {
+          int label = block->entry_label->num;
+          in_store[label] = StoreState();
+          out_store[label] = StoreState();
+      }
+
+      bool changed = true;
+      while (changed) {
+          changed = false;
+
+          for (auto *block : *func->quadblocklist) {
+              int label = block->entry_label->num;
+
+              StoreState new_in;
+              if (label == entry)
+                  new_in = StoreState();
+              else
+                  new_in = meetStoreStates(preds[label], out_store);
+
+              StoreState new_out = transferBlock(block, new_in);
+
+              if (!sameStoreState(in_store[label], new_in)) {
+                  in_store[label] = cloneStoreState(new_in);
+                  changed = true;
+              }
+              if (!sameStoreState(out_store[label], new_out)) {
+                  out_store[label] = cloneStoreState(new_out);
+                  changed = true;
+              }
+          }
+      }
+  }
+```
+
+  根据 `in_store` 真正重写每个 block：
+```cpp
+  for (auto *block : *func->quadblocklist) {
+      int label = block->entry_label->num;
+      StoreState store_map = cloneStoreState(in_store[label]);
+      auto *new_list = new vector<QuadStm*>();
+
+      for (auto *stm : *block->quadlist) {
+          if (stm->kind == QuadKind::STORE) {
+              auto *s = static_cast<QuadStore*>(stm);
+              int addr = termTempNum(s->dst);
+              if (addr >= 0)
+                  store_map[addr] = s->src->clone();
+              else
+                  store_map.clear();
+
+              new_list->push_back(static_cast<QuadStm*>(stm->clone()));
+              continue;
+          }
+
+          if (stm->kind == QuadKind::LOAD) {
+              auto *s = static_cast<QuadLoad*>(stm);
+              int addr = termTempNum(s->src);
+              if (addr >= 0 && store_map.count(addr)) {
+                  auto *def = new set<Temp*>();
+                  def->insert(new Temp(s->dst->temp->num));
+
+                  auto *use = new set<Temp*>();
+                  if (store_map[addr]->kind == QuadTermKind::TEMP)
+                      use->insert(new Temp(store_map[addr]->get_temp()->temp->num));
+
+                  new_list->push_back(new QuadMove(
+                      s->dst->clone(),
+                      store_map[addr]->clone(),
+                      def,
+                      use
+                  ));
+                  continue;
+              }
+          }
+
+          if (stm->kind == QuadKind::CALL || stm->kind == QuadKind::EXTCALL ||
+              stm->kind == QuadKind::MOVE_CALL || stm->kind == QuadKind::MOVE_EXTCALL) {
+              store_map.clear();
+              new_list->push_back(static_cast<QuadStm*>(stm->clone()));
+              continue;
+          }
+
+          new_list->push_back(static_cast<QuadStm*>(stm->clone()));
+      }
+
+      block->quadlist = new_list;
+  }
+```
+
+  这个跨块版本能优化：
+```text
+  L1:
+    STORE Const:7 -> Mem(t100)
+    JUMP L2
+
+  L2:
+    LOAD t101 <- Mem(t100)
+```
+
+  因为 `out_store[L1]` 里有 `t100 -> Const:7`，所以 `in_store[L2]` 也有这个信息，`LOAD` 可以改成：
+```text
+  MOVE t101 <- Const:7
+```
+
+  分支汇合时必须保守：
+```text
+  L2: STORE Const:7 -> Mem(t100); JUMP L4
+  L3: STORE Const:8 -> Mem(t100); JUMP L4
+  L4: LOAD t101 <- Mem(t100)
+```
+
+  `L4` 的两个前驱给同一地址不同值，meet 后删除 `t100` 的 store 信息，所以 `LOAD` 保留。若两个前驱都写 `Const:7`，则可以转发。
+
+  报告要点：
+  - 跨块转发不是简单看文本顺序，而是 dataflow：`in = meet(pred.out)`，`out = transfer(in)`。
+  - 多前驱汇合时，只有所有前驱同地址同值才保留。
+  - 任意 CALL/EXTCALL/MOVE_CALL/MOVE_EXTCALL 必须 kill，因为可能修改内存。
+  - 未知地址 STORE 必须 kill，因为可能写到任意已知地址。
+  - 这个版本仍然不做别名分析：只在地址 temp 编号完全相等时转发，地址不同但实际别名的情况保守不处理。
 
   预测 D（中高概率）：SSA 上的类型一致性检查
 
