@@ -325,7 +325,7 @@ cd HW8 && make run-one FILE=opttest7
 - 只处理 `PTR_CALC addr <- obj + Const:offset`，offset 必须是常量。
 - 只处理 `STORE value -> Mem(addr)` 和 `LOAD dst <- Mem(addr)`，其中 `addr` 必须能反查到 `(obj, offset)`。
 - 如果 `obj` 或字段地址 `addr` 出现在 `CALL` 参数、`EXTCALL` 参数、`RETURN`、普通 `STORE` 的 src、非字段用途里，认为逃逸，不优化。
-- 如果同一字段在不同控制流路径上有不同值，不做跨块合并；现场版可以只在单个 block 内做，或者只对没有分支的函数做。
+- 跨基本块传播字段值：如果某字段在所有可达前驱出口都有同一个值，则后继入口可继续使用该值；如果前驱值不同、某前驱没有该字段值、或存在循环导致不确定，则该字段值在交汇点退化为未知，保留原 `LOAD`。
 
 建议现场实现顺序：
 
@@ -475,11 +475,179 @@ for (auto *block : *func->quadblocklist) {
 }
 ```
 
-第三阶段重写。最稳妥的现场版本建议只做“块内顺序替换”，不跨基本块传播字段值：
+第三阶段做跨块字段值传播和重写。核心是给每个基本块维护两个状态：
+
+- `in_state[label]`：进入该块时，每个对象字段 `(obj, offset)` 当前可用的值。
+- `out_state[label]`：执行完该块后，每个对象字段当前可用的值。
+
+状态类型可以直接用 `map<pair<int,int>, QuadTerm*>`。交汇规则必须保守：
+
+- 入口块 `in_state` 为空。
+- 非入口块的 `in_state` 是所有前驱 `out_state` 的交集。
+- 只有当所有前驱都记录了同一字段、且字段值完全相同，才保留这个字段值。
+- 只要某个前驱没有这个字段，或者不同前驱给出的值不同，就删除该字段，表示未知。
+
+先加几个 helper：
+
+```cpp
+using FieldKey = pair<int,int>; // (object temp, field offset)
+using FieldState = map<FieldKey, QuadTerm*>;
+
+static string termKey(QuadTerm *term) {
+    if (term == nullptr) return "<null>";
+    return term->print();
+}
+
+static bool sameTerm(QuadTerm *a, QuadTerm *b) {
+    return termKey(a) == termKey(b);
+}
+
+static bool sameState(const FieldState &a, const FieldState &b) {
+    if (a.size() != b.size()) return false;
+    for (auto &[k, av] : a) {
+        auto it = b.find(k);
+        if (it == b.end()) return false;
+        if (!sameTerm(av, it->second)) return false;
+    }
+    return true;
+}
+
+static FieldState cloneState(const FieldState &src) {
+    FieldState dst;
+    for (auto &[k, v] : src) dst[k] = v->clone();
+    return dst;
+}
+
+static FieldState meetPredStates(const vector<int> &preds,
+                                 const map<int, FieldState> &out_state,
+                                 int entry_label) {
+    FieldState result;
+    bool first = true;
+    for (int pred : preds) {
+        auto it = out_state.find(pred);
+        if (it == out_state.end()) return FieldState(); // 前驱还没有信息，保守未知
+
+        if (first) {
+            result = cloneState(it->second);
+            first = false;
+            continue;
+        }
+
+        for (auto rit = result.begin(); rit != result.end(); ) {
+            auto jt = it->second.find(rit->first);
+            if (jt == it->second.end() || !sameTerm(rit->second, jt->second))
+                rit = result.erase(rit);
+            else
+                ++rit;
+        }
+    }
+    return result;
+}
+```
+
+再准备 CFG 的前驱表。HW8 的 `QuadBlock` 里有 `exit_labels`，足够现场使用：
+
+```cpp
+map<int, QuadBlock*> label2block_local;
+map<int, vector<int>> preds;
+
+for (auto *block : *func->quadblocklist) {
+    int label = block->entry_label->num;
+    label2block_local[label] = block;
+}
+
+for (auto *block : *func->quadblocklist) {
+    int from = block->entry_label->num;
+    if (!block->exit_labels) continue;
+    for (auto *lab : *block->exit_labels) {
+        if (lab && label2block_local.count(lab->num))
+            preds[lab->num].push_back(from);
+    }
+}
+```
+
+定义一个“模拟执行 block 更新字段状态”的函数。它不改语句，只计算该块出口的字段值：
+
+```cpp
+auto transferBlock = [&](QuadBlock *block, const FieldState &input) {
+    FieldState state = cloneState(input);
+
+    for (auto *stm : *block->quadlist) {
+        if (stm->kind == QuadKind::STORE) {
+            auto *s = static_cast<QuadStore*>(stm);
+            int addr = termTempNum(s->dst);
+            if (addr_to_field.count(addr)) {
+                FieldKey key = addr_to_field[addr];
+                if (!escaped.count(key.first)) {
+                    state[key] = s->src->clone();
+                    continue;
+                }
+            }
+
+            // 任何不能理解的内存写都可能改对象字段，保守清空。
+            int dst = termTempNum(s->dst);
+            if (!addr_to_field.count(dst))
+                state.clear();
+        } else if (stm->kind == QuadKind::CALL || stm->kind == QuadKind::MOVE_CALL ||
+                   stm->kind == QuadKind::EXTCALL || stm->kind == QuadKind::MOVE_EXTCALL) {
+            // 如果逃逸分析足够强，这里可以不清空；现场保守清空，避免调用修改内存。
+            state.clear();
+        }
+    }
+
+    return state;
+};
+```
+
+然后做不动点迭代。注意这只是函数内跨块，不跨函数：
+
+```cpp
+map<int, FieldState> in_state;
+map<int, FieldState> out_state;
+
+if (!func->quadblocklist->empty()) {
+    int entry = func->quadblocklist->front()->entry_label->num;
+    for (auto *block : *func->quadblocklist) {
+        int label = block->entry_label->num;
+        in_state[label] = FieldState();
+        out_state[label] = FieldState();
+    }
+
+    bool changed = true;
+    while (changed) {
+        changed = false;
+
+        for (auto *block : *func->quadblocklist) {
+            int label = block->entry_label->num;
+
+            FieldState new_in;
+            if (label == entry) {
+                new_in = FieldState();
+            } else {
+                new_in = meetPredStates(preds[label], out_state, entry);
+            }
+
+            FieldState new_out = transferBlock(block, new_in);
+
+            if (!sameState(in_state[label], new_in)) {
+                in_state[label] = cloneState(new_in);
+                changed = true;
+            }
+            if (!sameState(out_state[label], new_out)) {
+                out_state[label] = cloneState(new_out);
+                changed = true;
+            }
+        }
+    }
+}
+```
+
+最后按 `in_state` 重写每个块。这里才真正删除 `STORE`、把 `LOAD` 改成 `MOVE`：
 
 ```cpp
 for (auto *block : *func->quadblocklist) {
-    map<pair<int,int>, QuadTerm*> field_value;
+    int label = block->entry_label->num;
+    FieldState field_value = cloneState(in_state[label]);
     auto *new_list = new vector<QuadStm*>();
 
     for (auto *stm : *block->quadlist) {
@@ -512,11 +680,43 @@ for (auto *block : *func->quadblocklist) {
             }
         }
 
+        if (stm->kind == QuadKind::CALL || stm->kind == QuadKind::MOVE_CALL ||
+            stm->kind == QuadKind::EXTCALL || stm->kind == QuadKind::MOVE_EXTCALL) {
+            field_value.clear();
+            new_list->push_back(static_cast<QuadStm*>(stm->clone()));
+            continue;
+        }
+
         new_list->push_back(static_cast<QuadStm*>(stm->clone()));
     }
     block->quadlist = new_list;
 }
 ```
+
+这个跨块版本能处理常见情况：
+
+```text
+L1:
+  obj = malloc(...)
+  addr = obj + 0
+  STORE 7 -> Mem(addr)
+  JUMP L2
+L2:
+  LOAD t <- Mem(addr)
+```
+
+`L2` 的 `in_state` 会从 `L1` 的 `out_state` 得到 `(obj,0)=Const:7`，所以 `LOAD` 可以改成 `MOVE t <- Const:7`。
+
+也能保守处理分支：
+
+```text
+L1 -> L2, L3
+L2: STORE 7 -> field; JUMP L4
+L3: STORE 8 -> field; JUMP L4
+L4: LOAD t <- field
+```
+
+`L4` 两个前驱给出的字段值不同，meet 后删除该字段，`LOAD` 保留不改。如果两个前驱都 STORE 7，则可改成 `MOVE t <- Const:7`。
 
 如果题目要求把对象“完全不存内存”，还可以删除：
 
@@ -531,7 +731,8 @@ for (auto *block : *func->quadblocklist) {
 - 对象传参、返回、存入内存、地址不确定、字段地址外传时都放弃优化。
 - 字段 offset 必须是常量。
 - CALL 可能保存对象指针或修改对象字段，因此一律视为逃逸。
-- 保守版只做块内替换，不跨分支合并字段值；如果跨块，需要给字段值建立 dataflow/phi，90 分钟不推荐。
+- 跨块版本使用 dataflow meet：所有前驱同值才传播，不同值或缺失值则保守未知。
+- 循环中如果字段值不断变化，迭代会在 meet 后退化为未知；不要试图现场给字段值造 PHI，除非题目明确要求。
 
 ### 预测 2：HW8 加除零检查
 
@@ -1079,3 +1280,441 @@ case QuadKind::PHI: {
 - 只处理 temp-to-temp MOVE，不处理 LOAD/CALL/PTR。
 - PHI 参数也属于 use，必须替换。
 - 用 `seen` 防止 alias 链成环。
+
+
+
+
+• 这题本质上是：对象的某个字段，如果我们能一直知道它当前等于什么，就不必真的从内存里读写它。
+
+  比如原来 IR 是：
+
+  t1 = malloc(...)
+  t2 = t1 + 0
+  STORE 7 -> Mem(t2)
+  ...
+  LOAD t3 <- Mem(t2)
+
+  如果 t1 这个对象没有被传出去、没有返回、没有被存到别的内存里，那中间没人能偷偷改它的字段。所以我们可以认为：
+
+  (obj=t1, offset=0) 当前值是 Const:7
+
+  后面的 LOAD t3 <- Mem(t2) 就能改成：
+
+  MOVE t3 <- Const:7
+
+  ———
+
+  几个名字的含义
+
+  object_temps
+
+  表示哪些 temp 是对象本体，也就是 malloc 的返回值。
+
+  例如：
+
+  MOVE_EXTCALL t10300:ptr <- malloc(Const:12)
+
+  那么 t10300 就放进 object_temps。
+
+  ———
+
+  addr_to_field
+
+  表示某个地址 temp 对应对象的哪个字段。
+
+  例如：
+
+  PTR_CALC t11100:ptr <- t10300:ptr + Const:8
+
+  意思是 t11100 是 t10300 这个对象偏移量为 8 的字段地址。
+
+  所以记录：
+
+  addr_to_field[t11100] = (t10300, 8)
+
+  后面看到：
+
+  STORE Const:5 -> Mem(t11100)
+
+  就知道这是在写：
+
+  对象 t10300 的 offset=8 字段
+
+  ———
+
+  FieldKey
+
+  就是字段的唯一名字：
+
+  using FieldKey = pair<int,int>;
+
+  第一个 int 是对象 temp 编号，第二个 int 是字段偏移量。
+
+  例如：
+
+  (t10300, 8)
+
+  表示：
+
+  对象 t10300 的 offset 8 字段
+
+  ———
+
+  FieldState
+
+  表示“当前已经知道哪些字段的值”。
+
+  using FieldState = map<FieldKey, QuadTerm*>;
+
+  例如：
+
+  {
+    (t10300, 0) -> Const:1,
+    (t10300, 4) -> Const:10
+  }
+
+  意思是当前程序点上，我们知道：
+
+  对象 t10300 的 offset 0 字段是 1
+  对象 t10300 的 offset 4 字段是 10
+
+  ———
+
+  escaped
+
+  表示“对象逃逸了”。
+
+  对象逃逸就是：对象指针跑到当前函数控制不了的地方去了。比如：
+
+  CALL f(obj)
+  RETURN obj
+  STORE obj -> Mem(x)
+
+  一旦对象逃逸，我们就不能保证没人改它的字段，所以不优化它。
+
+  所以：
+
+  if (escaped.count(obj)) {
+      不删 STORE，不改 LOAD
+  }
+
+  ———
+
+  为什么要有 in_state 和 out_state
+
+  因为你要求改成跨块版本，所以不能只在一个 basic block 里看。
+
+  我们要知道：
+
+  - 进入某个 block 时，字段值是什么；
+  - 执行完某个 block 后，字段值变成什么。
+
+  所以：
+
+  in_state[label]
+
+  表示进入 label 这个 block 时，已知字段值。
+
+  out_state[label]
+
+  表示执行完 label 这个 block 后，已知字段值。
+
+  例子：
+
+  L1:
+    STORE 7 -> obj.field
+    JUMP L2
+
+  L2:
+    LOAD t <- obj.field
+
+  那么：
+
+  out_state[L1] = { obj.field -> 7 }
+  in_state[L2] = { obj.field -> 7 }
+
+  所以 L2 里的 LOAD 可以改成 MOVE。
+
+  ———
+
+  meet 是什么
+
+  meet 就是多个前驱 block 汇合时，决定后继入口还能知道什么。
+
+  例子 1：
+
+  L2:
+    STORE 7 -> obj.field
+    JUMP L4
+
+  L3:
+    STORE 7 -> obj.field
+    JUMP L4
+
+  L4:
+    LOAD t <- obj.field
+
+  L4 有两个前驱 L2 和 L3。
+
+  两个前驱都说：
+
+  obj.field = 7
+
+  所以：
+
+  in_state[L4] = { obj.field -> 7 }
+
+  LOAD 可以改。
+
+  例子 2：
+
+  L2:
+    STORE 7 -> obj.field
+    JUMP L4
+
+  L3:
+    STORE 8 -> obj.field
+    JUMP L4
+
+  L4:
+    LOAD t <- obj.field
+
+  两个前驱给的值不同：
+
+  L2: obj.field = 7
+  L3: obj.field = 8
+
+  那 L4 入口到底是多少取决于运行走哪条路，不能确定。
+
+  所以 meet 后删掉这个字段：
+
+  in_state[L4] = {}
+
+  LOAD 保留。
+
+  例子 3：
+
+  L2:
+    STORE 7 -> obj.field
+    JUMP L4
+
+  L3:
+    JUMP L4
+
+  L4:
+    LOAD t <- obj.field
+
+  L3 没写过这个字段。也不能确定。
+
+  所以：
+
+  in_state[L4] = {}
+
+  LOAD 保留。
+
+  总结：所有前驱都有同一个字段值，才传播；否则未知。
+
+  ———
+
+  transferBlock 是什么
+
+  transferBlock 是“模拟执行一个 block”。
+
+  它输入这个 block 入口的 FieldState，输出执行完整个 block 后的 FieldState。
+
+  比如输入：
+
+  state = {}
+
+  block 里有：
+
+  STORE 7 -> obj.field
+  STORE 9 -> obj.field2
+
+  执行后：
+
+  state = {
+    obj.field -> 7,
+    obj.field2 -> 9
+  }
+
+  如果看到：
+
+  LOAD t <- obj.field
+
+  它不改变字段状态。
+
+  如果看到未知内存写：
+
+  STORE x -> Mem(unknown_addr)
+
+  保守起见，可能会清空状态：
+
+  state = {}
+
+  因为这个 unknown address 可能刚好指向我们追踪的对象字段。
+
+  如果看到函数调用：
+
+  CALL f(...)
+
+  也保守清空，因为函数可能改内存。
+
+  ———
+
+  整体流程
+
+  实现分四步。
+
+  第一步：找对象。
+
+  MOVE_EXTCALL t <- malloc(...)
+
+  把 t 记为一个对象。
+
+  第二步：找字段地址。
+
+  PTR_CALC addr <- obj + Const:offset
+
+  记录：
+
+  addr_to_field[addr] = (obj, offset)
+
+  第三步：逃逸分析。
+
+  如果对象或字段地址被传出去，就标记逃逸：
+
+  CALL f(obj)
+  RETURN obj
+  STORE obj -> Mem(x)
+  CALL f(field_addr)
+
+  逃逸对象不优化。
+
+  第四步：跨块字段值分析。
+
+  反复计算：
+
+  in_state[block] = meet(所有前驱的 out_state)
+  out_state[block] = transferBlock(block, in_state[block])
+
+  直到不再变化。
+
+  第五步：真正改代码。
+
+  进入每个 block 时，用算好的：
+
+  field_value = in_state[block]
+
+  然后顺序扫描语句。
+
+  看到：
+
+  STORE value -> Mem(field_addr)
+
+  如果这个字段属于不逃逸对象：
+
+  field_value[(obj, offset)] = value
+  删除这个 STORE
+
+  看到：
+
+  LOAD dst <- Mem(field_addr)
+
+  如果当前 field_value 里有这个字段值：
+
+  MOVE dst <- value
+
+  否则保留 LOAD。
+
+  ———
+
+  为什么不直接删 malloc 和 PTR_CALC
+
+  因为这更危险。
+
+  对象布局里可能有：
+
+  - vtable 指针；
+  - 数组长度；
+  - 方法调用需要对象地址；
+  - 其他没有识别出来的内存行为。
+
+  所以我建议现场保守做：
+
+  删 STORE
+  LOAD 改 MOVE
+  保留 malloc
+  保留 PTR_CALC
+
+  这样即使优化不彻底，也更不容易错。
+
+  ———
+
+  一句话总结
+
+  这个优化就是维护一张表：
+
+  当前程序点：对象的某个字段 = 某个值
+
+  跨 basic block 时，只在所有前驱都同意这个值的情况下继续传播。对象一旦逃逸，或者内存行为看不懂，就放弃优化。
+
+
+
+
+
+
+
+
+
+
+› 如何新分配一个temp编号
+
+
+• 在这个仓库里，新 temp 编号通常用函数级的：
+
+  int fresh = ++func->last_temp_num;
+
+  然后创建 temp：
+
+  new Temp(fresh)
+
+  如果要作为 QuadTemp：
+
+  auto *qt = new QuadTemp(new Temp(fresh), QuadType::INT);
+
+  如果要作为 QuadTerm：
+
+  auto *term = new QuadTerm(new QuadTemp(new Temp(fresh), QuadType::INT));
+
+  比如插入一条：
+
+  MOVE fresh <- Const:7
+
+  代码是：
+
+  int fresh = ++func->last_temp_num;
+
+  auto *def = new set<Temp*>();
+  def->insert(new Temp(fresh));
+
+  auto *move = new QuadMove(
+      new QuadTemp(new Temp(fresh), QuadType::INT),
+      new QuadTerm(7),
+      def,
+      new set<Temp*>()
+  );
+
+  如果你在 optProg() 里还维护了程序级 last_temp_num，最后也要更新：
+
+  newProg->last_temp_num = max(newProg->last_temp_num, opt_func->last_temp_num);
+
+  不过你当前 HW8 的 optProg() 是直接用原 prog->last_temp_num 初始化 newProg，然后 push 每个优化后的函数。如果现场只在函数内部新增 temp，最关键的是更新：
+
+  func->last_temp_num
+
+  你的 HW8 里已经有类似写法：
+
+  int fresh = ++func->last_temp_num;
+
+  就在 modifyFunc() 处理 PHI 常量输入的 fresh_moves 那段。
