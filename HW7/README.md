@@ -1,9 +1,9 @@
-## This is HW7
+# This is quiz 3
 
-In this assignment, you will translate quad functions to SSA form. We assume the flow and control analysis has already been done.
+You need to supplement the HW7 code in `quad2ssa.cc` to add diagnostic information and print it out for each function.
 
-You need to fill in the code in one file: `quad2ssa.cc` and write implement the three functions as noted (**DON"T touch any other files!!**). 
+Here you find the quadssa_diag.hh/cc files, and test files.
 
-Follow the class & lab instructions to finish the assignment.
+Look into test directory for test cases. The main program takes `*.4-quadwithflow-xml.quad` and output the ssa quad form in `*.4-ssa.quad`, AND from within your quadssa.cc code, you should print out (to stdout) the diagnostic information.
 
-Look into test directory for test cases. The main program takes `*.4-quadwithflow-xml.quad` and output the ssa quad form in `*.4-ssa.quad`. The corresponding `.fmj` files are the same as in HW5.
+The corresponding `*.fmj` and `*.4-block.quad` files are presented to help you understand the structure of the inputs. Also the `*_diag.txt` is given as example printout of the diagnostic information.

@@ -1,18 +1,3 @@
-Function A^f(t100) last_label=100 last_temp=101:
-  Block: Entry Label: L100
-    Exit labels: 
-    LABEL L100; def: use: 
-    RETURN Const:100; def: use: 
-Function B^f(t100) last_label=100 last_temp=101:
-  Block: Entry Label: L100
-    Exit labels: 
-    LABEL L100; def: use: 
-    RETURN Const:200; def: use: 
-Function B^g(t100) last_label=100 last_temp=101:
-  Block: Entry Label: L100
-    Exit labels: 
-    LABEL L100; def: use: 
-    RETURN Const:300; def: use: 
 Function __$main__^main() last_label=100 last_temp=124:
   Block: Entry Label: L100
     Exit labels: 
@@ -36,10 +21,25 @@ Function __$main__^main() last_label=100 last_temp=124:
     MOVE t10002:ptr <- t10101:ptr; def: t10002 use: t10101 
     PTR_CALC t11900:ptr <- t10002:ptr + Const:8; def: t11900 use: t10002 
     LOAD t10700:ptr <- Mem(t11900:ptr); def: t10700 use: t11900 
-    MOVE_CALL t10800:int <- f[t10700:ptr] (t10002:ptr); def: t10800 use: t10700 t10002 
+    MOVE_CALL t10800:int <- f[t10700:ptr] (t10002:ptr); def: t10800 use: t10002 t10700 
     PTR_CALC t12100:ptr <- t10101:ptr + Const:4; def: t12100 use: t10101 
     LOAD t12200:int <- Mem(t12100:ptr); def: t12200 use: t12100 
     MOVE_BINOP t10900:int <- (+, t10800:int, t12200:int); def: t10900 use: t10800 t12200 
     EXTCALL putint(t10900:int); def: use: t10900 
     EXTCALL putch(Const:10); def: use: 
     RETURN Const:0; def: use: 
+Function A^f(t100) last_label=100 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    RETURN Const:100; def: use: 
+Function B^g(t100) last_label=100 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    RETURN Const:300; def: use: 
+Function B^f(t100) last_label=100 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    RETURN Const:200; def: use: 
