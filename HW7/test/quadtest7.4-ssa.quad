@@ -1,3 +1,11 @@
+Function A^f(t100) last_label=100 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+Function B^f(t100) last_label=100 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
 Function __$main__^main() last_label=100 last_temp=121:
   Block: Entry Label: L100
     Exit labels: 
@@ -24,11 +32,3 @@ Function __$main__^main() last_label=100 last_temp=121:
     EXTCALL putint(t10700:int); def: use: t10700 
     EXTCALL putch(Const:10); def: use: 
     RETURN Const:0; def: use: 
-Function A^f(t100) last_label=100 last_temp=101:
-  Block: Entry Label: L100
-    Exit labels: 
-    LABEL L100; def: use: 
-Function B^f(t100) last_label=100 last_temp=101:
-  Block: Entry Label: L100
-    Exit labels: 
-    LABEL L100; def: use: 

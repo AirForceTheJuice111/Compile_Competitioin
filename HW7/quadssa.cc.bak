@@ -12,24 +12,19 @@
 #include "quad.hh"
 #include "flowinfo.hh"
 #include "quadssa.hh"
-#include "quadssa_diag.hh"
 #include "temp.hh"
+#include "quadssa_diag.hh"
 
 using namespace std;
 using namespace quad;
-
-
-
-static SsaDiagState diag;
-static int currentBlock = -1;
-
-
-
 
 // Forward declarations for internal functions
 static void placePhi(QuadFuncDecl* func, ControlFlowInfo* domInfo, DataFlowInfo* liveness);
 static void renameVariables(QuadFuncDecl* func, ControlFlowInfo* domInfo);
 static void cleanupUnusedPhi(QuadFuncDecl* func);
+
+SsaDiagState diag;
+
 
 // ========== Helper: Get type of a defined variable from a statement ==========
 static QuadType getDefType(QuadStm* stm) {
@@ -78,8 +73,9 @@ static void placePhi(QuadFuncDecl* func, ControlFlowInfo* domInfo, DataFlowInfo*
             worklist.push(b);
             processed.insert(b);
         }
-
+        
         set<int> candidatePhiBlocks;
+
         while (!worklist.empty()) {
             int X = worklist.front(); worklist.pop();
             if (!domInfo->dominanceFrontiers.count(X)) continue;
@@ -89,9 +85,7 @@ static void placePhi(QuadFuncDecl* func, ControlFlowInfo* domInfo, DataFlowInfo*
                 auto* yBlock = domInfo->labelToBlock[Y];
                 auto* labelStm = yBlock->quadlist->front();
                 
-                
                 candidatePhiBlocks.insert(Y);
-                
                 
                 if (liveness->livein->count(labelStm) && (*liveness->livein)[labelStm].count(v)) {
                     phiBlocks.insert(Y);
@@ -103,10 +97,9 @@ static void placePhi(QuadFuncDecl* func, ControlFlowInfo* domInfo, DataFlowInfo*
             }
         }
         
-        diag.candidatePhiBlocksByVar[v] = candidatePhiBlocks;
         diag.actualPhiBlocksByVar[v] = phiBlocks;
+        diag.candidatePhiBlocksByVar[v] = candidatePhiBlocks;
 
-        
         // Step 3: Insert PHI nodes at the computed blocks
         auto type = varTypes.count(v) ? varTypes[v] : QuadType::INT;
         for (int blockLabel : phiBlocks) {
@@ -151,20 +144,15 @@ static Temp* versionUse(Temp* temp, set<int>& paramSet, set<int>& vars,
 // Create a new versioned Temp for a DEF (assign next version, push onto stack)
 static Temp* versionDef(Temp* temp, set<int>& paramSet, set<int>& vars,
                         map<int, int>& count, map<int, stack<int>>& stacks,
-                        map<int, int>& pushCnt) {
+                        map<int, int>& pushCnt, int blockLabel) {
     // Difference between paramSet and vars: paramSet are variables that are parameters, which should not be versioned; vars are all non-parameter variables that appear in the function. We only version variables that are in vars but not in paramSet (i.e. non-parameter variables).
     if (!temp) return temp;
     int num = temp->num;
     if (paramSet.count(num) || !vars.count(num)) return temp; // Parameters are not versioned
     int ver = count[num]++;
+    diag.createdVersionBlocksByVar[num][ver].insert(blockLabel);
     stacks[num].push(ver);
     pushCnt[num]++;
-    
-    
-    diag.createdVersionBlocksByVar[num][ver].insert(currentBlock);
-    
-    
-    
     return new Temp(VersionedTemp::versionedTempNum(num, ver));
 }
 
@@ -250,42 +238,42 @@ static void renameUses(QuadStm* stm, set<int>& paramSet, set<int>& vars,
 // Rename all defs in a statement (including PHI destinations)
 static void renameDefs(QuadStm* stm, set<int>& paramSet, set<int>& vars,
                        map<int, int>& count, map<int, stack<int>>& stacks,
-                       map<int, int>& pushCnt) {
+                       map<int, int>& pushCnt, int blockLabel) {
     switch (stm->kind) {
         case QuadKind::MOVE: {
             auto* s = static_cast<QuadMove*>(stm);
-            s->dst->temp = versionDef(s->dst->temp, paramSet, vars, count, stacks, pushCnt);
+            s->dst->temp = versionDef(s->dst->temp, paramSet, vars, count, stacks, pushCnt, blockLabel);
             break;
         }
         case QuadKind::LOAD: {
             auto* s = static_cast<QuadLoad*>(stm);
-            s->dst->temp = versionDef(s->dst->temp, paramSet, vars, count, stacks, pushCnt);
+            s->dst->temp = versionDef(s->dst->temp, paramSet, vars, count, stacks, pushCnt, blockLabel);
             break;
         }
         case QuadKind::MOVE_BINOP: {
             auto* s = static_cast<QuadMoveBinop*>(stm);
-            s->dst->temp = versionDef(s->dst->temp, paramSet, vars, count, stacks, pushCnt);
+            s->dst->temp = versionDef(s->dst->temp, paramSet, vars, count, stacks, pushCnt, blockLabel);
             break;
         }
         case QuadKind::MOVE_CALL: {
             auto* s = static_cast<QuadMoveCall*>(stm);
-            s->dst->temp = versionDef(s->dst->temp, paramSet, vars, count, stacks, pushCnt);
+            s->dst->temp = versionDef(s->dst->temp, paramSet, vars, count, stacks, pushCnt, blockLabel);
             break;
         }
         case QuadKind::MOVE_EXTCALL: {
             auto* s = static_cast<QuadMoveExtCall*>(stm);
-            s->dst->temp = versionDef(s->dst->temp, paramSet, vars, count, stacks, pushCnt);
+            s->dst->temp = versionDef(s->dst->temp, paramSet, vars, count, stacks, pushCnt, blockLabel);
             break;
         }
         case QuadKind::PHI: {
             auto* s = static_cast<QuadPhi*>(stm);
-            s->temp_exp->temp = versionDef(s->temp_exp->temp, paramSet, vars, count, stacks, pushCnt);
+            s->temp_exp->temp = versionDef(s->temp_exp->temp, paramSet, vars, count, stacks, pushCnt, blockLabel);
             break;
         }
         case QuadKind::PTR_CALC: {
             auto* s = static_cast<QuadPtrCalc*>(stm);
             if (s->dst && s->dst->kind == QuadTermKind::TEMP)
-                s->dst->get_temp()->temp = versionDef(s->dst->get_temp()->temp, paramSet, vars, count, stacks, pushCnt);
+                s->dst->get_temp()->temp = versionDef(s->dst->get_temp()->temp, paramSet, vars, count, stacks, pushCnt, blockLabel);
             break;
         }
         default: break;
@@ -398,14 +386,13 @@ static void rebuildDefUseSets(QuadFuncDecl* func) {
 static void renameBlock(int blockLabel, ControlFlowInfo* domInfo,
                         set<int>& paramSet, set<int>& vars,
                         map<int, int>& count, map<int, stack<int>>& stacks) { // count: global re-def count for a temp, never decreases. stacks: the version that should be used in "use" now
-    currentBlock = blockLabel;
     auto* block = domInfo->labelToBlock[blockLabel];
     map<int, int> pushCnt; // Track pushes per variable for rollback
 
     // Process each statement in the block
     for (auto* stm : *block->quadlist) {
         if (stm->kind != QuadKind::PHI) renameUses(stm, paramSet, vars, stacks); // PHI uses are handled in successor blocks
-        renameDefs(stm, paramSet, vars, count, stacks, pushCnt);
+        renameDefs(stm, paramSet, vars, count, stacks, pushCnt, blockLabel);
     }
 
     // Update PHI args in CFG successor blocks
@@ -497,10 +484,6 @@ static void cleanupUnusedPhi(QuadFuncDecl* func) {
                 if ((*it)->kind == QuadKind::PHI) {
                     auto* phi = static_cast<QuadPhi*>(*it);
                     if (!usedTemps.count(phi->temp_exp->temp->num)) {
-                        int vnum = phi->temp_exp->temp->num;
-                        int origVar = VersionedTemp::origTempNum(vnum);
-                        int ver = vnum - origVar * 100;
-                        diag.eliminatedVersionBlocksByVar[origVar][ver].insert(block->entry_label->num);
                         it = block->quadlist->erase(it);
                         changed = true;
                         continue;
