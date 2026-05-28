@@ -13,6 +13,7 @@
 #include "flowinfo.hh"
 #include "quadssa.hh"
 #include "temp.hh"
+#include "quadssa_diag.hh"
 
 using namespace std;
 using namespace quad;
@@ -21,6 +22,9 @@ using namespace quad;
 static void placePhi(QuadFuncDecl* func, ControlFlowInfo* domInfo, DataFlowInfo* liveness);
 static void renameVariables(QuadFuncDecl* func, ControlFlowInfo* domInfo);
 static void cleanupUnusedPhi(QuadFuncDecl* func);
+
+SsaDiagState diag;
+
 
 // ========== Helper: Get type of a defined variable from a statement ==========
 static QuadType getDefType(QuadStm* stm) {
@@ -69,6 +73,8 @@ static void placePhi(QuadFuncDecl* func, ControlFlowInfo* domInfo, DataFlowInfo*
             worklist.push(b);
             processed.insert(b);
         }
+        
+        set<int> candidatePhiBlocks;
 
         while (!worklist.empty()) {
             int X = worklist.front(); worklist.pop();
@@ -87,6 +93,8 @@ static void placePhi(QuadFuncDecl* func, ControlFlowInfo* domInfo, DataFlowInfo*
                 }
             }
         }
+        
+        diag.actualPhiBlocksByVar[v] = phiBlocks;
 
         // Step 3: Insert PHI nodes at the computed blocks
         auto type = varTypes.count(v) ? varTypes[v] : QuadType::INT;
@@ -506,6 +514,19 @@ quad::QuadProgram *quad2ssa(set<FuncFlowInfo*>* allFuncFlow) {
         auto* domInfo = ffi->cfi;
         auto* liveness = ffi->dfi;
 
+        
+        // clear and init diag info
+        diag.actualPhiBlocksByVar.clear();
+        diag.candidatePhiBlocksByVar.clear();
+        diag.createdVersionBlocksByVar.clear();
+        diag.eliminatedVersionBlocksByVar.clear();
+        diag.funcName = funcdecl->funcname;
+        
+        
+        
+        
+        
+        
         // Place PHI functions at dominance frontier join points
         placePhi(funcdecl, domInfo, liveness);
         // Rename variables to ensure SSA property
@@ -513,6 +534,9 @@ quad::QuadProgram *quad2ssa(set<FuncFlowInfo*>* allFuncFlow) {
         // Clean up unnecessary PHI nodes
         cleanupUnusedPhi(funcdecl);
 
+        printSsaDiagSummary(funcdecl, diag);
+        
+        
         funcs->push_back(funcdecl);
         if (prog_last_label_num < funcdecl->last_label_num) prog_last_label_num = funcdecl->last_label_num;
         if (prog_last_temp_num < funcdecl->last_temp_num) prog_last_temp_num = funcdecl->last_temp_num;

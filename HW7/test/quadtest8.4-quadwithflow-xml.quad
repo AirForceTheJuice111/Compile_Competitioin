@@ -246,17 +246,6 @@
                 </return>
             </block>
         </funcdecl>
-        <funcdecl kind="FUNCDECL" name="B^f" last_label_num="100" last_temp_num="101">
-            <params>
-                <param temp="100"/>
-            </params>
-            <block kind="BLOCK" entry="100">
-                <label kind="LABEL" name="100"/>
-                <return kind="RETURN">
-                    <value kind="CONST" value="200"/>
-                </return>
-            </block>
-        </funcdecl>
         <funcdecl kind="FUNCDECL" name="A^f" last_label_num="100" last_temp_num="101">
             <params>
                 <param temp="100"/>
@@ -276,6 +265,17 @@
                 <label kind="LABEL" name="100"/>
                 <return kind="RETURN">
                     <value kind="CONST" value="300"/>
+                </return>
+            </block>
+        </funcdecl>
+        <funcdecl kind="FUNCDECL" name="B^f" last_label_num="100" last_temp_num="101">
+            <params>
+                <param temp="100"/>
+            </params>
+            <block kind="BLOCK" entry="100">
+                <label kind="LABEL" name="100"/>
+                <return kind="RETURN">
+                    <value kind="CONST" value="200"/>
                 </return>
             </block>
         </funcdecl>
@@ -520,42 +520,6 @@
             </Block>
         </Liveness>
     </Function>
-    <Function name="B^f">
-        <ControlFlow>
-            <Predecessors>
-                <Block id="100"/>
-            </Predecessors>
-            <Successors>
-                <Block id="100"/>
-            </Successors>
-            <Dominators>
-                <Block id="100">
-                    <Item id="100"/>
-                </Block>
-            </Dominators>
-            <ImmediateDominators>
-                <Block id="100" idom="-1"/>
-            </ImmediateDominators>
-            <DominanceFrontier>
-                <Block id="100"/>
-            </DominanceFrontier>
-            <DominatorTree>
-                <Block id="100"/>
-            </DominatorTree>
-        </ControlFlow>
-        <Liveness>
-            <Block id="100">
-                <Statement kind="LABEL">
-                    <LiveIn/>
-                    <LiveOut/>
-                </Statement>
-                <Statement kind="RETURN">
-                    <LiveIn/>
-                    <LiveOut/>
-                </Statement>
-            </Block>
-        </Liveness>
-    </Function>
     <Function name="A^f">
         <ControlFlow>
             <Predecessors>
@@ -593,6 +557,42 @@
         </Liveness>
     </Function>
     <Function name="B^g">
+        <ControlFlow>
+            <Predecessors>
+                <Block id="100"/>
+            </Predecessors>
+            <Successors>
+                <Block id="100"/>
+            </Successors>
+            <Dominators>
+                <Block id="100">
+                    <Item id="100"/>
+                </Block>
+            </Dominators>
+            <ImmediateDominators>
+                <Block id="100" idom="-1"/>
+            </ImmediateDominators>
+            <DominanceFrontier>
+                <Block id="100"/>
+            </DominanceFrontier>
+            <DominatorTree>
+                <Block id="100"/>
+            </DominatorTree>
+        </ControlFlow>
+        <Liveness>
+            <Block id="100">
+                <Statement kind="LABEL">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+                <Statement kind="RETURN">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+            </Block>
+        </Liveness>
+    </Function>
+    <Function name="B^f">
         <ControlFlow>
             <Predecessors>
                 <Block id="100"/>

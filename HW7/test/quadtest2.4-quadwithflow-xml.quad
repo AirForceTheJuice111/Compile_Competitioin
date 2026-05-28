@@ -7,12 +7,6 @@
                     <exit label="104"/>
                 </exits>
                 <label kind="LABEL" name="113"/>
-                <move kind="MOVE" dst="102" temp_type="ptr">
-                    <src kind="CONST" value="0"/>
-                    <def>
-                        <temp id="102"/>
-                    </def>
-                </move>
                 <move kind="MOVE" dst="100" temp_type="int">
                     <src kind="CONST" value="0"/>
                     <def>
@@ -758,10 +752,6 @@
         <Liveness>
             <Block id="113">
                 <Statement kind="LABEL">
-                    <LiveIn/>
-                    <LiveOut/>
-                </Statement>
-                <Statement kind="MOVE">
                     <LiveIn/>
                     <LiveOut/>
                 </Statement>

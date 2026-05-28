@@ -151,12 +151,6 @@
                         <temp id="129"/>
                     </use>
                 </store>
-                <move kind="MOVE" dst="101" temp_type="ptr">
-                    <src kind="CONST" value="0"/>
-                    <def>
-                        <temp id="101"/>
-                    </def>
-                </move>
                 <move kind="MOVE" dst="102" temp_type="int">
                     <src kind="CONST" value="0"/>
                     <def>
@@ -680,8 +674,8 @@
                     <left kind="TEMP" id="106" type="int"/>
                     <right kind="TEMP" id="107" type="int"/>
                     <use>
-                        <temp id="106"/>
                         <temp id="107"/>
+                        <temp id="106"/>
                     </use>
                 </cjump>
             </block>
@@ -1597,14 +1591,6 @@
                     <LiveIn>
                         <Var id="100"/>
                         <Var id="129"/>
-                    </LiveIn>
-                    <LiveOut>
-                        <Var id="100"/>
-                    </LiveOut>
-                </Statement>
-                <Statement kind="MOVE">
-                    <LiveIn>
-                        <Var id="100"/>
                     </LiveIn>
                     <LiveOut>
                         <Var id="100"/>
