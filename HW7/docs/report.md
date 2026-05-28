@@ -1,10 +1,126 @@
 ---
-title: "HW7 实验报告"
+title: "Quiz3报告 + HW7 实验报告"
 author: "王思宇"
 date: \today
 using_title: true
 using_table_of_content: true
 ---
+
+# Quiz3 报告
+
+## Quiz实现思路
+
+**有一些测试用例中（如insttest3），预期输出没有无变量的函数的diag信息，我的输出有。读了读quadssa_diag.cc，是预期输出错了，无论如何函数都需打印一下。和老师确认过了这无妨。**
+
+1. 定义全局变量 SsaDiagState diag;
+2. quad2ssa 中，每进入一个函数，对diag进行初始化，clear掉所有东西，并把funcName设成funcdecl->funcname。
+3. **在此处定义candidatePhiBlocks为不考虑live-in，递归插入phi时被插入的所有block**，actualPhiBlocks为以DF为起点，考虑live-in递归插入phi时被插入的所有block。找phiBlocks的时候顺便记录一下即可。
+
+```cpp
+        set<int> candidatePhiBlocks;
+        while (!worklist.empty()) {
+            int X = worklist.front(); worklist.pop();
+            if (!domInfo->dominanceFrontiers.count(X)) continue;
+            for (int Y : domInfo->dominanceFrontiers[X]) {
+                if (phiBlocks.count(Y)) continue;
+                // Pruned SSA: only place PHI if v is live-in at block Y
+                auto* yBlock = domInfo->labelToBlock[Y];
+                auto* labelStm = yBlock->quadlist->front();
+                
+                candidatePhiBlocks.insert(Y);
+                
+                if (liveness->livein->count(labelStm) && (*liveness->livein)[labelStm].count(v)) {
+                    phiBlocks.insert(Y);
+                    if (!processed.count(Y)) { // Inserting PHI means creation of new defs in Y, which may require more PHIs in Y's dominance frontier
+                        processed.insert(Y);
+                        worklist.push(Y);
+                    }
+                }
+            }
+        }
+        
+        diag.candidatePhiBlocksByVar[v] = candidatePhiBlocks;
+        diag.actualPhiBlocksByVar[v] = phiBlocks;
+```
+
+
+4. 至于createdVersionBlocks，因为我有一个函数versionDef专门处理一个变量被重复定义时增加版本的问题，所以只需在这个函数中加一行代码即可：diag.createdVersionBlocksByVar[num][ver].insert(currentBlock); （currentBlock也为全局变量，懒得传参了）
+5. 关于eliminatedVersionBlocksByVar，我想应该是cleanupUnusedPhi时顺便记录一下吧。在其中做了实现，虽然cleanupUnusedPhi也基本上永远不会被调用就是了。
+
+```cpp
+                        int vnum = phi->temp_exp->temp->num;
+                        int origVar = VersionedTemp::origTempNum(vnum);
+                        int ver = vnum - origVar * 100;
+                        diag.eliminatedVersionBlocksByVar[origVar][ver].insert(block->entry_label->num);
+```
+
+6. 最后，在quad2ssa的每个func最后加入printSsaDiagSummary(funcdecl, diag); 即实现完毕。
+
+## 报告要求中的问题
+
+我们看到quadtest6.4-block.quad:
+
+```
+Function __$main__^main() last_label=108 last_temp=123:
+  Block: Entry Label: L108
+    Exit labels: L102 
+    LABEL L108; def: use: 
+    MOVE_EXTCALL t100:ptr <- malloc(Const:24); def: t100 use: 
+    STORE Const:5 -> Mem(t100:ptr); def: use: t100 
+    PTR_CALC t113:ptr <- t100:ptr + Const:4; def: t113 use: t100 
+    STORE Const:1 -> Mem(t113:ptr); def: use: t113 
+    PTR_CALC t114:ptr <- t100:ptr + Const:8; def: t114 use: t100 
+    STORE Const:2 -> Mem(t114:ptr); def: use: t114 
+    PTR_CALC t115:ptr <- t100:ptr + Const:12; def: t115 use: t100 
+    STORE Const:3 -> Mem(t115:ptr); def: use: t115 
+    PTR_CALC t116:ptr <- t100:ptr + Const:16; def: t116 use: t100 
+    STORE Const:4 -> Mem(t116:ptr); def: use: t116 
+    PTR_CALC t117:ptr <- t100:ptr + Const:20; def: t117 use: t100 
+    STORE Const:5 -> Mem(t117:ptr); def: use: t117 
+    MOVE t101:int <- Const:0; def: t101 use: 
+    JUMP L102; def: use: 
+  Block: Entry Label: L102
+    Exit labels: L103 L104 
+    LABEL L102; def: use: 
+    MOVE t106:int <- t101:int; def: t106 use: t101 
+    LOAD t103:int <- Mem(t100:ptr); def: t103 use: t100 
+    CJUMP < t106:int t103:int? L103 : L104; def: use: t106 t103 
+  Block: Entry Label: L103
+    Exit labels: L106 L105 
+    LABEL L103; def: use: 
+    MOVE t108:ptr <- t100:ptr; def: t108 use: t100 
+    LOAD t104:int <- Mem(t100:ptr); def: t104 use: t100 
+    CJUMP >= t101:int Const:0? L106 : L105; def: use: t101 
+  Block: Entry Label: L106
+    Exit labels: L105 L107 
+    LABEL L106; def: use: 
+    CJUMP >= t101:int t104:int? L105 : L107; def: use: t101 t104 
+  Block: Entry Label: L105
+    Exit labels: 
+    LABEL L105; def: use: 
+    EXTCALL exit(Const:-1); def: use: 
+  Block: Entry Label: L107
+    Exit labels: L102 
+    LABEL L107; def: use: 
+    MOVE_BINOP t119:int <- (+, t101:int, Const:1); def: t119 use: t101 
+    MOVE_BINOP t120:int <- (*, t119:int, Const:4); def: t120 use: t119 
+    PTR_CALC t121:ptr <- t108:ptr + t120:int; def: t121 use: t108 t120 
+    LOAD t109:int <- Mem(t121:ptr); def: t109 use: t121 
+    EXTCALL putint(t109:int); def: use: t109 
+    EXTCALL putch(Const:10); def: use: 
+    MOVE_BINOP t101:int <- (+, t101:int, Const:1); def: t101 use: t101 
+    JUMP L102; def: use: 
+  Block: Entry Label: L104
+    Exit labels: 
+    LABEL L104; def: use: 
+    RETURN Const:1; def: use: 
+```
+
+其中 t103出现了：SSA_TEMP_DIAG temp=t103 candidate_phi=[L102]；有candidate却无actual。
+
+这是因为L107到L102有一条backedge，使得L102为其自身的dominance frontier，因此candidate中有L102。
+
+然而，L107或L108到L102的边上t103都没有live-in；事实上，t103仅在L102中被load定义了一次，不存在因控制路径不同而值不同的情况，因此不需要实际增加phi。
 
 # HW7 实验报告
 

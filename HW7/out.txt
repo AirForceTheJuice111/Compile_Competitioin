@@ -1,0 +1,1782 @@
+cd /home/wsy/Compiler-H/HW7/test && \
+for file in $(ls .); do \
+	if [ "${file#*.}" = "4-quadwithflow-xml.quad" ]; then \
+		echo "Reading ${file}"; \
+		/home/wsy/Compiler-H/HW7/build/tools/main/main "${file%%.*}"; \
+	fi; \
+done; \
+cd .. > /dev/null 2>&1 
+Reading insttest0.4-quadwithflow-xml.quad
+Reading quadwithflow from xml: insttest0.4-quadwithflow-xml.quad
+Liveness information for function: C^max
+Block 105:
+Statement LABEL  Live-in:  {t101, t102} Live-out: {t101, t102}
+Statement CJUMP  Live-in:  {t101, t102} Live-out: {t101, t102}
+Block 102:
+Statement LABEL  Live-in:  {t101} Live-out: {t101}
+Statement RETURN  Live-in:  {t101} Live-out: {}
+Block 103:
+Statement LABEL  Live-in:  {t102} Live-out: {t102}
+Statement RETURN  Live-in:  {t102} Live-out: {}
+Control Flow Information for function: C^max
+Predecessors:
+Block: 102 <- 105 
+Block: 103 <- 105 
+Block: 105 <- 
+Successors:
+Block: 102 -> 
+Block: 103 -> 
+Block: 105 -> 102 103 
+Dominators:
+Block: 102 <- 102 105 
+Block: 103 <- 103 105 
+Block: 105 <- 105 
+Immediate Dominators:
+Block: 102 -> 105
+Block: 103 -> 105
+Block: 105 -> -1
+Dominance Frontier:
+Block: 102 -> 
+Block: 103 -> 
+Block: 105 -> 
+Dominator Tree:
+Block: 102 -> 
+Block: 103 -> 
+Block: 105 -> 102 103 
+Liveness information for function: __$main__^main
+Block 100:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement MOVE_EXTCALL  Live-in:  {} Live-out: {t101}
+Statement PTR_CALC  Live-in:  {t101} Live-out: {t101, t108}
+Statement STORE  Live-in:  {t101, t108} Live-out: {t101}
+Statement MOVE  Live-in:  {t101} Live-out: {t102}
+Statement PTR_CALC  Live-in:  {t102} Live-out: {t102, t109}
+Statement LOAD  Live-in:  {t102, t109} Live-out: {t102, t104}
+Statement MOVE_CALL  Live-in:  {t102, t104} Live-out: {t105}
+Statement EXTCALL  Live-in:  {t105} Live-out: {}
+Statement RETURN  Live-in:  {} Live-out: {}
+Control Flow Information for function: __$main__^main
+Predecessors:
+Block: 100 <- 
+Successors:
+Block: 100 -> 
+Dominators:
+Block: 100 <- 100 
+Immediate Dominators:
+Block: 100 -> -1
+Dominance Frontier:
+Block: 100 -> 
+Dominator Tree:
+Block: 100 -> 
+Converting Quad to Quad-SSA
+SSA_DIAG_BEGIN func=C^max
+SSA_DIAG_END func=C^max
+SSA_DIAG_BEGIN func=__$main__^main
+SSA_DIAG_END func=__$main__^main
+Done converting Quad to Quad-SSA
+Writing Quad-SSA to: insttest0.4-ssa.quad
+Done writing Quad-SSA (text) to: insttest0.4-ssa.quad
+-----Done---
+Reading insttest1.4-quadwithflow-xml.quad
+Reading quadwithflow from xml: insttest1.4-quadwithflow-xml.quad
+Liveness information for function: __$main__^main
+Block 108:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement MOVE_EXTCALL  Live-in:  {} Live-out: {t100}
+Statement STORE  Live-in:  {t100} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t100, t113}
+Statement STORE  Live-in:  {t100, t113} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t100, t114}
+Statement STORE  Live-in:  {t100, t114} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t100, t115}
+Statement STORE  Live-in:  {t100, t115} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t100, t116}
+Statement STORE  Live-in:  {t100, t116} Live-out: {t100}
+Statement LOAD  Live-in:  {t100} Live-out: {t100, t103}
+Statement MOVE  Live-in:  {t100, t103} Live-out: {t100, t101}
+Statement JUMP  Live-in:  {t100, t101} Live-out: {t100, t101}
+Block 102:
+Statement LABEL  Live-in:  {t100, t101} Live-out: {t100, t101}
+Statement CJUMP  Live-in:  {t100, t101} Live-out: {t100, t101}
+Block 103:
+Statement LABEL  Live-in:  {t100, t101} Live-out: {t100, t101}
+Statement MOVE_BINOP  Live-in:  {t100, t101} Live-out: {t100, t101}
+Statement MOVE  Live-in:  {t100, t101} Live-out: {t100, t101, t107}
+Statement LOAD  Live-in:  {t100, t101, t107} Live-out: {t100, t101, t104, t107}
+Statement CJUMP  Live-in:  {t100, t101, t104, t107} Live-out: {t100, t101, t104, t107}
+Block 106:
+Statement LABEL  Live-in:  {t100, t101, t104, t107} Live-out: {t100, t101, t104, t107}
+Statement CJUMP  Live-in:  {t100, t101, t104, t107} Live-out: {t100, t101, t107}
+Block 105:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement EXTCALL  Live-in:  {} Live-out: {}
+Block 107:
+Statement LABEL  Live-in:  {t100, t101, t107} Live-out: {t100, t101, t107}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t107} Live-out: {t100, t101, t107, t118}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t107, t118} Live-out: {t100, t101, t107, t119}
+Statement PTR_CALC  Live-in:  {t100, t101, t107, t119} Live-out: {t100, t101, t120}
+Statement LOAD  Live-in:  {t100, t101, t120} Live-out: {t100, t101, t108}
+Statement EXTCALL  Live-in:  {t100, t101, t108} Live-out: {t100, t101}
+Statement EXTCALL  Live-in:  {t100, t101} Live-out: {t100, t101}
+Statement JUMP  Live-in:  {t100, t101} Live-out: {t100, t101}
+Block 104:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement EXTCALL  Live-in:  {} Live-out: {}
+Statement RETURN  Live-in:  {} Live-out: {}
+Control Flow Information for function: __$main__^main
+Predecessors:
+Block: 102 <- 107 108 
+Block: 103 <- 102 
+Block: 104 <- 102 
+Block: 105 <- 103 106 
+Block: 106 <- 103 
+Block: 107 <- 106 
+Block: 108 <- 
+Successors:
+Block: 102 -> 103 104 
+Block: 103 -> 105 106 
+Block: 104 -> 
+Block: 105 -> 
+Block: 106 -> 105 107 
+Block: 107 -> 102 
+Block: 108 -> 102 
+Dominators:
+Block: 102 <- 102 108 
+Block: 103 <- 102 103 108 
+Block: 104 <- 102 104 108 
+Block: 105 <- 102 103 105 108 
+Block: 106 <- 102 103 106 108 
+Block: 107 <- 102 103 106 107 108 
+Block: 108 <- 108 
+Immediate Dominators:
+Block: 102 -> 108
+Block: 103 -> 102
+Block: 104 -> 102
+Block: 105 -> 103
+Block: 106 -> 103
+Block: 107 -> 106
+Block: 108 -> -1
+Dominance Frontier:
+Block: 102 -> 102 
+Block: 103 -> 102 
+Block: 104 -> 
+Block: 105 -> 
+Block: 106 -> 102 105 
+Block: 107 -> 102 
+Block: 108 -> 
+Dominator Tree:
+Block: 102 -> 103 104 
+Block: 103 -> 105 106 
+Block: 104 -> 
+Block: 105 -> 
+Block: 106 -> 107 
+Block: 107 -> 
+Block: 108 -> 102 
+Converting Quad to Quad-SSA
+SSA_DIAG_BEGIN func=__$main__^main
+SSA_TEMP_DIAG temp=t101 candidate_phi=[L102] actual_phi=[L102] created=[v1@{L102},v2@{L103}]
+SSA_TEMP_DIAG temp=t104 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t107 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t108 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t118 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t119 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t120 candidate_phi=[L102]
+SSA_DIAG_END func=__$main__^main
+Done converting Quad to Quad-SSA
+Writing Quad-SSA to: insttest1.4-ssa.quad
+Done writing Quad-SSA (text) to: insttest1.4-ssa.quad
+-----Done---
+Reading insttest3.4-quadwithflow-xml.quad
+Reading quadwithflow from xml: insttest3.4-quadwithflow-xml.quad
+Liveness information for function: C^m
+Block 100:
+Statement LABEL  Live-in:  {t100} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t102}
+Statement LOAD  Live-in:  {t102} Live-out: {t103}
+Statement RETURN  Live-in:  {t103} Live-out: {}
+Control Flow Information for function: C^m
+Predecessors:
+Block: 100 <- 
+Successors:
+Block: 100 -> 
+Dominators:
+Block: 100 <- 100 
+Immediate Dominators:
+Block: 100 -> -1
+Dominance Frontier:
+Block: 100 -> 
+Dominator Tree:
+Block: 100 -> 
+Liveness information for function: __$main__^main
+Block 108:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement MOVE_EXTCALL  Live-in:  {} Live-out: {t104}
+Statement MOVE_EXTCALL  Live-in:  {t104} Live-out: {t104, t105}
+Statement STORE  Live-in:  {t104, t105} Live-out: {t104, t105}
+Statement PTR_CALC  Live-in:  {t104, t105} Live-out: {t104, t105, t120}
+Statement STORE  Live-in:  {t104, t105, t120} Live-out: {t104, t105}
+Statement PTR_CALC  Live-in:  {t104, t105} Live-out: {t104, t105, t121}
+Statement STORE  Live-in:  {t104, t105, t121} Live-out: {t104, t105}
+Statement PTR_CALC  Live-in:  {t104, t105} Live-out: {t104, t105, t122}
+Statement STORE  Live-in:  {t104, t105, t122} Live-out: {t104, t105}
+Statement PTR_CALC  Live-in:  {t104, t105} Live-out: {t104, t105, t123}
+Statement STORE  Live-in:  {t104, t105, t123} Live-out: {t104, t105}
+Statement PTR_CALC  Live-in:  {t104, t105} Live-out: {t104, t105, t124}
+Statement STORE  Live-in:  {t104, t105, t124} Live-out: {t104}
+Statement PTR_CALC  Live-in:  {t104} Live-out: {t104, t125}
+Statement STORE  Live-in:  {t104, t125} Live-out: {t104}
+Statement MOVE  Live-in:  {t104} Live-out: {t106}
+Statement PTR_CALC  Live-in:  {t106} Live-out: {t106, t126}
+Statement LOAD  Live-in:  {t106, t126} Live-out: {t106, t110}
+Statement MOVE_CALL  Live-in:  {t106, t110} Live-out: {t111}
+Statement MOVE  Live-in:  {t111} Live-out: {t100}
+Statement MOVE  Live-in:  {t100} Live-out: {t100, t102}
+Statement JUMP  Live-in:  {t100, t102} Live-out: {t100, t102}
+Block 102:
+Statement LABEL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement CJUMP  Live-in:  {t100, t102} Live-out: {t100, t102}
+Block 103:
+Statement LABEL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement MOVE_BINOP  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement MOVE  Live-in:  {t100, t102} Live-out: {t100, t102, t113}
+Statement LOAD  Live-in:  {t100, t102, t113} Live-out: {t100, t102, t107, t113}
+Statement CJUMP  Live-in:  {t100, t102, t107, t113} Live-out: {t100, t102, t107, t113}
+Block 106:
+Statement LABEL  Live-in:  {t100, t102, t107, t113} Live-out: {t100, t102, t107, t113}
+Statement CJUMP  Live-in:  {t100, t102, t107, t113} Live-out: {t100, t102, t113}
+Block 105:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement EXTCALL  Live-in:  {} Live-out: {}
+Block 107:
+Statement LABEL  Live-in:  {t100, t102, t113} Live-out: {t100, t102, t113}
+Statement MOVE_BINOP  Live-in:  {t100, t102, t113} Live-out: {t100, t102, t113, t129}
+Statement MOVE_BINOP  Live-in:  {t100, t102, t113, t129} Live-out: {t100, t102, t113, t130}
+Statement PTR_CALC  Live-in:  {t100, t102, t113, t130} Live-out: {t100, t102, t131}
+Statement LOAD  Live-in:  {t100, t102, t131} Live-out: {t100, t102, t114}
+Statement EXTCALL  Live-in:  {t100, t102, t114} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement JUMP  Live-in:  {t100, t102} Live-out: {t100, t102}
+Block 104:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement EXTCALL  Live-in:  {} Live-out: {}
+Statement RETURN  Live-in:  {} Live-out: {}
+Control Flow Information for function: __$main__^main
+Predecessors:
+Block: 102 <- 107 108 
+Block: 103 <- 102 
+Block: 104 <- 102 
+Block: 105 <- 103 106 
+Block: 106 <- 103 
+Block: 107 <- 106 
+Block: 108 <- 
+Successors:
+Block: 102 -> 103 104 
+Block: 103 -> 105 106 
+Block: 104 -> 
+Block: 105 -> 
+Block: 106 -> 105 107 
+Block: 107 -> 102 
+Block: 108 -> 102 
+Dominators:
+Block: 102 <- 102 108 
+Block: 103 <- 102 103 108 
+Block: 104 <- 102 104 108 
+Block: 105 <- 102 103 105 108 
+Block: 106 <- 102 103 106 108 
+Block: 107 <- 102 103 106 107 108 
+Block: 108 <- 108 
+Immediate Dominators:
+Block: 102 -> 108
+Block: 103 -> 102
+Block: 104 -> 102
+Block: 105 -> 103
+Block: 106 -> 103
+Block: 107 -> 106
+Block: 108 -> -1
+Dominance Frontier:
+Block: 102 -> 102 
+Block: 103 -> 102 
+Block: 104 -> 
+Block: 105 -> 
+Block: 106 -> 102 105 
+Block: 107 -> 102 
+Block: 108 -> 
+Dominator Tree:
+Block: 102 -> 103 104 
+Block: 103 -> 105 106 
+Block: 104 -> 
+Block: 105 -> 
+Block: 106 -> 107 
+Block: 107 -> 
+Block: 108 -> 102 
+Converting Quad to Quad-SSA
+SSA_DIAG_BEGIN func=C^m
+SSA_DIAG_END func=C^m
+SSA_DIAG_BEGIN func=__$main__^main
+SSA_TEMP_DIAG temp=t102 candidate_phi=[L102] actual_phi=[L102] created=[v1@{L102},v2@{L103}]
+SSA_TEMP_DIAG temp=t107 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t113 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t114 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t129 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t130 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t131 candidate_phi=[L102]
+SSA_DIAG_END func=__$main__^main
+Done converting Quad to Quad-SSA
+Writing Quad-SSA to: insttest3.4-ssa.quad
+Done writing Quad-SSA (text) to: insttest3.4-ssa.quad
+-----Done---
+Reading insttest4.4-quadwithflow-xml.quad
+Reading quadwithflow from xml: insttest4.4-quadwithflow-xml.quad
+Liveness information for function: C^m
+Block 105:
+Statement LABEL  Live-in:  {t100, t101} Live-out: {t100, t101}
+Statement CJUMP  Live-in:  {t100, t101} Live-out: {t100}
+Block 102:
+Statement LABEL  Live-in:  {t100} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t103}
+Statement LOAD  Live-in:  {t103} Live-out: {t104}
+Statement RETURN  Live-in:  {t104} Live-out: {}
+Block 103:
+Statement LABEL  Live-in:  {t100} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t105}
+Statement LOAD  Live-in:  {t105} Live-out: {t106}
+Statement RETURN  Live-in:  {t106} Live-out: {}
+Control Flow Information for function: C^m
+Predecessors:
+Block: 102 <- 105 
+Block: 103 <- 105 
+Block: 105 <- 
+Successors:
+Block: 102 -> 
+Block: 103 -> 
+Block: 105 -> 102 103 
+Dominators:
+Block: 102 <- 102 105 
+Block: 103 <- 103 105 
+Block: 105 <- 105 
+Immediate Dominators:
+Block: 102 -> 105
+Block: 103 -> 105
+Block: 105 -> -1
+Dominance Frontier:
+Block: 102 -> 
+Block: 103 -> 
+Block: 105 -> 
+Dominator Tree:
+Block: 102 -> 
+Block: 103 -> 
+Block: 105 -> 102 103 
+Liveness information for function: __$main__^main
+Block 108:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement MOVE_EXTCALL  Live-in:  {} Live-out: {t103}
+Statement MOVE_EXTCALL  Live-in:  {t103} Live-out: {t103, t104}
+Statement STORE  Live-in:  {t103, t104} Live-out: {t103, t104}
+Statement PTR_CALC  Live-in:  {t103, t104} Live-out: {t103, t104, t125}
+Statement STORE  Live-in:  {t103, t104, t125} Live-out: {t103, t104}
+Statement PTR_CALC  Live-in:  {t103, t104} Live-out: {t103, t104, t126}
+Statement STORE  Live-in:  {t103, t104, t126} Live-out: {t103, t104}
+Statement PTR_CALC  Live-in:  {t103, t104} Live-out: {t103, t104, t127}
+Statement STORE  Live-in:  {t103, t104, t127} Live-out: {t103, t104}
+Statement PTR_CALC  Live-in:  {t103, t104} Live-out: {t103, t104, t128}
+Statement STORE  Live-in:  {t103, t104, t128} Live-out: {t103, t104}
+Statement PTR_CALC  Live-in:  {t103, t104} Live-out: {t103, t104, t129}
+Statement STORE  Live-in:  {t103, t104, t129} Live-out: {t103}
+Statement MOVE_EXTCALL  Live-in:  {t103} Live-out: {t103, t105}
+Statement STORE  Live-in:  {t103, t105} Live-out: {t103, t105}
+Statement PTR_CALC  Live-in:  {t103, t105} Live-out: {t103, t105, t131}
+Statement STORE  Live-in:  {t103, t105, t131} Live-out: {t103, t105}
+Statement PTR_CALC  Live-in:  {t103, t105} Live-out: {t103, t105, t132}
+Statement STORE  Live-in:  {t103, t105, t132} Live-out: {t103, t105}
+Statement PTR_CALC  Live-in:  {t103, t105} Live-out: {t103, t105, t133}
+Statement STORE  Live-in:  {t103, t105, t133} Live-out: {t103, t105}
+Statement PTR_CALC  Live-in:  {t103, t105} Live-out: {t103, t105, t134}
+Statement STORE  Live-in:  {t103, t105, t134} Live-out: {t103, t105}
+Statement PTR_CALC  Live-in:  {t103, t105} Live-out: {t103, t105, t135}
+Statement STORE  Live-in:  {t103, t105, t135} Live-out: {t103, t105}
+Statement PTR_CALC  Live-in:  {t103, t105} Live-out: {t103, t105, t136}
+Statement STORE  Live-in:  {t103, t105, t136} Live-out: {t103}
+Statement PTR_CALC  Live-in:  {t103} Live-out: {t103, t137}
+Statement STORE  Live-in:  {t103, t137} Live-out: {t103}
+Statement MOVE  Live-in:  {t103} Live-out: {t106}
+Statement PTR_CALC  Live-in:  {t106} Live-out: {t106, t138}
+Statement LOAD  Live-in:  {t106, t138} Live-out: {t106, t112}
+Statement MOVE  Live-in:  {t106, t112} Live-out: {t106, t115}
+Statement MOVE  Live-in:  {t106, t115} Live-out: {t114, t115}
+Statement MOVE_EXTCALL  Live-in:  {t114, t115} Live-out: {t113, t114, t115}
+Statement MOVE_CALL  Live-in:  {t113, t114, t115} Live-out: {t116}
+Statement MOVE  Live-in:  {t116} Live-out: {t100}
+Statement LOAD  Live-in:  {t100} Live-out: {t100, t107}
+Statement MOVE  Live-in:  {t100, t107} Live-out: {t100, t101}
+Statement JUMP  Live-in:  {t100, t101} Live-out: {t100, t101}
+Block 102:
+Statement LABEL  Live-in:  {t100, t101} Live-out: {t100, t101}
+Statement CJUMP  Live-in:  {t100, t101} Live-out: {t100, t101}
+Block 103:
+Statement LABEL  Live-in:  {t100, t101} Live-out: {t100, t101}
+Statement MOVE_BINOP  Live-in:  {t100, t101} Live-out: {t100, t101}
+Statement MOVE  Live-in:  {t100, t101} Live-out: {t100, t101, t118}
+Statement LOAD  Live-in:  {t100, t101, t118} Live-out: {t100, t101, t108, t118}
+Statement CJUMP  Live-in:  {t100, t101, t108, t118} Live-out: {t100, t101, t108, t118}
+Block 106:
+Statement LABEL  Live-in:  {t100, t101, t108, t118} Live-out: {t100, t101, t108, t118}
+Statement CJUMP  Live-in:  {t100, t101, t108, t118} Live-out: {t100, t101, t118}
+Block 105:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement EXTCALL  Live-in:  {} Live-out: {}
+Block 107:
+Statement LABEL  Live-in:  {t100, t101, t118} Live-out: {t100, t101, t118}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t118} Live-out: {t100, t101, t118, t142}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t118, t142} Live-out: {t100, t101, t118, t143}
+Statement PTR_CALC  Live-in:  {t100, t101, t118, t143} Live-out: {t100, t101, t144}
+Statement LOAD  Live-in:  {t100, t101, t144} Live-out: {t100, t101, t119}
+Statement EXTCALL  Live-in:  {t100, t101, t119} Live-out: {t100, t101}
+Statement EXTCALL  Live-in:  {t100, t101} Live-out: {t100, t101}
+Statement JUMP  Live-in:  {t100, t101} Live-out: {t100, t101}
+Block 104:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement EXTCALL  Live-in:  {} Live-out: {}
+Statement RETURN  Live-in:  {} Live-out: {}
+Control Flow Information for function: __$main__^main
+Predecessors:
+Block: 102 <- 107 108 
+Block: 103 <- 102 
+Block: 104 <- 102 
+Block: 105 <- 103 106 
+Block: 106 <- 103 
+Block: 107 <- 106 
+Block: 108 <- 
+Successors:
+Block: 102 -> 103 104 
+Block: 103 -> 105 106 
+Block: 104 -> 
+Block: 105 -> 
+Block: 106 -> 105 107 
+Block: 107 -> 102 
+Block: 108 -> 102 
+Dominators:
+Block: 102 <- 102 108 
+Block: 103 <- 102 103 108 
+Block: 104 <- 102 104 108 
+Block: 105 <- 102 103 105 108 
+Block: 106 <- 102 103 106 108 
+Block: 107 <- 102 103 106 107 108 
+Block: 108 <- 108 
+Immediate Dominators:
+Block: 102 -> 108
+Block: 103 -> 102
+Block: 104 -> 102
+Block: 105 -> 103
+Block: 106 -> 103
+Block: 107 -> 106
+Block: 108 -> -1
+Dominance Frontier:
+Block: 102 -> 102 
+Block: 103 -> 102 
+Block: 104 -> 
+Block: 105 -> 
+Block: 106 -> 102 105 
+Block: 107 -> 102 
+Block: 108 -> 
+Dominator Tree:
+Block: 102 -> 103 104 
+Block: 103 -> 105 106 
+Block: 104 -> 
+Block: 105 -> 
+Block: 106 -> 107 
+Block: 107 -> 
+Block: 108 -> 102 
+Converting Quad to Quad-SSA
+SSA_DIAG_BEGIN func=C^m
+SSA_DIAG_END func=C^m
+SSA_DIAG_BEGIN func=__$main__^main
+SSA_TEMP_DIAG temp=t101 candidate_phi=[L102] actual_phi=[L102] created=[v1@{L102},v2@{L103}]
+SSA_TEMP_DIAG temp=t108 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t118 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t119 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t142 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t143 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t144 candidate_phi=[L102]
+SSA_DIAG_END func=__$main__^main
+Done converting Quad to Quad-SSA
+Writing Quad-SSA to: insttest4.4-ssa.quad
+Done writing Quad-SSA (text) to: insttest4.4-ssa.quad
+-----Done---
+Reading quadtest1.4-quadwithflow-xml.quad
+Reading quadwithflow from xml: quadtest1.4-quadwithflow-xml.quad
+Liveness information for function: __$main__^main
+Block 108:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement MOVE_EXTCALL  Live-in:  {} Live-out: {t100}
+Statement STORE  Live-in:  {t100} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t100, t123}
+Statement STORE  Live-in:  {t100, t123} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t100, t124}
+Statement STORE  Live-in:  {t100, t124} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t100, t125}
+Statement STORE  Live-in:  {t100, t125} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t100, t126}
+Statement STORE  Live-in:  {t100, t126} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t100, t127}
+Statement STORE  Live-in:  {t100, t127} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t100, t128}
+Statement STORE  Live-in:  {t100, t128} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t100, t129}
+Statement STORE  Live-in:  {t100, t129} Live-out: {t100}
+Statement MOVE  Live-in:  {t100} Live-out: {t100, t102}
+Statement MOVE_EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102, t104}
+Statement PTR_CALC  Live-in:  {t100, t102, t104} Live-out: {t100, t102, t104, t131}
+Statement STORE  Live-in:  {t100, t102, t104, t131} Live-out: {t100, t102, t104}
+Statement MOVE  Live-in:  {t100, t102, t104} Live-out: {t100, t101, t102}
+Statement PTR_CALC  Live-in:  {t100, t101, t102} Live-out: {t100, t101, t102, t132}
+Statement LOAD  Live-in:  {t100, t101, t102, t132} Live-out: {t100, t101, t102, t110}
+Statement MOVE  Live-in:  {t100, t101, t102, t110} Live-out: {t100, t101, t102, t113}
+Statement MOVE  Live-in:  {t100, t101, t102, t113} Live-out: {t100, t102, t112, t113}
+Statement MOVE  Live-in:  {t100, t102, t112, t113} Live-out: {t100, t102, t111, t112, t113}
+Statement LOAD  Live-in:  {t100, t102, t111, t112, t113} Live-out: {t100, t102, t105, t111, t112, t113}
+Statement CALL  Live-in:  {t100, t102, t105, t111, t112, t113} Live-out: {t100, t102}
+Statement JUMP  Live-in:  {t100, t102} Live-out: {t100, t102}
+Block 102:
+Statement LABEL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement MOVE  Live-in:  {t100, t102} Live-out: {t100, t102, t115}
+Statement LOAD  Live-in:  {t100, t102, t115} Live-out: {t100, t102, t106, t115}
+Statement CJUMP  Live-in:  {t100, t102, t106, t115} Live-out: {t100, t102}
+Block 103:
+Statement LABEL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement MOVE  Live-in:  {t100, t102} Live-out: {t100, t102, t117}
+Statement LOAD  Live-in:  {t100, t102, t117} Live-out: {t100, t102, t107, t117}
+Statement CJUMP  Live-in:  {t100, t102, t107, t117} Live-out: {t100, t102, t107, t117}
+Block 106:
+Statement LABEL  Live-in:  {t100, t102, t107, t117} Live-out: {t100, t102, t107, t117}
+Statement CJUMP  Live-in:  {t100, t102, t107, t117} Live-out: {t100, t102, t117}
+Block 105:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement EXTCALL  Live-in:  {} Live-out: {}
+Block 107:
+Statement LABEL  Live-in:  {t100, t102, t117} Live-out: {t100, t102, t117}
+Statement MOVE_BINOP  Live-in:  {t100, t102, t117} Live-out: {t100, t102, t117, t135}
+Statement MOVE_BINOP  Live-in:  {t100, t102, t117, t135} Live-out: {t100, t102, t117, t136}
+Statement PTR_CALC  Live-in:  {t100, t102, t117, t136} Live-out: {t100, t102, t137}
+Statement LOAD  Live-in:  {t100, t102, t137} Live-out: {t100, t102, t118}
+Statement EXTCALL  Live-in:  {t100, t102, t118} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement MOVE_BINOP  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement JUMP  Live-in:  {t100, t102} Live-out: {t100, t102}
+Block 104:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement EXTCALL  Live-in:  {} Live-out: {}
+Statement RETURN  Live-in:  {} Live-out: {}
+Control Flow Information for function: __$main__^main
+Predecessors:
+Block: 102 <- 107 108 
+Block: 103 <- 102 
+Block: 104 <- 102 
+Block: 105 <- 103 106 
+Block: 106 <- 103 
+Block: 107 <- 106 
+Block: 108 <- 
+Successors:
+Block: 102 -> 103 104 
+Block: 103 -> 105 106 
+Block: 104 -> 
+Block: 105 -> 
+Block: 106 -> 105 107 
+Block: 107 -> 102 
+Block: 108 -> 102 
+Dominators:
+Block: 102 <- 102 108 
+Block: 103 <- 102 103 108 
+Block: 104 <- 102 104 108 
+Block: 105 <- 102 103 105 108 
+Block: 106 <- 102 103 106 108 
+Block: 107 <- 102 103 106 107 108 
+Block: 108 <- 108 
+Immediate Dominators:
+Block: 102 -> 108
+Block: 103 -> 102
+Block: 104 -> 102
+Block: 105 -> 103
+Block: 106 -> 103
+Block: 107 -> 106
+Block: 108 -> -1
+Dominance Frontier:
+Block: 102 -> 102 
+Block: 103 -> 102 
+Block: 104 -> 
+Block: 105 -> 
+Block: 106 -> 102 105 
+Block: 107 -> 102 
+Block: 108 -> 
+Dominator Tree:
+Block: 102 -> 103 104 
+Block: 103 -> 105 106 
+Block: 104 -> 
+Block: 105 -> 
+Block: 106 -> 107 
+Block: 107 -> 
+Block: 108 -> 102 
+Liveness information for function: b1^bubbleSort
+Block 133:
+Statement LABEL  Live-in:  {t101, t102, t103} Live-out: {t101, t102, t103}
+Statement MOVE  Live-in:  {t101, t102, t103} Live-out: {t100, t101, t102, t103}
+Statement CJUMP  Live-in:  {t100, t101, t102, t103} Live-out: {t100, t101, t102, t103}
+Block 102:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement RETURN  Live-in:  {} Live-out: {}
+Block 103:
+Statement LABEL  Live-in:  {t100, t101, t102, t103} Live-out: {t100, t101, t102, t103}
+Statement JUMP  Live-in:  {t100, t101, t102, t103} Live-out: {t100, t101, t102, t103}
+Block 104:
+Statement LABEL  Live-in:  {t100, t101, t102, t103} Live-out: {t100, t101, t102, t103}
+Statement JUMP  Live-in:  {t100, t101, t102, t103} Live-out: {t100, t101, t102, t103}
+Block 107:
+Statement LABEL  Live-in:  {t100, t101, t102, t103} Live-out: {t100, t101, t102, t103}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t102, t103} Live-out: {t100, t101, t102, t103, t133}
+Statement CJUMP  Live-in:  {t100, t101, t102, t103, t133} Live-out: {t100, t101, t102, t103}
+Block 108:
+Statement LABEL  Live-in:  {t100, t101, t102, t103} Live-out: {t100, t101, t102, t103}
+Statement MOVE  Live-in:  {t100, t101, t102, t103} Live-out: {t100, t101, t102, t103, t115}
+Statement LOAD  Live-in:  {t100, t101, t102, t103, t115} Live-out: {t100, t101, t102, t103, t105, t115}
+Statement CJUMP  Live-in:  {t100, t101, t102, t103, t105, t115} Live-out: {t100, t101, t102, t103, t105, t115}
+Block 111:
+Statement LABEL  Live-in:  {t100, t101, t102, t103, t105, t115} Live-out: {t100, t101, t102, t103, t105, t115}
+Statement CJUMP  Live-in:  {t100, t101, t102, t103, t105, t115} Live-out: {t100, t101, t102, t103, t115}
+Block 110:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement EXTCALL  Live-in:  {} Live-out: {}
+Block 112:
+Statement LABEL  Live-in:  {t100, t101, t102, t103, t115} Live-out: {t100, t101, t102, t103, t115}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t102, t103, t115} Live-out: {t100, t101, t102, t103, t115, t135}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t102, t103, t115, t135} Live-out: {t100, t101, t102, t103, t115, t136}
+Statement PTR_CALC  Live-in:  {t100, t101, t102, t103, t115, t136} Live-out: {t100, t101, t102, t103, t137}
+Statement LOAD  Live-in:  {t100, t101, t102, t103, t137} Live-out: {t100, t101, t102, t103, t118}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t102, t103, t118} Live-out: {t100, t101, t102, t103, t106, t118}
+Statement MOVE  Live-in:  {t100, t101, t102, t103, t106, t118} Live-out: {t100, t101, t102, t103, t106, t117, t118}
+Statement LOAD  Live-in:  {t100, t101, t102, t103, t106, t117, t118} Live-out: {t100, t101, t102, t103, t106, t107, t117, t118}
+Statement CJUMP  Live-in:  {t100, t101, t102, t103, t106, t107, t117, t118} Live-out: {t100, t101, t102, t103, t106, t107, t117, t118}
+Block 114:
+Statement LABEL  Live-in:  {t100, t101, t102, t103, t106, t107, t117, t118} Live-out: {t100, t101, t102, t103, t106, t107, t117, t118}
+Statement CJUMP  Live-in:  {t100, t101, t102, t103, t106, t107, t117, t118} Live-out: {t100, t101, t102, t103, t106, t117, t118}
+Block 113:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement EXTCALL  Live-in:  {} Live-out: {}
+Block 115:
+Statement LABEL  Live-in:  {t100, t101, t102, t103, t106, t117, t118} Live-out: {t100, t101, t102, t103, t106, t117, t118}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t102, t103, t106, t117, t118} Live-out: {t100, t101, t102, t103, t117, t118, t139}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t102, t103, t117, t118, t139} Live-out: {t100, t101, t102, t103, t117, t118, t140}
+Statement PTR_CALC  Live-in:  {t100, t101, t102, t103, t117, t118, t140} Live-out: {t100, t101, t102, t103, t118, t141}
+Statement LOAD  Live-in:  {t100, t101, t102, t103, t118, t141} Live-out: {t100, t101, t102, t103, t118, t142}
+Statement CJUMP  Live-in:  {t100, t101, t102, t103, t118, t142} Live-out: {t100, t101, t102, t103}
+Block 130:
+Statement LABEL  Live-in:  {t100, t101, t102, t103} Live-out: {t100, t101, t102, t103}
+Statement MOVE  Live-in:  {t100, t101, t102, t103} Live-out: {t100, t101, t102, t103, t120}
+Statement LOAD  Live-in:  {t100, t101, t102, t103, t120} Live-out: {t100, t101, t102, t103, t108, t120}
+Statement CJUMP  Live-in:  {t100, t101, t102, t103, t108, t120} Live-out: {t100, t101, t102, t103, t108, t120}
+Block 119:
+Statement LABEL  Live-in:  {t100, t101, t102, t103, t108, t120} Live-out: {t100, t101, t102, t103, t108, t120}
+Statement CJUMP  Live-in:  {t100, t101, t102, t103, t108, t120} Live-out: {t100, t101, t102, t103, t120}
+Block 118:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement EXTCALL  Live-in:  {} Live-out: {}
+Block 120:
+Statement LABEL  Live-in:  {t100, t101, t102, t103, t120} Live-out: {t100, t101, t102, t103, t120}
+Statement PTR_CALC  Live-in:  {t100, t101, t102, t103, t120} Live-out: {t100, t101, t102, t103, t120, t144}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t102, t103, t120, t144} Live-out: {t100, t101, t102, t103, t120, t144, t145}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t102, t103, t120, t144, t145} Live-out: {t100, t101, t102, t103, t120, t144, t146}
+Statement PTR_CALC  Live-in:  {t100, t101, t102, t103, t120, t144, t146} Live-out: {t100, t101, t102, t103, t144, t147}
+Statement LOAD  Live-in:  {t100, t101, t102, t103, t144, t147} Live-out: {t100, t101, t102, t103, t144, t148}
+Statement STORE  Live-in:  {t100, t101, t102, t103, t144, t148} Live-out: {t100, t101, t102, t103}
+Statement MOVE  Live-in:  {t100, t101, t102, t103} Live-out: {t100, t101, t102, t103, t122}
+Statement LOAD  Live-in:  {t100, t101, t102, t103, t122} Live-out: {t100, t101, t102, t103, t109, t122}
+Statement CJUMP  Live-in:  {t100, t101, t102, t103, t109, t122} Live-out: {t100, t101, t102, t103, t109, t122}
+Block 122:
+Statement LABEL  Live-in:  {t100, t101, t102, t103, t109, t122} Live-out: {t100, t101, t102, t103, t109, t122}
+Statement CJUMP  Live-in:  {t100, t101, t102, t103, t109, t122} Live-out: {t100, t101, t102, t103, t122}
+Block 121:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement EXTCALL  Live-in:  {} Live-out: {}
+Block 123:
+Statement LABEL  Live-in:  {t100, t101, t102, t103, t122} Live-out: {t100, t101, t102, t103, t122}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t102, t103, t122} Live-out: {t100, t101, t102, t103, t110, t122}
+Statement MOVE  Live-in:  {t100, t101, t102, t103, t110, t122} Live-out: {t100, t101, t102, t103, t110, t122, t124}
+Statement LOAD  Live-in:  {t100, t101, t102, t103, t110, t122, t124} Live-out: {t100, t101, t102, t103, t110, t111, t122, t124}
+Statement CJUMP  Live-in:  {t100, t101, t102, t103, t110, t111, t122, t124} Live-out: {t100, t101, t102, t103, t110, t111, t122, t124}
+Block 125:
+Statement LABEL  Live-in:  {t100, t101, t102, t103, t110, t111, t122, t124} Live-out: {t100, t101, t102, t103, t110, t111, t122, t124}
+Statement CJUMP  Live-in:  {t100, t101, t102, t103, t110, t111, t122, t124} Live-out: {t100, t101, t102, t103, t110, t122, t124}
+Block 124:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement EXTCALL  Live-in:  {} Live-out: {}
+Block 126:
+Statement LABEL  Live-in:  {t100, t101, t102, t103, t110, t122, t124} Live-out: {t100, t101, t102, t103, t110, t122, t124}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t102, t103, t110, t122, t124} Live-out: {t100, t101, t102, t103, t110, t122, t124, t151}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t102, t103, t110, t122, t124, t151} Live-out: {t100, t101, t102, t103, t110, t122, t124, t152}
+Statement PTR_CALC  Live-in:  {t100, t101, t102, t103, t110, t122, t124, t152} Live-out: {t100, t101, t102, t103, t110, t124, t153}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t102, t103, t110, t124, t153} Live-out: {t100, t101, t102, t103, t124, t153, t154}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t102, t103, t124, t153, t154} Live-out: {t100, t101, t102, t103, t124, t153, t155}
+Statement PTR_CALC  Live-in:  {t100, t101, t102, t103, t124, t153, t155} Live-out: {t100, t101, t102, t103, t153, t156}
+Statement LOAD  Live-in:  {t100, t101, t102, t103, t153, t156} Live-out: {t100, t101, t102, t103, t153, t157}
+Statement STORE  Live-in:  {t100, t101, t102, t103, t153, t157} Live-out: {t100, t101, t102, t103}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t102, t103} Live-out: {t100, t101, t102, t103, t112}
+Statement MOVE  Live-in:  {t100, t101, t102, t103, t112} Live-out: {t100, t101, t102, t103, t112, t126}
+Statement LOAD  Live-in:  {t100, t101, t102, t103, t112, t126} Live-out: {t100, t101, t102, t103, t112, t113, t126}
+Statement CJUMP  Live-in:  {t100, t101, t102, t103, t112, t113, t126} Live-out: {t100, t101, t102, t103, t112, t113, t126}
+Block 128:
+Statement LABEL  Live-in:  {t100, t101, t102, t103, t112, t113, t126} Live-out: {t100, t101, t102, t103, t112, t113, t126}
+Statement CJUMP  Live-in:  {t100, t101, t102, t103, t112, t113, t126} Live-out: {t100, t101, t102, t103, t112, t126}
+Block 127:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement EXTCALL  Live-in:  {} Live-out: {}
+Block 129:
+Statement LABEL  Live-in:  {t100, t101, t102, t103, t112, t126} Live-out: {t100, t101, t102, t103, t112, t126}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t102, t103, t112, t126} Live-out: {t100, t101, t102, t103, t126, t159}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t102, t103, t126, t159} Live-out: {t100, t101, t102, t103, t126, t160}
+Statement PTR_CALC  Live-in:  {t100, t101, t102, t103, t126, t160} Live-out: {t100, t101, t102, t103, t161}
+Statement PTR_CALC  Live-in:  {t100, t101, t102, t103, t161} Live-out: {t100, t101, t102, t103, t161, t162}
+Statement LOAD  Live-in:  {t100, t101, t102, t103, t161, t162} Live-out: {t100, t101, t102, t103, t161, t163}
+Statement STORE  Live-in:  {t100, t101, t102, t103, t161, t163} Live-out: {t100, t101, t102, t103}
+Statement JUMP  Live-in:  {t100, t101, t102, t103} Live-out: {t100, t101, t102, t103}
+Block 131:
+Statement LABEL  Live-in:  {t100, t101, t102, t103} Live-out: {t100, t101, t102, t103}
+Statement JUMP  Live-in:  {t100, t101, t102, t103} Live-out: {t100, t101, t102, t103}
+Block 132:
+Statement LABEL  Live-in:  {t100, t101, t102, t103} Live-out: {t100, t101, t102, t103}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t102, t103} Live-out: {t100, t101, t102, t103}
+Statement JUMP  Live-in:  {t100, t101, t102, t103} Live-out: {t100, t101, t102, t103}
+Block 109:
+Statement LABEL  Live-in:  {t101, t102, t103} Live-out: {t101, t102, t103}
+Statement PTR_CALC  Live-in:  {t101, t102, t103} Live-out: {t101, t102, t103, t164}
+Statement LOAD  Live-in:  {t101, t102, t103, t164} Live-out: {t101, t102, t103, t127}
+Statement MOVE  Live-in:  {t101, t102, t103, t127} Live-out: {t101, t102, t103, t131}
+Statement MOVE  Live-in:  {t101, t102, t103, t131} Live-out: {t102, t103, t130, t131}
+Statement MOVE  Live-in:  {t102, t103, t130, t131} Live-out: {t103, t129, t130, t131}
+Statement MOVE_BINOP  Live-in:  {t103, t129, t130, t131} Live-out: {t128, t129, t130, t131}
+Statement MOVE_CALL  Live-in:  {t128, t129, t130, t131} Live-out: {t132}
+Statement RETURN  Live-in:  {t132} Live-out: {}
+Control Flow Information for function: b1^bubbleSort
+Predecessors:
+Block: 102 <- 133 
+Block: 103 <- 133 
+Block: 104 <- 103 
+Block: 107 <- 104 132 
+Block: 108 <- 107 
+Block: 109 <- 107 
+Block: 110 <- 108 111 
+Block: 111 <- 108 
+Block: 112 <- 111 
+Block: 113 <- 112 114 
+Block: 114 <- 112 
+Block: 115 <- 114 
+Block: 118 <- 119 130 
+Block: 119 <- 130 
+Block: 120 <- 119 
+Block: 121 <- 120 122 
+Block: 122 <- 120 
+Block: 123 <- 122 
+Block: 124 <- 123 125 
+Block: 125 <- 123 
+Block: 126 <- 125 
+Block: 127 <- 126 128 
+Block: 128 <- 126 
+Block: 129 <- 128 
+Block: 130 <- 115 
+Block: 131 <- 115 
+Block: 132 <- 129 131 
+Block: 133 <- 
+Successors:
+Block: 102 -> 
+Block: 103 -> 104 
+Block: 104 -> 107 
+Block: 107 -> 108 109 
+Block: 108 -> 110 111 
+Block: 109 -> 
+Block: 110 -> 
+Block: 111 -> 110 112 
+Block: 112 -> 113 114 
+Block: 113 -> 
+Block: 114 -> 113 115 
+Block: 115 -> 130 131 
+Block: 118 -> 
+Block: 119 -> 118 120 
+Block: 120 -> 121 122 
+Block: 121 -> 
+Block: 122 -> 121 123 
+Block: 123 -> 124 125 
+Block: 124 -> 
+Block: 125 -> 124 126 
+Block: 126 -> 127 128 
+Block: 127 -> 
+Block: 128 -> 127 129 
+Block: 129 -> 132 
+Block: 130 -> 118 119 
+Block: 131 -> 132 
+Block: 132 -> 107 
+Block: 133 -> 102 103 
+Dominators:
+Block: 102 <- 102 133 
+Block: 103 <- 103 133 
+Block: 104 <- 103 104 133 
+Block: 107 <- 103 104 107 133 
+Block: 108 <- 103 104 107 108 133 
+Block: 109 <- 103 104 107 109 133 
+Block: 110 <- 103 104 107 108 110 133 
+Block: 111 <- 103 104 107 108 111 133 
+Block: 112 <- 103 104 107 108 111 112 133 
+Block: 113 <- 103 104 107 108 111 112 113 133 
+Block: 114 <- 103 104 107 108 111 112 114 133 
+Block: 115 <- 103 104 107 108 111 112 114 115 133 
+Block: 118 <- 103 104 107 108 111 112 114 115 118 130 133 
+Block: 119 <- 103 104 107 108 111 112 114 115 119 130 133 
+Block: 120 <- 103 104 107 108 111 112 114 115 119 120 130 133 
+Block: 121 <- 103 104 107 108 111 112 114 115 119 120 121 130 133 
+Block: 122 <- 103 104 107 108 111 112 114 115 119 120 122 130 133 
+Block: 123 <- 103 104 107 108 111 112 114 115 119 120 122 123 130 133 
+Block: 124 <- 103 104 107 108 111 112 114 115 119 120 122 123 124 130 133 
+Block: 125 <- 103 104 107 108 111 112 114 115 119 120 122 123 125 130 133 
+Block: 126 <- 103 104 107 108 111 112 114 115 119 120 122 123 125 126 130 133 
+Block: 127 <- 103 104 107 108 111 112 114 115 119 120 122 123 125 126 127 130 133 
+Block: 128 <- 103 104 107 108 111 112 114 115 119 120 122 123 125 126 128 130 133 
+Block: 129 <- 103 104 107 108 111 112 114 115 119 120 122 123 125 126 128 129 130 133 
+Block: 130 <- 103 104 107 108 111 112 114 115 130 133 
+Block: 131 <- 103 104 107 108 111 112 114 115 131 133 
+Block: 132 <- 103 104 107 108 111 112 114 115 132 133 
+Block: 133 <- 133 
+Immediate Dominators:
+Block: 102 -> 133
+Block: 103 -> 133
+Block: 104 -> 103
+Block: 107 -> 104
+Block: 108 -> 107
+Block: 109 -> 107
+Block: 110 -> 108
+Block: 111 -> 108
+Block: 112 -> 111
+Block: 113 -> 112
+Block: 114 -> 112
+Block: 115 -> 114
+Block: 118 -> 130
+Block: 119 -> 130
+Block: 120 -> 119
+Block: 121 -> 120
+Block: 122 -> 120
+Block: 123 -> 122
+Block: 124 -> 123
+Block: 125 -> 123
+Block: 126 -> 125
+Block: 127 -> 126
+Block: 128 -> 126
+Block: 129 -> 128
+Block: 130 -> 115
+Block: 131 -> 115
+Block: 132 -> 115
+Block: 133 -> -1
+Dominance Frontier:
+Block: 102 -> 
+Block: 103 -> 
+Block: 104 -> 
+Block: 107 -> 107 
+Block: 108 -> 107 
+Block: 109 -> 
+Block: 110 -> 
+Block: 111 -> 107 110 
+Block: 112 -> 107 
+Block: 113 -> 
+Block: 114 -> 107 113 
+Block: 115 -> 107 
+Block: 118 -> 
+Block: 119 -> 118 132 
+Block: 120 -> 132 
+Block: 121 -> 
+Block: 122 -> 121 132 
+Block: 123 -> 132 
+Block: 124 -> 
+Block: 125 -> 124 132 
+Block: 126 -> 132 
+Block: 127 -> 
+Block: 128 -> 127 132 
+Block: 129 -> 132 
+Block: 130 -> 132 
+Block: 131 -> 132 
+Block: 132 -> 107 
+Block: 133 -> 
+Dominator Tree:
+Block: 102 -> 
+Block: 103 -> 104 
+Block: 104 -> 107 
+Block: 107 -> 108 109 
+Block: 108 -> 110 111 
+Block: 109 -> 
+Block: 110 -> 
+Block: 111 -> 112 
+Block: 112 -> 113 114 
+Block: 113 -> 
+Block: 114 -> 115 
+Block: 115 -> 130 131 132 
+Block: 118 -> 
+Block: 119 -> 120 
+Block: 120 -> 121 122 
+Block: 121 -> 
+Block: 122 -> 123 
+Block: 123 -> 124 125 
+Block: 124 -> 
+Block: 125 -> 126 
+Block: 126 -> 127 128 
+Block: 127 -> 
+Block: 128 -> 129 
+Block: 129 -> 
+Block: 130 -> 118 119 
+Block: 131 -> 
+Block: 132 -> 
+Block: 133 -> 102 103 
+Converting Quad to Quad-SSA
+SSA_DIAG_BEGIN func=__$main__^main
+SSA_TEMP_DIAG temp=t102 candidate_phi=[L102] actual_phi=[L102] created=[v1@{L102},v2@{L107}]
+SSA_TEMP_DIAG temp=t106 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t107 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t115 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t117 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t118 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t135 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t136 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t137 candidate_phi=[L102]
+SSA_DIAG_END func=__$main__^main
+SSA_DIAG_BEGIN func=b1^bubbleSort
+SSA_TEMP_DIAG temp=t100 candidate_phi=[L107] actual_phi=[L107] created=[v1@{L107},v2@{L132}]
+SSA_TEMP_DIAG temp=t105 candidate_phi=[L107]
+SSA_TEMP_DIAG temp=t106 candidate_phi=[L107]
+SSA_TEMP_DIAG temp=t107 candidate_phi=[L107]
+SSA_TEMP_DIAG temp=t108 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t109 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t110 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t111 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t112 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t113 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t115 candidate_phi=[L107]
+SSA_TEMP_DIAG temp=t117 candidate_phi=[L107]
+SSA_TEMP_DIAG temp=t118 candidate_phi=[L107]
+SSA_TEMP_DIAG temp=t120 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t122 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t124 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t126 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t133 candidate_phi=[L107]
+SSA_TEMP_DIAG temp=t135 candidate_phi=[L107]
+SSA_TEMP_DIAG temp=t136 candidate_phi=[L107]
+SSA_TEMP_DIAG temp=t137 candidate_phi=[L107]
+SSA_TEMP_DIAG temp=t139 candidate_phi=[L107]
+SSA_TEMP_DIAG temp=t140 candidate_phi=[L107]
+SSA_TEMP_DIAG temp=t141 candidate_phi=[L107]
+SSA_TEMP_DIAG temp=t142 candidate_phi=[L107]
+SSA_TEMP_DIAG temp=t144 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t145 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t146 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t147 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t148 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t151 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t152 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t153 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t154 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t155 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t156 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t157 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t159 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t160 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t161 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t162 candidate_phi=[L132]
+SSA_TEMP_DIAG temp=t163 candidate_phi=[L132]
+SSA_DIAG_END func=b1^bubbleSort
+Done converting Quad to Quad-SSA
+Writing Quad-SSA to: quadtest1.4-ssa.quad
+Done writing Quad-SSA (text) to: quadtest1.4-ssa.quad
+-----Done---
+Reading quadtest2.4-quadwithflow-xml.quad
+Reading quadwithflow from xml: quadtest2.4-quadwithflow-xml.quad
+Liveness information for function: __$main__^main
+Block 113:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement MOVE  Live-in:  {} Live-out: {t100}
+Statement MOVE_EXTCALL  Live-in:  {t100} Live-out: {t100, t104}
+Statement PTR_CALC  Live-in:  {t100, t104} Live-out: {t100, t104, t138}
+Statement STORE  Live-in:  {t100, t104, t138} Live-out: {t100, t104}
+Statement MOVE  Live-in:  {t100, t104} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t102}
+Statement MOVE_EXTCALL  Live-in:  {t100, t102} Live-out: {t100, t101, t102}
+Statement CJUMP  Live-in:  {t100, t101, t102} Live-out: {t100, t101, t102}
+Block 104:
+Statement LABEL  Live-in:  {t100, t101, t102} Live-out: {t100, t101, t102}
+Statement CJUMP  Live-in:  {t100, t101, t102} Live-out: {t100, t101, t102}
+Block 105:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement MOVE_BINOP  Live-in:  {} Live-out: {t165}
+Statement RETURN  Live-in:  {t165} Live-out: {}
+Block 106:
+Statement LABEL  Live-in:  {t100, t101, t102} Live-out: {t100, t101, t102}
+Statement JUMP  Live-in:  {t100, t101, t102} Live-out: {t100, t101, t102}
+Block 107:
+Statement LABEL  Live-in:  {t100, t101, t102} Live-out: {t100, t101, t102}
+Statement JUMP  Live-in:  {t100, t101, t102} Live-out: {t100, t101, t102}
+Block 110:
+Statement LABEL  Live-in:  {t100, t101, t102} Live-out: {t100, t101, t102}
+Statement CJUMP  Live-in:  {t100, t101, t102} Live-out: {t100, t101, t102}
+Block 111:
+Statement LABEL  Live-in:  {t100, t101, t102} Live-out: {t100, t101, t102}
+Statement PTR_CALC  Live-in:  {t100, t101, t102} Live-out: {t100, t101, t102, t166}
+Statement LOAD  Live-in:  {t100, t101, t102, t166} Live-out: {t100, t101, t102, t132}
+Statement MOVE_CALL  Live-in:  {t100, t101, t102, t132} Live-out: {t100, t101, t102, t133}
+Statement EXTCALL  Live-in:  {t100, t101, t102, t133} Live-out: {t100, t101, t102}
+Statement EXTCALL  Live-in:  {t100, t101, t102} Live-out: {t100, t101, t102}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t102} Live-out: {t100, t101, t102}
+Statement JUMP  Live-in:  {t100, t101, t102} Live-out: {t100, t101, t102}
+Block 112:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement EXTCALL  Live-in:  {} Live-out: {}
+Statement RETURN  Live-in:  {} Live-out: {}
+Control Flow Information for function: __$main__^main
+Predecessors:
+Block: 104 <- 113 
+Block: 105 <- 104 113 
+Block: 106 <- 104 
+Block: 107 <- 106 
+Block: 110 <- 107 111 
+Block: 111 <- 110 
+Block: 112 <- 110 
+Block: 113 <- 
+Successors:
+Block: 104 -> 105 106 
+Block: 105 -> 
+Block: 106 -> 107 
+Block: 107 -> 110 
+Block: 110 -> 111 112 
+Block: 111 -> 110 
+Block: 112 -> 
+Block: 113 -> 104 105 
+Dominators:
+Block: 104 <- 104 113 
+Block: 105 <- 105 113 
+Block: 106 <- 104 106 113 
+Block: 107 <- 104 106 107 113 
+Block: 110 <- 104 106 107 110 113 
+Block: 111 <- 104 106 107 110 111 113 
+Block: 112 <- 104 106 107 110 112 113 
+Block: 113 <- 113 
+Immediate Dominators:
+Block: 104 -> 113
+Block: 105 -> 113
+Block: 106 -> 104
+Block: 107 -> 106
+Block: 110 -> 107
+Block: 111 -> 110
+Block: 112 -> 110
+Block: 113 -> -1
+Dominance Frontier:
+Block: 104 -> 105 
+Block: 105 -> 
+Block: 106 -> 
+Block: 107 -> 
+Block: 110 -> 110 
+Block: 111 -> 110 
+Block: 112 -> 
+Block: 113 -> 
+Dominator Tree:
+Block: 104 -> 106 
+Block: 105 -> 
+Block: 106 -> 107 
+Block: 107 -> 110 
+Block: 110 -> 111 112 
+Block: 111 -> 
+Block: 112 -> 
+Block: 113 -> 104 105 
+Liveness information for function: fib^f
+Block 108:
+Statement LABEL  Live-in:  {t100, t101} Live-out: {t100, t101}
+Statement CJUMP  Live-in:  {t100, t101} Live-out: {t100, t101}
+Block 104:
+Statement LABEL  Live-in:  {t100, t101} Live-out: {t100, t101}
+Statement CJUMP  Live-in:  {t100, t101} Live-out: {t100, t101}
+Block 105:
+Statement LABEL  Live-in:  {t101} Live-out: {t101}
+Statement RETURN  Live-in:  {t101} Live-out: {}
+Block 106:
+Statement LABEL  Live-in:  {t100, t101} Live-out: {t100, t101}
+Statement PTR_CALC  Live-in:  {t100, t101} Live-out: {t100, t101, t114}
+Statement LOAD  Live-in:  {t100, t101, t114} Live-out: {t100, t101, t103}
+Statement MOVE  Live-in:  {t100, t101, t103} Live-out: {t100, t101, t106}
+Statement MOVE  Live-in:  {t100, t101, t106} Live-out: {t100, t101, t105, t106}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t105, t106} Live-out: {t100, t101, t104, t105, t106}
+Statement MOVE_CALL  Live-in:  {t100, t101, t104, t105, t106} Live-out: {t100, t101, t107}
+Statement MOVE  Live-in:  {t100, t101, t107} Live-out: {t100, t101, t113}
+Statement PTR_CALC  Live-in:  {t100, t101, t113} Live-out: {t100, t101, t113, t116}
+Statement LOAD  Live-in:  {t100, t101, t113, t116} Live-out: {t100, t101, t108, t113}
+Statement MOVE  Live-in:  {t100, t101, t108, t113} Live-out: {t100, t101, t111, t113}
+Statement MOVE  Live-in:  {t100, t101, t111, t113} Live-out: {t101, t110, t111, t113}
+Statement MOVE_BINOP  Live-in:  {t101, t110, t111, t113} Live-out: {t109, t110, t111, t113}
+Statement MOVE_CALL  Live-in:  {t109, t110, t111, t113} Live-out: {t112, t113}
+Statement MOVE_BINOP  Live-in:  {t112, t113} Live-out: {t118}
+Statement RETURN  Live-in:  {t118} Live-out: {}
+Control Flow Information for function: fib^f
+Predecessors:
+Block: 104 <- 108 
+Block: 105 <- 104 108 
+Block: 106 <- 104 
+Block: 108 <- 
+Successors:
+Block: 104 -> 105 106 
+Block: 105 -> 
+Block: 106 -> 
+Block: 108 -> 104 105 
+Dominators:
+Block: 104 <- 104 108 
+Block: 105 <- 105 108 
+Block: 106 <- 104 106 108 
+Block: 108 <- 108 
+Immediate Dominators:
+Block: 104 -> 108
+Block: 105 -> 108
+Block: 106 -> 104
+Block: 108 -> -1
+Dominance Frontier:
+Block: 104 -> 105 
+Block: 105 -> 
+Block: 106 -> 
+Block: 108 -> 
+Dominator Tree:
+Block: 104 -> 106 
+Block: 105 -> 
+Block: 106 -> 
+Block: 108 -> 104 105 
+Converting Quad to Quad-SSA
+SSA_DIAG_BEGIN func=__$main__^main
+SSA_TEMP_DIAG temp=t100 candidate_phi=[L110] actual_phi=[L110] created=[v1@{L110},v2@{L111}]
+SSA_TEMP_DIAG temp=t132 candidate_phi=[L110]
+SSA_TEMP_DIAG temp=t133 candidate_phi=[L110]
+SSA_TEMP_DIAG temp=t166 candidate_phi=[L110]
+SSA_DIAG_END func=__$main__^main
+SSA_DIAG_BEGIN func=fib^f
+SSA_DIAG_END func=fib^f
+Done converting Quad to Quad-SSA
+Writing Quad-SSA to: quadtest2.4-ssa.quad
+Done writing Quad-SSA (text) to: quadtest2.4-ssa.quad
+-----Done---
+Reading quadtest3.4-quadwithflow-xml.quad
+Reading quadwithflow from xml: quadtest3.4-quadwithflow-xml.quad
+Liveness information for function: __$main__^main
+Block 100:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement MOVE  Live-in:  {} Live-out: {t100}
+Statement EXTCALL  Live-in:  {t100} Live-out: {t100}
+Statement EXTCALL  Live-in:  {t100} Live-out: {t100}
+Statement RETURN  Live-in:  {t100} Live-out: {}
+Control Flow Information for function: __$main__^main
+Predecessors:
+Block: 100 <- 
+Successors:
+Block: 100 -> 
+Dominators:
+Block: 100 <- 100 
+Immediate Dominators:
+Block: 100 -> -1
+Dominance Frontier:
+Block: 100 -> 
+Dominator Tree:
+Block: 100 -> 
+Converting Quad to Quad-SSA
+SSA_DIAG_BEGIN func=__$main__^main
+SSA_DIAG_END func=__$main__^main
+Done converting Quad to Quad-SSA
+Writing Quad-SSA to: quadtest3.4-ssa.quad
+Done writing Quad-SSA (text) to: quadtest3.4-ssa.quad
+-----Done---
+Reading quadtest4.4-quadwithflow-xml.quad
+Reading quadwithflow from xml: quadtest4.4-quadwithflow-xml.quad
+Liveness information for function: __$main__^main
+Block 105:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement MOVE  Live-in:  {} Live-out: {t100}
+Statement JUMP  Live-in:  {t100} Live-out: {t100}
+Block 102:
+Statement LABEL  Live-in:  {t100} Live-out: {t100}
+Statement CJUMP  Live-in:  {t100} Live-out: {t100}
+Block 103:
+Statement LABEL  Live-in:  {t100} Live-out: {t100}
+Statement EXTCALL  Live-in:  {t100} Live-out: {t100}
+Statement EXTCALL  Live-in:  {t100} Live-out: {t100}
+Statement MOVE_BINOP  Live-in:  {t100} Live-out: {t100}
+Statement JUMP  Live-in:  {t100} Live-out: {t100}
+Block 104:
+Statement LABEL  Live-in:  {t100} Live-out: {t100}
+Statement RETURN  Live-in:  {t100} Live-out: {}
+Control Flow Information for function: __$main__^main
+Predecessors:
+Block: 102 <- 103 105 
+Block: 103 <- 102 
+Block: 104 <- 102 
+Block: 105 <- 
+Successors:
+Block: 102 -> 103 104 
+Block: 103 -> 102 
+Block: 104 -> 
+Block: 105 -> 102 
+Dominators:
+Block: 102 <- 102 105 
+Block: 103 <- 102 103 105 
+Block: 104 <- 102 104 105 
+Block: 105 <- 105 
+Immediate Dominators:
+Block: 102 -> 105
+Block: 103 -> 102
+Block: 104 -> 102
+Block: 105 -> -1
+Dominance Frontier:
+Block: 102 -> 102 
+Block: 103 -> 102 
+Block: 104 -> 
+Block: 105 -> 
+Dominator Tree:
+Block: 102 -> 103 104 
+Block: 103 -> 
+Block: 104 -> 
+Block: 105 -> 102 
+Converting Quad to Quad-SSA
+SSA_DIAG_BEGIN func=__$main__^main
+SSA_TEMP_DIAG temp=t100 candidate_phi=[L102] actual_phi=[L102] created=[v1@{L102},v2@{L103}]
+SSA_DIAG_END func=__$main__^main
+Done converting Quad to Quad-SSA
+Writing Quad-SSA to: quadtest4.4-ssa.quad
+Done writing Quad-SSA (text) to: quadtest4.4-ssa.quad
+-----Done---
+Reading quadtest5.4-quadwithflow-xml.quad
+Reading quadwithflow from xml: quadtest5.4-quadwithflow-xml.quad
+Liveness information for function: __$main__^main
+Block 110:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement MOVE  Live-in:  {} Live-out: {t100}
+Statement MOVE  Live-in:  {t100} Live-out: {t100, t101}
+Statement JUMP  Live-in:  {t100, t101} Live-out: {t100, t101}
+Block 102:
+Statement LABEL  Live-in:  {t100, t101} Live-out: {t100, t101}
+Statement CJUMP  Live-in:  {t100, t101} Live-out: {t100, t101}
+Block 103:
+Statement LABEL  Live-in:  {t100, t101} Live-out: {t100, t101}
+Statement CJUMP  Live-in:  {t100, t101} Live-out: {t100, t101}
+Block 107:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement JUMP  Live-in:  {} Live-out: {}
+Block 108:
+Statement LABEL  Live-in:  {t100, t101} Live-out: {t100, t101}
+Statement JUMP  Live-in:  {t100, t101} Live-out: {t100, t101}
+Block 104:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement EXTCALL  Live-in:  {} Live-out: {}
+Statement EXTCALL  Live-in:  {} Live-out: {}
+Statement RETURN  Live-in:  {} Live-out: {}
+Control Flow Information for function: __$main__^main
+Predecessors:
+Block: 102 <- 108 110 
+Block: 103 <- 102 
+Block: 104 <- 102 107 
+Block: 107 <- 103 
+Block: 108 <- 103 
+Block: 110 <- 
+Successors:
+Block: 102 -> 103 104 
+Block: 103 -> 107 108 
+Block: 104 -> 
+Block: 107 -> 104 
+Block: 108 -> 102 
+Block: 110 -> 102 
+Dominators:
+Block: 102 <- 102 110 
+Block: 103 <- 102 103 110 
+Block: 104 <- 102 104 110 
+Block: 107 <- 102 103 107 110 
+Block: 108 <- 102 103 108 110 
+Block: 110 <- 110 
+Immediate Dominators:
+Block: 102 -> 110
+Block: 103 -> 102
+Block: 104 -> 102
+Block: 107 -> 103
+Block: 108 -> 103
+Block: 110 -> -1
+Dominance Frontier:
+Block: 102 -> 102 
+Block: 103 -> 102 104 
+Block: 104 -> 
+Block: 107 -> 104 
+Block: 108 -> 102 
+Block: 110 -> 
+Dominator Tree:
+Block: 102 -> 103 104 
+Block: 103 -> 107 108 
+Block: 104 -> 
+Block: 107 -> 
+Block: 108 -> 
+Block: 110 -> 102 
+Converting Quad to Quad-SSA
+SSA_DIAG_BEGIN func=__$main__^main
+SSA_DIAG_END func=__$main__^main
+Done converting Quad to Quad-SSA
+Writing Quad-SSA to: quadtest5.4-ssa.quad
+Done writing Quad-SSA (text) to: quadtest5.4-ssa.quad
+-----Done---
+Reading quadtest6.4-quadwithflow-xml.quad
+Reading quadwithflow from xml: quadtest6.4-quadwithflow-xml.quad
+Liveness information for function: __$main__^main
+Block 108:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement MOVE_EXTCALL  Live-in:  {} Live-out: {t100}
+Statement STORE  Live-in:  {t100} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t100, t113}
+Statement STORE  Live-in:  {t100, t113} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t100, t114}
+Statement STORE  Live-in:  {t100, t114} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t100, t115}
+Statement STORE  Live-in:  {t100, t115} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t100, t116}
+Statement STORE  Live-in:  {t100, t116} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t100, t117}
+Statement STORE  Live-in:  {t100, t117} Live-out: {t100}
+Statement MOVE  Live-in:  {t100} Live-out: {t100, t101}
+Statement JUMP  Live-in:  {t100, t101} Live-out: {t100, t101}
+Block 102:
+Statement LABEL  Live-in:  {t100, t101} Live-out: {t100, t101}
+Statement MOVE  Live-in:  {t100, t101} Live-out: {t100, t101, t106}
+Statement LOAD  Live-in:  {t100, t101, t106} Live-out: {t100, t101, t103, t106}
+Statement CJUMP  Live-in:  {t100, t101, t103, t106} Live-out: {t100, t101}
+Block 103:
+Statement LABEL  Live-in:  {t100, t101} Live-out: {t100, t101}
+Statement MOVE  Live-in:  {t100, t101} Live-out: {t100, t101, t108}
+Statement LOAD  Live-in:  {t100, t101, t108} Live-out: {t100, t101, t104, t108}
+Statement CJUMP  Live-in:  {t100, t101, t104, t108} Live-out: {t100, t101, t104, t108}
+Block 106:
+Statement LABEL  Live-in:  {t100, t101, t104, t108} Live-out: {t100, t101, t104, t108}
+Statement CJUMP  Live-in:  {t100, t101, t104, t108} Live-out: {t100, t101, t108}
+Block 105:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement EXTCALL  Live-in:  {} Live-out: {}
+Block 107:
+Statement LABEL  Live-in:  {t100, t101, t108} Live-out: {t100, t101, t108}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t108} Live-out: {t100, t101, t108, t119}
+Statement MOVE_BINOP  Live-in:  {t100, t101, t108, t119} Live-out: {t100, t101, t108, t120}
+Statement PTR_CALC  Live-in:  {t100, t101, t108, t120} Live-out: {t100, t101, t121}
+Statement LOAD  Live-in:  {t100, t101, t121} Live-out: {t100, t101, t109}
+Statement EXTCALL  Live-in:  {t100, t101, t109} Live-out: {t100, t101}
+Statement EXTCALL  Live-in:  {t100, t101} Live-out: {t100, t101}
+Statement MOVE_BINOP  Live-in:  {t100, t101} Live-out: {t100, t101}
+Statement JUMP  Live-in:  {t100, t101} Live-out: {t100, t101}
+Block 104:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement RETURN  Live-in:  {} Live-out: {}
+Control Flow Information for function: __$main__^main
+Predecessors:
+Block: 102 <- 107 108 
+Block: 103 <- 102 
+Block: 104 <- 102 
+Block: 105 <- 103 106 
+Block: 106 <- 103 
+Block: 107 <- 106 
+Block: 108 <- 
+Successors:
+Block: 102 -> 103 104 
+Block: 103 -> 105 106 
+Block: 104 -> 
+Block: 105 -> 
+Block: 106 -> 105 107 
+Block: 107 -> 102 
+Block: 108 -> 102 
+Dominators:
+Block: 102 <- 102 108 
+Block: 103 <- 102 103 108 
+Block: 104 <- 102 104 108 
+Block: 105 <- 102 103 105 108 
+Block: 106 <- 102 103 106 108 
+Block: 107 <- 102 103 106 107 108 
+Block: 108 <- 108 
+Immediate Dominators:
+Block: 102 -> 108
+Block: 103 -> 102
+Block: 104 -> 102
+Block: 105 -> 103
+Block: 106 -> 103
+Block: 107 -> 106
+Block: 108 -> -1
+Dominance Frontier:
+Block: 102 -> 102 
+Block: 103 -> 102 
+Block: 104 -> 
+Block: 105 -> 
+Block: 106 -> 102 105 
+Block: 107 -> 102 
+Block: 108 -> 
+Dominator Tree:
+Block: 102 -> 103 104 
+Block: 103 -> 105 106 
+Block: 104 -> 
+Block: 105 -> 
+Block: 106 -> 107 
+Block: 107 -> 
+Block: 108 -> 102 
+Converting Quad to Quad-SSA
+SSA_DIAG_BEGIN func=__$main__^main
+SSA_TEMP_DIAG temp=t101 candidate_phi=[L102] actual_phi=[L102] created=[v1@{L102},v2@{L107}]
+SSA_TEMP_DIAG temp=t103 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t104 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t106 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t108 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t109 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t119 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t120 candidate_phi=[L102]
+SSA_TEMP_DIAG temp=t121 candidate_phi=[L102]
+SSA_DIAG_END func=__$main__^main
+Done converting Quad to Quad-SSA
+Writing Quad-SSA to: quadtest6.4-ssa.quad
+Done writing Quad-SSA (text) to: quadtest6.4-ssa.quad
+-----Done---
+Reading quadtest7.4-quadwithflow-xml.quad
+Reading quadwithflow from xml: quadtest7.4-quadwithflow-xml.quad
+Liveness information for function: __$main__^main
+Block 100:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement MOVE  Live-in:  {} Live-out: {}
+Statement MOVE  Live-in:  {} Live-out: {}
+Statement MOVE_EXTCALL  Live-in:  {} Live-out: {t103}
+Statement PTR_CALC  Live-in:  {t103} Live-out: {t103, t111}
+Statement STORE  Live-in:  {t103, t111} Live-out: {t103}
+Statement MOVE  Live-in:  {t103} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t100, t112}
+Statement STORE  Live-in:  {t100, t112} Live-out: {t100}
+Statement MOVE_EXTCALL  Live-in:  {t100} Live-out: {t100, t104}
+Statement PTR_CALC  Live-in:  {t100, t104} Live-out: {t100, t104, t114}
+Statement STORE  Live-in:  {t100, t104, t114} Live-out: {t100, t104}
+Statement MOVE  Live-in:  {t100, t104} Live-out: {t100, t101}
+Statement PTR_CALC  Live-in:  {t100, t101} Live-out: {t100, t101, t115}
+Statement STORE  Live-in:  {t100, t101, t115} Live-out: {t100, t101}
+Statement PTR_CALC  Live-in:  {t100, t101} Live-out: {t101, t116}
+Statement LOAD  Live-in:  {t101, t116} Live-out: {t101, t117}
+Statement PTR_CALC  Live-in:  {t101, t117} Live-out: {t117, t118}
+Statement LOAD  Live-in:  {t117, t118} Live-out: {t117, t119}
+Statement MOVE_BINOP  Live-in:  {t117, t119} Live-out: {t107}
+Statement EXTCALL  Live-in:  {t107} Live-out: {}
+Statement EXTCALL  Live-in:  {} Live-out: {}
+Statement RETURN  Live-in:  {} Live-out: {}
+Control Flow Information for function: __$main__^main
+Predecessors:
+Block: 100 <- 
+Successors:
+Block: 100 -> 
+Dominators:
+Block: 100 <- 100 
+Immediate Dominators:
+Block: 100 -> -1
+Dominance Frontier:
+Block: 100 -> 
+Dominator Tree:
+Block: 100 -> 
+Liveness information for function: A^f
+Block 100:
+Statement LABEL  Live-in:  {} Live-out: {}
+Control Flow Information for function: A^f
+Predecessors:
+Block: 100 <- 
+Successors:
+Block: 100 -> 
+Dominators:
+Block: 100 <- 100 
+Immediate Dominators:
+Block: 100 -> -1
+Dominance Frontier:
+Block: 100 -> 
+Dominator Tree:
+Block: 100 -> 
+Liveness information for function: B^f
+Block 100:
+Statement LABEL  Live-in:  {} Live-out: {}
+Control Flow Information for function: B^f
+Predecessors:
+Block: 100 <- 
+Successors:
+Block: 100 -> 
+Dominators:
+Block: 100 <- 100 
+Immediate Dominators:
+Block: 100 -> -1
+Dominance Frontier:
+Block: 100 -> 
+Dominator Tree:
+Block: 100 -> 
+Converting Quad to Quad-SSA
+SSA_DIAG_BEGIN func=A^f
+SSA_DIAG_END func=A^f
+SSA_DIAG_BEGIN func=B^f
+SSA_DIAG_END func=B^f
+SSA_DIAG_BEGIN func=__$main__^main
+SSA_TEMP_DIAG temp=t100 created=[v1@{L100}]
+SSA_TEMP_DIAG temp=t101 created=[v1@{L100}]
+SSA_DIAG_END func=__$main__^main
+Done converting Quad to Quad-SSA
+Writing Quad-SSA to: quadtest7.4-ssa.quad
+Done writing Quad-SSA (text) to: quadtest7.4-ssa.quad
+-----Done---
+Reading quadtest8.4-quadwithflow-xml.quad
+Reading quadwithflow from xml: quadtest8.4-quadwithflow-xml.quad
+Liveness information for function: __$main__^main
+Block 100:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement MOVE  Live-in:  {} Live-out: {}
+Statement MOVE  Live-in:  {} Live-out: {}
+Statement MOVE_EXTCALL  Live-in:  {} Live-out: {t103}
+Statement PTR_CALC  Live-in:  {t103} Live-out: {t103, t113}
+Statement STORE  Live-in:  {t103, t113} Live-out: {t103}
+Statement MOVE  Live-in:  {t103} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t114}
+Statement STORE  Live-in:  {t114} Live-out: {}
+Statement MOVE_EXTCALL  Live-in:  {} Live-out: {t104}
+Statement PTR_CALC  Live-in:  {t104} Live-out: {t104, t116}
+Statement STORE  Live-in:  {t104, t116} Live-out: {t104}
+Statement PTR_CALC  Live-in:  {t104} Live-out: {t104, t117}
+Statement STORE  Live-in:  {t104, t117} Live-out: {t104}
+Statement MOVE  Live-in:  {t104} Live-out: {t101}
+Statement PTR_CALC  Live-in:  {t101} Live-out: {t101, t118}
+Statement STORE  Live-in:  {t101, t118} Live-out: {t101}
+Statement MOVE  Live-in:  {t101} Live-out: {t100, t101}
+Statement PTR_CALC  Live-in:  {t100, t101} Live-out: {t100, t101, t119}
+Statement LOAD  Live-in:  {t100, t101, t119} Live-out: {t100, t101, t107}
+Statement MOVE_CALL  Live-in:  {t100, t101, t107} Live-out: {t101, t108}
+Statement PTR_CALC  Live-in:  {t101, t108} Live-out: {t108, t121}
+Statement LOAD  Live-in:  {t108, t121} Live-out: {t108, t122}
+Statement MOVE_BINOP  Live-in:  {t108, t122} Live-out: {t109}
+Statement EXTCALL  Live-in:  {t109} Live-out: {}
+Statement EXTCALL  Live-in:  {} Live-out: {}
+Statement RETURN  Live-in:  {} Live-out: {}
+Control Flow Information for function: __$main__^main
+Predecessors:
+Block: 100 <- 
+Successors:
+Block: 100 -> 
+Dominators:
+Block: 100 <- 100 
+Immediate Dominators:
+Block: 100 -> -1
+Dominance Frontier:
+Block: 100 -> 
+Dominator Tree:
+Block: 100 -> 
+Liveness information for function: A^f
+Block 100:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement RETURN  Live-in:  {} Live-out: {}
+Control Flow Information for function: A^f
+Predecessors:
+Block: 100 <- 
+Successors:
+Block: 100 -> 
+Dominators:
+Block: 100 <- 100 
+Immediate Dominators:
+Block: 100 -> -1
+Dominance Frontier:
+Block: 100 -> 
+Dominator Tree:
+Block: 100 -> 
+Liveness information for function: B^g
+Block 100:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement RETURN  Live-in:  {} Live-out: {}
+Control Flow Information for function: B^g
+Predecessors:
+Block: 100 <- 
+Successors:
+Block: 100 -> 
+Dominators:
+Block: 100 <- 100 
+Immediate Dominators:
+Block: 100 -> -1
+Dominance Frontier:
+Block: 100 -> 
+Dominator Tree:
+Block: 100 -> 
+Liveness information for function: B^f
+Block 100:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement RETURN  Live-in:  {} Live-out: {}
+Control Flow Information for function: B^f
+Predecessors:
+Block: 100 <- 
+Successors:
+Block: 100 -> 
+Dominators:
+Block: 100 <- 100 
+Immediate Dominators:
+Block: 100 -> -1
+Dominance Frontier:
+Block: 100 -> 
+Dominator Tree:
+Block: 100 -> 
+Converting Quad to Quad-SSA
+SSA_DIAG_BEGIN func=A^f
+SSA_DIAG_END func=A^f
+SSA_DIAG_BEGIN func=B^f
+SSA_DIAG_END func=B^f
+SSA_DIAG_BEGIN func=B^g
+SSA_DIAG_END func=B^g
+SSA_DIAG_BEGIN func=__$main__^main
+SSA_TEMP_DIAG temp=t100 created=[v1@{L100},v2@{L100}]
+SSA_TEMP_DIAG temp=t101 created=[v1@{L100}]
+SSA_DIAG_END func=__$main__^main
+Done converting Quad to Quad-SSA
+Writing Quad-SSA to: quadtest8.4-ssa.quad
+Done writing Quad-SSA (text) to: quadtest8.4-ssa.quad
+-----Done---
+Reading quadtest9.4-quadwithflow-xml.quad
+Reading quadwithflow from xml: quadtest9.4-quadwithflow-xml.quad
+Liveness information for function: A^f
+Block 100:
+Statement LABEL  Live-in:  {t100} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t100, t102}
+Statement STORE  Live-in:  {t100, t102} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t103}
+Statement STORE  Live-in:  {t103} Live-out: {}
+Statement RETURN  Live-in:  {} Live-out: {}
+Control Flow Information for function: A^f
+Predecessors:
+Block: 100 <- 
+Successors:
+Block: 100 -> 
+Dominators:
+Block: 100 <- 100 
+Immediate Dominators:
+Block: 100 -> -1
+Dominance Frontier:
+Block: 100 -> 
+Dominator Tree:
+Block: 100 -> 
+Liveness information for function: B^f
+Block 100:
+Statement LABEL  Live-in:  {t100} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t100, t102}
+Statement STORE  Live-in:  {t100, t102} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t100, t103}
+Statement STORE  Live-in:  {t100, t103} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t100, t104}
+Statement STORE  Live-in:  {t100, t104} Live-out: {t100}
+Statement PTR_CALC  Live-in:  {t100} Live-out: {t100, t105}
+Statement LOAD  Live-in:  {t100, t105} Live-out: {t100, t106}
+Statement PTR_CALC  Live-in:  {t100, t106} Live-out: {t100, t106, t107}
+Statement LOAD  Live-in:  {t100, t106, t107} Live-out: {t100, t106, t108}
+Statement MOVE_BINOP  Live-in:  {t100, t106, t108} Live-out: {t100, t109}
+Statement PTR_CALC  Live-in:  {t100, t109} Live-out: {t109, t110}
+Statement LOAD  Live-in:  {t109, t110} Live-out: {t109, t111}
+Statement MOVE_BINOP  Live-in:  {t109, t111} Live-out: {t112}
+Statement RETURN  Live-in:  {t112} Live-out: {}
+Control Flow Information for function: B^f
+Predecessors:
+Block: 100 <- 
+Successors:
+Block: 100 -> 
+Dominators:
+Block: 100 <- 100 
+Immediate Dominators:
+Block: 100 -> -1
+Dominance Frontier:
+Block: 100 -> 
+Dominator Tree:
+Block: 100 -> 
+Liveness information for function: __$main__^main
+Block 100:
+Statement LABEL  Live-in:  {} Live-out: {}
+Statement MOVE  Live-in:  {} Live-out: {}
+Statement MOVE  Live-in:  {} Live-out: {}
+Statement MOVE_EXTCALL  Live-in:  {} Live-out: {t103}
+Statement PTR_CALC  Live-in:  {t103} Live-out: {t103, t118}
+Statement STORE  Live-in:  {t103, t118} Live-out: {t103}
+Statement MOVE  Live-in:  {t103} Live-out: {t100}
+Statement MOVE_EXTCALL  Live-in:  {t100} Live-out: {t100, t104}
+Statement PTR_CALC  Live-in:  {t100, t104} Live-out: {t100, t104, t120}
+Statement STORE  Live-in:  {t100, t104, t120} Live-out: {t100, t104}
+Statement MOVE  Live-in:  {t100, t104} Live-out: {t100, t101}
+Statement PTR_CALC  Live-in:  {t100, t101} Live-out: {t100, t101, t121}
+Statement LOAD  Live-in:  {t100, t101, t121} Live-out: {t100, t101, t107}
+Statement CALL  Live-in:  {t100, t101, t107} Live-out: {t100, t101}
+Statement PTR_CALC  Live-in:  {t100, t101} Live-out: {t100, t101, t123}
+Statement LOAD  Live-in:  {t100, t101, t123} Live-out: {t100, t101, t109}
+Statement CALL  Live-in:  {t100, t101, t109} Live-out: {t100, t101}
+Statement PTR_CALC  Live-in:  {t100, t101} Live-out: {t100, t101, t125}
+Statement LOAD  Live-in:  {t100, t101, t125} Live-out: {t100, t101, t126}
+Statement PTR_CALC  Live-in:  {t100, t101, t126} Live-out: {t101, t126, t127}
+Statement LOAD  Live-in:  {t101, t126, t127} Live-out: {t101, t126, t128}
+Statement MOVE_BINOP  Live-in:  {t101, t126, t128} Live-out: {t101, t129}
+Statement PTR_CALC  Live-in:  {t101, t129} Live-out: {t101, t129, t130}
+Statement LOAD  Live-in:  {t101, t129, t130} Live-out: {t101, t129, t131}
+Statement MOVE_BINOP  Live-in:  {t101, t129, t131} Live-out: {t101, t132}
+Statement PTR_CALC  Live-in:  {t101, t132} Live-out: {t101, t132, t133}
+Statement LOAD  Live-in:  {t101, t132, t133} Live-out: {t101, t132, t134}
+Statement MOVE_BINOP  Live-in:  {t101, t132, t134} Live-out: {t101, t135}
+Statement PTR_CALC  Live-in:  {t101, t135} Live-out: {t101, t135, t136}
+Statement LOAD  Live-in:  {t101, t135, t136} Live-out: {t101, t135, t137}
+Statement MOVE_BINOP  Live-in:  {t101, t135, t137} Live-out: {t101, t111}
+Statement EXTCALL  Live-in:  {t101, t111} Live-out: {t101}
+Statement EXTCALL  Live-in:  {t101} Live-out: {t101}
+Statement MOVE  Live-in:  {t101} Live-out: {t100, t101}
+Statement PTR_CALC  Live-in:  {t100, t101} Live-out: {t101, t140}
+Statement LOAD  Live-in:  {t101, t140} Live-out: {t101, t141}
+Statement PTR_CALC  Live-in:  {t101, t141} Live-out: {t101, t141, t142}
+Statement LOAD  Live-in:  {t101, t141, t142} Live-out: {t101, t141, t143}
+Statement MOVE_BINOP  Live-in:  {t101, t141, t143} Live-out: {t101, t144}
+Statement PTR_CALC  Live-in:  {t101, t144} Live-out: {t101, t144, t145}
+Statement LOAD  Live-in:  {t101, t144, t145} Live-out: {t101, t144, t146}
+Statement MOVE_BINOP  Live-in:  {t101, t144, t146} Live-out: {t101, t147}
+Statement PTR_CALC  Live-in:  {t101, t147} Live-out: {t147, t148}
+Statement LOAD  Live-in:  {t147, t148} Live-out: {t147, t149}
+Statement MOVE_BINOP  Live-in:  {t147, t149} Live-out: {t114}
+Statement EXTCALL  Live-in:  {t114} Live-out: {}
+Statement EXTCALL  Live-in:  {} Live-out: {}
+Statement RETURN  Live-in:  {} Live-out: {}
+Control Flow Information for function: __$main__^main
+Predecessors:
+Block: 100 <- 
+Successors:
+Block: 100 -> 
+Dominators:
+Block: 100 <- 100 
+Immediate Dominators:
+Block: 100 -> -1
+Dominance Frontier:
+Block: 100 -> 
+Dominator Tree:
+Block: 100 -> 
+Converting Quad to Quad-SSA
+SSA_DIAG_BEGIN func=A^f
+SSA_DIAG_END func=A^f
+SSA_DIAG_BEGIN func=B^f
+SSA_DIAG_END func=B^f
+SSA_DIAG_BEGIN func=__$main__^main
+SSA_TEMP_DIAG temp=t100 created=[v1@{L100},v2@{L100}]
+SSA_TEMP_DIAG temp=t101 created=[v1@{L100}]
+SSA_DIAG_END func=__$main__^main
+Done converting Quad to Quad-SSA
+Writing Quad-SSA to: quadtest9.4-ssa.quad
+Done writing Quad-SSA (text) to: quadtest9.4-ssa.quad
+-----Done---
