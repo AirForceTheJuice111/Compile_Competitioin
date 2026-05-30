@@ -4,9 +4,9 @@ L105:
 push {r4-r10, fp, lr}
 sub sp, sp, #4
 add fp, sp, #36
+mov t10200, #0
 bl getint
 mov t10300, r0
-mov t10200, #0
 bl getint
 mov t10400, r0
 mov t10301, t10300

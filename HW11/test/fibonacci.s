@@ -4,15 +4,15 @@ L113:
 push {r4-r10, fp, lr}
 sub sp, sp, #4
 add fp, sp, #36
-mov t10200, #0
-mov t10000, #0
 movw t171, #4
 mov r0, t171
 bl malloc
 mov t10400, r0
-mov t10201, t10400
+mov t10200, #0
+mov t10000, #0
 adr t172, fib^f
 str t172, [t10400]
+mov t10201, t10400
 movw t173, #69
 mov r0, t173
 bl putch
