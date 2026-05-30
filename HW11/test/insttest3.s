@@ -38,10 +38,11 @@ movw t139, #2
 str t139, [t10500, #8]
 movw t140, #3
 str t140, [t10500, #12]
-str t137, [t10500, #16]
+movw t141, #4
+str t141, [t10500, #16]
 str t10500, [t12400]
-adr t141, C^m
-str t141, [t12500]
+adr t142, C^m
+str t142, [t12500]
 ldr t11000, [t10600, #4]
 mov r0, t10600
 blx t11000
@@ -49,15 +50,15 @@ mov t11100, r0
 mov t10000, t11100
 mov t10201, t10200
 L102:
-movw t145, #0
-cmp t10201, t145
+movw t146, #0
+cmp t10201, t146
 bge L103
 L104:
-movw t144, #10
-mov r0, t144
+movw t145, #10
+mov r0, t145
 bl putch
-movw t146, #2
-mov r0, t146
+movw t147, #2
+mov r0, t147
 sub sp, fp, #36
 add sp, sp, #4
 pop {r4-r10, fp, lr}
@@ -66,26 +67,26 @@ L103:
 sub t10202, t10201, #1
 mov t11300, t10000
 ldr t10700, [t10000]
-movw t147, #0
-cmp t10202, t147
+movw t148, #0
+cmp t10202, t148
 bge L106
 L105:
-movw t148, #65535
-movt t148, #65535
-mov r0, t148
+movw t149, #65535
+movt t149, #65535
+mov r0, t149
 bl exit
 L106:
 cmp t10202, t10700
 bge L105
 L107:
 add t12900, t10202, #1
-movw t142, #4
-mul t13000, t12900, t142
+movw t143, #4
+mul t13000, t12900, t143
 ldr t11400, [t11300, t13000]
 mov r0, t11400
 bl putint
-movw t143, #32
-mov r0, t143
+movw t144, #32
+mov r0, t144
 bl putch
 mov t10201, t10202
 b L102

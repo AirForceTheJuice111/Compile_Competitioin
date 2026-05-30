@@ -50,28 +50,30 @@ movw t152, #2
 str t152, [t10400, #8]
 movw t153, #3
 str t153, [t10400, #12]
-str t150, [t10400, #16]
+movw t154, #4
+str t154, [t10400, #16]
 str t10400, [t12900]
-movw t154, #24
-mov r0, t154
+movw t155, #24
+mov r0, t155
 bl malloc
 mov t10500, r0
-movw t155, #5
-str t155, [t10500]
+movw t156, #5
+str t156, [t10500]
 add t13800, t10600, #8
 mov t11400, t10600
-str t155, [t10500, #4]
-movw t156, #6
-str t156, [t10500, #8]
-movw t157, #7
-str t157, [t10500, #12]
-movw t158, #8
-str t158, [t10500, #16]
-movw t159, #9
-str t159, [t10500, #20]
+movw t157, #5
+str t157, [t10500, #4]
+movw t158, #6
+str t158, [t10500, #8]
+movw t159, #7
+str t159, [t10500, #12]
+movw t160, #8
+str t160, [t10500, #16]
+movw t161, #9
+str t161, [t10500, #20]
 str t10500, [t13600]
-adr t160, C^m
-str t160, [t13700]
+adr t162, C^m
+str t162, [t13700]
 ldr t11200, [t13800]
 bl getint
 mov t11300, r0
@@ -85,15 +87,15 @@ ldr t10700, [t10000]
 mov t10100, t10700
 mov t10101, t10100
 L102:
-movw t164, #0
-cmp t10101, t164
+movw t166, #0
+cmp t10101, t166
 bge L103
 L104:
-movw t163, #10
-mov r0, t163
-bl putch
-movw t165, #2
+movw t165, #10
 mov r0, t165
+bl putch
+movw t167, #2
+mov r0, t167
 sub sp, fp, #36
 add sp, sp, #4
 pop {r4-r10, fp, lr}
@@ -102,26 +104,26 @@ L103:
 sub t10102, t10101, #1
 mov t11800, t10000
 ldr t10800, [t10000]
-movw t166, #0
-cmp t10102, t166
+movw t168, #0
+cmp t10102, t168
 bge L106
 L105:
-movw t167, #65535
-movt t167, #65535
-mov r0, t167
+movw t169, #65535
+movt t169, #65535
+mov r0, t169
 bl exit
 L106:
 cmp t10102, t10800
 bge L105
 L107:
 add t14200, t10102, #1
-movw t161, #4
-mul t14300, t14200, t161
+movw t163, #4
+mul t14300, t14200, t163
 ldr t11900, [t11800, t14300]
 mov r0, t11900
 bl putint
-movw t162, #32
-mov r0, t162
+movw t164, #32
+mov r0, t164
 bl putch
 mov t10101, t10102
 b L102
