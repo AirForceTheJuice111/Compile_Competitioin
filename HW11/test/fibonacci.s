@@ -10,7 +10,7 @@ bl malloc
 mov t10400, r0
 mov t10200, #0
 mov t10000, #0
-adr t172, fib^f
+ldr t172, =fib^f
 str t172, [t10400]
 mov t10201, t10400
 movw t173, #69

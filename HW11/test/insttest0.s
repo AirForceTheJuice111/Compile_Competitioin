@@ -8,7 +8,7 @@ movw t112, #4
 mov r0, t112
 bl malloc
 mov t10100, r0
-adr t113, C^max
+ldr t113, =C^max
 str t113, [t10100]
 mov t10200, t10100
 ldr t10400, [t10200]

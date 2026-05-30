@@ -200,7 +200,7 @@ mov r0, t150
 bl malloc
 mov t10400, r0
 mov t11100, t10000
-adr t151, b1^bubbleSort
+ldr t151, =b1^bubbleSort
 str t151, [t10400, #4]
 mov t10101, t10400
 ldr t11000, [t10101, #4]

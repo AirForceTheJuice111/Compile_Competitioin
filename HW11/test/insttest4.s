@@ -72,7 +72,7 @@ str t160, [t10500, #16]
 movw t161, #9
 str t161, [t10500, #20]
 str t10500, [t13600]
-adr t162, C^m
+ldr t162, =C^m
 str t162, [t13700]
 ldr t11200, [t13800]
 bl getint
