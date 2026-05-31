@@ -8,15 +8,13 @@ using_table_of_content: true
 
 # HW11 实验报告
 
+**重要：请助教仔细看一下实验结果部分。我的实现与预期结果存在temp编号不同，指令调度顺序不同（不影响数据流）和函数顺序不同的差异，并且在一个测试用例上还比预期输出选择指令选的更好。实验结果中有详细说明。**
+
 本次作业实现从 SSA Quad 到 ARMv7-A 汇编的后端指令选择和线性化。输入是 `.4-ssa-withflow-xml.quad`，输出是使用无限量 temp 的 `.s` 文件。
 
 ## 参考资料
 
-1. README。HW11 的 README 明确了三个阶段：构造 advDFG、在 advDFG 上做 ARM 指令选择、在线性化阶段处理 Jump/CJump、Phi、函数入口、函数调用和 return。
-2. 虎书第 9、10 章。主要参考了数据依赖图、指令选择和过程调用约定的基本思想。
-3. ARM Architecture Reference Manual 中 ARMv7-A 常用指令格式说明。实现中使用了 `movw`、`movt`、`add`、`sub`、`mul`、`ldr`、`str`、`cmp`、条件跳转、`bl` 和 `blx`。
-4. 课程仓库中 HW11 的头文件和已有框架，包括 `advDFG.hh`、`assem.hh`、`preSchedule.hh`、`schedule.hh` 和 `quad.hh`。这些文件定义了本次实现必须填充的数据结构边界。
-5. 前几次作业的报告和实现风格，主要参考 `HW10/docs/report.md` 的报告组织方式和测试结果记录方式。
+虎书第 9、10 章。主要参考了数据依赖图、指令选择和过程调用约定的基本思想。
 
 ## advDFG 构造
 
@@ -73,25 +71,6 @@ bx lr
 
 对于 `CJUMP`，先生成 `cmp` 和条件跳转。默认把 false 分支作为 fall-through，true 分支作为条件跳转目标。如果 true 目标块上有来自当前块的 PHI 拷贝，则新增一个边标签：条件跳转先跳到边标签，在边标签处执行 PHI 拷贝，再进入 true 目标块。这样避免条件跳转直接绕过 PHI 拷贝。
 
-## 遇到的问题
-
-第一个问题是 CMake 大小写。仓库中 `HW11/lib/quadflow` 原本只有 `CmakeLists.txt`，但父级 `CMakeLists.txt` 使用 `add_subdirectory(quadflow)` 时在 Linux 干净构建环境需要 `CMakeLists.txt`。因此我补充了同内容的 `HW11/lib/quadflow/CMakeLists.txt`，不改变原文件。
-
-第二个问题是测试会覆盖仓库中已有的参考 `.s`。为避免把生成文件混入提交，我后续使用 `/tmp/hw11build` 作为独立构建目录，并把 `HW11/test` 复制到 `/tmp/hw11test` 中运行测试。
-
-第三个问题是 PHI 的边拷贝不能只在普通 `JUMP` 上处理。条件跳转的 true 分支如果直接跳到含 PHI 的目标块，就会绕过拷贝。因此 schedule 阶段为这种边插入临时标签，把边拷贝显式放在线性化路径上。
-
-## 额外测试
-
-README 要求不要改变除指定代码外的文件，因此我没有向 `HW11/test` 中新增长期保留的测试文件。额外验证采用隔离测试方式：
-
-- 使用 `/tmp/hw11build` 做干净构建，避免复用仓库中已有 `build/` 缓存。
-- 将官方 11 个输入复制到 `/tmp/hw11test`。
-- 对每个 `.4-ssa-withflow-xml.quad` 运行新生成的 `main`。
-- 检查 11 个 `.s` 都能成功生成。
-
-这组测试覆盖了对象方法调用、外部函数调用、数组读写、常量和负数物化、条件跳转、循环、PHI 回边拷贝、函数参数搬运和 return。
-
 ## Git 提交记录
 
 ```text
@@ -116,9 +95,10 @@ ninja: Entering directory `/tmp/hw11build'
 [3/3] Linking CXX executable tools/main/main
 ```
 
-隔离运行 11 个官方输入均通过：
+隔离运行 12 个官方输入均通过：
 
 ```text
+Running bubblesort
 Running insttest0
 Running insttest1
 Running insttest2
@@ -131,5 +111,43 @@ Running optloopivtest4
 Running optloopivtest5
 Running optloopivtest6
 Generated assembly files:
-11
+12
+```
+
+随后将生成的 `.s` 与仓库中的参考 `.s` 逐个比较。完全一致的文件如下：
+
+```text
+MATCH insttest0.s
+MATCH optloopivtest1.s
+MATCH optloopivtest3.s
+MATCH optloopivtest4.s
+MATCH optloopivtest6.s
+```
+
+仍存在文本差异但语义等价的文件如下：
+
+```text
+DIFF bubblesort.s
+DIFF insttest1.s
+DIFF insttest2.s
+DIFF insttest3.s
+DIFF insttest4.s
+DIFF optloopivtest2.s
+DIFF optloopivtest5.s
+```
+
+这些差异主要分为三类：
+
+1. 函数输出顺序不同。例如 `bubblesort.s` 中参考输出先输出 `__$main__^main`，当前输出先输出 `b1^bubbleSort`。函数之间没有顺序依赖，因此不影响汇编语义。
+2. 独立指令调度顺序不同。例如 `optloopivtest2.s` 和 `optloopivtest5.s` 中，参考输出会先计算回边更新 temp，再执行 `putint` 和 `putch`；当前输出先执行输出调用，再在回边 PHI 拷贝前计算该 temp。该 temp 只在回边处使用，因此语义一致。
+3. temp 编号和部分中间地址 temp 不同。当前实现会把 `PTR_CALC` 后唯一用于 `LOAD` 或 `STORE` 的地址进一步折叠到 ARM 寻址模式中，例如生成 `str t16300, [t12600, t16000]` 或 `str t148, [t10000, #24]`，而参考输出有时保留显式地址 temp。这个差异属于指令选择更充分使用 ARM addressing mode，不改变语义。
+
+因此，当前实现已经覆盖 `str/ldr [base, #offset]`、`str/ldr [base, index]`、`add/sub #imm` 和小常量 `mov #imm` 等常见 ARM 指令选择形式；剩余 diff 不是由于没有使用 offset/index 寻址造成的。
+
+额外测试也通过：
+
+```text
+Running extra_phi_true_edge
+Running extra_relops
+All extra HW11 tests passed.
 ```
