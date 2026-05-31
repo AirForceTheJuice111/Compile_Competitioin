@@ -36,7 +36,6 @@ static bool touchesMemoryOrCall(const quad::QuadStm *stm) {
         case quad::QuadKind::MOVE_CALL:
         case quad::QuadKind::EXTCALL:
         case quad::QuadKind::MOVE_EXTCALL:
-        case quad::QuadKind::RETURN:
             return true;
         default:
             return false;
@@ -77,8 +76,8 @@ advDFGprog *buildAdvDFGprog(const quad::QuadProgram *program) {
 
             std::unordered_map<int, advDFGNode*> lastTempDef;
             advDFGNode *lastChainDef = nullptr;
-            advDFGNode *previousNode = entryNode;
             int nextChain = 0;
+            std::vector<advDFGNode*> statementNodes;
 
             for (auto *stm : *block->quadlist) {
                 if (stm == nullptr || stm->kind == quad::QuadKind::PHI ||
@@ -90,6 +89,8 @@ advDFGprog *buildAdvDFGprog(const quad::QuadProgram *program) {
                 auto *node = new advDFGNode(type, stm);
                 node->tempDefined = firstDefTemp(stm);
                 node->tempsUsed = usedTemps(stm);
+
+                blockGraph->graph.addEdge(entryNode, node);
 
                 if (touchesMemoryOrCall(stm)) { // new position in CFG chain
                     node->chainDefined = nextChain++;
@@ -109,16 +110,31 @@ advDFGprog *buildAdvDFGprog(const quad::QuadProgram *program) {
                     }
                 }
 
-                if (node->tempsUsed.empty() && node->chainUsed < 0) { // chainUsed < 0 means no chain dependency, so just connect to previous node in block
-                    blockGraph->graph.addEdge(previousNode, node);
-                }
-
                 if (node->tempDefined >= 0) { // tempDefined >= 0 means this node defines a temporary, so update lastTempDef
                     lastTempDef[node->tempDefined] = node;
                 }
 
                 blockGraph->graph.addNode(node);
-                previousNode = node;
+                statementNodes.push_back(node);
+            }
+
+            advDFGNode *lastStatement = nullptr;
+            for (auto it = statementNodes.rbegin(); it != statementNodes.rend(); ++it) {
+                if ((*it)->type == NodeType::ExitStatement) {
+                    lastStatement = *it;
+                    break;
+                }
+            }
+            if (lastStatement == nullptr && !statementNodes.empty()) {
+                lastStatement = statementNodes.back();
+            }
+
+            if (lastStatement != nullptr) {
+                for (auto *node : statementNodes) {
+                    if (node != lastStatement) {
+                        blockGraph->graph.addEdge(node, lastStatement);
+                    }
+                }
             }
         }
     }
