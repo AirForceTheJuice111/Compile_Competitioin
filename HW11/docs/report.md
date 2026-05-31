@@ -27,11 +27,19 @@ using_table_of_content: true
 - `chainDefined` 和 `chainUsed`：用于表示内存访问和调用的顺序依赖。
 - `predecessors` 和 `successors`：由 def-use 依赖和 chain 依赖共同产生。
 
-实现时维护 `lastTempDef`，把每个 use 连到最近一次定义该 temp 的节点；如果 temp 来自块外，则连到 entry 节点。对于 `LOAD`、`STORE`、`CALL`、`EXTCALL`、`MOVE_CALL`、`MOVE_EXTCALL` 和 `RETURN`，额外维护一条 chain，保证内存和调用副作用不会被错误重排。
+实现时维护 `lastTempDef`，把每个 use 连到最近一次定义该 temp 的节点；如果 temp 来自块外，则连到 entry 节点。每个 statement 也都连到 entry 节点，用来表示 block 入口对语句的基本控制约束。
+
+对于 `LOAD`、`STORE`、`CALL`、`EXTCALL`、`MOVE_CALL` 和 `MOVE_EXTCALL`，额外维护一条 chain token。前一个有内存或调用副作用的语句定义 token，后一个语句使用 token，从而保证副作用语句之间不会被错误重排。
+
+构造完一个基本块后，还会找到该块的最后语句。如果存在 `JUMP`、`CJUMP` 或 `RETURN`，则使用这个终结语句作为 last statement；否则使用块内最后一个普通语句。随后从每个其它 statement 向 last statement 加边，保证最后语句必须在块内其它语句之后被考虑。
 
 ## 指令选择
 
-`selectInstr.cc` 中实现了 `selectInstructionsForBlock()`，按照 advDFG 节点的插入顺序处理非终结语句，生成 `preScheduleBlock::selectedInstructions`。
+`selectInstr.cc` 中实现了 `selectInstructionsForBlock()`，现在主路径直接基于 advDFG 做 greedy tiling。每个块维护一个 `covered` 集合，entry 节点一开始被标记为 covered。之后反复按节点插入顺序扫描图，只有当一个节点的所有前驱都已经 covered 时，才允许对它做 tile selection 并发射指令。
+
+对于普通语句，选择器调用 `selectStatement()` 发射对应 ARM 指令并把节点标记为 covered。对于 `PTR_CALC`，如果它定义的地址 temp 在本块内只有一次 use，且这个 use 是某个 `LOAD` 或 `STORE` 的地址操作数，则先不单独发射 `add`，而是把这个 `PTR_CALC` 记录为可折叠 tile。当后续对应的 memory 节点变为 ready 时，一次性发射 `ldr/str [base, #offset]` 或 `ldr/str [base, index]`，并同时覆盖 memory 节点。这样实现了 PPT 中“find-and-emit”式的 greedy tiling。
+
+常量没有单独落成可发射节点，而是作为 tile 内的叶子处理。如果某个常量能进入 ARM immediate 字段，就直接生成 immediate 形式；否则通过 `movw` 和必要时的 `movt` 物化到临时寄存器。
 
 主要翻译规则如下：
 
@@ -74,6 +82,8 @@ bx lr
 ## Git 提交记录
 
 ```text
+e9a259a Use advDFG traversal for HW11 instruction selection
+6824695 Refresh HW11 test result report
 d3494d9 Merge branch 'master' of gitee.com:fudanCompiler/fducompilerh2026
 4182231 Detail HW11 assembly diffs by test
 0514985 HW12 added
@@ -82,10 +92,6 @@ d3494d9 Merge branch 'master' of gitee.com:fudanCompiler/fducompilerh2026
 fe13725 HW11: test updated
 c970a23 HW11: test files updated
 748bae7 Merge branch 'master' of https://forgejo.dywsy21.cn:18080/dywsy21/Compiler-H
-8688743 quiz fin
-9b2ab10 quiz tests
-8f28263 improved quiz preps
-1e486db before quiz
 ```
 
 ## 测试结果
@@ -97,7 +103,7 @@ ninja: Entering directory `/tmp/hw11build'
 ninja: no work to do.
 ```
 
-pull 更新测试后，隔离运行 13 个官方输入均通过：
+advDFG 结构性重写后，隔离运行 13 个官方输入均通过：
 
 ```text
 Running bubblesort
