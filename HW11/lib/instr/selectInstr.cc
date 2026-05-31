@@ -321,7 +321,7 @@ static void selectStatement(
     }
 }
 
-static bool selectFoldedMemoryAccess(
+static bool selectFoldedMemoryAccess( // fold ptr offset + load/store into single load/store if possible
     const quad::QuadPtrCalc *ptrCalc,
     const quad::QuadStm *next,
     preScheduleBlock &schedBlock,
@@ -431,13 +431,42 @@ static bool memoryAddressUsesTemp(const quad::QuadStm *stm, const tree::Temp *te
     return false;
 }
 
-static bool shouldDeferIndexedPtrCalc(
-    const quad::QuadPtrCalc *ptrCalc,
-    const std::vector<quad::QuadStm*> &quadList,
-    size_t index
+static bool isScheduledBySchedulePass(const quad::QuadStm *stm) {
+    if (stm == nullptr) {
+        return false;
+    }
+    return stm->kind == quad::QuadKind::JUMP ||
+           stm->kind == quad::QuadKind::CJUMP ||
+           stm->kind == quad::QuadKind::RETURN;
+}
+
+static bool allPredecessorsCovered(
+    const advDFGNode *node,
+    const std::unordered_set<const advDFGNode*> &covered
 ) {
-    if (ptrCalc == nullptr || ptrCalc->offset == nullptr ||
-        ptrCalc->offset->kind != quad::QuadTermKind::TEMP) {
+    if (node == nullptr) {
+        return false;
+    }
+    for (auto *pred : node->predecessors) {
+        if (covered.find(pred) == covered.end()) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool shouldFoldPtrCalcOnGraph(
+    const quad::QuadPtrCalc *ptrCalc,
+    const std::vector<advDFGNode*> &nodes
+) {
+    if (ptrCalc == nullptr) {
+        return false;
+    }
+
+    int offsetConst = 0;
+    tree::Temp *offsetTemp = nullptr;
+    if (!isConstTerm(ptrCalc->offset, &offsetConst) &&
+        !isTempTerm(ptrCalc->offset, &offsetTemp)) {
         return false;
     }
 
@@ -448,8 +477,8 @@ static bool shouldDeferIndexedPtrCalc(
 
     int useCount = 0;
     bool onlyUseIsMemoryAddress = false;
-    for (size_t i = index + 1; i < quadList.size(); ++i) {
-        auto *stm = quadList[i];
+    for (auto *node : nodes) {
+        auto *stm = node == nullptr ? nullptr : node->quadStatement;
         if (!useSetContainsTemp(stm, dst)) {
             continue;
         }
@@ -463,13 +492,23 @@ static bool shouldDeferIndexedPtrCalc(
     return useCount == 1 && onlyUseIsMemoryAddress;
 }
 
-static bool isScheduledBySchedulePass(const quad::QuadStm *stm) {
+static tree::Temp *memoryAddressTemp(const quad::QuadStm *stm) {
+    tree::Temp *addr = nullptr;
     if (stm == nullptr) {
-        return false;
+        return nullptr;
     }
-    return stm->kind == quad::QuadKind::JUMP ||
-           stm->kind == quad::QuadKind::CJUMP ||
-           stm->kind == quad::QuadKind::RETURN;
+    if (stm->kind == quad::QuadKind::LOAD) {
+        auto *load = dynamic_cast<const quad::QuadLoad*>(stm);
+        if (load != nullptr) {
+            isTempTerm(load->src, &addr);
+        }
+    } else if (stm->kind == quad::QuadKind::STORE) {
+        auto *store = dynamic_cast<const quad::QuadStore*>(stm);
+        if (store != nullptr) {
+            isTempTerm(store->dst, &addr);
+        }
+    }
+    return addr;
 }
 
 // Main instruction selection for a block
@@ -487,70 +526,72 @@ void selectInstructionsForBlock(
     std::unordered_map<int, tree::Temp*> constCache;
     activeConstCache = &constCache;
 
-    if (blockGraph.quadBlock != nullptr && blockGraph.quadBlock->quadlist != nullptr) {
-        const auto &quadList = *blockGraph.quadBlock->quadlist;
-        std::unordered_map<int, const quad::QuadPtrCalc*> deferredIndexedPtrCalc;
-        for (size_t i = 0; i < quadList.size(); ++i) {
-            auto *stm = quadList[i];
-            if (stm == nullptr || stm->kind == quad::QuadKind::LABEL ||
-                stm->kind == quad::QuadKind::PHI ||
-                (stm == schedBlock.lastInstruction && isScheduledBySchedulePass(stm))) {
+    std::unordered_set<const advDFGNode*> covered;
+    std::unordered_map<int, const quad::QuadPtrCalc*> deferredPtrCalc;
+    covered.insert(nodes.front());
+
+    bool progress = true;
+    while (progress && covered.size() < nodes.size()) {
+        progress = false;
+        for (auto *node : nodes) {
+            if (node == nullptr || covered.find(node) != covered.end()) {
+                continue;
+            }
+            if (!allPredecessorsCovered(node, covered)) {
                 continue;
             }
 
-            if (stm->kind == quad::QuadKind::PTR_CALC && i + 1 < quadList.size()) {
+            auto *stm = node->quadStatement;
+            if (stm == nullptr || node->type == NodeType::EntryLabel ||
+                node->type == NodeType::ExitStatement ||
+                (stm == schedBlock.lastInstruction && isScheduledBySchedulePass(stm))) {
+                covered.insert(node);
+                progress = true;
+                continue;
+            }
+
+            if (stm->kind == quad::QuadKind::PTR_CALC) {
                 auto *ptrCalc = dynamic_cast<const quad::QuadPtrCalc*>(stm);
-                if (selectFoldedMemoryAccess(ptrCalc, quadList[i + 1], schedBlock, nextTempNum)) {
-                    ++i;
-                    continue;
-                }
                 auto *dst = ptrCalc == nullptr ? nullptr : termTemp(ptrCalc->dst);
-                if (dst != nullptr && shouldDeferIndexedPtrCalc(ptrCalc, quadList, i)) {
-                    deferredIndexedPtrCalc[dst->num] = ptrCalc;
+                if (dst != nullptr && shouldFoldPtrCalcOnGraph(ptrCalc, nodes)) {
+                    deferredPtrCalc[dst->num] = ptrCalc;
+                    covered.insert(node);
+                    progress = true;
                     continue;
                 }
             }
 
-            if (stm->kind == quad::QuadKind::LOAD || stm->kind == quad::QuadKind::STORE) {
-                tree::Temp *addr = nullptr;
-                if (stm->kind == quad::QuadKind::LOAD) {
-                    auto *load = dynamic_cast<const quad::QuadLoad*>(stm);
-                    if (load != nullptr) {
-                        isTempTerm(load->src, &addr);
-                    }
-                } else {
-                    auto *store = dynamic_cast<const quad::QuadStore*>(stm);
-                    if (store != nullptr) {
-                        isTempTerm(store->dst, &addr);
-                    }
-                }
-
-                if (addr != nullptr) {
-                    auto found = deferredIndexedPtrCalc.find(addr->num);
-                    if (found != deferredIndexedPtrCalc.end() &&
-                        selectFoldedMemoryAccess(found->second, stm, schedBlock, nextTempNum)) {
-                        deferredIndexedPtrCalc.erase(found);
-                        continue;
-                    }
+            auto *addr = memoryAddressTemp(stm);
+            if (addr != nullptr) {
+                auto found = deferredPtrCalc.find(addr->num);
+                if (found != deferredPtrCalc.end() &&
+                    selectFoldedMemoryAccess(found->second, stm, schedBlock, nextTempNum)) {
+                    deferredPtrCalc.erase(found);
+                    covered.insert(node);
+                    progress = true;
+                    continue;
                 }
             }
 
             selectStatement(stm, schedBlock, nextTempNum);
+            covered.insert(node);
+            progress = true;
         }
-        activeConstCache = nullptr;
-        return;
     }
 
     for (auto *node : nodes) {
-        if (node == nullptr || node->quadStatement == nullptr ||
-            node->type == NodeType::ExitStatement) {
+        if (node == nullptr || covered.find(node) != covered.end()) {
             continue;
         }
-        selectStatement(node->quadStatement, schedBlock, nextTempNum);
+        auto *stm = node->quadStatement;
+        if (stm == nullptr || node->type == NodeType::ExitStatement ||
+            (stm == schedBlock.lastInstruction && isScheduledBySchedulePass(stm))) {
+            continue;
+        }
+        selectStatement(stm, schedBlock, nextTempNum);
     }
 
     activeConstCache = nullptr;
-
     return;
 }
 
