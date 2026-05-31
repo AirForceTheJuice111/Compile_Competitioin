@@ -1,0 +1,125 @@
+Reading Quad (SSA with flow) from xml: /home/wsy/fducompilerh2026/HW11/test_extra/extra_relops.4-ssa-withflow-xml.quad
+advDFG program dump
+  function_count=4
+  func[0] name=extra^ne
+    block_count=3
+    block[0] entry=L120
+    node_count=3
+    node#0 type=EntryLabel def_temp=-1 def_chain=-1 uses_temps={} uses_chain=-1 preds={} succs={1,2}
+    node#1 type=Statement quad_kind=MOVE def_temp=120 def_chain=-1 uses_temps={} uses_chain=-1 preds={0} succs={2}
+    node#2 type=ExitStatement quad_kind=CJUMP def_temp=-1 def_chain=-1 uses_temps={120} uses_chain=-1 preds={0,1} succs={}
+    block[1] entry=L121
+    node_count=2
+    node#0 type=EntryLabel def_temp=-1 def_chain=-1 uses_temps={} uses_chain=-1 preds={} succs={1}
+    node#1 type=ExitStatement quad_kind=RETURN def_temp=-1 def_chain=-1 uses_temps={} uses_chain=-1 preds={0} succs={}
+    block[2] entry=L122
+    node_count=2
+    node#0 type=EntryLabel def_temp=-1 def_chain=-1 uses_temps={} uses_chain=-1 preds={} succs={1}
+    node#1 type=ExitStatement quad_kind=RETURN def_temp=-1 def_chain=-1 uses_temps={} uses_chain=-1 preds={0} succs={}
+  func[1] name=extra^gt
+    block_count=3
+    block[0] entry=L130
+    node_count=3
+    node#0 type=EntryLabel def_temp=-1 def_chain=-1 uses_temps={} uses_chain=-1 preds={} succs={1,2}
+    node#1 type=Statement quad_kind=MOVE def_temp=130 def_chain=-1 uses_temps={} uses_chain=-1 preds={0} succs={2}
+    node#2 type=ExitStatement quad_kind=CJUMP def_temp=-1 def_chain=-1 uses_temps={130} uses_chain=-1 preds={0,1} succs={}
+    block[1] entry=L131
+    node_count=2
+    node#0 type=EntryLabel def_temp=-1 def_chain=-1 uses_temps={} uses_chain=-1 preds={} succs={1}
+    node#1 type=ExitStatement quad_kind=RETURN def_temp=-1 def_chain=-1 uses_temps={} uses_chain=-1 preds={0} succs={}
+    block[2] entry=L132
+    node_count=2
+    node#0 type=EntryLabel def_temp=-1 def_chain=-1 uses_temps={} uses_chain=-1 preds={} succs={1}
+    node#1 type=ExitStatement quad_kind=RETURN def_temp=-1 def_chain=-1 uses_temps={} uses_chain=-1 preds={0} succs={}
+  func[2] name=extra^le
+    block_count=3
+    block[0] entry=L100
+    node_count=3
+    node#0 type=EntryLabel def_temp=-1 def_chain=-1 uses_temps={} uses_chain=-1 preds={} succs={1,2}
+    node#1 type=Statement quad_kind=MOVE def_temp=100 def_chain=-1 uses_temps={} uses_chain=-1 preds={0} succs={2}
+    node#2 type=ExitStatement quad_kind=CJUMP def_temp=-1 def_chain=-1 uses_temps={100} uses_chain=-1 preds={0,1} succs={}
+    block[1] entry=L101
+    node_count=2
+    node#0 type=EntryLabel def_temp=-1 def_chain=-1 uses_temps={} uses_chain=-1 preds={} succs={1}
+    node#1 type=ExitStatement quad_kind=RETURN def_temp=-1 def_chain=-1 uses_temps={} uses_chain=-1 preds={0} succs={}
+    block[2] entry=L102
+    node_count=2
+    node#0 type=EntryLabel def_temp=-1 def_chain=-1 uses_temps={} uses_chain=-1 preds={} succs={1}
+    node#1 type=ExitStatement quad_kind=RETURN def_temp=-1 def_chain=-1 uses_temps={} uses_chain=-1 preds={0} succs={}
+  func[3] name=extra^eq
+    block_count=3
+    block[0] entry=L110
+    node_count=3
+    node#0 type=EntryLabel def_temp=-1 def_chain=-1 uses_temps={} uses_chain=-1 preds={} succs={1,2}
+    node#1 type=Statement quad_kind=MOVE def_temp=110 def_chain=-1 uses_temps={} uses_chain=-1 preds={0} succs={2}
+    node#2 type=ExitStatement quad_kind=CJUMP def_temp=-1 def_chain=-1 uses_temps={110} uses_chain=-1 preds={0,1} succs={}
+    block[1] entry=L111
+    node_count=2
+    node#0 type=EntryLabel def_temp=-1 def_chain=-1 uses_temps={} uses_chain=-1 preds={} succs={1}
+    node#1 type=ExitStatement quad_kind=RETURN def_temp=-1 def_chain=-1 uses_temps={} uses_chain=-1 preds={0} succs={}
+    block[2] entry=L112
+    node_count=2
+    node#0 type=EntryLabel def_temp=-1 def_chain=-1 uses_temps={} uses_chain=-1 preds={} succs={1}
+    node#1 type=ExitStatement quad_kind=RETURN def_temp=-1 def_chain=-1 uses_temps={} uses_chain=-1 preds={0} succs={}
+preSchedule program dump
+  function_count=4
+  func[0] name=extra^ne
+    block_count=3
+    block[0] entry=L120
+      phi_count=0
+      selected_instruction_count=1
+        instr kind=I_MOVE assem="mov `d0, #3" dst=<t120> src=<>
+      last_instruction_kind=CJUMP
+    block[1] entry=L121
+      phi_count=0
+      selected_instruction_count=0
+      last_instruction_kind=RETURN
+    block[2] entry=L122
+      phi_count=0
+      selected_instruction_count=0
+      last_instruction_kind=RETURN
+  func[1] name=extra^gt
+    block_count=3
+    block[0] entry=L130
+      phi_count=0
+      selected_instruction_count=1
+        instr kind=I_MOVE assem="mov `d0, #5" dst=<t130> src=<>
+      last_instruction_kind=CJUMP
+    block[1] entry=L131
+      phi_count=0
+      selected_instruction_count=0
+      last_instruction_kind=RETURN
+    block[2] entry=L132
+      phi_count=0
+      selected_instruction_count=0
+      last_instruction_kind=RETURN
+  func[2] name=extra^le
+    block_count=3
+    block[0] entry=L100
+      phi_count=0
+      selected_instruction_count=1
+        instr kind=I_MOVE assem="mov `d0, #1" dst=<t100> src=<>
+      last_instruction_kind=CJUMP
+    block[1] entry=L101
+      phi_count=0
+      selected_instruction_count=0
+      last_instruction_kind=RETURN
+    block[2] entry=L102
+      phi_count=0
+      selected_instruction_count=0
+      last_instruction_kind=RETURN
+  func[3] name=extra^eq
+    block_count=3
+    block[0] entry=L110
+      phi_count=0
+      selected_instruction_count=1
+        instr kind=I_MOVE assem="mov `d0, #2" dst=<t110> src=<>
+      last_instruction_kind=CJUMP
+    block[1] entry=L111
+      phi_count=0
+      selected_instruction_count=0
+      last_instruction_kind=RETURN
+    block[2] entry=L112
+      phi_count=0
+      selected_instruction_count=0
+      last_instruction_kind=RETURN

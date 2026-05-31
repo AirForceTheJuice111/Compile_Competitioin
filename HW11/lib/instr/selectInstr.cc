@@ -519,10 +519,8 @@ void selectInstructionsForBlock(
 ) {
     const auto& graph = blockGraph.graph;
     const auto& nodes = graph.getNodes();
-    if (nodes.empty()) {
-        return;
-    }
-
+    if (nodes.empty()) return;
+    
     std::unordered_map<int, tree::Temp*> constCache;
     activeConstCache = &constCache;
 
@@ -530,23 +528,20 @@ void selectInstructionsForBlock(
     std::unordered_map<int, const quad::QuadPtrCalc*> deferredPtrCalc;
     covered.insert(nodes.front());
 
-    bool progress = true;
-    while (progress && covered.size() < nodes.size()) {
-        progress = false;
+    bool changed = true;
+    while (changed && covered.size() < nodes.size()) {
+        changed = false;
         for (auto *node : nodes) {
-            if (node == nullptr || covered.find(node) != covered.end()) {
-                continue;
-            }
-            if (!allPredecessorsCovered(node, covered)) {
-                continue;
-            }
+            if (node == nullptr || covered.find(node) != covered.end()) continue;
+            if (!allPredecessorsCovered(node, covered)) continue;
+            
 
             auto *stm = node->quadStatement;
             if (stm == nullptr || node->type == NodeType::EntryLabel ||
                 node->type == NodeType::ExitStatement ||
                 (stm == schedBlock.lastInstruction && isScheduledBySchedulePass(stm))) {
                 covered.insert(node);
-                progress = true;
+                changed = true;
                 continue;
             }
 
@@ -556,7 +551,7 @@ void selectInstructionsForBlock(
                 if (dst != nullptr && shouldFoldPtrCalcOnGraph(ptrCalc, nodes)) {
                     deferredPtrCalc[dst->num] = ptrCalc;
                     covered.insert(node);
-                    progress = true;
+                    changed = true;
                     continue;
                 }
             }
@@ -568,21 +563,21 @@ void selectInstructionsForBlock(
                     selectFoldedMemoryAccess(found->second, stm, schedBlock, nextTempNum)) {
                     deferredPtrCalc.erase(found);
                     covered.insert(node);
-                    progress = true;
+                    changed = true;
                     continue;
                 }
             }
 
             selectStatement(stm, schedBlock, nextTempNum);
             covered.insert(node);
-            progress = true;
+            changed = true;
         }
     }
 
+    // Fallback. Shouldnt be necessary if the graph is well formed, but just in case, select any remaining uncovered statements
     for (auto *node : nodes) {
-        if (node == nullptr || covered.find(node) != covered.end()) {
-            continue;
-        }
+        if (node == nullptr || covered.find(node) != covered.end()) continue;
+        
         auto *stm = node->quadStatement;
         if (stm == nullptr || node->type == NodeType::ExitStatement ||
             (stm == schedBlock.lastInstruction && isScheduledBySchedulePass(stm))) {
