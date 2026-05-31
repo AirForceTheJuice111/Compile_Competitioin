@@ -8,7 +8,7 @@ using_table_of_content: true
 
 # HW11 实验报告
 
-**重要：请助教仔细看一下实验结果部分。我的实现与预期结果存在temp编号不同，指令调度顺序不同（不影响数据流）和函数顺序不同的差异，并且在一个测试用例上还比预期输出选择指令选的更好。实验结果中有详细说明。**
+**重要：请助教仔细看一下实验结果部分。我的实现与预期结果存在temp编号不同，指令调度顺序不同（不影响数据流）和函数顺序不同的差异。实验结果中有详细说明。**
 
 本次作业实现从 SSA Quad 到 ARMv7-A 汇编的后端指令选择和线性化。输入是 `.4-ssa-withflow-xml.quad`，输出是使用无限量 temp 的 `.s` 文件。
 
@@ -74,14 +74,18 @@ bx lr
 ## Git 提交记录
 
 ```text
-30c8af3 Implement HW11 instruction scheduling
-65946c7 Merge branches 'master' and 'master' of gitee.com:fudanCompiler/fducompilerh2026
-818df73 HW11 added
-ca19001 revised report
-f186162 Keep HW10 plan alignment within allowed sources
-4bdfad4 Align HW10 IV reports with reference comments
-2957eba Merge branch 'master' of gitee.com:fudanCompiler/fducompilerh2026
-cead473 HW10 fin
+d3494d9 Merge branch 'master' of gitee.com:fudanCompiler/fducompilerh2026
+4182231 Detail HW11 assembly diffs by test
+0514985 HW12 added
+980620d Document HW11 assembly output differences
+801cb2d HW11: test updated
+fe13725 HW11: test updated
+c970a23 HW11: test files updated
+748bae7 Merge branch 'master' of https://forgejo.dywsy21.cn:18080/dywsy21/Compiler-H
+8688743 quiz fin
+9b2ab10 quiz tests
+8f28263 improved quiz preps
+1e486db before quiz
 ```
 
 ## 测试结果
@@ -90,15 +94,14 @@ cead473 HW10 fin
 
 ```text
 ninja: Entering directory `/tmp/hw11build'
-[1/3] Building CXX object lib/instr/CMakeFiles/instr.dir/buildAdvDFG.cc.o
-[2/3] Building CXX object lib/instr/CMakeFiles/instr.dir/selectInstr.cc.o
-[3/3] Linking CXX executable tools/main/main
+ninja: no work to do.
 ```
 
-隔离运行 12 个官方输入均通过：
+pull 更新测试后，隔离运行 13 个官方输入均通过：
 
 ```text
 Running bubblesort
+Running fibonacci
 Running insttest0
 Running insttest1
 Running insttest2
@@ -111,13 +114,12 @@ Running optloopivtest4
 Running optloopivtest5
 Running optloopivtest6
 Generated assembly files:
-12
+13
 ```
 
 随后将生成的 `.s` 与仓库中的参考 `.s` 逐个比较。完全一致的文件如下：
 
 ```text
-MATCH insttest0.s
 MATCH optloopivtest1.s
 MATCH optloopivtest3.s
 MATCH optloopivtest4.s
@@ -128,6 +130,8 @@ MATCH optloopivtest6.s
 
 ```text
 DIFF bubblesort.s
+DIFF fibonacci.s
+DIFF insttest0.s
 DIFF insttest1.s
 DIFF insttest2.s
 DIFF insttest3.s
@@ -136,25 +140,30 @@ DIFF optloopivtest2.s
 DIFF optloopivtest5.s
 ```
 
-这些差异主要分为三类：
+这些差异主要分为四类：
 
 1. 函数输出顺序不同。例如 `bubblesort.s` 中参考输出先输出 `__$main__^main`，当前输出先输出 `b1^bubbleSort`。函数之间没有顺序依赖，因此不影响汇编语义。
 2. 独立指令调度顺序不同。例如 `optloopivtest2.s` 和 `optloopivtest5.s` 中，参考输出会先计算回边更新 temp，再执行 `putint` 和 `putch`；当前输出先执行输出调用，再在回边 PHI 拷贝前计算该 temp。该 temp 只在回边处使用，因此语义一致。
 3. temp 编号和部分中间地址 temp 不同。当前实现会把 `PTR_CALC` 后唯一用于 `LOAD` 或 `STORE` 的地址进一步折叠到 ARM 寻址模式中，例如生成 `str t16300, [t12600, t16000]` 或 `str t148, [t10000, #24]`，而参考输出有时保留显式地址 temp。这个差异属于指令选择更充分使用 ARM addressing mode，不改变语义。
+4. 标签地址物化方式不同。pull 后部分参考 `.s` 使用 `ldr t, =label` 伪指令，当前实现仍使用 `adr t, label`。两者都用于把标签地址放入 temp，在当前测试范围内语义一致。
 
 因此，当前实现已经覆盖 `str/ldr [base, #offset]`、`str/ldr [base, index]`、`add/sub #imm` 和小常量 `mov #imm` 等常见 ARM 指令选择形式；剩余 diff 不是由于没有使用 offset/index 寻址造成的。
 
 逐测试用例差异说明如下：
 
-- `bubblesort.s`：如果忽略函数输出顺序，两个函数内部仍有若干调度差异。`__$main__^main` 中参考输出先计算 `t12800 = t10000 + 24` 和 `t12900 = t10000 + 28`，再用 `str [t12800]` 和 `str [t12900]`；当前实现直接生成 `str t148, [t10000, #24]` 和 `str t149, [t10000, #28]`，实际上比参考输出指令选择做的好。`b1^bubbleSort` 中也有类似差异，例如参考先保留地址中间 temp，当前实现生成 `str t16300, [t12600, t16000]` 这样的 indexed addressing。其余差异主要是独立语句调度顺序不同，例如 `mov t13100, t12700`、`mov t12200, t102`、若干 `mul` 和 `ldr` 的先后顺序不同，以及由此引起的常量 temp 编号不同。
+- `bubblesort.s`：如果忽略函数输出顺序，两个函数内部仍有若干调度差异。`__$main__^main` 中参考输出先生成 `mov t10100, #0` 和 `mov t10200, #0`，当前实现把这两个初始化放在数组 store 之后。参考使用 `ldr t151, =b1^bubbleSort` 物化函数标签地址，当前实现使用 `adr t151, b1^bubbleSort`。循环体中有独立语句调度差异，例如 `add t10202, t10201, #1` 被放在输出调用之后、若干 `mul` 和 `ldr` 的先后顺序不同。当前实现仍会使用 `str t148, [t10000, #24]`、`str t149, [t10000, #28]` 和 `str t16300, [t12600, t16000]` 这样的 offset/index addressing。
 
-- `insttest1.s`：指令形态和控制流一致，差异集中在常量 temp 编号。例如参考使用 `t132` 保存 `0`、`t131` 保存 `10`、`t133` 保存 `2`，当前实现对应 temp 为 `t134`、`t133`、`t135`。`exit(-1)`、乘法常量 `4`、输出空格 `32` 的 temp 编号也不同。语义不变。
+- `fibonacci.s`：`__$main__^main` 中参考先分配对象再初始化 `t10200`、`t10000`，当前实现先初始化这两个 temp；参考使用 `ldr t172, =fib^f`，当前实现使用 `adr t172, fib^f`。打印提示字符串时，当前实现会复用已经装载过的字符常量 temp，例如空格、`t`、`e`、`r`、`n`，所以比参考少若干 `movw`，但输出字符序列一致。`fib^f` 中递归调用前后存在独立 move/load 的调度顺序差异，例如 `mov t10600, t10300` 和第二次递归调用参数准备的先后顺序不同，调用目标、参数和返回值组合保持一致。
 
-- `insttest2.s`：初始化阶段的独立语句顺序不同。参考较早生成 `mov t10100, #3`、`mov t12100, t10300` 和 `mov t10000, t10300`，当前实现先完成数组内容 store，再生成这些 move。后续循环部分的差异仍主要是常量 temp 编号不同，例如比较用 `0`、换行 `10`、返回值 `2`、`exit(-1)`、乘法常量 `4` 和空格 `32` 的 temp 编号不同。
+- `insttest0.s`：`C^max` 函数完全一致。`__$main__^main` 只有标签地址物化方式不同：参考为 `ldr t113, =C^max`，当前实现为 `adr t113, C^max`，后续都将该地址写入对象方法表并通过 `blx` 调用，语义一致。
 
-- `insttest3.s`：函数 `C^m` 完全一致。`__$main__^main` 中参考保留 `add t12500, t10400, #4` 后执行 `str t141, [t12500]`，当前实现直接执行 `str t142, [t10400, #4]`；这是更充分使用 offset addressing 的差异。参考还会更早生成 `mov t10200, #3` 和 `mov t10600, t10400`，当前实现稍后生成。循环部分主要是常量 temp 编号不同。
+- `insttest1.s`：指令形态和控制流一致，差异集中在常量 temp 编号以及常量复用。pull 后参考会重新生成 `movw t129, #4` 再 store 数组长度末项，当前实现复用前面已经保存 `4` 的 temp `t125`。后续比较用 `0`、换行 `10`、返回值 `2`、`exit(-1)`、乘法常量 `4` 和空格 `32` 的 temp 编号不同，语义不变。
 
-- `insttest4.s`：函数 `C^m` 完全一致。`__$main__^main` 中参考提前生成 `t13600 = t10300 + 4`、`t13700 = t10300 + 8`、`t13800 = t10600 + 8` 等地址 temp，再通过这些 temp 做 store/load；当前实现直接生成 `str t10500, [t10300, #4]`、`str t162, [t10300, #8]` 和 `ldr t11200, [t10600, #8]`。这是 offset addressing 折叠造成的文本差异。后续循环部分仍是常量 temp 编号不同。
+- `insttest2.s`：初始化阶段的独立语句顺序不同。参考较早生成 `mov t10100, #3`、`mov t12100, t10300` 和 `mov t10000, t10300`，当前实现先完成部分数组内容 store，再生成这些 move。当前实现也复用保存 `4` 的 temp `t130` 来写数组长度。循环部分差异仍主要是常量 temp 编号不同。
+
+- `insttest3.s`：函数 `C^m` 完全一致。`__$main__^main` 中参考保留 `add t12500, t10400, #4` 后执行 `str t142, [t12500]`，当前实现直接执行 `str t142, [t10400, #4]`；这是更充分使用 offset addressing 的差异。参考使用 `ldr t142, =C^m`，当前实现使用 `adr t142, C^m`。参考还会更早生成 `mov t10200, #3` 和 `mov t10600, t10400`，当前实现稍后生成。循环部分主要是常量 temp 编号不同。
+
+- `insttest4.s`：函数 `C^m` 完全一致。`__$main__^main` 中参考提前生成 `t13600 = t10300 + 4`、`t13700 = t10300 + 8`、`t13800 = t10600 + 8` 等地址 temp，再通过这些 temp 做 store/load；当前实现直接生成 `str t10500, [t10300, #4]`、`str t162, [t10300, #8]` 和 `ldr t11200, [t10600, #8]`。参考使用 `ldr t162, =C^m`，当前实现使用 `adr t162, C^m`。后续循环部分仍是常量 temp 编号不同。
 
 - `optloopivtest2.s`：只有回边更新语句位置不同。参考在输出 derived IV 结果前计算 `sub t10002, t10001, #2`，当前实现把这条语句放在 `putint` 和 `putch` 之后、回边 PHI 拷贝之前。`t10002` 只在回边更新 `t10001` 时使用，因此语义一致。
 
