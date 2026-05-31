@@ -166,11 +166,3 @@ DIFF optloopivtest5.s
 - `optloopivtest2.s`：只有回边更新语句位置不同。参考在输出 derived IV 结果前计算 `sub t10002, t10001, #2`，当前实现把这条语句放在 `putint` 和 `putch` 之后、回边 PHI 拷贝之前。`t10002` 只在回边更新 `t10001` 时使用，因此语义一致。
 
 - `optloopivtest5.s`：和 `optloopivtest2.s` 类似。参考先生成 `sub t10202, t10201, #1`，再计算并输出 `3 * t10201 + 2`；当前实现先计算输出值并调用 `putint`、`putch`，再生成 `sub t10202, t10201, #1` 并进行回边 PHI 拷贝。该 temp 只用于回边更新，因此语义一致。
-
-额外测试也通过：
-
-```text
-Running extra_phi_true_edge
-Running extra_relops
-All extra HW11 tests passed.
-```
