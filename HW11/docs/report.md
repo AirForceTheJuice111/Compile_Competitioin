@@ -8,7 +8,7 @@ using_table_of_content: true
 
 # HW11 实验报告
 
-**重要：请助教仔细看一下实验结果部分。我的实现与预期结果存在temp编号不同，指令调度顺序不同（不影响数据流）和函数顺序不同的差异。实验结果中有详细说明。**
+**重要：请助教仔细看一下实验结果部分。我的实现与预期结果存在temp编号不同，指令调度顺序不同（不影响数据流）和函数顺序不同的差异。老师给的预期结果没有实现完备的 1. ptr_calc折叠  2. 常量复用。 实验结果部分中有详细说明。**
 
 本次作业实现从 SSA Quad 到 ARMv7-A 汇编的后端指令选择和线性化。输入是 `.4-ssa-withflow-xml.quad`，输出是使用无限量 temp 的 `.s` 文件。
 
@@ -48,7 +48,7 @@ using_table_of_content: true
 - `NAME` 翻译成 `adr`，用于函数表项等标签地址。
 - `LOAD` 和 `STORE` 翻译成 `ldr` 和 `str`，地址先物化成 temp。
 - `MOVE_BINOP` 翻译成 `add`、`sub`、`mul` 或 `sdiv`。
-- `PTR_CALC` 翻译成 `add`，把 base 和 offset 相加。
+- `PTR_CALC` 翻译成 `add`，把 base 和 offset 相加。如果可以不翻译就不翻。（直接填入`str`，`ldr`的offset）
 - 外部函数调用和普通函数调用按 ARM 约定把参数放入 `r0`、`r1`、`r2`、`r3`，再生成 `bl`；带对象函数指针的调用使用 `blx`。
 - 带返回值的调用把 `r0` 搬到目标 temp。
 
@@ -96,14 +96,7 @@ c970a23 HW11: test files updated
 
 ## 测试结果
 
-独立构建通过：
-
-```text
-ninja: Entering directory `/tmp/hw11build'
-ninja: no work to do.
-```
-
-advDFG 结构性重写后，隔离运行 13 个官方输入均通过：
+运行 13 个测试均通过：
 
 ```text
 Running bubblesort
@@ -146,14 +139,13 @@ DIFF optloopivtest2.s
 DIFF optloopivtest5.s
 ```
 
-这些差异主要分为四类：
+这些差异主要分为五类：
 
 1. 函数输出顺序不同。例如 `bubblesort.s` 中参考输出先输出 `__$main__^main`，当前输出先输出 `b1^bubbleSort`。函数之间没有顺序依赖，因此不影响汇编语义。
 2. 独立指令调度顺序不同。例如 `optloopivtest2.s` 和 `optloopivtest5.s` 中，参考输出会先计算回边更新 temp，再执行 `putint` 和 `putch`；当前输出先执行输出调用，再在回边 PHI 拷贝前计算该 temp。该 temp 只在回边处使用，因此语义一致。
 3. temp 编号和部分中间地址 temp 不同。当前实现会把 `PTR_CALC` 后唯一用于 `LOAD` 或 `STORE` 的地址进一步折叠到 ARM 寻址模式中，例如生成 `str t16300, [t12600, t16000]` 或 `str t148, [t10000, #24]`，而参考输出有时保留显式地址 temp。这个差异属于指令选择更充分使用 ARM addressing mode，不改变语义。
 4. 标签地址物化方式不同。pull 后部分参考 `.s` 使用 `ldr t, =label` 伪指令，当前实现仍使用 `adr t, label`。两者都用于把标签地址放入 temp，在当前测试范围内语义一致。
-
-因此，当前实现已经覆盖 `str/ldr [base, #offset]`、`str/ldr [base, index]`、`add/sub #imm` 和小常量 `mov #imm` 等常见 ARM 指令选择形式；剩余 diff 不是由于没有使用 offset/index 寻址造成的。
+5. 预期输出中，没有做常量复用。
 
 逐测试用例差异说明如下：
 

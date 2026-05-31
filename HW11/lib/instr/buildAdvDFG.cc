@@ -90,9 +90,9 @@ advDFGprog *buildAdvDFGprog(const quad::QuadProgram *program) {
                 node->tempDefined = firstDefTemp(stm);
                 node->tempsUsed = usedTemps(stm);
 
-                blockGraph->graph.addEdge(entryNode, node);
+                blockGraph->graph.addEdge(entryNode, node); // entry to statement edges
 
-                if (touchesMemoryOrCall(stm)) { // new position in CFG chain
+                if (touchesMemoryOrCall(stm)) { // memory / call chain edges
                     node->chainDefined = nextChain++;
                     if (lastChainDef != nullptr) {
                         node->chainUsed = lastChainDef->chainDefined;
@@ -101,7 +101,7 @@ advDFGprog *buildAdvDFGprog(const quad::QuadProgram *program) {
                     lastChainDef = node;
                 }
 
-                for (int used : node->tempsUsed) {
+                for (int used : node->tempsUsed) { // def-use edges
                     auto found = lastTempDef.find(used);
                     if (found != lastTempDef.end()) {
                         blockGraph->graph.addEdge(found->second, node);
@@ -132,7 +132,7 @@ advDFGprog *buildAdvDFGprog(const quad::QuadProgram *program) {
             if (lastStatement != nullptr) {
                 for (auto *node : statementNodes) {
                     if (node != lastStatement) {
-                        blockGraph->graph.addEdge(node, lastStatement);
+                        blockGraph->graph.addEdge(node, lastStatement); // node-to-exit edges
                     }
                 }
             }
