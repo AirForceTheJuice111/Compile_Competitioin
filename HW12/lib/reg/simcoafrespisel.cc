@@ -9,6 +9,50 @@
 #include "ig.hh"
 #include "coloring.hh"
 
+namespace {
+
+bool hasNode(const map<int, set<int>> &graph, int node) {
+    return graph.find(node) != graph.end();
+}
+
+bool interferes(const map<int, set<int>> &graph, int left, int right) {
+    auto found = graph.find(left);
+    return found != graph.end() && found->second.find(right) != found->second.end();
+}
+
+bool georgeSafe(const map<int, set<int>> &graph, int removed, int kept, int k) {
+    auto found = graph.find(removed);
+    if (found == graph.end()) return false;
+
+    for (int neighbor : found->second) {
+        if (neighbor == kept) continue;
+        auto neighborFound = graph.find(neighbor);
+        auto degree = neighborFound == graph.end() ? 0 : static_cast<int>(neighborFound->second.size());
+        if (degree >= k && !interferes(graph, neighbor, kept)) return false;
+    }
+
+    return true;
+}
+
+void addCoalescedNode(map<int, set<int>> &coalescedMoves, int kept, int removed) {
+    coalescedMoves[kept].insert(removed);
+    auto found = coalescedMoves.find(removed);
+    if (found == coalescedMoves.end()) return;
+
+    for (int node : found->second) coalescedMoves[kept].insert(node);
+    coalescedMoves.erase(found);
+}
+
+int findRepresentative(const map<int, set<int>> &coalescedMoves, int node) { // find the representative of the node in the coalesced moves
+    for (const auto &entry : coalescedMoves) {
+        if (entry.first == node) return node;
+        if (entry.second.find(node) != entry.second.end()) return entry.first;
+    }
+    return node;
+}
+
+} // namespace
+
 //return true if any node is removed
 bool Coloring::simplify() {
 #ifdef DEBUG
@@ -43,12 +87,68 @@ bool Coloring::coalesce() {
     cout << "Coalescing..." << endl;
 #endif
     if (ig == nullptr) return false;
-    bool changed = false;
-    
-    // Conservative implementation: keep move pairs for now. The allocator is
-    // still correct without coalescing; it may emit more moves or spills.
+    for (auto it = movePairs.begin(); it != movePairs.end(); ++it) {
+        int left = it->first;
+        int right = it->second;
+        if (left == right) {
+            movePairs.erase(it);
+            return true;
+        }
+        if (!hasNode(graph, left) || !hasNode(graph, right)) continue;
+        if (interferes(graph, left, right)) {
+            movePairs.erase(it);
+            return true;
+        }
+        if (isMachineReg(left) && isMachineReg(right)) {
+            movePairs.erase(it);
+            return true;
+        }
 
-    return changed;
+        int removed = -1;
+        int kept = -1;
+        if (isMachineReg(left) && !isMachineReg(right)) {
+            if (!georgeSafe(graph, right, left, k)) continue;
+            removed = right;
+            kept = left;
+        } else if (!isMachineReg(left) && isMachineReg(right)) {
+            if (!georgeSafe(graph, left, right, k)) continue;
+            removed = left;
+            kept = right;
+        } else {
+            if (georgeSafe(graph, right, left, k)) {
+                removed = right;
+                kept = left;
+            } else if (georgeSafe(graph, left, right, k)) {
+                removed = left;
+                kept = right;
+            } else {
+                continue;
+            }
+        }
+
+        auto neighbors = graph[removed];
+        for (int neighbor : neighbors) {
+            if (neighbor != kept) addEdge(kept, neighbor);
+        }
+        eraseNode(removed);
+        addCoalescedNode(coalescedMoves, kept, removed);
+
+        set<pair<int, int>> updatedMoves;
+        for (auto move : movePairs) {
+            int first = move.first == removed ? kept : move.first;
+            int second = move.second == removed ? kept : move.second;
+            first = findRepresentative(coalescedMoves, first);
+            second = findRepresentative(coalescedMoves, second);
+            if (first == second) continue;
+            if (first > second) swap(first, second);
+            updatedMoves.insert({first, second});
+        }
+        movePairs = updatedMoves;
+
+        return true;
+    }
+
+    return false;
 }
 
 //freeze the moves that are not coalesced
@@ -149,11 +249,20 @@ bool Coloring::select() {
             all_covered = false;
         } else {
             colors[node] = selectedColor;
+            auto coalesced = coalescedMoves.find(node);
+            if (coalesced != coalescedMoves.end()) {
+                for (int alias : coalesced->second) colors[alias] = selectedColor;
+            }
         }
     }
 
-    for (const auto &entry : ig->graph) {
+    for (const auto &entry : ig->graph) { // assign colors to the nodes that are coalesced but not simplified, and spill the nodes that are not colored
         int node = entry.first;
+        int representative = findRepresentative(coalescedMoves, node);
+        auto representativeColor = colors.find(representative);
+        if (representativeColor != colors.end() && colors.find(node) == colors.end()) {
+            colors[node] = representativeColor->second;
+        }
         if (colors.find(node) == colors.end() && spilled.find(node) == spilled.end()) {
             if (isMachineReg(node)) {
                 colors[node] = node;
