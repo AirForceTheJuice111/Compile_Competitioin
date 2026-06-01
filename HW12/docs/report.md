@@ -211,6 +211,45 @@ Running the final assembly program with k=9.........
 
 另外，我将仓库中参考 `.colored.s` 导出到临时目录，分别编译参考版本和当前生成版本，并对每个二进制单独提供相同输入 `4 4 4 4`。全部 39 组程序的 stdout 完全一致，没有发现语义差异。
 
+针对所有包含 `getint()` 调用的官方程序，我又做了随机输入差分 fuzz。测试方式是把参考 `.colored.s` 和当前生成 `.colored.s` 的 `main` 临时改名为 `test_main`，分别链接同一个 ARM harness。harness 在同一个 qemu 进程内循环调用 `test_main()` 一百万次，随机生成输入，并对 `putint`、`putch` 输出流和返回值计算 hash。这样避免了每组输入都重新启动 qemu 的开销。
+
+输入范围如下：
+
+- `fibonacci`：随机生成 `[-5, 12]`，覆盖负数、零和正常递归输入，同时避免过大的递归运行时间。
+- `insttest4`：随机生成 `[-32, 32]`，覆盖选择两个不同数组分支的情况。该用例源码最后会触发 `exit(-1)`，harness 将 exit code 纳入 hash 后继续下一组。
+- `optloopivtest1` 和 `optloopivtest2`：随机生成 `[-20, 80]`，覆盖不进循环、小循环和较长循环。
+- `optloopivtest3`：第一项随机生成 `[-20, 80]`，第二项随机生成 `[1, 20]`，覆盖不进循环和不同步长，同时保证循环终止。
+- `optloopivtest5` 和 `optloopivtest6`：随机生成 `[-32, 32]`，覆盖 `i > 0` 和 `i <= 0` 两条路径。
+
+fuzz 结果如下：
+
+```text
+OK k2/fibonacci 55df99f7044bd2a5 1000000
+OK k2/insttest4 daf53c3291bcbf2b 1000000
+OK k2/optloopivtest1 aaa3658d7a8e2c5f 1000000
+OK k2/optloopivtest2 d2aaa2f8ae3f0c91 1000000
+OK k2/optloopivtest3 ed40332c76b45d99 2000000
+OK k2/optloopivtest5 8b80070115de348b 1000000
+OK k2/optloopivtest6 8b80070115de348b 1000000
+OK k5/fibonacci 55df99f7044bd2a5 1000000
+OK k5/insttest4 daf53c3291bcbf2b 1000000
+OK k5/optloopivtest1 aaa3658d7a8e2c5f 1000000
+OK k5/optloopivtest2 d2aaa2f8ae3f0c91 1000000
+OK k5/optloopivtest3 ed40332c76b45d99 2000000
+OK k5/optloopivtest5 8b80070115de348b 1000000
+OK k5/optloopivtest6 8b80070115de348b 1000000
+OK k9/fibonacci 55df99f7044bd2a5 1000000
+OK k9/insttest4 daf53c3291bcbf2b 1000000
+OK k9/optloopivtest1 aaa3658d7a8e2c5f 1000000
+OK k9/optloopivtest2 d2aaa2f8ae3f0c91 1000000
+OK k9/optloopivtest3 ed40332c76b45d99 2000000
+OK k9/optloopivtest5 8b80070115de348b 1000000
+OK k9/optloopivtest6 8b80070115de348b 1000000
+ALL_FUZZ_OK
+```
+
+其中最后一列是实际调用 `getint()` 的次数。`optloopivtest3` 每组输入调用两次 `getint()`，所以一百万组随机数据对应两百万次读取。所有 fuzz hash 都与参考版本一致，没有发现随机输入下的输出或返回值差异。
+
 生成输出与仓库参考 `.colored.s` 不完全一致。逐测试用例差异如下：
 
 1. `bubblesort`：`k2`、`k5`、`k9` 均存在寄存器颜色选择、spill/reload 栈槽和少量冗余 move 差异；`k2`、`k5` 还因为 spill 数量不同导致栈帧大小不同。运行输出一致。
