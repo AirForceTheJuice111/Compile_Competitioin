@@ -83,7 +83,7 @@ epilogue 中对应的 `sub sp, fp, #36` 和 `add sp, sp, #4` 也同步调整。�
 ## Git 提交记录
 
 ```text
-cbf6f32 Document HW12 George coalescing
+c181600 Document HW12 George coalescing
 ec51b06 Implement George coalescing for HW12
 62b31f8 Add HW12 getint fuzz results
 cbf6b97 Update HW12 run-assem results
