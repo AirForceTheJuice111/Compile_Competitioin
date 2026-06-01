@@ -34,10 +34,10 @@ using_table_of_content: true
 
 ## 图着色
 
-`simcoafrespisel.cc` 中实现了简化版的 simplify、freeze、spill 和 select。
+`simcoafrespisel.cc` 中实现了 simplify、coalesce、freeze、spill 和 select。
 
 - `simplify()` 删除度数小于 `k` 的非机器寄存器节点，并压入 `simplifiedNodes` 栈。
-- `coalesce()` 采用保守策略，当前不主动合并节点，以降低错误 coalesce 破坏干涉关系的风险。
+- `coalesce()` 采用课件中的 George 安全策略：如果要把 `removed` 合并到 `kept`，则 `removed` 的每个邻居要么已经和 `kept` 干涉，要么当前度数小于 `k`。满足条件时才合并节点、合并边，并把相关 move pair 重写到代表节点上。若 move pair 涉及机器寄存器，则保留机器寄存器作为代表；两个机器寄存器之间不会 coalesce，因为 precolored node 的颜色固定。
 - `freeze()` 删除低度 move 节点相关的 move pair，使 simplify 能继续推进。
 - `spill()` 在没有低度节点可删时选择当前度数最高的非机器寄存器节点作为 potential spill，压入栈中。
 - `select()` 从栈中反向弹出节点，选择一个没有被已着色邻居使用的颜色。如果没有可用颜色，则把该 temp 放入 `spilled`。
@@ -59,8 +59,10 @@ ldr r9/r10, [fp, #offset]
 定义 spilled temp 后插入：
 
 ```text
-str r9/r10, [fp, #offset]
+str r10, [fp, #offset]
 ```
+
+目的操作数统一使用 `r10`，这与课件中 spill destination 的处理方式一致。
 
 同时根据 spill 栈槽数量修改函数栈帧。原始 HW11 prologue 中的：
 
@@ -81,6 +83,9 @@ epilogue 中对应的 `sub sp, fp, #36` 和 `add sp, sp, #4` 也同步调整。�
 ## Git 提交记录
 
 ```text
+cbf6f32 Document HW12 George coalescing
+ec51b06 Implement George coalescing for HW12
+62b31f8 Add HW12 getint fuzz results
 cbf6b97 Update HW12 run-assem results
 63bd4af Add HW12 report
 b229e2d Implement HW12 register allocation
@@ -248,7 +253,7 @@ OK k9/optloopivtest6 8b80070115de348b 1000000
 ALL_FUZZ_OK
 ```
 
-其中最后一列是实际调用 `getint()` 的次数。`optloopivtest3` 每组输入调用两次 `getint()`，所以一百万组随机数据对应两百万次读取。所有 fuzz hash 都与参考版本一致，没有发现随机输入下的输出或返回值差异。
+其中最后一列是实际调用 `getint()` 的次数。`optloopivtest3` 每组输入调用两次 `getint()`，所以一百万组随机数据对应两百万次读取。在加入 George coalesce 并调整 spill destination 使用 `r10` 后，重新执行了上述 fuzz。所有 fuzz hash 仍与参考版本一致，没有发现随机输入下的输出或返回值差异。
 
 生成输出与仓库参考 `.colored.s` 不完全一致。逐测试用例差异如下：
 
@@ -266,4 +271,4 @@ ALL_FUZZ_OK
 12. `optloopivtest5`：三种 `k` 下主要是循环变量、边界值和中间乘法结果的寄存器选择差异；`k9` spill 更少，因此差异主要表现为 move 和实寄存器替换。运行输出一致。
 13. `optloopivtest6`：三种 `k` 下主要是循环变量和中间值的 spill/reload 位置、栈槽和 move 消除差异。运行输出一致。
 
-这些差异没有暴露出正确性问题。它们来自图着色中 simplify/spill 顺序、保守不 coalesce、spill 栈槽编号和可用颜色选择策略不同。所有差异都已通过实际 ARM 链接运行和与参考版本同输入 stdout 对比确认。
+这些差异没有暴露出正确性问题。它们来自图着色中 simplify/spill 顺序、George coalesce 合并选择、spill 栈槽编号和可用颜色选择策略不同。所有差异都已通过实际 ARM 链接运行、与参考版本同输入 stdout 对比，以及一百万组随机输入 fuzz 确认。
