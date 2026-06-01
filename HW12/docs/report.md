@@ -81,6 +81,8 @@ epilogue 中对应的 `sub sp, fp, #36` 和 `add sp, sp, #4` 也同步调整。�
 ## Git 提交记录
 
 ```text
+e3fd849 Update HW12 run-assem results
+63bd4af Add HW12 report
 b229e2d Implement HW12 register allocation
 e99f08e revised HW11 makefile
 c48677d revised HW11 report
@@ -97,91 +99,132 @@ d3494d9 Merge branch 'master' of gitee.com:fudanCompiler/fducompilerh2026
 
 ## 测试结果
 
-独立构建通过：
+构建通过：
 
 ```text
-cmake -S HW12 -B /tmp/hw12build -G Ninja
-ninja -C /tmp/hw12build
+make -C HW12 build
 ```
 
-隔离运行 13 个官方输入，均成功生成 `k2`、`k5`、`k9` 三组 `.colored.s`：
+重新生成官方输入的 `k2`、`k5`、`k9` 三组 `.colored.s`：
 
 ```text
-Running bubblesort
-Running fibonacci
-Running insttest0
-Running insttest1
-Running insttest2
-Running insttest3
-Running insttest4
-Running optloopivtest1
-Running optloopivtest2
-Running optloopivtest3
-Running optloopivtest4
-Running optloopivtest5
-Running optloopivtest6
-DONE
+make -C HW12 run
 ```
 
 对所有生成的 colored assembly 做占位符检查，没有残留虚拟 temp、占位符或非法寄存器名：
 
 ```text
-rg -n '`[dsj][0-9]|r100|r10000|t[0-9]' /tmp/hw12-current/k2 /tmp/hw12-current/k5 /tmp/hw12-current/k9 -S
+rg -n '`[dsj][0-9]|r10000|t[0-9]+' HW12/test/k2 HW12/test/k5 HW12/test/k9 -S
 ```
 
 没有输出。
 
-使用 `arm-linux-gnueabihf-as` 对全部 39 个 `.colored.s` 做汇编器检查，全部通过：
+配置系统版交叉编译与运行环境后，使用 Makefile 已实现的 `run-assem` 实际链接并运行所有官方用例。由于部分测试程序调用 `getint()`，直接无输入运行时参考程序也会读到未定义值并长时间输出，因此实际验证时通过管道为所有 `getint()` 提供输入 `4`：
 
 ```text
-Assembling only k2/bubblesort
-Assembling only k2/fibonacci
-Assembling only k2/insttest0
-Assembling only k2/insttest1
-Assembling only k2/insttest2
-Assembling only k2/insttest3
-Assembling only k2/insttest4
-Assembling only k2/optloopivtest1
-Assembling only k2/optloopivtest2
-Assembling only k2/optloopivtest3
-Assembling only k2/optloopivtest4
-Assembling only k2/optloopivtest5
-Assembling only k2/optloopivtest6
-Assembling only k5/bubblesort
-Assembling only k5/fibonacci
-Assembling only k5/insttest0
-Assembling only k5/insttest1
-Assembling only k5/insttest2
-Assembling only k5/insttest3
-Assembling only k5/insttest4
-Assembling only k5/optloopivtest1
-Assembling only k5/optloopivtest2
-Assembling only k5/optloopivtest3
-Assembling only k5/optloopivtest4
-Assembling only k5/optloopivtest5
-Assembling only k5/optloopivtest6
-Assembling only k9/bubblesort
-Assembling only k9/fibonacci
-Assembling only k9/insttest0
-Assembling only k9/insttest1
-Assembling only k9/insttest2
-Assembling only k9/insttest3
-Assembling only k9/insttest4
-Assembling only k9/optloopivtest1
-Assembling only k9/optloopivtest2
-Assembling only k9/optloopivtest3
-Assembling only k9/optloopivtest4
-Assembling only k9/optloopivtest5
-Assembling only k9/optloopivtest6
-All generated colored.s accepted by assembler
+yes 4 | timeout 120 make -C HW12 run-assem
 ```
 
-当前环境没有安装 `qemu-arm`：
+运行结果如下，`k2`、`k5`、`k9` 三种寄存器数量下输出一致：
 
 ```text
-command -v qemu-arm qemu-arm-static qemu-aarch64
+Running bubblesort.colored.s .........
+Running the final assembly program with k=2.........
+0 1 2 3 5 6 9 
+Running the final assembly program with k=5.........
+0 1 2 3 5 6 9 
+Running the final assembly program with k=9.........
+0 1 2 3 5 6 9 
+Running fibonacci.colored.s .........
+Running the final assembly program with k=2.........
+Enter the number of term:0 1 1 2 
+Running the final assembly program with k=5.........
+Enter the number of term:0 1 1 2 
+Running the final assembly program with k=9.........
+Enter the number of term:0 1 1 2 
+Running insttest0.colored.s .........
+Running the final assembly program with k=2.........
+200Running the final assembly program with k=5.........
+200Running the final assembly program with k=9.........
+200Running insttest1.colored.s .........
+Running the final assembly program with k=2.........
+4 3 2 1 
+Running the final assembly program with k=5.........
+4 3 2 1 
+Running the final assembly program with k=9.........
+4 3 2 1 
+Running insttest2.colored.s .........
+Running the final assembly program with k=2.........
+3 2 1 Running the final assembly program with k=5.........
+3 2 1 Running the final assembly program with k=9.........
+3 2 1 Running insttest3.colored.s .........
+Running the final assembly program with k=2.........
+3 2 1 Running the final assembly program with k=5.........
+3 2 1 Running the final assembly program with k=9.........
+3 2 1 Running insttest4.colored.s .........
+Running the final assembly program with k=2.........
+4 3 2 1 Running the final assembly program with k=5.........
+4 3 2 1 Running the final assembly program with k=9.........
+4 3 2 1 Running optloopivtest1.colored.s .........
+Running the final assembly program with k=2.........
+14 10 6 2 
+Running the final assembly program with k=5.........
+14 10 6 2 
+Running the final assembly program with k=9.........
+14 10 6 2 
+Running optloopivtest2.colored.s .........
+Running the final assembly program with k=2.........
+18 10 0
+Running the final assembly program with k=5.........
+18 10 0
+Running the final assembly program with k=9.........
+18 10 0
+Running optloopivtest3.colored.s .........
+Running the final assembly program with k=2.........
+7 
+Running the final assembly program with k=5.........
+7 
+Running the final assembly program with k=9.........
+7 
+Running optloopivtest4.colored.s .........
+Running the final assembly program with k=2.........
+34 30 26 22 18 14 10 6 2 -2 0
+Running the final assembly program with k=5.........
+34 30 26 22 18 14 10 6 2 -2 0
+Running the final assembly program with k=9.........
+34 30 26 22 18 14 10 6 2 -2 0
+Running optloopivtest5.colored.s .........
+Running the final assembly program with k=2.........
+32 29 26 23 20 17 14 11 8 5 5
+Running the final assembly program with k=5.........
+32 29 26 23 20 17 14 11 8 5 5
+Running the final assembly program with k=9.........
+32 29 26 23 20 17 14 11 8 5 5
+Running optloopivtest6.colored.s .........
+Running the final assembly program with k=2.........
+32 29 26 23 20 17 14 11 8 5 5
+Running the final assembly program with k=5.........
+32 29 26 23 20 17 14 11 8 5 5
+Running the final assembly program with k=9.........
+32 29 26 23 20 17 14 11 8 5 5
 ```
 
-没有输出。因此本地无法执行 `make run-assem` 的最终 ARM user-mode 运行验证。尝试使用 `arm-linux-gnueabihf-gcc` 链接时，当前环境的交叉 GCC 还缺少 `cc1`，并且自带 `libsysy32.s` 与该 assembler 的默认 `-march=armv8-a+crc` 选项不兼容。因此本次本地测试以生成成功、占位符清除、interference coloring 无冲突报错、全部 `.colored.s` 被 ARM assembler 接受作为证明。
+另外，我将仓库中参考 `.colored.s` 导出到临时目录，分别编译参考版本和当前生成版本，并对每个二进制单独提供相同输入 `4 4 4 4`。全部 39 组程序的 stdout 完全一致，没有发现语义差异。
 
-生成输出与仓库参考 `.colored.s` 不完全一致，原因是图着色中 simplify/spill 的选择顺序、是否 coalesce、spill 栈槽分配顺序和可用颜色选择策略都允许不同。寄存器分配不要求文本完全一致，只要最终汇编满足干涉约束、调用约定和 spill/reload 语义即可。
+生成输出与仓库参考 `.colored.s` 不完全一致。逐测试用例差异如下：
+
+1. `bubblesort`：`k2`、`k5`、`k9` 均存在寄存器颜色选择、spill/reload 栈槽和少量冗余 move 差异；`k2`、`k5` 还因为 spill 数量不同导致栈帧大小不同。运行输出一致。
+2. `fibonacci`：三种 `k` 下均有寄存器选择和 spill/reload 差异；`k5` 中部分比较和跳转附近的实寄存器不同，但控制流结构不变。运行输出一致。
+3. `insttest0`：主要是全局地址加载附近使用的实寄存器不同；`k2` 还多出少量 spill/reload 和栈帧调整。运行输出一致。
+4. `insttest1`：三种 `k` 下均有寄存器选择、spill/reload 和 move 消除差异；`k2`、`k5` 的栈帧大小与参考不同。运行输出一致。
+5. `insttest2`：三种 `k` 下主要是寄存器选择、spill/reload 插入位置和 move 消除差异；`k5`、`k9` 中比较指令使用的实寄存器不同。运行输出一致。
+6. `insttest3`：三种 `k` 下均有寄存器选择与 spill/reload 差异；函数调用相关的 `blx` 位置保持语义顺序，差异只来自参数和临时值所在寄存器。运行输出一致。
+7. `insttest4`：三种 `k` 下均有寄存器选择、spill/reload 和栈槽差异；`k9` 比参考少若干可被消除的 move。运行输出一致。
+8. `optloopivtest1`：三种 `k` 下差异集中在循环体内归纳变量的 reload、store 和 scratch register 选择，例如参考用 `r10` 保存中间结果，当前版本可复用 `r9`。运行输出一致。
+9. `optloopivtest2`：三种 `k` 下差异集中在循环体内 `mul` 前后的 reload/store 和 move 消除；语义等价。运行输出一致。
+10. `optloopivtest3`：三种 `k` 下均有两个输入值和循环变量的栈槽、reload/store 差异；`k2` 因 spill 更多，文本差异最大。运行输出一致。
+11. `optloopivtest4`：三种 `k` 下差异集中在循环变量更新时的 scratch register 选择和 spill slot 访问。运行输出一致。
+12. `optloopivtest5`：三种 `k` 下主要是循环变量、边界值和中间乘法结果的寄存器选择差异；`k9` spill 更少，因此差异主要表现为 move 和实寄存器替换。运行输出一致。
+13. `optloopivtest6`：三种 `k` 下主要是循环变量和中间值的 spill/reload 位置、栈槽和 move 消除差异。运行输出一致。
+
+这些差异没有暴露出正确性问题。它们来自图着色中 simplify/spill 顺序、保守不 coalesce、spill 栈槽编号和可用颜色选择策略不同。所有差异都已通过实际 ARM 链接运行和与参考版本同输入 stdout 对比确认。
