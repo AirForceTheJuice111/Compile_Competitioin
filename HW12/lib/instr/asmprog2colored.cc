@@ -113,9 +113,8 @@ vector<string> coloredInstructionLines(
 
         string replacement;
         if (isSpilled(temp->num, coloring)) {
-            string scratch = nextScratch == 0 ? "r10" : "r9";
-            replacement = scratch;
-            after.push_back(storeSpill(scratch, spillOffset(temp->num, spillSlots)));
+            replacement = "r10";
+            after.push_back(storeSpill("r10", spillOffset(temp->num, spillSlots)));
         } else {
             replacement = getTempRegName(temp->num, coloring);
         }
