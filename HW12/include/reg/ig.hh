@@ -13,7 +13,7 @@ using namespace std;
 
 class InterferenceGraph {
 public:
-    map<int, set<int>> graph; // Adjacency list representation of the interference graph
+    map<int, set<int>> graph; // Adjacency list representation of the interference graph, where the key is the node and the value is the set of neighboring nodes
     set<pair<int, int>> movePairs; // Set of move pairs in the original graph
 
     //constructing the graph from the original graph and the move pairs

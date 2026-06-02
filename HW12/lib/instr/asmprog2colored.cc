@@ -72,7 +72,7 @@ string patchFrameInstruction(const string &assem, int localSize) {
     return assem;
 }
 
-vector<string> coloredInstructionLines(
+vector<string> coloredInstructionLines( // returns colored instruction lines, including multiple lines for spill code
     const AssemInstr &instr,
     const Coloring *coloring,
     const map<int, int> &spillSlots,
@@ -143,7 +143,7 @@ AsmProg* asmprog2colored(AsmProg* program, const vector<Coloring*>& colorings) {
         int slotIndex = 0;
         if (coloring != nullptr) {
             for (int temp : coloring->spilled) {
-                spillSlots[temp] = -40 - slotIndex * 4;
+                spillSlots[temp] = -40 - slotIndex * 4; // stack memory offset for spilled temp
                 ++slotIndex;
             }
         }

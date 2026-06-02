@@ -12,9 +12,7 @@ using_table_of_content: true
 
 ## 参考资料
 
-1. 虎书第 11 章。主要参考了 liveness analysis、interference graph、simplify/spill/select 图着色寄存器分配，以及 spilled temp 的栈槽改写方法。
-2. 课程 PPT 中关于 HW12 register allocation 的说明。主要参考了 `predataflowpass`、`buildIg`、`simcoafrespisel`、`asmprog2colored` 四个阶段的整体接口约定。
-3. ARM Procedure Call Standard 的基本调用约定。实现中把 `r0` 到 `r3` 视为调用会破坏的 caller-saved register，并保留 `r9`、`r10` 作为 spill/reload scratch register。
+虎书第 11 章。主要参考了 liveness analysis、interference graph、simplify/spill/select 图着色寄存器分配，以及 spilled temp 的栈槽改写方法。
 
 ## preDataFlowPass
 
@@ -41,6 +39,8 @@ using_table_of_content: true
 - `freeze()` 删除低度 move 节点相关的 move pair，使 simplify 能继续推进。
 - `spill()` 在没有低度节点可删时选择当前度数最高的非机器寄存器节点作为 potential spill，压入栈中。
 - `select()` 从栈中反向弹出节点，选择一个没有被已着色邻居使用的颜色。如果没有可用颜色，则把该 temp 放入 `spilled`。
+
+**采用了预留三个寄存器专门处理spill的策略，这样只需一次着色。**
 
 机器寄存器编号小于 `100`，其颜色固定为自身编号。虚拟 temp 只使用 `0` 到 `k - 1` 这些颜色，因此在 `k = 2`、`5`、`9` 时分别只使用 `r0` 到 `r1`、`r0` 到 `r4`、`r0` 到 `r8` 作为可分配寄存器。
 
