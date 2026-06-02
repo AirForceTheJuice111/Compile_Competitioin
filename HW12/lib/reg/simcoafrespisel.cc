@@ -256,8 +256,8 @@ bool Coloring::select() {
         }
     }
 
-    for (const auto &entry : ig->graph) { // assign colors to the nodes that are coalesced but not simplified, and spill the nodes that are not colored
-        int node = entry.first;
+    for (const auto &maybeCoalescedNode : ig->graph) { // assign colors to the nodes that are coalesced but not simplified, and spill the nodes that are not colored
+        int node = maybeCoalescedNode.first;
         int representative = findRepresentative(coalescedMoves, node);
         auto representativeColor = colors.find(representative);
         if (representativeColor != colors.end() && colors.find(node) == colors.end()) {
