@@ -253,9 +253,9 @@ OK k9/optloopivtest6 8b80070115de348b 1000000
 ALL_FUZZ_OK
 ```
 
-其中最后一列是实际调用 `getint()` 的次数。`optloopivtest3` 每组输入调用两次 `getint()`，所以一百万组随机数据对应两百万次读取。在加入 George coalesce 并调整 spill destination 使用 `r10` 后，重新执行了上述 fuzz。所有 fuzz hash 仍与参考版本一致，没有发现随机输入下的输出或返回值差异。
+其中最后一列是实际调用 `getint()` 的次数。`optloopivtest3` 每组输入调用两次 `getint()`，所以一百万组随机数据对应两百万次读取。所有 fuzz hash 仍与参考版本一致，没有发现随机输入下的输出或返回值差异。
 
-生成输出与仓库参考 `.colored.s` 不完全一致。逐测试用例差异如下：
+生成输出与仓库参考 `.colored.s` 不完全一致，但均正确。逐测试用例差异如下：
 
 1. `bubblesort`：`k2`、`k5`、`k9` 均存在寄存器颜色选择、spill/reload 栈槽和少量冗余 move 差异；`k2`、`k5` 还因为 spill 数量不同导致栈帧大小不同。运行输出一致。
 2. `fibonacci`：三种 `k` 下均有寄存器选择和 spill/reload 差异；`k5` 中部分比较和跳转附近的实寄存器不同，但控制流结构不变。运行输出一致。
@@ -270,5 +270,3 @@ ALL_FUZZ_OK
 11. `optloopivtest4`：三种 `k` 下差异集中在循环变量更新时的 scratch register 选择和 spill slot 访问。运行输出一致。
 12. `optloopivtest5`：三种 `k` 下主要是循环变量、边界值和中间乘法结果的寄存器选择差异；`k9` spill 更少，因此差异主要表现为 move 和实寄存器替换。运行输出一致。
 13. `optloopivtest6`：三种 `k` 下主要是循环变量和中间值的 spill/reload 位置、栈槽和 move 消除差异。运行输出一致。
-
-这些差异没有暴露出正确性问题。它们来自图着色中 simplify/spill 顺序、George coalesce 合并选择、spill 栈槽编号和可用颜色选择策略不同。所有差异都已通过实际 ARM 链接运行、与参考版本同输入 stdout 对比，以及一百万组随机输入 fuzz 确认。
