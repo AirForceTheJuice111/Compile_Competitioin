@@ -1,0 +1,9 @@
+/* 测试: break 在 while 循环外使用 */
+public int main() {
+    break;
+    return 0;
+}
+
+/*
+Expected error: break statement outside of a while loop
+*/

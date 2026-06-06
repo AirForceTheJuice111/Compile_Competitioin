@@ -1,0 +1,10 @@
+// EXPECT: PASS
+public int main() {
+    return 0;
+}
+
+public class A {
+}
+
+public class B {
+}

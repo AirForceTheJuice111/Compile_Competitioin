@@ -1,0 +1,14 @@
+// EXPECT: FAIL
+// Target: class variable must be accessed via object, not bare identifier.
+public int main() {
+    return 0;
+}
+
+public class A {
+    int x;
+
+    public int f() {
+        x = 1;
+        return x;
+    }
+}

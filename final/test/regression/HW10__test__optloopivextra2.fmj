@@ -1,0 +1,13 @@
+public int main() {
+    int k;
+    int j;
+    k = getint();
+    while (k > 0) {
+        j = 5 * k - 7;
+        putint(j);
+        putch(32);
+        k = k - 3;
+    }
+    putch(10);
+    return k;
+}

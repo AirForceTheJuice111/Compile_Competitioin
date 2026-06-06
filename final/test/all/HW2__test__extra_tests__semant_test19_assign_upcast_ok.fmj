@@ -1,0 +1,15 @@
+// EXPECT: PASS
+// Target: assignment should allow upcast from child to parent.
+public int main() {
+    class A a;
+    class B b;
+    b = new B();
+    a = b;
+    return 0;
+}
+
+public class A {
+}
+
+public class B extends A {
+}

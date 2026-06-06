@@ -1,0 +1,13 @@
+// EXPECT: FAIL
+// Target: method call should reject wrong argument count.
+public int main() {
+    class A a;
+    a = new A();
+    return a.f(1);
+}
+
+public class A {
+    public int f(int x, int y) {
+        return x + y;
+    }
+}

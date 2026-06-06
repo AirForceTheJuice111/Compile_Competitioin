@@ -1,0 +1,6 @@
+public int main() {
+	a = 5;
+	b = (a+unknownX);
+	c = (b*unknownY);
+	return c;
+}

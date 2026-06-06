@@ -1,0 +1,6 @@
+// EXPECT: PASS
+// Target: getarray(...) requires array lvalue.
+public int main() {
+    int [] a;
+    return getarray(a);
+}

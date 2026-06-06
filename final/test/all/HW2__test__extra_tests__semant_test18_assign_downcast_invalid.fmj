@@ -1,0 +1,15 @@
+// EXPECT: FAIL
+// Target: assignment should reject downcast.
+public int main() {
+    class A a;
+    class B b;
+    a = new A();
+    b = a;
+    return 0;
+}
+
+public class A {
+}
+
+public class B extends A {
+}

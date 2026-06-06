@@ -1,0 +1,26 @@
+// EXPECT: FAIL
+// Target: overriding method must keep compatible return type.
+public int main() {
+    return 0;
+}
+
+public class BaseRet {
+}
+
+public class GoodRet extends BaseRet {
+}
+
+public class BadRet {
+}
+
+public class A {
+    public class BaseRet f() {
+        return new BaseRet();
+    }
+}
+
+public class B extends A {
+    public class BadRet f() {
+        return new BadRet();
+    }
+}
