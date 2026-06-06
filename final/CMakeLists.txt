@@ -73,3 +73,6 @@ set(FINAL_SOURCES
 
 add_executable(fmjcc tools/fmjcc/main.cc ${FINAL_SOURCES})
 target_compile_definitions(fmjcc PRIVATE DEFAULT_PARSER="${CMAKE_CURRENT_SOURCE_DIR}/vendor/parser/parser")
+
+add_executable(fmjinterp tools/fmjinterp/main.cc ${FINAL_SOURCES})
+target_compile_definitions(fmjinterp PRIVATE DEFAULT_PARSER="${CMAKE_CURRENT_SOURCE_DIR}/vendor/parser/parser")

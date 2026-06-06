@@ -61,6 +61,10 @@ static bool sameTemp(const tree::Temp *left, const tree::Temp *right) {
     return left != nullptr && right != nullptr && left->num == right->num;
 }
 
+static bool isArmMemoryImmediate(int offset) {
+    return offset >= 0 && offset <= 4095;
+}
+
 static void emitLoadConst(preScheduleBlock &schedBlock, tree::Temp *dst, int value) {
     uint32_t bits = static_cast<uint32_t>(value);
     uint32_t low = bits & 0xffffu;
@@ -361,7 +365,7 @@ static bool selectFoldedMemoryAccess( // fold ptr offset + load/store into singl
         if (load == nullptr || !isTempTerm(load->src, &addr) || !sameTemp(addr, ptrDst)) {
             return false;
         }
-        if (constOffset) {
+        if (constOffset && isArmMemoryImmediate(offsetConst)) {
             if (offsetConst == 0) {
                 schedBlock.addSelectedInstruction(AssemInstr::Oper("ldr `d0, [`s0]", {load->dst->temp}, {base}, AssemTargets()));
             } else {
@@ -372,8 +376,10 @@ static bool selectFoldedMemoryAccess( // fold ptr offset + load/store into singl
                     AssemTargets()
                 ));
             }
-        } else {
+        } else if (tempOffset) {
             schedBlock.addSelectedInstruction(AssemInstr::Oper("ldr `d0, [`s0, `s1]", {load->dst->temp}, {base, offsetTemp}, AssemTargets()));
+        } else {
+            return false;
         }
         return true;
     }
@@ -387,6 +393,9 @@ static bool selectFoldedMemoryAccess( // fold ptr offset + load/store into singl
 
         if (constOffset && offsetConst == 0 && store->src != nullptr &&
             store->src->kind == quad::QuadTermKind::TEMP) {
+            return false;
+        }
+        if (constOffset && !isArmMemoryImmediate(offsetConst)) {
             return false;
         }
 

@@ -4,16 +4,21 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 work="${WORKDIR:-/tmp/final_fuzz_regression}"
 fmjcc="${FMJCC:-$root/final/build/fmjcc}"
+fmjinterp="${FMJINTERP:-$root/final/build/fmjinterp}"
 cc="${ARM_CC:-arm-linux-gnueabihf-gcc}"
 qemu="${QEMU_ARM:-qemu-arm}"
 iters="${ITERS:-1000000}"
 timeout_s="${TIMEOUT:-3600}"
 kset="${KSET:-9}"
 seed="${SEED:-0x5eed1234}"
-use_noopt_oracle="${USE_NOOPT_ORACLE:-0}"
 
 if [[ ! -x "$fmjcc" ]]; then
     echo "Error: compiler not found or not executable: $fmjcc" >&2
+    echo "Run: make -C final build" >&2
+    exit 2
+fi
+if [[ ! -x "$fmjinterp" ]]; then
+    echo "Error: interpreter not found or not executable: $fmjinterp" >&2
     echo "Run: make -C final build" >&2
     exit 2
 fi
@@ -265,14 +270,26 @@ build_binary() {
     local out="$3"
     local renamed="${out%.arm}.test_main.s"
     transform_main "$asm" "$renamed"
-    "$cc" -static -O2 -marm -fno-stack-protector -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 \
+    "$cc" -mcpu=cortex-a72 -Wall -Wextra -Wl,-z,noexecstack --static \
+        -O2 -marm -fno-stack-protector -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0 \
         -DITERS="$iters" -DRNG_SEED="$seed" -DCASE_KIND="\"$kind\"" \
-        "$renamed" "$trampoline" "$harness" -o "$out"
+        "$renamed" "$trampoline" "$harness" -lm -o "$out"
 }
 
 run_binary() {
     local bin="$1"
     timeout "$timeout_s" "$qemu" "$bin"
+}
+
+run_interpreter() {
+    local src="$1"
+    local dir="$2"
+    local kind="$3"
+    local base
+    base="$(safe_name "$src")"
+    mkdir -p "$dir"
+    cp "$src" "$dir/$base.fmj"
+    timeout "$timeout_s" "$fmjinterp" --fuzz "$iters" --seed "$seed" --kind "$kind" "$dir/$base.fmj"
 }
 
 compile_final() {
@@ -372,58 +389,23 @@ while IFS= read -r src; do
             continue
         fi
 
-        ref_name="$(reference_name "$src")"
-        ref="$root/HW12/test/k$k/$ref_name.colored.s"
-        if [[ -f "$ref" ]]; then
-            set +e
-            build_binary "$ref" "$kind" "$case_dir/ref.arm" > "$case_dir/ref.link.log" 2>&1
-            ref_link_rc=$?
-            ref_out="$(run_binary "$case_dir/ref.arm" 2>"$case_dir/ref.err")"
-            ref_run_rc=$?
-            set -e
-            if [[ "$ref_link_rc" -ne 0 || "$ref_run_rc" -ne 0 || "$opt_out" != "$ref_out" ]]; then
-                fail=$((fail + 1))
-                {
-                    printf 'REFERENCE_MISMATCH k=%s %s kind=%s ref_link_rc=%s ref_run_rc=%s\n' "$k" "$rel" "$kind" "$ref_link_rc" "$ref_run_rc"
-                    printf '  opt=%s\n' "$opt_out"
-                    printf '  ref=%s\n' "$ref_out"
-                    printf '  ref_err='
-                    cat "$case_dir/ref.err"
-                    printf '\n'
-                } >> "$failures"
-            else
-                pass=$((pass + 1))
-                printf 'OK reference k=%s %s %s\n' "$k" "$rel" "$ref_out"
-            fi
-        elif [[ "$use_noopt_oracle" == "1" ]]; then
-            if ! noopt_s="$(compile_final "$src" "$case_dir/noopt" "$k" "noopt")"; then
-                skip=$((skip + 1))
-                printf 'SKIP_COMPILE k=%s %s mode=noopt\n' "$k" "$rel" >> "$failures"
-                continue
-            fi
-            set +e
-            build_binary "$noopt_s" "$kind" "$case_dir/noopt.arm" > "$case_dir/noopt.link.log" 2>&1
-            noopt_link_rc=$?
-            noopt_out="$(run_binary "$case_dir/noopt.arm" 2>"$case_dir/noopt.err")"
-            noopt_run_rc=$?
-            set -e
-            if [[ "$noopt_link_rc" -ne 0 || "$noopt_run_rc" -ne 0 || "$opt_out" != "$noopt_out" ]]; then
-                fail=$((fail + 1))
-                {
-                    printf 'NOOPT_MISMATCH k=%s %s kind=%s noopt_link_rc=%s noopt_run_rc=%s\n' "$k" "$rel" "$kind" "$noopt_link_rc" "$noopt_run_rc"
-                    printf '  opt=%s\n' "$opt_out"
-                    printf '  noopt=%s\n' "$noopt_out"
-                    printf '  noopt_err='
-                    cat "$case_dir/noopt.err"
-                    printf '\n'
-                } >> "$failures"
-            else
-                pass=$((pass + 1))
-                printf 'OK noopt k=%s %s %s\n' "$k" "$rel" "$noopt_out"
-            fi
+        set +e
+        interp_out="$(run_interpreter "$src" "$case_dir/interp" "$kind" 2>"$case_dir/interp.err")"
+        interp_run_rc=$?
+        set -e
+        if [[ "$interp_run_rc" -ne 0 || "$opt_out" != "$interp_out" ]]; then
+            fail=$((fail + 1))
+            {
+                printf 'INTERPRETER_MISMATCH k=%s %s kind=%s interp_run_rc=%s\n' "$k" "$rel" "$kind" "$interp_run_rc"
+                printf '  opt=%s\n' "$opt_out"
+                printf '  interp=%s\n' "$interp_out"
+                printf '  interp_err='
+                cat "$case_dir/interp.err"
+                printf '\n'
+            } >> "$failures"
         else
             pass=$((pass + 1))
-            printf 'OK smoke k=%s %s %s\n' "$k" "$rel" "$opt_out"
+            printf 'OK interpreter k=%s %s %s\n' "$k" "$rel" "$opt_out"
         fi
     done
 done < <(case_source)

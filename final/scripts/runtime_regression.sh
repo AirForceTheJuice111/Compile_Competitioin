@@ -6,7 +6,7 @@ work="${WORKDIR:-/tmp/final_runtime_regression}"
 fmjcc="${FMJCC:-$root/final/build/fmjcc}"
 cc="${ARM_CC:-arm-linux-gnueabihf-gcc}"
 qemu="${QEMU_ARM:-qemu-arm}"
-libsysy="${LIBSYSY32:-$root/HW12/vendor/libsysy/libsysy32.c}"
+libsysy="${LIBSYSY32:-$root/HW12/vendor/libsysy/libsysy32.s}"
 timeout_s="${TIMEOUT:-30}"
 run_timeout_s="${RUN_TIMEOUT:-10}"
 k="${K:-9}"
@@ -24,8 +24,8 @@ for tool in "$cc" "$qemu"; do
     fi
 done
 if [[ ! -f "$libsysy" ]]; then
-    echo "Error: libsysy32.c not found: $libsysy" >&2
-    exit 2
+    echo "Making libsysy32.s..." >&2
+    (cd "$root/HW12/vendor/libsysy" && "$cc" -mcpu=cortex-a72 -S libsysy32.c -o libsysy32.s)
 fi
 
 rm -rf "$work"
@@ -67,7 +67,8 @@ while IFS='|' read -r test_file original; do
     fi
 
     set +e
-    "$cc" -static -o "$base.arm" "$base.s" "$libsysy" > "$base.gcc.log" 2>&1
+    "$cc" -mcpu=cortex-a72 -Wall -Wextra -Wl,-z,noexecstack --static \
+        -o "$base.arm" "$base.s" "$libsysy" -lm > "$base.gcc.log" 2>&1
     rc=$?
     set -e
     if [[ "$rc" -ne 0 ]]; then
