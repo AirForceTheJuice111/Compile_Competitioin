@@ -1,0 +1,12 @@
+// EXPECT: FAIL
+// Target: binary operations should reject object operands.
+public int main() {
+    class A a;
+    class A b;
+    a = new A();
+    b = new A();
+    return a == b;
+}
+
+public class A {
+}

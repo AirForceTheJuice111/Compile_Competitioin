@@ -1,0 +1,11 @@
+// EXPECT: FAIL
+// Target: semant should reject formals with undefined class type.
+public int main() {
+    return 0;
+}
+
+public class A {
+    public int f(class Missing x) {
+        return 0;
+    }
+}

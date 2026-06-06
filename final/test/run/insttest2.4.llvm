@@ -1,0 +1,105 @@
+; Generated LLVM IR from Quad representation
+
+declare i8* @malloc(i32)
+declare void @free(i8*)
+
+declare i32 @printf(i8*, ...)
+declare i32 @__isoc99_scanf(i8*, ...)
+
+declare void @exit(i64)
+
+declare i64 @getint()
+declare i64 @getch()
+declare i64 @getarray(i64*)
+declare void @putint(i64)
+declare void @putch(i64)
+declare void @putarray(i64, i64*)
+
+define i32 @main() {
+entry:
+  br label %label_108
+
+label_108:
+  %t10000 = add i64 0, 0
+  %t0 = mul i64 4, 2
+  %t1 = trunc i64 %t0 to i32
+  %t2 = call i8* @malloc(i32 %t1)
+  %t10300 = ptrtoint i8* %t2 to i64
+  %t3 = mul i64 0, 2
+  %t11500 = add i64 %t10300, %t3
+  %t4 = inttoptr i64 %t11500 to i64*
+  store i64 0, i64* %t4
+  %t5 = mul i64 20, 2
+  %t6 = trunc i64 %t5 to i32
+  %t7 = call i8* @malloc(i32 %t6)
+  %t10400 = ptrtoint i8* %t7 to i64
+  %t8 = inttoptr i64 %t10400 to i64*
+  store i64 4, i64* %t8
+  %t9 = mul i64 4, 2
+  %t11600 = add i64 %t10400, %t9
+  %t10 = inttoptr i64 %t11600 to i64*
+  store i64 1, i64* %t10
+  %t11 = mul i64 8, 2
+  %t11700 = add i64 %t10400, %t11
+  %t12 = inttoptr i64 %t11700 to i64*
+  store i64 2, i64* %t12
+  %t13 = mul i64 12, 2
+  %t11800 = add i64 %t10400, %t13
+  %t14 = inttoptr i64 %t11800 to i64*
+  store i64 3, i64* %t14
+  %t15 = mul i64 16, 2
+  %t11900 = add i64 %t10400, %t15
+  %t16 = inttoptr i64 %t11900 to i64*
+  store i64 4, i64* %t16
+  %t17 = mul i64 0, 2
+  %t12000 = add i64 %t10300, %t17
+  %t18 = inttoptr i64 %t12000 to i64*
+  store i64 %t10400, i64* %t18
+  %t10001 = add i64 %t10300, 0
+  %t10100 = add i64 3, 0
+
+label_102:
+  %t10101 = phi i64 [ %t10102, %label_107 ], [ %t10100, %label_108 ]
+  %t19 = icmp sge i64 %t10101, 0
+  br i1 %t19, label %label_103, label %label_104
+
+label_103:
+  %t10102 = sub i64 %t10101, 1
+  %t20 = mul i64 0, 2
+  %t12100 = add i64 %t10001, %t20
+  %t21 = inttoptr i64 %t12100 to i64*
+  %t10500 = load i64, i64* %t21
+  %t11000 = add i64 %t10500, 0
+  %t22 = inttoptr i64 %t10500 to i64*
+  %t10600 = load i64, i64* %t22
+  %t23 = icmp sge i64 %t10102, 0
+  br i1 %t23, label %label_106, label %label_105
+
+label_106:
+  %t24 = icmp sge i64 %t10102, %t10600
+  br i1 %t24, label %label_105, label %label_107
+
+label_105:
+  call void @exit(i64 -1)
+  unreachable
+
+label_107:
+  %t12200 = add i64 %t10102, 1
+  %t12300 = mul i64 %t12200, 4
+  %t25 = mul i64 %t12300, 2
+  %t12400 = add i64 %t11000, %t25
+  %t26 = inttoptr i64 %t12400 to i64*
+  %t11100 = load i64, i64* %t26
+  call void @putint(i64 %t11100)
+  call void @putch(i64 32)
+  br label %label_102
+
+label_104:
+  call void @putch(i64 10)
+  %t27 = trunc i64 2 to i32
+  ret i32 %t27
+
+  ; Default return
+  ret i32 0
+}
+

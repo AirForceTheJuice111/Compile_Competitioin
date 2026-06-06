@@ -1,0 +1,13 @@
+// EXPECT: PASS
+// Target: binary operations on int
+public int main() {
+    class A a;
+    class A b;
+    a = new A();
+    b = new A();
+    return a.i == b.i;
+}
+
+public class A {
+    int i;
+}

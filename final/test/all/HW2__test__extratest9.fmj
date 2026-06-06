@@ -1,0 +1,21 @@
+/* 测试: 父类赋给子类变量应该报错 */
+public int main() {
+    class Parent p;
+    class Child c;
+    p = new Parent();
+    c = p;
+    return 0;
+}
+
+public class Parent {
+    int val;
+}
+
+public class Child extends Parent {
+    int extra;
+}
+
+/*
+Expected error: Assign node has a different type between left and right
+测试点: 不能将父类对象赋给子类变量
+*/

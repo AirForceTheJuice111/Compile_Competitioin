@@ -1,0 +1,7 @@
+// EXPECT: FAIL
+// Target: only class objects may call methods.
+public int main() {
+    int x;
+    x = 0;
+    return x.f();
+}

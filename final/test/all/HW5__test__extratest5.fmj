@@ -1,0 +1,13 @@
+// Test: two classes, nested call, multiple functions
+public int main() {
+    class A a;
+    a = new A();
+    putint( a.add(3, 7) );
+    putch(10);
+}
+
+public class A {
+    public int add(int x, int y) {
+        return x + y;
+    }
+}

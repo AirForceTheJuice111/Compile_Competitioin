@@ -1,0 +1,7 @@
+// Test: array init, store, load, ptr_calc
+public int main() {
+    int[] a = {10, 20, 30};
+    putint(a[0]);
+    putch(10);
+    return 0;
+}

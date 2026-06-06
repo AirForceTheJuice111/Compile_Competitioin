@@ -1,0 +1,6 @@
+public int main() {
+    int x;
+    int[] arr = {1, 2};
+    x = arr;
+    return 0;
+}
