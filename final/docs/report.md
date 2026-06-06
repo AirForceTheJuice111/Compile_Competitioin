@@ -28,17 +28,17 @@ using_table_of_content: true
 构建入口仍然是 Makefile：
 
 ```text
-make -C final build
-make -C final compile-regression
-make -C final interpreter-regression
-make -C final runtime-regression
-make -C final fuzz-regression
+make build
+make compile-regression
+make interpreter-regression
+make runtime-regression
+make fuzz-regression
 ```
 
-同时按要求修改了单文件运行方式，现在可以直接指定任意 `.fmj` 路径：
+同时可以直接编译运行指定任意 `.fmj` 路径：
 
 ```text
-make -C final run-one path/to/file.fmj
+make run-one path/to/file.fmj
 ```
 
 该目标会复制输入到临时目录，运行 `fmjcc` 生成 `.s`，再使用 HW12 的交叉编译参数链接并用 qemu 运行。
@@ -63,16 +63,16 @@ make -C final run-one path/to/file.fmj
 
 ## 前端与语法边界
 
-Final 使用的是 HW2 提供的 `vendor/parser/parser`。我确认它能够把本项目中的 FMJ 源文件转换成 XML AST，并且能被 `xml2ast` 正确读回 C++ AST。编译器和解释器都复用同一个 parser，因此语法边界保持一致。
+Final 使用的是 HW2 提供的 `vendor/parser/parser`。编译器和解释器都复用同一个 parser，因此语法边界保持一致。
 
-这里有一个需要特别说明的边界：`HW2/docs/FDMJ2026Specification.md` 中规定：
+这里有一个需要特别说明的边界情况：`HW2/docs/FDMJ2026Specification.md` 中规定：
 
 ```text
 VarDecl -> Type id [= ArrayInit] ;
 ArrayInit -> { CONST (, CONST)* }
 ```
 
-也就是说，变量声明只允许没有初始化，或者使用数组字面量初始化；`int i = 0;` 并不是合法 FMJ 语法。回归测试中有一些早期原始样例使用了这类写法，它们被 final parser 拒绝是正确行为，而不是编译器误拒绝。
+也就是说，变量声明只允许没有初始化，或者使用数组字面量初始化；`int i = 0;` 并不是合法 FMJ 语法。编译器和解释器会拒绝之。
 
 ## 运行期语义
 
@@ -89,35 +89,7 @@ ArrayInit -> { CONST (, CONST)* }
 
 ## HW6-HW10 优化集成
 
-最终流水线默认包含 HW6-HW10 优化，而不是只走后端生成路径：
-
-- HW6：Tree canonicalization，消除复杂嵌套表达式对后续 Quad 的影响。
-- HW7：basic block、trace 和 flow information，为 SSA 与循环分析提供 CFG。
-- HW8：SSA 构造和 SCCP，保守传播常量并删除不可达/无用定义。
-- HW9：LICM，把 loop invariant 计算移动到 preheader。
-- HW10：归纳变量识别、strength reduction 和无用归纳变量清理。
-
-集成时比较重要的一点是优化之间共享 label/temp 编号空间。每个 pass 后都需要维护 `last_label_num` 和 `last_temp_num`，否则后端会遇到重复临时变量或跳转目标不一致的问题。
-
-## 后端与 ARM 运行
-
-后端沿用 HW11 和 HW12 的实现，包括 advDFG 指令选择、调度、函数 prologue/epilogue 生成、liveness、干涉图、George coalescing、spill 和实寄存器替换。
-
-链接和运行命令参考 HW12 Makefile，而不是重新设计运行方式：
-
-```text
-arm-linux-gnueabihf-gcc -mcpu=cortex-a72 -Wall -Wextra \
-  -Wl,-z,noexecstack --static \
-  -o program.arm program.s HW12/vendor/libsysy/libsysy32.s -lm
-qemu-arm program.arm
-```
-
-除法不需要替换成 libgcc helper。目标 CPU 使用 `-mcpu=cortex-a72`，ARM 汇编中可以直接使用 `sdiv` 指令。之前如果不带该 CPU 选项，汇编器可能把 `sdiv` 当作当前目标不支持的指令。
-
-在后端集成过程中修复了两个容易导致运行时错误的问题：
-
-- 折叠内存访问时，只有 `0..4095` 的立即数才生成 ARM `[base, #imm]` 地址形式；超出范围时退回显式计算地址。
-- 调度后函数 prologue 必须放在入口 block label 之前，避免循环回边跳到入口 label 时重复执行 prologue，导致栈不断下移。
+优化集成时比较重要的一点是优化之间共享 label/temp 编号空间。每个 pass 后都需要维护 `last_label_num` 和 `last_temp_num`，否则后端会遇到重复临时变量或跳转目标不一致的问题。
 
 ## 解释器 oracle
 
@@ -146,7 +118,7 @@ fuzz 时解释器还提供 hash 模式，和 ARM harness 使用相同的随机�
 total=251 pass=159 reject=92 crash=0 timeout=0 empty_label_hits=0 workdir=/tmp/final_compile_regression
 ```
 
-这里 `reject=92` 并不是简单相信编译器输出，而是再用解释器的 `--check` 模式确认。`interpreter-regression` 会分别运行解释器检查和编译器检查：
+这里 `reject=92` 再用解释器的 `--check` 模式确认。`interpreter-regression` 会分别运行解释器检查和编译器检查：
 
 - 两者都拒绝，记为 `reject_match`。
 - 只有编译器拒绝，记为 `compile_only_reject`。
@@ -211,8 +183,6 @@ OK interpreter k=9 HW9/test/opttest9.fmj d4e17d72c5b25503 1000000
 total=24 pass=24 compile_fail=0 link_fail=0 run_fail=0 workdir=/tmp/final_runtime_regression
 ```
 
-该测试不能替代解释器 oracle，但能快速暴露 ARM 汇编、链接参数、qemu 运行和 libsysy 接口问题。
-
 ## 遇到的问题
 
 ### 空 label / 空 block
@@ -240,7 +210,7 @@ ARM 的 load/store offset 立即数有范围限制。指令选择阶段若把任
 构建：
 
 ```text
-make -C final build
+make build
 ```
 
 编译单个文件：
@@ -264,37 +234,37 @@ final/build/fmjinterp --check path/to/file.fmj
 编译、链接并运行单个文件：
 
 ```text
-make -C final run-one path/to/file.fmj
+make run-one path/to/file.fmj
 ```
 
 端到端回归：
 
 ```text
-make -C final compile-regression
-make -C final interpreter-regression
-make -C final runtime-regression
-make -C final fuzz-regression
+make compile-regression
+make interpreter-regression
+make runtime-regression
+make fuzz-regression
 ```
 
 ## 测试结果汇总
 
 ```text
-make -C final compile-regression
+make compile-regression
 total=251 pass=159 reject=92 crash=0 timeout=0 empty_label_hits=0 workdir=/tmp/final_compile_regression
 ```
 
 ```text
-make -C final interpreter-regression
+make interpreter-regression
 total=251 run_match=156 reject_match=92 timeout_match=3 mismatch=0 compile_only_reject=0 interp_only_reject=0 link_fail=0 run_fail=0 timeout=3 workdir=/tmp/final_interpreter_regression
 ```
 
 ```text
-make -C final runtime-regression
+make runtime-regression
 total=24 pass=24 compile_fail=0 link_fail=0 run_fail=0 workdir=/tmp/final_runtime_regression
 ```
 
 ```text
-make -C final fuzz-regression
+make fuzz-regression
 fuzz_pass=41 fuzz_fail=0 fuzz_skip=3 iterations=1000000 kset="9" workdir=/tmp/final_fuzz_regression
 ```
 
@@ -303,7 +273,5 @@ fuzz_pass=41 fuzz_fail=0 fuzz_skip=3 iterations=1000000 kset="9" workdir=/tmp/fi
 ## 参考资料
 
 1. `HW2/docs/FDMJ2026Specification.md`，FMJ 语法和语言边界。
-2. 虎书第 7-12 章，IR、basic block、trace、指令选择和寄存器分配。
-3. 虎书第 17-18 章，SSA、稀疏条件常量传播、LICM 和循环归纳变量优化。
-4. HW2-HW12 已完成代码与报告。
-5. `HW12/Makefile` 和 `HW12/vendor/libsysy`，ARM 链接和 qemu 运行方式。
+2. HW2-HW12 已完成代码与报告。
+3. `HW12/Makefile` 和 `HW12/vendor/libsysy`，ARM 链接和 qemu 运行方式。
