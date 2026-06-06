@@ -210,7 +210,6 @@ ScheduleProg *scheduleProg(preScheduleProg *preScheduleProgram) {
             }
 
             visited.insert(block->entryLabel->num);
-            func->addLinearizedInstruction(AssemInstr::Label(block->entryLabel->str() + ":", block->entryLabel));
             if (block == entryBlock) {
                 func->addLinearizedInstruction(AssemInstr::Oper("push {r4-r10, fp, lr}", {}, {}, AssemTargets()));
                 func->addLinearizedInstruction(AssemInstr::Oper("sub sp, sp, #4", {}, {}, AssemTargets()));
@@ -246,6 +245,7 @@ ScheduleProg *scheduleProg(preScheduleProg *preScheduleProgram) {
                     }
                 }
             }
+            func->addLinearizedInstruction(AssemInstr::Label(block->entryLabel->str() + ":", block->entryLabel));
             func->linearizedInstructions.extend(block->selectedInstructions); // because selectedInstructions is already in the correct order for this block, we can just extend it directly
 
             auto *last = block->lastInstruction;
