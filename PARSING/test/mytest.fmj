@@ -1,0 +1,21 @@
+public int main() {
+    class TestClass a;
+    int[] b = {1,2,3};
+
+    b = new int[10];
+    
+    return a[1];
+}
+
+public class TestClass {
+    int a;
+    int[] b;
+    class A c;
+
+    public class TestClass test1(class TestClass a) {
+        int[] a; // or int a;
+        //a = a[1].b;
+        //a = a.b;
+    }
+}
+
