@@ -32,6 +32,7 @@ rebuild: clean build
 
 FILE ?= test/insttest0
 K ?= 9
+RUNTIME_CHECKS ?= 0
 
 test-one: build
 	@$(FMJCC) --k $(K) $(FILE).fmj
@@ -42,7 +43,7 @@ $(LIBSYSY32):
 
 run-one: build $(LIBSYSY32)
 	@K="$(K)" FMJCC="$(FMJCC)" ARM_CC="$(ARM_CC)" QEMU_ARM="$(QEMU_ARM)" \
-		LIBSYSY32="$(LIBSYSY32)" RUN_WORK="$(RUN_WORK)" \
+		LIBSYSY32="$(LIBSYSY32)" RUN_WORK="$(RUN_WORK)" RUNTIME_CHECKS="$(RUNTIME_CHECKS)" \
 		bash scripts/run_one.sh "$(RUN_ONE_ARG)"
 
 collect-tests:

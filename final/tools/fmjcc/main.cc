@@ -376,6 +376,7 @@ int runParser(const string &base) {
 int main(int argc, char **argv) {
     int k = 9;
     bool enableOptimizations = true;
+    bool enableRuntimeChecks = false;
     string input;
     string output;
 
@@ -387,8 +388,14 @@ int main(int argc, char **argv) {
             output = argv[++i];
         } else if (arg == "--no-opt") {
             enableOptimizations = false;
+        } else if (arg == "--runtime-checks" || arg == "--extra-runtime-semantics") {
+            enableRuntimeChecks = true;
+        } else if (arg == "--no-runtime-checks" || arg == "--no-extra-runtime-semantics") {
+            enableRuntimeChecks = false;
         } else if (arg == "--help" || arg == "-h") {
-            cout << "Usage: " << argv[0] << " [--k 9] [--no-opt] [-o output.s] <file.fmj|base>\n";
+            cout << "Usage: " << argv[0]
+                 << " [--k 9] [--no-opt] [--runtime-checks|--no-runtime-checks] [-o output.s] <file.fmj|base>\n";
+            cout << "       --extra-runtime-semantics is an alias for --runtime-checks.\n";
             return 0;
         } else if (input.empty()) {
             input = arg;
@@ -399,7 +406,9 @@ int main(int argc, char **argv) {
     }
 
     if (input.empty()) {
-        cerr << "Usage: " << argv[0] << " [--k 9] [--no-opt] [-o output.s] <file.fmj|base>" << endl;
+        cerr << "Usage: " << argv[0]
+             << " [--k 9] [--no-opt] [--runtime-checks|--no-runtime-checks] [-o output.s] <file.fmj|base>" << endl;
+        cerr << "       --extra-runtime-semantics is an alias for --runtime-checks." << endl;
         return 2;
     }
 
@@ -427,7 +436,7 @@ int main(int argc, char **argv) {
     auto *semantXml = ast2xml(root, semantMap, true, true);
     semantXml->SaveFile((base + ".2-semant.ast").c_str());
 
-    tree::Program *ir = ast2tree(root, semantMap);
+    tree::Program *ir = ast2tree(root, semantMap, enableRuntimeChecks);
     if (ir == nullptr) {
         cerr << "Error: AST to IR failed" << endl;
         return 1;

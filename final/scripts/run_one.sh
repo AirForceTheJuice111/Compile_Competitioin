@@ -9,6 +9,7 @@ qemu="${QEMU_ARM:-qemu-arm}"
 libsysy="${LIBSYSY32:-$root/HW12/vendor/libsysy/libsysy32.s}"
 work_root="${RUN_WORK:-/tmp/final_run_one}"
 k="${K:-9}"
+runtime_checks="${RUNTIME_CHECKS:-0}"
 
 if [[ $# -ne 1 || -z "$1" ]]; then
     echo "Usage: make -C final run-one path/to/file.fmj" >&2
@@ -38,7 +39,12 @@ work="$(mktemp -d "$work_root/$base.XXXXXX")"
 cp "$src" "$work/$base.fmj"
 
 echo "Compiling $src"
-"$fmjcc" --k "$k" "$work/$base.fmj"
+fmjcc_args=(--k "$k")
+case "$runtime_checks" in
+    1|true|TRUE|yes|YES|on|ON) fmjcc_args+=(--runtime-checks) ;;
+    *) fmjcc_args+=(--no-runtime-checks) ;;
+esac
+"$fmjcc" "${fmjcc_args[@]}" "$work/$base.fmj"
 
 run_asm="$work/$base.runone.s"
 awk '
