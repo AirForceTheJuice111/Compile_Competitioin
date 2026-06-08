@@ -19,7 +19,7 @@ class Method_var_table;
 class Patch_list;
 class ASTToTreeVisitor;
 
-tree::Program *ast2tree(fdmj::Program *prog, AST_Semant_Map *semant_map);
+tree::Program *ast2tree(fdmj::Program *prog, AST_Semant_Map *semant_map, bool enable_runtime_checks = false);
 Class_table *generate_class_table(AST_Semant_Map *semant_map);
 Method_var_table *generate_method_var_table(string class_name, string method_name, Name_Maps *nm, Temp_map *tm);
 
@@ -125,6 +125,7 @@ class ASTToTreeVisitor : public fdmj::AST_Visitor {
     Label *continue_label;       // the continue label for the current while loop
     Label *break_label;          // the break label for the current while loop
     string class_var_class_name; // the class name of the object in ClassVar (for looking up var offset). eg. for this.c.j, when visiting j, we can set class_var_class_name to the class of c, so that we can look up the offset of j in that class, even though the obj expression is this.
+    bool enable_runtime_checks;  // extra runtime semantics/guards, off by default
 
     ~ASTToTreeVisitor() {
         delete semant_map;
@@ -151,6 +152,7 @@ class ASTToTreeVisitor : public fdmj::AST_Visitor {
         continue_label = nullptr;
         break_label = nullptr;
         class_var_class_name.clear();
+        enable_runtime_checks = false;
     }
 
     tree::Tree *getTree() { return visit_tree_result; } // return the tree from a single visit (program returns a single tree)

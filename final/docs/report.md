@@ -10,7 +10,7 @@ using_table_of_content: true
 
 本次 Final Project 的目标是把 HW2 到 HW12 中逐步实现的各个编译器阶段合并为一个完整的 FMJ 编译器，并在 `final/` 目录下提供统一构建、编译、链接、运行和回归测试入口。最终版本可以从 `.fmj` 源程序出发，经过前端、语义分析、IR 生成、Quad、SSA、优化、指令选择、调度和寄存器分配，生成可由 ARM 交叉工具链链接并在 qemu 下运行的 ARM 汇编。
 
-除编译器本体外，本次还实现了一个解释器 `fmjinterp` 作为 oracle。所有收集到的 FMJ 测试均先由解释器和编译器分别检查；能通过检查的程序再比较解释执行结果和编译运行结果；带外部输入的程序通过随机输入 fuzz 比较一百万组输入下的输出 hash。
+除编译器本体外，本次还实现了一个解释器 `fmjinterp` 作为 oracle。所有收集到的 FMJ 测试均先由解释器和编译器分别检查；能通过检查的程序再比较解释执行结果和编译运行结果确认正确性；带外部输入的程序通过随机输入 fuzz 比较一百万组输入下的输出 hash 以确认正确性。
 
 ## 总体结构
 
@@ -63,7 +63,7 @@ make run-one path/to/file.fmj
 
 ## 前端与语法边界
 
-Final 使用 `PARSING/` 中的 flex/bison parser 源码，而不是运行外部 parser binary。CMake 构建时会生成 `lexer.cc` 和 `parser.cc`，并把它们直接链接进 `fmjcc` 和 `fmjinterp`。编译器和解释器都复用同一个 parser，因此语法边界保持一致。
+Final 使用 `PARSING/` 中的 flex/bison parser 源码。CMake 构建时会生成 `lexer.cc` 和 `parser.cc`，并把它们直接链接进 `fmjcc` 和 `fmjinterp`。编译器和解释器都复用同一个 parser，因此语法边界保持一致。
 
 这里有一个需要特别说明的边界情况：`HW2/docs/FDMJ2026Specification.md` 中规定：
 
@@ -74,18 +74,17 @@ ArrayInit -> { CONST (, CONST)* }
 
 也就是说，变量声明只允许没有初始化，或者使用数组字面量初始化；`int i = 0;` 并不是合法 FMJ 语法。编译器和解释器会拒绝之。
 
-## 运行期语义
+## 运行期语义与检查
 
-为了让解释器和编译后的 ARM 程序具有一致的行为，Final 中补齐了若干运行期语义：
+Final 默认只保留 spec 或原 lab 代码已经需要的运行期表示规则：
 
-- 局部变量和字段默认初始化：`int` 为 `0`，数组和对象引用为空。
-- 函数执行到末尾没有显式 `return` 时默认返回 `0`。
 - 数组布局使用首 word 记录长度，数组字面量和 `new int[n]` 使用同一布局。
-- 对空对象、空数组、数组越界、负长度数组和除零进行运行期检查。
-- 运行期错误通过 `exit(-1)` 结束，因此 shell 观察到的退出码为 `255`。
-- 对象创建时初始化祖先类字段、本类字段和方法指针。
+- 对象创建时初始化祖先类字段、本类字段和方法指针；字段槽位先写 0，符合 specification 中 class field 初值为 0 的例子。
+- 数组下标越界检查默认开启，这是 HW3 `ArrayExp` 翻译中已有的 lab 行为。
+- 局部 `class` 引用声明后写 0 是 HW3 `VarDecl` 中已有的 lab 行为，因此默认保留。
+- 函数或 `main` 执行到末尾没有显式 `return` 时默认返回 `0`。
 
-之前出现的空 block / 空 label 问题来自 IR 翻译和后续线性化阶段对某些控制流边界处理不完整。修复后，回归脚本会扫描生成的 Quad，检查 `Entry Label:` 空值、`LABEL ;` 和空跳转目标，当前结果为 `empty_label_hits=0`。
+另额外补了一些运行期语义检查（默认不开启）：局部 `int` 默认 0、局部数组引用默认空、空对象/空数组检查、负长度数组检查、除零检查。显式使用 `--runtime-checks` 或别名 `--extra-runtime-semantics` 时才开启这些语义检查；运行期错误通过 `exit(-1)` 结束，因此 shell 观察到的退出码为 `255`。`--no-runtime-checks` 显式保持默认行为。
 
 ## HW6-HW10 优化集成
 
@@ -124,13 +123,20 @@ total=280 pass=171 reject=109 crash=0 timeout=0 empty_label_hits=0 workdir=/tmp/
 - 只有编译器拒绝，记为 `compile_only_reject`。
 - 只有解释器拒绝，记为 `interp_only_reject`。
 
-当前结果如下：
+默认无额外运行期语义的结果如下：
 
 ```text
-total=280 run_match=167 reject_match=109 timeout_match=4 mismatch=0 compile_only_reject=0 interp_only_reject=0 link_fail=0 run_fail=0 timeout=4 workdir=/tmp/final_interpreter_regression
+total=280 run_match=143 reject_match=109 timeout_match=4 runtime_error_skip=21 optional_semantics_skip=24 mismatch=0 compile_only_reject=0 interp_only_reject=0 link_fail=0 run_fail=0 timeout=4 runtime_checks=0 workdir=/tmp/final_interpreter_regression
 ```
 
-因此 109 个 reject 均由解释器语义/语法检查确认，没有出现编译器单方面拒绝的情况。4 个 timeout 是解释器和编译产物都超时的非终止程序，作为行为一致处理。
+这里 `optional_semantics_skip=24` 是解释器确认依赖局部默认值、空引用、负长度数组或除零等可选语义的样例。默认 unchecked 编译器不承诺这些行为，因此不把它们纳入输出等价比较；数组越界和函数末尾隐式 `return 0` 不在这个集合内，默认仍要和解释器对齐。开启额外运行期语义后结果如下：
+
+```text
+RUNTIME_CHECKS=1 make interpreter-regression
+total=280 run_match=167 reject_match=109 timeout_match=4 runtime_error_skip=0 optional_semantics_skip=0 mismatch=0 compile_only_reject=0 interp_only_reject=0 link_fail=0 run_fail=0 timeout=4 runtime_checks=1 workdir=/tmp/final_interpreter_regression
+```
+
+因此 109 个 reject 均由解释器语义/语法检查确认。4 个 timeout 是解释器和编译产物都超时的非终止程序，作为行为一致处理。对定义良好的程序，默认编译器与解释器完全一致；对依赖可选运行期语义的程序，开启选项后也与解释器一致。
 
 ## Fuzz 测试
 
@@ -143,7 +149,7 @@ total=280 run_match=167 reject_match=109 timeout_match=4 mismatch=0 compile_only
 5. harness 和解释器使用相同 seed、相同输入生成策略、相同输出 hash。
 6. 每个程序执行 `ITERS=1000000` 组随机输入。
 
-最近一次 fuzz 结果：
+fuzz 结果如下：
 
 ```text
 fuzz_pass=41 fuzz_fail=0 fuzz_skip=3 iterations=1000000 kset="9" workdir=/tmp/final_fuzz_regression
@@ -189,9 +195,9 @@ total=24 pass=24 compile_fail=0 link_fail=0 run_fail=0 workdir=/tmp/final_runtim
 
 早期集成后，部分程序在中间 IR 中出现空入口 label 或空跳转目标。这个问题会一路传播到 Quad 和汇编，最终导致后端生成不可用控制流。修复方式是在 `ast2tree` 和控制流生成阶段保证每个 block 都有明确 label，所有条件跳转和无条件跳转都指向有效 label。`compile-regression` 中加入了专门扫描，当前 `empty_label_hits=0`。
 
-### 运行期默认值
+### 可选运行期语义
 
-原作业中的部分阶段默认测试较短，没有完整覆盖未显式初始化变量、字段和函数 fallthrough return。解释器 oracle 对这些行为很敏感，因此 final 中统一了默认初始化和默认返回值，否则解释器和编译运行容易在无输入程序上出现差异。
+原作业中的部分阶段默认测试较短，没有完整规定未显式初始化局部变量的行为。Final 默认不为普通局部 `int` 和局部数组引用补语义；解释器在 `--runtime-status` 中标记 `default_int_zero`、`default_ref_null` 等原因，默认回归只比较不依赖这些语义的程序。函数 fallthrough return 则默认补 `return 0`，不算可选语义。`--runtime-checks` 开启后，编译器会补齐局部默认值等额外语义并与解释器逐项对齐。
 
 ### 数组布局
 
@@ -219,6 +225,12 @@ make build
 final/build/fmjcc --k 9 path/to/file.fmj
 ```
 
+开启运行期检查编译：
+
+```text
+final/build/fmjcc --k 9 --runtime-checks path/to/file.fmj
+```
+
 解释执行单个文件：
 
 ```text
@@ -235,6 +247,12 @@ final/build/fmjinterp --check path/to/file.fmj
 
 ```text
 make run-one path/to/file.fmj
+```
+
+开启运行期检查后编译、链接并运行：
+
+```text
+make run-one path/to/file.fmj RUNTIME_CHECKS=1
 ```
 
 端到端回归：
@@ -255,7 +273,12 @@ total=280 pass=171 reject=109 crash=0 timeout=0 empty_label_hits=0 workdir=/tmp/
 
 ```text
 make interpreter-regression
-total=280 run_match=167 reject_match=109 timeout_match=4 mismatch=0 compile_only_reject=0 interp_only_reject=0 link_fail=0 run_fail=0 timeout=4 workdir=/tmp/final_interpreter_regression
+total=280 run_match=143 reject_match=109 timeout_match=4 runtime_error_skip=21 optional_semantics_skip=24 mismatch=0 compile_only_reject=0 interp_only_reject=0 link_fail=0 run_fail=0 timeout=4 runtime_checks=0 workdir=/tmp/final_interpreter_regression
+```
+
+```text
+RUNTIME_CHECKS=1 make interpreter-regression
+total=280 run_match=167 reject_match=109 timeout_match=4 runtime_error_skip=0 optional_semantics_skip=0 mismatch=0 compile_only_reject=0 interp_only_reject=0 link_fail=0 run_fail=0 timeout=4 runtime_checks=1 workdir=/tmp/final_interpreter_regression
 ```
 
 ```text
@@ -268,7 +291,7 @@ make fuzz-regression
 fuzz_pass=41 fuzz_fail=0 fuzz_skip=3 iterations=1000000 kset="9" workdir=/tmp/final_fuzz_regression
 ```
 
-这些结果说明：所有 280 个收集到的 FMJ 文件都被编译器和解释器一致地接受或拒绝；被接受且终止的程序 stdout 和退出码完全一致；含外部输入程序在一百万组随机输入下与解释器 oracle 一致；所有不合法输入均被正确拒绝，没有编译器 crash。
+这些结果说明：所有 280 个收集到的 FMJ 文件都被编译器和解释器一致地接受或拒绝；默认模式下，不依赖可选运行期语义的程序 stdout 和退出码完全一致，数组越界也与解释器的 `exit(-1)` 行为一致；开启运行期语义选项后，可选运行期错误和默认值语义也与解释器一致；含外部输入程序在一百万组随机输入下与解释器 oracle 一致；所有不合法输入均被正确拒绝，没有编译器 crash。
 
 ## 参考资料
 

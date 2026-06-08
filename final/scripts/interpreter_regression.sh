@@ -12,6 +12,12 @@ timeout_s="${TIMEOUT:-30}"
 run_timeout_s="${RUN_TIMEOUT:-10}"
 k="${K:-9}"
 input="${INPUT:-4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4}"
+runtime_checks="${RUNTIME_CHECKS:-0}"
+
+case "$runtime_checks" in
+    1|true|TRUE|yes|YES|on|ON) runtime_checks_enabled=1 ;;
+    *) runtime_checks_enabled=0 ;;
+esac
 
 for tool in "$fmjcc" "$fmjinterp"; do
     if [[ ! -x "$tool" ]]; then
@@ -55,6 +61,8 @@ interp_only_reject=0
 link_fail=0
 run_fail=0
 timeout_count=0
+runtime_error_skip=0
+optional_semantics_skip=0
 failures="$work/failures.txt"
 : > "$failures"
 
@@ -64,7 +72,13 @@ while IFS='|' read -r test_file original; do
     set +e
     timeout "$timeout_s" "$fmjinterp" --check "$test_file" > "$base.interp.check.out" 2> "$base.interp.check.err"
     interp_check_rc=$?
-    timeout "$timeout_s" "$fmjcc" --k "$k" "$test_file" > "$base.compile.log" 2>&1
+    fmjcc_args=(--k "$k")
+    if [[ "$runtime_checks_enabled" -eq 1 ]]; then
+        fmjcc_args+=(--runtime-checks)
+    else
+        fmjcc_args+=(--no-runtime-checks)
+    fi
+    timeout "$timeout_s" "$fmjcc" "${fmjcc_args[@]}" "$test_file" > "$base.compile.log" 2>&1
     compile_rc=$?
     set -e
 
@@ -108,10 +122,37 @@ while IFS='|' read -r test_file original; do
     fi
 
     set +e
+    printf '%s\n' "$input" | timeout "$run_timeout_s" "$fmjinterp" \
+        --runtime-status "$base.interp.status" "$test_file" > "$base.interp.out" 2> "$base.interp.err"
+    interp_rc=$?
+    set -e
+
+    interp_exit_taken=0
+    interp_optional_semantics=0
+    interp_runtime_reason=
+    interp_optional_reasons=
+    if [[ -f "$base.interp.status" ]]; then
+        interp_exit_taken="$(sed -n 's/^exit_taken=//p' "$base.interp.status" | head -n 1)"
+        [[ -n "$interp_exit_taken" ]] || interp_exit_taken=0
+        interp_optional_semantics="$(sed -n 's/^optional_semantics=//p' "$base.interp.status" | head -n 1)"
+        [[ -n "$interp_optional_semantics" ]] || interp_optional_semantics=0
+        interp_runtime_reason="$(sed -n 's/^runtime_reason=//p' "$base.interp.status" | head -n 1)"
+        interp_optional_reasons="$(sed -n 's/^optional_reasons=//p' "$base.interp.status" | head -n 1)"
+    fi
+
+    if [[ "$interp_rc" -ne 124 && "$runtime_checks_enabled" -eq 0 && "$interp_optional_semantics" -eq 1 ]]; then
+        optional_semantics_skip=$((optional_semantics_skip + 1))
+        if [[ "$interp_exit_taken" -eq 1 ]]; then
+            runtime_error_skip=$((runtime_error_skip + 1))
+        fi
+        printf 'OPTIONAL_SEMANTICS_SKIP runtime_reason=%s optional_reasons=%s %s\n' \
+            "$interp_runtime_reason" "$interp_optional_reasons" "$original" >> "$base.skip.log"
+        continue
+    fi
+
+    set +e
     printf '%s\n' "$input" | timeout "$run_timeout_s" "$qemu" "$base.arm" > "$base.compiled.out" 2> "$base.compiled.err"
     compiled_rc=$?
-    printf '%s\n' "$input" | timeout "$run_timeout_s" "$fmjinterp" "$test_file" > "$base.interp.out" 2> "$base.interp.err"
-    interp_rc=$?
     set -e
 
     if [[ "$compiled_rc" -eq 124 && "$interp_rc" -eq 124 ]]; then
@@ -155,8 +196,8 @@ while IFS='|' read -r test_file original; do
 done < "$map"
 
 total=$(wc -l < "$map")
-printf 'total=%s run_match=%s reject_match=%s timeout_match=%s mismatch=%s compile_only_reject=%s interp_only_reject=%s link_fail=%s run_fail=%s timeout=%s workdir=%s\n' \
-    "$total" "$run_match" "$reject_match" "$timeout_match" "$mismatch" "$compile_only_reject" "$interp_only_reject" "$link_fail" "$run_fail" "$timeout_count" "$work"
+printf 'total=%s run_match=%s reject_match=%s timeout_match=%s runtime_error_skip=%s optional_semantics_skip=%s mismatch=%s compile_only_reject=%s interp_only_reject=%s link_fail=%s run_fail=%s timeout=%s runtime_checks=%s workdir=%s\n' \
+    "$total" "$run_match" "$reject_match" "$timeout_match" "$runtime_error_skip" "$optional_semantics_skip" "$mismatch" "$compile_only_reject" "$interp_only_reject" "$link_fail" "$run_fail" "$timeout_count" "$runtime_checks_enabled" "$work"
 
 if [[ -s "$failures" ]]; then
     cat "$failures"

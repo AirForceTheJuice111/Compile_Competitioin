@@ -126,9 +126,9 @@ static tree::Stm *runtimeExitStm() {
             new vector<tree::Exp *>({new tree::Const(-1)})));
 }
 
-static void appendRuntimeCheck(vector<tree::Stm *> *sl, Temp_map *tm,
+static void appendRuntimeCheck(vector<tree::Stm *> *sl, Temp_map *tm, bool enable_runtime_checks,
                                const string &relop, tree::Exp *left, tree::Exp *right) {
-    if (sl == nullptr || tm == nullptr) return;
+    if (!enable_runtime_checks || sl == nullptr || tm == nullptr) return;
     auto ok_label = tm->newlabel();
     auto exit_label = tm->newlabel();
 
@@ -138,16 +138,17 @@ static void appendRuntimeCheck(vector<tree::Stm *> *sl, Temp_map *tm,
     sl->push_back(new tree::LabelStm(ok_label));
 }
 
-static tree::Temp *materializePtrWithNullCheck(vector<tree::Stm *> *sl, Temp_map *tm, tree::Exp *ptr_exp) {
+static tree::Temp *materializePtr(vector<tree::Stm *> *sl, Temp_map *tm, tree::Exp *ptr_exp,
+                                  bool enable_runtime_checks) {
     auto ptr_temp = tm->newtemp();
     sl->push_back(new tree::Move(tempPtrExp(ptr_temp), ptr_exp));
-    appendRuntimeCheck(sl, tm, "!=", tempPtrExp(ptr_temp), new tree::Const(0));
+    appendRuntimeCheck(sl, tm, enable_runtime_checks, "!=", tempPtrExp(ptr_temp), new tree::Const(0));
     return ptr_temp;
 }
 
-static tree::Exp *checkedPtrEseq(tree::Exp *ptr_exp, Temp_map *tm) {
+static tree::Exp *ptrEseq(tree::Exp *ptr_exp, Temp_map *tm, bool enable_runtime_checks) {
     auto sl = new vector<tree::Stm *>();
-    auto ptr_temp = materializePtrWithNullCheck(sl, tm, ptr_exp);
+    auto ptr_temp = materializePtr(sl, tm, ptr_exp, enable_runtime_checks);
     return new tree::Eseq(tree::Type::PTR, new tree::Seq(sl), tempPtrExp(ptr_temp));
 }
 
@@ -235,10 +236,11 @@ Class_table *generate_class_table(AST_Semant_Map *semant_map) {
 }
 
 // Main entry point: convert AST to tree IR
-tree::Program *ast2tree(fdmj::Program *prog, AST_Semant_Map *semant_map) {
+tree::Program *ast2tree(fdmj::Program *prog, AST_Semant_Map *semant_map, bool enable_runtime_checks) {
     ASTToTreeVisitor visitor;
     visitor.semant_map = semant_map;
     visitor.class_table = generate_class_table(semant_map);
+    visitor.enable_runtime_checks = enable_runtime_checks;
     prog->accept(visitor);
     return static_cast<tree::Program *>(visitor.getTree());
 }
@@ -348,9 +350,9 @@ void ASTToTreeVisitor::visit(fdmj::Type *node) {
 // VarDecl: handle variable initialization
 // - Int literal init: init to the literal value
 // - Class type: init to Const(0) (null pointer)
-// - Array type without init: init to Const(0) (null pointer)
+// - Array type without init: optional runtime-semantics mode initializes to null
 // - Array literal init (int[] a = {1,2,3}): malloc + store length + store elements
-// - Int type without init: no action
+// - Int type without init: no action by default; optional runtime-semantics mode initializes to 0
 void ASTToTreeVisitor::visit(fdmj::VarDecl *node) {
     auto var_name = node->id->id;
     auto temp = method_var_table->get_var_temp(var_name);
@@ -368,6 +370,10 @@ void ASTToTreeVisitor::visit(fdmj::VarDecl *node) {
     }
 
     if (node->type->typeKind == fdmj::TypeKind::INT) {
+        if (!enable_runtime_checks) {
+            visit_tree_result = nullptr;
+            return;
+        }
         visit_tree_result = new tree::Move(
             new tree::TempExp(type, new tree::Temp(temp->num)),
             new tree::Const(0));
@@ -416,6 +422,10 @@ void ASTToTreeVisitor::visit(fdmj::VarDecl *node) {
     }
 
     if (node->type->typeKind == fdmj::TypeKind::ARRAY) {
+        if (!enable_runtime_checks) {
+            visit_tree_result = nullptr;
+            return;
+        }
         visit_tree_result = new tree::Move(
             new tree::TempExp(type, new tree::Temp(temp->num)),
             new tree::Const(0));
@@ -648,7 +658,7 @@ void ASTToTreeVisitor::visit(fdmj::CallStm *node) {
     node->obj->accept(*this);
     auto obj_raw = visit_exp_result->unEx(method_temp_map)->exp;
     auto sl = new vector<tree::Stm *>();
-    auto obj_temp = materializePtrWithNullCheck(sl, method_temp_map, obj_raw);
+    auto obj_temp = materializePtr(sl, method_temp_map, obj_raw, enable_runtime_checks);
 
     // Build args: [obj, explicit_params...]
     auto call_args = new vector<tree::Exp *>({tempPtrExp(obj_temp)});
@@ -721,7 +731,7 @@ void ASTToTreeVisitor::visit(fdmj::PutArray *node) {
     node->n->accept(*this);
     auto n_exp = visit_exp_result->unEx(method_temp_map)->exp;
     node->arr->accept(*this);
-    auto arr_exp = checkedPtrEseq(visit_exp_result->unEx(method_temp_map)->exp, method_temp_map);
+    auto arr_exp = ptrEseq(visit_exp_result->unEx(method_temp_map)->exp, method_temp_map, enable_runtime_checks);
     visit_exp_result = new Tr_nx(new tree::ExpStm(
         new tree::ExtCall(tree::Type::INT, "putarray", new vector<tree::Exp *>({n_exp, arr_exp}))));
 }
@@ -816,11 +826,11 @@ void ASTToTreeVisitor::visit(fdmj::BinaryOp *node) {
     auto right = visit_exp_result;
     auto right_exp = right->unEx(method_temp_map)->exp;
 
-    if (op == "/") {
+    if (op == "/" && enable_runtime_checks) {
         auto sl = new vector<tree::Stm *>();
         auto left_temp = materializeInt(sl, method_temp_map, left_exp);
         auto right_temp = materializeInt(sl, method_temp_map, right_exp);
-        appendRuntimeCheck(sl, method_temp_map, "!=", tempIntExp(right_temp), new tree::Const(0));
+        appendRuntimeCheck(sl, method_temp_map, enable_runtime_checks, "!=", tempIntExp(right_temp), new tree::Const(0));
         visit_exp_result = new Tr_ex(new tree::Eseq(tree::Type::INT,
             new tree::Seq(sl),
             new tree::Binop(tree::Type::INT, "/", tempIntExp(left_temp), tempIntExp(right_temp))));
@@ -851,7 +861,7 @@ void ASTToTreeVisitor::visit(fdmj::UnaryOp *node) {
     }
 }
 
-// ArrayExp: arr[index] -> bounds-checked Memory access
+// ArrayExp: arr[index] -> Memory access, with the bounds check inherited from HW3.
 // If arr or index is complex (not Temp/Const), materialize to a temp first.
 // Bounds check: CJump(index >= 0, ok, exit), CJump(index >= len, exit, done), exit(-1)
 // Result: Memory[arr + (index + 1) * addr_len], because arr[0] stores the length, so actual data starts from arr + addr_len
@@ -866,10 +876,17 @@ void ASTToTreeVisitor::visit(fdmj::ArrayExp *node) {
     node->index->accept(*this);
     auto idx_raw = visit_exp_result->unEx(method_temp_map)->exp;
 
+    tree::Exp *arr_exp = arr_raw;
+    tree::Stm *arr_pre_stm = nullptr;
     auto arr_pre_sl = new vector<tree::Stm *>();
-    auto arr_temp = materializePtrWithNullCheck(arr_pre_sl, method_temp_map, arr_raw);
-    tree::Exp *arr_exp = tempPtrExp(arr_temp);
-    tree::Stm *arr_pre_stm = new tree::Seq(arr_pre_sl);
+    bool simple_arr = arr_raw->getTreeKind() == tree::Kind::TEMPEXP || arr_raw->getTreeKind() == tree::Kind::CONST;
+    if (!simple_arr) {
+        auto arr_temp = materializePtr(arr_pre_sl, method_temp_map, arr_raw, enable_runtime_checks);
+        arr_exp = tempPtrExp(arr_temp);
+    } else {
+        appendRuntimeCheck(arr_pre_sl, method_temp_map, enable_runtime_checks, "!=", arr_exp, new tree::Const(0));
+    }
+    if (!arr_pre_sl->empty()) arr_pre_stm = new tree::Seq(arr_pre_sl);
 
     // Materialize index if complex
     tree::Exp *idx_exp = idx_raw;
@@ -902,18 +919,17 @@ void ASTToTreeVisitor::visit(fdmj::ArrayExp *node) {
         new tree::TempExp(tree::Type::INT, new tree::Temp(len_temp->num)), exit_label, done_label));
     bounds_sl->push_back(new tree::LabelStm(exit_label));
     // exit(-1)
-    bounds_sl->push_back(new tree::ExpStm(
-        new tree::ExtCall(tree::Type::INT, "exit", new vector<tree::Exp *>({new tree::Const(-1)}))));
+    bounds_sl->push_back(runtimeExitStm());
     bounds_sl->push_back(new tree::LabelStm(done_label));
 
     // ESeq: bounds check, returns index
-    auto bounds_eseq = new tree::Eseq(tree::Type::INT, new tree::Seq(bounds_sl), idx_exp);
+    tree::Exp *checked_idx_exp = new tree::Eseq(tree::Type::INT, new tree::Seq(bounds_sl), idx_exp);
 
     // Memory[arr + (bounds_checked_index + 1) * addr_len]
     auto mem = new tree::Mem(tree::Type::INT,
         new tree::Binop(tree::Type::PTR, "+", arr_exp,
             new tree::Binop(tree::Type::INT, "*",
-                new tree::Binop(tree::Type::INT, "+", bounds_eseq, new tree::Const(1)),
+                new tree::Binop(tree::Type::INT, "+", checked_idx_exp, new tree::Const(1)),
                 new tree::Const(addr_len))));
 
     // Wrap with materialization pre-statements if needed
@@ -936,7 +952,7 @@ void ASTToTreeVisitor::visit(fdmj::CallExp *node) {
     node->obj->accept(*this);
     auto obj_raw = visit_exp_result->unEx(method_temp_map)->exp;
     auto sl = new vector<tree::Stm *>();
-    auto obj_temp = materializePtrWithNullCheck(sl, method_temp_map, obj_raw);
+    auto obj_temp = materializePtr(sl, method_temp_map, obj_raw, enable_runtime_checks);
 
     // Build args: [obj, explicit_params...]
     auto call_args = new vector<tree::Exp *>({tempPtrExp(obj_temp)});
@@ -1001,7 +1017,7 @@ void ASTToTreeVisitor::visit(fdmj::ClassVar *node) {
         class_var_class_name = "";
 
     auto check_sl = new vector<tree::Stm *>();
-    auto obj_temp = materializePtrWithNullCheck(check_sl, method_temp_map, obj_raw);
+    auto obj_temp = materializePtr(check_sl, method_temp_map, obj_raw, enable_runtime_checks);
 
     // Memory[obj + offset]
     auto mem = new tree::Mem(field_type,
@@ -1022,7 +1038,7 @@ void ASTToTreeVisitor::visit(fdmj::This *node) {
 // Length: return Memory[arr], which is the length of the array (stored at arr[0])
 void ASTToTreeVisitor::visit(fdmj::Length *node) {
     node->exp->accept(*this);
-    auto arr_exp = checkedPtrEseq(visit_exp_result->unEx(method_temp_map)->exp, method_temp_map);
+    auto arr_exp = ptrEseq(visit_exp_result->unEx(method_temp_map)->exp, method_temp_map, enable_runtime_checks);
     visit_exp_result = new Tr_ex(new tree::Mem(tree::Type::INT, arr_exp));
 }
 
@@ -1035,7 +1051,7 @@ void ASTToTreeVisitor::visit(fdmj::NewArray *node) {
     auto ptr_temp = method_temp_map->newtemp();
     auto sl = new vector<tree::Stm *>();
     auto size_temp = materializeInt(sl, method_temp_map, size_raw);
-    appendRuntimeCheck(sl, method_temp_map, ">=", tempIntExp(size_temp), new tree::Const(0));
+    appendRuntimeCheck(sl, method_temp_map, enable_runtime_checks, ">=", tempIntExp(size_temp), new tree::Const(0));
 
     // ptr = malloc((size + 1) * addr_len)
     sl->push_back(new tree::Move(
@@ -1147,7 +1163,7 @@ void ASTToTreeVisitor::visit(fdmj::GetCh *node) {
 // GetArray: getarray(exp) -> ExtCall("getarray", {exp})
 void ASTToTreeVisitor::visit(fdmj::GetArray *node) {
     node->exp->accept(*this);
-    auto arg = checkedPtrEseq(visit_exp_result->unEx(method_temp_map)->exp, method_temp_map);
+    auto arg = ptrEseq(visit_exp_result->unEx(method_temp_map)->exp, method_temp_map, enable_runtime_checks);
     visit_exp_result = new Tr_ex(
         new tree::ExtCall(tree::Type::INT, "getarray", new vector<tree::Exp *>({arg})));
 }

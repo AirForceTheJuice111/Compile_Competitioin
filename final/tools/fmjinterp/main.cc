@@ -7,6 +7,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -88,29 +89,37 @@ struct Value {
     int32_t intValue = 0;
     shared_ptr<ArrayValue> arrayValue;
     shared_ptr<ObjectValue> objectValue;
+    bool implicitDefault = false;
 
-    static Value intv(int32_t v) {
+    static Value intv(int32_t v, bool implicitDefault = false) {
         Value out;
         out.kind = Kind::INT;
         out.intValue = v;
+        out.implicitDefault = implicitDefault;
         return out;
     }
 
-    static Value arrayv(shared_ptr<ArrayValue> v) {
+    static Value arrayv(shared_ptr<ArrayValue> v, bool implicitDefault = false) {
         Value out;
         out.kind = v ? Kind::ARRAY : Kind::NIL;
         out.arrayValue = std::move(v);
+        out.implicitDefault = implicitDefault;
         return out;
     }
 
-    static Value objectv(shared_ptr<ObjectValue> v) {
+    static Value objectv(shared_ptr<ObjectValue> v, bool implicitDefault = false) {
         Value out;
         out.kind = v ? Kind::OBJECT : Kind::NIL;
         out.objectValue = std::move(v);
+        out.implicitDefault = implicitDefault;
         return out;
     }
 
-    static Value nil() { return Value(); }
+    static Value nil(bool implicitDefault = false) {
+        Value out;
+        out.implicitDefault = implicitDefault;
+        return out;
+    }
 };
 
 struct ArrayValue {
@@ -130,7 +139,9 @@ struct BreakSignal {};
 struct ContinueSignal {};
 
 struct RuntimeExit {
-    int32_t code;
+    int32_t code = -1;
+    string reason = "runtime_error";
+    bool optionalOnly = true;
 };
 
 struct Frame {
@@ -305,12 +316,39 @@ class Interpreter {
 
     int32_t runMain(bool *exitTaken) {
         *exitTaken = false;
+        optionalReasons.clear();
+        lastRuntimeReason.clear();
+        lastRuntimeOptionalOnly = false;
         try {
             return runMainOnce();
         } catch (const RuntimeExit &e) {
             *exitTaken = true;
+            lastRuntimeReason = e.reason;
+            lastRuntimeOptionalOnly = e.optionalOnly;
+            if (e.optionalOnly) noteOptional(e.reason);
             return e.code;
         }
+    }
+
+    bool optionalSemanticUsed() const {
+        return !optionalReasons.empty();
+    }
+
+    string optionalReasonsText() const {
+        string out;
+        for (const auto &reason : optionalReasons) {
+            if (!out.empty()) out += ",";
+            out += reason;
+        }
+        return out;
+    }
+
+    const string &runtimeReason() const {
+        return lastRuntimeReason;
+    }
+
+    bool runtimeOptionalOnly() const {
+        return lastRuntimeOptionalOnly;
     }
 
   private:
@@ -321,6 +359,13 @@ class Interpreter {
 
     map<string, fdmj::ClassDecl *> classes;
     map<pair<string, string>, fdmj::MethodDecl *> methods;
+    set<string> optionalReasons;
+    string lastRuntimeReason;
+    bool lastRuntimeOptionalOnly = false;
+
+    void noteOptional(const string &reason) {
+        if (!reason.empty()) optionalReasons.insert(reason);
+    }
 
     void indexProgram() {
         if (program == nullptr || program->cdl == nullptr) return;
@@ -353,25 +398,25 @@ class Interpreter {
         if (vars == nullptr) return;
         for (auto *var : *vars) {
             if (var == nullptr || var->id == nullptr) continue;
-            frame.locals[var->id->id] = initialValue(var);
+            frame.locals[var->id->id] = initialValue(var, true);
         }
     }
 
-    Value initialValue(fdmj::VarDecl *decl) {
+    Value initialValue(fdmj::VarDecl *decl, bool implicitDefaultsAreOptional) {
         if (decl == nullptr || decl->type == nullptr) return Value::nil();
         if (decl->type->typeKind == fdmj::TypeKind::INT) {
             if (holds_alternative<fdmj::IntExp *>(decl->init)) {
                 auto *init = get<fdmj::IntExp *>(decl->init);
                 return Value::intv(init != nullptr ? init->val : 0);
             }
-            return Value::intv(0);
+            return Value::intv(0, implicitDefaultsAreOptional);
         }
         if (decl->type->typeKind == fdmj::TypeKind::ARRAY) {
             if (holds_alternative<vector<fdmj::IntExp *> *>(decl->init)) {
                 auto *init = get<vector<fdmj::IntExp *> *>(decl->init);
                 if (init != nullptr) return Value::arrayv(makeArray(init));
             }
-            return Value::nil();
+            return Value::nil(implicitDefaultsAreOptional);
         }
         return Value::nil();
     }
@@ -386,7 +431,7 @@ class Interpreter {
     }
 
     shared_ptr<ArrayValue> makeArray(int32_t size) {
-        if (size < 0) throw RuntimeExit{-1};
+        if (size < 0) throw RuntimeExit{-1, "negative_array_size", true};
         auto array = make_shared<ArrayValue>();
         array->data.assign(static_cast<size_t>(size), 0);
         return array;
@@ -406,7 +451,7 @@ class Interpreter {
             if (vars == nullptr) continue;
             for (const auto &field : *vars) {
                 auto *decl = nameMaps->get_class_var(klass, field);
-                object->fields[fieldKey(klass, field)] = initialValue(decl);
+                object->fields[fieldKey(klass, field)] = initialValue(decl, false);
             }
             delete vars;
         }
@@ -448,23 +493,29 @@ class Interpreter {
     }
 
     int32_t asInt(const Value &value) {
+        if (value.implicitDefault) noteOptional("default_int_zero");
         if (value.kind == Value::Kind::INT) return value.intValue;
         return 0;
     }
 
     shared_ptr<ArrayValue> asArray(const Value &value) {
-        if (value.kind != Value::Kind::ARRAY || !value.arrayValue) throw RuntimeExit{-1};
+        if (value.implicitDefault) noteOptional("default_ref_null");
+        if (value.kind != Value::Kind::ARRAY || !value.arrayValue)
+            throw RuntimeExit{-1, "null_array", true};
         return value.arrayValue;
     }
 
     shared_ptr<ObjectValue> asObject(const Value &value) {
-        if (value.kind != Value::Kind::OBJECT || !value.objectValue) throw RuntimeExit{-1};
+        if (value.implicitDefault) noteOptional("default_ref_null");
+        if (value.kind != Value::Kind::OBJECT || !value.objectValue)
+            throw RuntimeExit{-1, "null_object", true};
         return value.objectValue;
     }
 
     void checkArrayIndex(const shared_ptr<ArrayValue> &array, int32_t index) {
-        if (!array || index < 0 || static_cast<size_t>(index) >= array->data.size())
-            throw RuntimeExit{-1};
+        if (!array) throw RuntimeExit{-1, "null_array", true};
+        if (index < 0 || static_cast<size_t>(index) >= array->data.size())
+            throw RuntimeExit{-1, "array_bounds", false};
     }
 
     void execList(vector<fdmj::Stm *> *statements, Frame &frame) {
@@ -687,7 +738,7 @@ class Interpreter {
         if (op == "-") return Value::intv(wrapSub(left, right));
         if (op == "*") return Value::intv(wrapMul(left, right));
         if (op == "/") {
-            if (right == 0) throw RuntimeExit{-1};
+            if (right == 0) throw RuntimeExit{-1, "divide_by_zero", true};
             if (left == INT32_MIN && right == -1) return Value::intv(INT32_MIN);
             return Value::intv(left / right);
         }
@@ -767,7 +818,7 @@ unsigned long long parseU64(const string &text) {
 
 void usage(const char *argv0) {
     cerr << "Usage: " << argv0
-         << " [--check] [--fuzz ITERS] [--seed SEED] [--kind KIND] <file.fmj|base>\n";
+         << " [--check] [--fuzz ITERS] [--seed SEED] [--kind KIND] [--runtime-status FILE] <file.fmj|base>\n";
 }
 
 } // namespace
@@ -778,6 +829,7 @@ int main(int argc, char **argv) {
     unsigned long long iterations = 1;
     uint32_t seed = 0x5eed1234u;
     string kind = "generic";
+    string runtimeStatusPath;
     string inputPath;
 
     for (int i = 1; i < argc; ++i) {
@@ -792,6 +844,8 @@ int main(int argc, char **argv) {
                 seed = parseU32(argv[++i]);
             } else if (arg == "--kind" && i + 1 < argc) {
                 kind = argv[++i];
+            } else if (arg == "--runtime-status" && i + 1 < argc) {
+                runtimeStatusPath = argv[++i];
             } else if (arg == "--help" || arg == "-h") {
                 usage(argv[0]);
                 return 0;
@@ -855,6 +909,19 @@ int main(int argc, char **argv) {
 
     bool exitTaken = false;
     int32_t rc = interp.runMain(&exitTaken);
+    if (!runtimeStatusPath.empty()) {
+        ofstream status(runtimeStatusPath);
+        if (!status) {
+            cerr << "Error: cannot write runtime status: " << runtimeStatusPath << "\n";
+            return 2;
+        }
+        status << "exit_taken=" << (exitTaken ? 1 : 0) << "\n";
+        status << "rc=" << rc << "\n";
+        status << "runtime_reason=" << interp.runtimeReason() << "\n";
+        status << "runtime_optional=" << (interp.runtimeOptionalOnly() ? 1 : 0) << "\n";
+        status << "optional_semantics=" << (interp.optionalSemanticUsed() ? 1 : 0) << "\n";
+        status << "optional_reasons=" << interp.optionalReasonsText() << "\n";
+    }
     (void)exitTaken;
     return static_cast<unsigned char>(rc);
 }
