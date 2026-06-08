@@ -17,27 +17,15 @@
 
 #include "ASTheader.hh"
 #include "FDMJAST.hh"
+#include "ast2xml.hh"
 #include "semant.hh"
+#include "tinyxml2.hh"
 #include "xml2ast.hh"
 
 using namespace std;
 namespace fs = std::filesystem;
 
-#ifndef DEFAULT_PARSER
-#define DEFAULT_PARSER "vendor/parser/parser"
-#endif
-
 namespace {
-
-string shellQuote(const string &s) {
-    string out = "'";
-    for (char c : s) {
-        if (c == '\'') out += "'\\''";
-        else out += c;
-    }
-    out += "'";
-    return out;
-}
 
 string stripSuffix(const string &path, const string &suffix) {
     if (path.size() >= suffix.size() && path.substr(path.size() - suffix.size()) == suffix) {
@@ -46,11 +34,36 @@ string stripSuffix(const string &path, const string &suffix) {
     return path;
 }
 
-int runParser(const string &base, const string &parserOverride) {
-    const char *envParser = std::getenv("FMJ_PARSER");
-    string parser = !parserOverride.empty() ? parserOverride : (envParser != nullptr ? envParser : DEFAULT_PARSER);
-    string command = shellQuote(parser) + " " + shellQuote(base) + " 1>&2";
-    return std::system(command.c_str());
+int runParser(const string &base) {
+    string fileFmj = base + ".fmj";
+    string fileAst = base + ".2.ast";
+
+    cerr << "------Parsing fmj source file: " << fileFmj << "------------" << endl;
+    ifstream fmjFile(fileFmj);
+    if (!fmjFile) {
+        cerr << "Error: cannot open file " << fileFmj << "\n";
+        return 1;
+    }
+
+    fdmj::Program *root = fdmj::fdmjParser(fmjFile, false);
+    if (root == nullptr) {
+        cerr << "AST is not valid!\n";
+        return 1;
+    }
+
+    cerr << "Convert AST  to XML...\n";
+    tinyxml2::XMLDocument *xml = ast2xml(root, nullptr, true, false);
+    if (xml == nullptr) {
+        delete root;
+        return 1;
+    }
+
+    tinyxml2::XMLError saveRc = xml->SaveFile(fileAst.c_str());
+    cerr << "Writing AST to file: " << fileAst << "\n";
+    bool ok = saveRc == tinyxml2::XML_SUCCESS && !xml->Error();
+    delete xml;
+    delete root;
+    return ok ? 0 : 1;
 }
 
 int32_t wrapAdd(int32_t a, int32_t b) {
@@ -754,7 +767,7 @@ unsigned long long parseU64(const string &text) {
 
 void usage(const char *argv0) {
     cerr << "Usage: " << argv0
-         << " [--check] [--fuzz ITERS] [--seed SEED] [--kind KIND] [--parser PATH] <file.fmj|base>\n";
+         << " [--check] [--fuzz ITERS] [--seed SEED] [--kind KIND] <file.fmj|base>\n";
 }
 
 } // namespace
@@ -765,7 +778,6 @@ int main(int argc, char **argv) {
     unsigned long long iterations = 1;
     uint32_t seed = 0x5eed1234u;
     string kind = "generic";
-    string parserOverride;
     string inputPath;
 
     for (int i = 1; i < argc; ++i) {
@@ -780,8 +792,6 @@ int main(int argc, char **argv) {
                 seed = parseU32(argv[++i]);
             } else if (arg == "--kind" && i + 1 < argc) {
                 kind = argv[++i];
-            } else if (arg == "--parser" && i + 1 < argc) {
-                parserOverride = argv[++i];
             } else if (arg == "--help" || arg == "-h") {
                 usage(argv[0]);
                 return 0;
@@ -804,7 +814,7 @@ int main(int argc, char **argv) {
     }
 
     string base = stripSuffix(inputPath, ".fmj");
-    if (runParser(base, parserOverride) != 0) {
+    if (runParser(base) != 0) {
         cerr << "Error: parser rejected input " << base << ".fmj\n";
         return 1;
     }

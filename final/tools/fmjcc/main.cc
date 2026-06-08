@@ -39,21 +39,7 @@
 using namespace std;
 namespace fs = std::filesystem;
 
-#ifndef DEFAULT_PARSER
-#define DEFAULT_PARSER "vendor/parser/parser"
-#endif
-
 namespace {
-
-string shellQuote(const string &s) {
-    string out = "'";
-    for (char c : s) {
-        if (c == '\'') out += "'\\''";
-        else out += c;
-    }
-    out += "'";
-    return out;
-}
 
 string stripSuffix(const string &path, const string &suffix) {
     if (path.size() >= suffix.size() && path.substr(path.size() - suffix.size()) == suffix) {
@@ -354,10 +340,35 @@ void refreshQuadExtents(quad::QuadProgram *program) {
 }
 
 int runParser(const string &base) {
-    const char *envParser = std::getenv("FMJ_PARSER");
-    string parser = envParser != nullptr ? envParser : DEFAULT_PARSER;
-    string command = shellQuote(parser) + " " + shellQuote(base);
-    return std::system(command.c_str());
+    string fileFmj = base + ".fmj";
+    string fileAst = base + ".2.ast";
+
+    cout << "------Parsing fmj source file: " << fileFmj << "------------" << endl;
+    ifstream fmjFile(fileFmj);
+    if (!fmjFile) {
+        cerr << "Error: cannot open file " << fileFmj << endl;
+        return 1;
+    }
+
+    fdmj::Program *root = fdmj::fdmjParser(fmjFile, false);
+    if (root == nullptr) {
+        cout << "AST is not valid!" << endl;
+        return 1;
+    }
+
+    cout << "Convert AST  to XML..." << endl;
+    tinyxml2::XMLDocument *xml = ast2xml(root, nullptr, true, false);
+    if (xml == nullptr) {
+        delete root;
+        return 1;
+    }
+
+    tinyxml2::XMLError saveRc = xml->SaveFile(fileAst.c_str());
+    cout << "Writing AST to file: " << fileAst << endl;
+    bool ok = saveRc == tinyxml2::XML_SUCCESS && !xml->Error();
+    delete xml;
+    delete root;
+    return ok ? 0 : 1;
 }
 
 } // namespace

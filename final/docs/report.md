@@ -18,7 +18,7 @@ using_table_of_content: true
 
 - `final/tools/fmjcc/main.cc`：完整编译器入口。
 - `final/tools/fmjinterp/main.cc`：解释器和语义检查 oracle。
-- `final/vendor/parser/parser`：HW2 vendor parser，用于把 FMJ 源文件转换为 XML AST。
+- `final/lib/frontend/` 和 `final/include/frontend/`：由 `PARSING/` 集成进来的 flex/bison parser 源码，用于把 FMJ 源文件转换为 XML AST。
 - `final/scripts/collect_tests.sh`：收集全仓库 HW 中的 `.fmj` 文件。
 - `final/scripts/compile_regression.sh`：只检查编译器是否接受或拒绝输入，以及是否生成空 label/block。
 - `final/scripts/interpreter_regression.sh`：用解释器对照编译运行结果。
@@ -63,7 +63,7 @@ make run-one path/to/file.fmj
 
 ## 前端与语法边界
 
-Final 使用的是 HW2 提供的 `vendor/parser/parser`。编译器和解释器都复用同一个 parser，因此语法边界保持一致。
+Final 使用 `PARSING/` 中的 flex/bison parser 源码，而不是运行外部 parser binary。CMake 构建时会生成 `lexer.cc` 和 `parser.cc`，并把它们直接链接进 `fmjcc` 和 `fmjinterp`。编译器和解释器都复用同一个 parser，因此语法边界保持一致。
 
 这里有一个需要特别说明的边界情况：`HW2/docs/FDMJ2026Specification.md` 中规定：
 
@@ -110,15 +110,15 @@ fuzz 时解释器还提供 hash 模式，和 ARM harness 使用相同的随机�
 
 ## 测试收集与 reject 确认
 
-`collect_tests.sh` 会遍历整个仓库，排除 `final/` 自身，收集所有 HW 中的 `.fmj` 文件到 `final/test/all`。当前一共收集到 251 个测试。
+`collect_tests.sh` 会遍历整个仓库，排除 `final/` 自身，收集各 HW 和 `PARSING/test` 中的 `.fmj` 文件到 `final/test/all`。当前一共收集到 280 个测试。
 
-对这 251 个输入，`compile-regression` 的结果是：
+对这 280 个输入，`compile-regression` 的结果是：
 
 ```text
-total=251 pass=159 reject=92 crash=0 timeout=0 empty_label_hits=0 workdir=/tmp/final_compile_regression
+total=280 pass=171 reject=109 crash=0 timeout=0 empty_label_hits=0 workdir=/tmp/final_compile_regression
 ```
 
-这里 `reject=92` 再用解释器的 `--check` 模式确认。`interpreter-regression` 会分别运行解释器检查和编译器检查：
+这里 `reject=109` 再用解释器的 `--check` 模式确认。`interpreter-regression` 会分别运行解释器检查和编译器检查：
 
 - 两者都拒绝，记为 `reject_match`。
 - 只有编译器拒绝，记为 `compile_only_reject`。
@@ -127,10 +127,10 @@ total=251 pass=159 reject=92 crash=0 timeout=0 empty_label_hits=0 workdir=/tmp/f
 当前结果如下：
 
 ```text
-total=251 run_match=156 reject_match=92 timeout_match=3 mismatch=0 compile_only_reject=0 interp_only_reject=0 link_fail=0 run_fail=0 timeout=3 workdir=/tmp/final_interpreter_regression
+total=280 run_match=167 reject_match=109 timeout_match=4 mismatch=0 compile_only_reject=0 interp_only_reject=0 link_fail=0 run_fail=0 timeout=4 workdir=/tmp/final_interpreter_regression
 ```
 
-因此 92 个 reject 均由解释器语义/语法检查确认，没有出现编译器单方面拒绝的情况。3 个 timeout 是解释器和编译产物都超时的非终止程序，作为行为一致处理。
+因此 109 个 reject 均由解释器语义/语法检查确认，没有出现编译器单方面拒绝的情况。4 个 timeout 是解释器和编译产物都超时的非终止程序，作为行为一致处理。
 
 ## Fuzz 测试
 
@@ -250,12 +250,12 @@ make fuzz-regression
 
 ```text
 make compile-regression
-total=251 pass=159 reject=92 crash=0 timeout=0 empty_label_hits=0 workdir=/tmp/final_compile_regression
+total=280 pass=171 reject=109 crash=0 timeout=0 empty_label_hits=0 workdir=/tmp/final_compile_regression
 ```
 
 ```text
 make interpreter-regression
-total=251 run_match=156 reject_match=92 timeout_match=3 mismatch=0 compile_only_reject=0 interp_only_reject=0 link_fail=0 run_fail=0 timeout=3 workdir=/tmp/final_interpreter_regression
+total=280 run_match=167 reject_match=109 timeout_match=4 mismatch=0 compile_only_reject=0 interp_only_reject=0 link_fail=0 run_fail=0 timeout=4 workdir=/tmp/final_interpreter_regression
 ```
 
 ```text
@@ -268,7 +268,7 @@ make fuzz-regression
 fuzz_pass=41 fuzz_fail=0 fuzz_skip=3 iterations=1000000 kset="9" workdir=/tmp/final_fuzz_regression
 ```
 
-这些结果说明：所有 251 个收集到的 FMJ 文件都被编译器和解释器一致地接受或拒绝；被接受且终止的程序 stdout 和退出码完全一致；含外部输入程序在一百万组随机输入下与解释器 oracle 一致；所有不合法输入均被正确拒绝，没有编译器 crash。
+这些结果说明：所有 280 个收集到的 FMJ 文件都被编译器和解释器一致地接受或拒绝；被接受且终止的程序 stdout 和退出码完全一致；含外部输入程序在一百万组随机输入下与解释器 oracle 一致；所有不合法输入均被正确拒绝，没有编译器 crash。
 
 ## 参考资料
 
