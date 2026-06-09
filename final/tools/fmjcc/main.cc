@@ -31,6 +31,7 @@
 #include "quadssa.hh"
 #include "schedule.hh"
 #include "semant.hh"
+#include "source_printer.hh"
 #include "tinyxml2.hh"
 #include "tree2quad.hh"
 #include "tree2xml.hh"
@@ -356,6 +357,12 @@ int runParser(const string &base) {
         return 1;
     }
 
+    if (!writeText(base + ".1.fmj", astToSource(root))) {
+        cerr << "Error: failed to write source print " << base << ".1.fmj" << endl;
+        delete root;
+        return 1;
+    }
+
     cout << "Convert AST  to XML..." << endl;
     tinyxml2::XMLDocument *xml = ast2xml(root, nullptr, true, false);
     if (xml == nullptr) {
@@ -371,11 +378,145 @@ int runParser(const string &base) {
     return ok ? 0 : 1;
 }
 
+enum class OptMode {
+    NONE,
+    CONST,
+    LOOP1,
+    LOOP2,
+    ALLLOOP,
+    ALLOPT
+};
+
+bool parseOptMode(const string &text, OptMode &mode) {
+    if (text == "none" || text == "no" || text == "noopt") {
+        mode = OptMode::NONE;
+        return true;
+    }
+    if (text == "const" || text == "sccp") {
+        mode = OptMode::CONST;
+        return true;
+    }
+    if (text == "loop1" || text == "licm") {
+        mode = OptMode::LOOP1;
+        return true;
+    }
+    if (text == "loop2" || text == "iv" || text == "strength") {
+        mode = OptMode::LOOP2;
+        return true;
+    }
+    if (text == "allloop" || text == "loops") {
+        mode = OptMode::ALLLOOP;
+        return true;
+    }
+    if (text == "allopt" || text == "all") {
+        mode = OptMode::ALLOPT;
+        return true;
+    }
+    return false;
+}
+
+bool optModeUsesSccp(OptMode mode) {
+    return mode == OptMode::CONST || mode == OptMode::ALLOPT;
+}
+
+bool optModeUsesLicm(OptMode mode) {
+    return mode == OptMode::LOOP1 || mode == OptMode::ALLLOOP || mode == OptMode::ALLOPT;
+}
+
+bool optModeUsesIv(OptMode mode) {
+    return mode == OptMode::LOOP2 || mode == OptMode::ALLLOOP || mode == OptMode::ALLOPT;
+}
+
+const char *optModeName(OptMode mode) {
+    switch (mode) {
+        case OptMode::NONE: return "none";
+        case OptMode::CONST: return "const";
+        case OptMode::LOOP1: return "loop1";
+        case OptMode::LOOP2: return "loop2";
+        case OptMode::ALLLOOP: return "allloop";
+        case OptMode::ALLOPT: return "allopt";
+    }
+    return "allopt";
+}
+
+quad::QuadProgram *runSccpPass(quad::QuadProgram *program, const string &base) {
+    auto *sccp = optProg(program);
+    if (sccp == nullptr) {
+        cerr << "Error: HW8 SCCP optimization failed" << endl;
+        return nullptr;
+    }
+    refreshQuadExtents(sccp);
+    string sccpText;
+    sccp->print(sccpText, 0, true);
+    writeText(base + ".4-ssa-opt.quad", sccpText);
+    quad2xml(sccp, (base + ".4-ssa-opt-xml.quad").c_str());
+    return sccp;
+}
+
+quad::QuadProgram *runLicmPass(quad::QuadProgram *program, const string &base) {
+    auto *flow = computeFlow(program, base + ".4-ssa-loopinput-withflow-xml.quad");
+    if (flow == nullptr) return nullptr;
+
+    auto *licmFuncs = new vector<quad::QuadFuncDecl *>();
+    int licmLastLabel = program->last_label_num;
+    int licmLastTemp = program->last_temp_num;
+    for (auto *ffi : *flow) {
+        if (ffi == nullptr || ffi->cfi == nullptr || ffi->cfi->func == nullptr) continue;
+        auto *func = ffi->cfi->func;
+        auto *loopHeaders = findLoopHeadersWithFlow(func, ffi->cfi);
+        licmFuncs->push_back(loopHoistFunc(func, loopHeaders));
+        if (ffi->programLastLabelNum >= 0) licmLastLabel = ffi->programLastLabelNum;
+        if (ffi->programLastTempNum >= 0) licmLastTemp = ffi->programLastTempNum;
+    }
+
+    auto *licm = new quad::QuadProgram(licmFuncs, licmLastLabel, licmLastTemp);
+    refreshQuadExtents(licm);
+    string licmText;
+    licm->print(licmText, 0, true);
+    writeText(base + ".4-ssa-loopopt.quad", licmText);
+    quad2xml(licm, (base + ".4-ssa-loopopt-xml.quad").c_str());
+    return licm;
+}
+
+quad::QuadProgram *runIvPass(quad::QuadProgram *program, const string &base) {
+    auto *flow = computeFlow(program, base + ".4-ssa-loopivinput-withflow-xml.quad");
+    if (flow == nullptr) return nullptr;
+
+    auto *ivFuncs = new vector<quad::QuadFuncDecl *>();
+    int ivLastLabel = program->last_label_num;
+    int ivLastTemp = program->last_temp_num;
+    for (auto *ffi : *flow) {
+        if (ffi == nullptr || ffi->cfi == nullptr || ffi->cfi->func == nullptr) continue;
+        auto *funcList = new vector<quad::QuadFuncDecl *>();
+        funcList->push_back(ffi->cfi->func);
+        auto *funcProg = new quad::QuadProgram(funcList, program->last_label_num, program->last_temp_num);
+
+        auto *strengthReduced = loopInductionStrengthReductionPass(funcProg, ffi->cfi);
+        refreshQuadExtents(strengthReduced);
+        auto *cleaned = loopInductionCleanupPass(strengthReduced);
+        refreshQuadExtents(cleaned);
+
+        if (cleaned != nullptr && cleaned->quadFuncDeclList != nullptr && !cleaned->quadFuncDeclList->empty()) {
+            ivFuncs->push_back(cleaned->quadFuncDeclList->at(0));
+        }
+        if (ffi->programLastLabelNum >= 0) ivLastLabel = ffi->programLastLabelNum;
+        if (ffi->programLastTempNum >= 0) ivLastTemp = ffi->programLastTempNum;
+    }
+
+    auto *iv = new quad::QuadProgram(ivFuncs, ivLastLabel, ivLastTemp);
+    refreshQuadExtents(iv);
+    string ivText;
+    iv->print(ivText, 0, true);
+    writeText(base + ".4-ssa-loopivopt.quad", ivText);
+    quad2xml(iv, (base + ".4-ssa-loopivopt-xml.quad").c_str());
+    return iv;
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
     int k = 9;
-    bool enableOptimizations = true;
+    OptMode optMode = OptMode::ALLOPT;
     bool enableRuntimeChecks = false;
     string input;
     string output;
@@ -387,14 +528,20 @@ int main(int argc, char **argv) {
         } else if (arg == "-o" && i + 1 < argc) {
             output = argv[++i];
         } else if (arg == "--no-opt") {
-            enableOptimizations = false;
+            optMode = OptMode::NONE;
+        } else if (arg == "--opt-mode" && i + 1 < argc) {
+            if (!parseOptMode(argv[++i], optMode)) {
+                cerr << "Invalid optimization mode: " << argv[i] << endl;
+                return 2;
+            }
         } else if (arg == "--runtime-checks" || arg == "--extra-runtime-semantics") {
             enableRuntimeChecks = true;
         } else if (arg == "--no-runtime-checks" || arg == "--no-extra-runtime-semantics") {
             enableRuntimeChecks = false;
         } else if (arg == "--help" || arg == "-h") {
             cout << "Usage: " << argv[0]
-                 << " [--k 9] [--no-opt] [--runtime-checks|--no-runtime-checks] [-o output.s] <file.fmj|base>\n";
+                 << " [--k 9] [--no-opt|--opt-mode MODE] [--runtime-checks|--no-runtime-checks] [-o output.s] <file.fmj|base>\n";
+            cout << "       MODE: none, const, loop1, loop2, allloop, allopt.\n";
             cout << "       --extra-runtime-semantics is an alias for --runtime-checks.\n";
             return 0;
         } else if (input.empty()) {
@@ -407,7 +554,8 @@ int main(int argc, char **argv) {
 
     if (input.empty()) {
         cerr << "Usage: " << argv[0]
-             << " [--k 9] [--no-opt] [--runtime-checks|--no-runtime-checks] [-o output.s] <file.fmj|base>" << endl;
+             << " [--k 9] [--no-opt|--opt-mode MODE] [--runtime-checks|--no-runtime-checks] [-o output.s] <file.fmj|base>" << endl;
+        cerr << "       MODE: none, const, loop1, loop2, allloop, allopt." << endl;
         cerr << "       --extra-runtime-semantics is an alias for --runtime-checks." << endl;
         return 2;
     }
@@ -478,84 +626,34 @@ int main(int argc, char **argv) {
     writeText(base + ".4-ssa.quad", ssaText);
     quad2xml(ssa, (base + ".4-ssa-xml.quad").c_str());
 
-    auto *ssaFlow = computeFlow(ssa, base + ".4-ssa-withflow-xml.quad");
-    if (ssaFlow == nullptr) return 1;
-
-    quad::QuadProgram *optimizedSsa = nullptr;
-    if (!enableOptimizations) {
+    quad::QuadProgram *optimizedSsa = ssa;
+    if (optMode == OptMode::NONE) {
         refreshQuadExtents(ssa);
         optimizedSsa = ssa;
         string noOptSsaText;
         optimizedSsa->print(noOptSsaText, 0, true);
         writeText(base + ".4-ssa-noopt.quad", noOptSsaText);
         quad2xml(optimizedSsa, (base + ".4-ssa-noopt-xml.quad").c_str());
-    } else {
-        quad::QuadProgram *sccp = optProg(ssa);
-        if (sccp == nullptr) {
-            cerr << "Error: HW8 SCCP optimization failed" << endl;
-            return 1;
-        }
-        refreshQuadExtents(sccp);
-        string sccpText;
-        sccp->print(sccpText, 0, true);
-        writeText(base + ".4-ssa-opt.quad", sccpText);
-        quad2xml(sccp, (base + ".4-ssa-opt-xml.quad").c_str());
-
-        auto *sccpFlow = computeFlow(sccp, base + ".4-ssa-opt-withflow-xml.quad");
-        if (sccpFlow == nullptr) return 1;
-
-        auto *licmFuncs = new vector<quad::QuadFuncDecl *>();
-        int licmLastLabel = sccp->last_label_num;
-        int licmLastTemp = sccp->last_temp_num;
-        for (auto *ffi : *sccpFlow) {
-            if (ffi == nullptr || ffi->cfi == nullptr || ffi->cfi->func == nullptr) continue;
-            auto *func = ffi->cfi->func;
-            auto *loopHeaders = findLoopHeadersWithFlow(func, ffi->cfi);
-            licmFuncs->push_back(loopHoistFunc(func, loopHeaders));
-            if (ffi->programLastLabelNum >= 0) licmLastLabel = ffi->programLastLabelNum;
-            if (ffi->programLastTempNum >= 0) licmLastTemp = ffi->programLastTempNum;
-        }
-        auto *licm = new quad::QuadProgram(licmFuncs, licmLastLabel, licmLastTemp);
-        refreshQuadExtents(licm);
-        string licmText;
-        licm->print(licmText, 0, true);
-        writeText(base + ".4-ssa-loopopt.quad", licmText);
-        quad2xml(licm, (base + ".4-ssa-loopopt-xml.quad").c_str());
-
-        auto *licmFlow = computeFlow(licm, base + ".4-ssa-loopopt-withflow-xml.quad");
-        if (licmFlow == nullptr) return 1;
-
-        auto *ivFuncs = new vector<quad::QuadFuncDecl *>();
-        int ivLastLabel = licm->last_label_num;
-        int ivLastTemp = licm->last_temp_num;
-        for (auto *ffi : *licmFlow) {
-            if (ffi == nullptr || ffi->cfi == nullptr || ffi->cfi->func == nullptr) continue;
-            auto *funcList = new vector<quad::QuadFuncDecl *>();
-            funcList->push_back(ffi->cfi->func);
-            auto *funcProg = new quad::QuadProgram(funcList, licm->last_label_num, licm->last_temp_num);
-
-            auto *strengthReduced = loopInductionStrengthReductionPass(funcProg, ffi->cfi);
-            refreshQuadExtents(strengthReduced);
-            auto *cleaned = loopInductionCleanupPass(strengthReduced);
-            refreshQuadExtents(cleaned);
-
-            if (cleaned != nullptr && cleaned->quadFuncDeclList != nullptr && !cleaned->quadFuncDeclList->empty()) {
-                ivFuncs->push_back(cleaned->quadFuncDeclList->at(0));
-            }
-            if (ffi->programLastLabelNum >= 0) ivLastLabel = ffi->programLastLabelNum;
-            if (ffi->programLastTempNum >= 0) ivLastTemp = ffi->programLastTempNum;
-        }
-        optimizedSsa = new quad::QuadProgram(ivFuncs, ivLastLabel, ivLastTemp);
-        refreshQuadExtents(optimizedSsa);
-        string optSsaText;
-        optimizedSsa->print(optSsaText, 0, true);
-        writeText(base + ".4-ssa-loopivopt.quad", optSsaText);
-        quad2xml(optimizedSsa, (base + ".4-ssa-loopivopt-xml.quad").c_str());
+    }
+    if (optModeUsesSccp(optMode)) {
+        optimizedSsa = runSccpPass(optimizedSsa, base);
+        if (optimizedSsa == nullptr) return 1;
+    }
+    if (optModeUsesLicm(optMode)) {
+        optimizedSsa = runLicmPass(optimizedSsa, base);
+        if (optimizedSsa == nullptr) return 1;
+    }
+    if (optModeUsesIv(optMode)) {
+        optimizedSsa = runIvPass(optimizedSsa, base);
+        if (optimizedSsa == nullptr) return 1;
     }
 
-    string optimizedFlowPath = enableOptimizations
-        ? base + ".4-ssa-loopivopt-withflow-xml.quad"
-        : base + ".4-ssa-noopt-withflow-xml.quad";
+    string finalOptText;
+    optimizedSsa->print(finalOptText, 0, true);
+    writeText(base + ".4-ssa-final-" + optModeName(optMode) + ".quad", finalOptText);
+    quad2xml(optimizedSsa, (base + ".4-ssa-final-" + string(optModeName(optMode)) + "-xml.quad").c_str());
+
+    string optimizedFlowPath = base + ".4-ssa-final-" + string(optModeName(optMode)) + "-withflow-xml.quad";
     auto *optimizedFlow = computeFlow(optimizedSsa, optimizedFlowPath);
     if (optimizedFlow == nullptr) return 1;
 

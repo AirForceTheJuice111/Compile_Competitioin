@@ -36,6 +36,7 @@
 
 **/build
 HW11/build/
+final/output/
 **/*.pdf
 **/*.zip
 
