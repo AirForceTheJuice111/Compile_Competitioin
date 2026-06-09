@@ -61,6 +61,7 @@ set(FINAL_SOURCES
     lib/util/flow2xml.cc
     lib/util/print_config.cc
     lib/util/quad2xml.cc
+    lib/util/source_printer.cc
     lib/util/tree2xml.cc
     lib/util/xml2asmprog.cc
     lib/util/xml2ast.cc
