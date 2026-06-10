@@ -30,8 +30,8 @@ This builds:
 make compile
 ```
 
-By default this compiles every `.fmj` file under `test/submit` in all required
-optimization modes and writes results under `output/<mode>/`.
+By default this recursively compiles every `.fmj` file under `test/` in all
+required optimization modes and writes results under `output/<mode>/`.
 
 The default modes are:
 
@@ -45,7 +45,7 @@ The default modes are:
 Useful variables:
 
 ```sh
-make compile TEST_DIR=test/submit OUT_DIR=output K=9
+make compile TEST_DIR=test OUT_DIR=output K=9
 ```
 
 Each compiled source produces, at minimum:
@@ -62,7 +62,10 @@ Additional XML and diagnostic files are also emitted.
 
 ## Run Tests
 
-The following targets compile and run `TEST_DIR` using qemu:
+The following targets recursively compile every `.fmj` file under `TEST_DIR`
+and run each successfully compiled program using qemu. Each target prints a
+per-program result line, followed by non-empty stdout/stderr blocks. Programs
+rejected by the compiler are reported as `COMPILE_FAIL`.
 
 ```sh
 make run          # no optimization
@@ -73,10 +76,21 @@ make run-allloop  # both loop optimizations
 make run-allopt   # all optimizations
 ```
 
-Input for programs using `getint`, `getch`, or `getarray` can be supplied with:
+By default, batch `run*` targets use their own stdin for qemu. If stdin is a
+pipe or redirected file, the script buffers it once and replays the same input
+to every program, avoiding pipe read-ahead between qemu processes. For
+non-interactive repeated input, the same input can also be supplied with:
 
 ```sh
 make run-allopt INPUT="4 4 4 4"
+```
+
+Directory run and regression qemu timeout defaults to 2 seconds and can be
+overridden with:
+
+```sh
+make run-allopt RUN_TIMEOUT=5
+make run-allopt RUN_TIMEOUT=   # disable timeout
 ```
 
 ## Compile One Program
@@ -93,7 +107,31 @@ To run one FMJ file through the compiler, linker, and qemu:
 
 ```sh
 make run-one path/to/program.fmj
+make run-one path/to/program.fmj OPT_MODE=none
+make run-one path/to/program.fmj OPT_MODE=const
+make run-one path/to/program.fmj OPT_MODE=loop1
+make run-one path/to/program.fmj OPT_MODE=loop2
+make run-one path/to/program.fmj OPT_MODE=allloop
+make run-one path/to/program.fmj OPT_MODE=allopt
 ```
+
+To run one FMJ file in all optimization modes and compare process return code,
+stdout, stderr, and the printed FMJ return value:
+
+```sh
+make run-one-all-mode path/to/program.fmj
+```
+
+`run-one` and `run-one-all-mode` do not provide default stdin. Piped or
+redirected stdin is also buffered and replayed to every optimization mode. For
+input programs, pass input explicitly:
+
+```sh
+make run-one path/to/program.fmj INPUT="1 2 3"
+make run-one-all-mode path/to/program.fmj INPUT="1 2 3"
+```
+
+`run-one` and `run-one-all-mode` also do not wrap qemu in `timeout` by default.
 
 ## Regression Tests
 
@@ -105,8 +143,9 @@ make compile-regression
 make interpreter-regression
 make runtime-regression
 make fuzz-regression
+make all-mode-regression
 ```
 
-`test/all` contains the full collected HW/PARSING test corpus, including tests
-that are expected to be rejected. `test/submit` contains valid programs used by
-the default final-project `compile` and `run*` targets.
+`test/` is the default final-project corpus for `compile` and `run*`. It
+contains the collected HW/PARSING tests, submit examples, regression cases, and
+programs that are expected to be rejected by the compiler.

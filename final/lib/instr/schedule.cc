@@ -324,6 +324,26 @@ ScheduleProg *scheduleProg(preScheduleProg *preScheduleProgram) {
                     appendBlock(trueBlock);
                 }
             }
+
+            if (block->quadBlock == nullptr || block->quadBlock->exit_labels == nullptr ||
+                block->quadBlock->exit_labels->size() != 1) {
+                return;
+            }
+
+            auto *fallthroughLabel = block->quadBlock->exit_labels->front();
+            auto *fallthroughBlock = fallthroughLabel == nullptr ? nullptr : labelToBlock[fallthroughLabel->num];
+            appendPhiCopies(*func, fallthroughBlock, block->entryLabel);
+            if (fallthroughBlock != nullptr &&
+                visited.find(fallthroughBlock->entryLabel->num) == visited.end()) {
+                appendBlock(fallthroughBlock);
+            } else if (fallthroughLabel != nullptr) {
+                func->addLinearizedInstruction(AssemInstr::Oper(
+                    "b `j0",
+                    {},
+                    {},
+                    AssemTargets({fallthroughLabel})
+                ));
+            }
         };
 
         for (auto *block : preFunc->blockSchedules) {
