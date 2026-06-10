@@ -33,7 +33,7 @@ FMJ source
 
 从理论上看，编译器通常被拆成前端、中端和后端。前端负责把文本程序变成有类型的结构化程序表示，并拒绝不符合语言定义的输入；中端把语言相关结构逐步降低到更适合分析和优化的中间表示；后端再把中间表示映射到目标机器的寄存器、指令和调用约定。这样分层的意义是让每一层维护较小的抽象边界：parser 不需要知道 ARM，寄存器分配也不需要知道 FMJ 语法，只需要消费前一阶段保证好的不变量。
 
-代码包根目录为 `final/`。其中 `test/submit` 是默认用于 `make compile` 和 `make run*` 的合法程序集合，`test/all` 是从 HW 与 PARSING 中收集到的完整回归集合。
+代码包根目录为 `final/`。默认的 `make compile` 和 `make run*` 会递归扫描 `test/` 下所有 `.fmj`，其中既包括 `test/submit` 中的提交示例，也包括从 HW、PARSING 和回归测试中收集到的合法与非法输入。
 
 本报告使用 `final/test/submit/report_example.fmj` 作为贯穿例子：
 
@@ -115,7 +115,7 @@ public class Acc {
 10. `buildAdvDFGprog()`、`buildPreScheduleProg()`、`runInstructionSelectionPass()` 和 `scheduleProg()` 生成虚拟寄存器 ARM 指令，输出 `.5-xml.asm` 与中间 `.s`。
 11. `preDataFlowPass()`、`buildIgProg()`、`coloring()`、`asmprog2colored()` 做寄存器分配和 spill 改写，输出 `.colored.s` 与最终 `.<mode>.s`。
 
-`make compile` 会对 `test/submit` 下所有程序在六个 mode 中分别执行这条流水线，因此同一个源文件可以在 `output/none/`、`output/const/`、`output/loop1/`、`output/loop2/`、`output/allloop/`、`output/allopt/` 下看到不同优化设置的完整产物。贯穿例子 `report_example.fmj` 在 `allopt` 模式下会生成：
+`make compile` 会对 `test/` 下递归找到的所有 `.fmj` 在六个 mode 中分别执行这条流水线，因此同一个源文件可以在 `output/none/`、`output/const/`、`output/loop1/`、`output/loop2/`、`output/allloop/`、`output/allopt/` 下看到不同优化设置的完整产物。语法或语义错误的程序不会中断整个批量编译，而会记录在对应 mode 的 `compile-results.txt` 和 `compile-failures.txt` 中。贯穿例子 `report_example.fmj` 在 `allopt` 模式下会生成：
 
 ```text
 report_example.1.fmj
@@ -226,7 +226,7 @@ AST 到 IR+ 的翻译入口是 `final/lib/ir/ast2tree.cc` 中的 `ast2tree()`，
 
 ### 运行期语义与检查
 
-运行期语义是静态类型检查无法完全表达的约束。比如数组下标是否越界、引用是否为空、除数是否为 0，通常要等程序执行到具体路径和具体输入时才知道。编译器可以选择插入检查来把这类错误转化为确定的运行期行为，也可以在语言未规定时把它们视为未定义行为。Final 明确区分默认语义和额外检查语义，避免把测试 oracle 的便利性误当成语言本身的默认规定。
+运行期语义是静态类型检查无法完全表达的约束。比如数组下标是否越界、引用是否为空、除数是否为 0，通常要等程序执行到具体路径和具体输入时才知道。编译器可以选择插入检查来把这类错误转化为确定的运行期行为，也可以在语言未规定时把它们视为未定义行为；Final 也明确区分默认语义和额外检查语义。
 
 Final 默认只保留 specification 或原 lab 代码已经需要的运行期表示规则：
 
@@ -448,7 +448,7 @@ make build
 make compile
 ```
 
-默认编译 `test/submit` 下所有 `.fmj`，并在 `output/<mode>/` 中为每个源文件输出至少以下文件：
+默认递归编译 `test/` 下所有 `.fmj`，并在 `output/<mode>/` 中为每个成功编译的源文件输出至少以下文件：
 
 - `.1.fmj`：AST 重新打印的规范化 FMJ 源文件。
 - `.2-semant.ast`：带 NameMap 和语义信息的 AST。
@@ -458,7 +458,7 @@ make compile
 - `.4-ssa-final-<mode>.quad`：指定优化模式后的 Quad。
 - `.<mode>.s`：该模式最终 ARM 汇编。
 
-`make compile` 会一次生成 `none`、`const`、`loop1`、`loop2`、`allloop`、`allopt` 六种模式的产物。
+`make compile` 会一次生成 `none`、`const`、`loop1`、`loop2`、`allloop`、`allopt` 六种模式的产物。无法通过 parser 或 semantic checker 的输入会写入 `compile-results.txt` 和 `compile-failures.txt`，用于确认 reject 行为。
 
 ### 运行测试目录
 
@@ -471,10 +471,21 @@ make run-allloop  # 两个循环优化
 make run-allopt   # 全部优化
 ```
 
-如果程序需要输入，可以通过 `INPUT` 变量提供：
+`make run*` 会先递归编译 `test/` 下所有 `.fmj`，再逐个链接并运行成功编译的程序。每个程序都会打印一行 `mode=... result=... rc=... src=...`，非空 stdout/stderr 会跟随输出；被前端拒绝的程序会以 `COMPILE_FAIL` 行列出，如果程序运行超时（含有死循环），则会出现 `RUN_FAIL`，rc=124（即qemu对应退出码）。
+
+如果程序需要输入，默认会从 `make run*` 自身的 stdin 传给 qemu。这里需要注意一个工程细节：如果直接把同一个 pipe 交给多个 qemu 进程，第一个进程中的 C 标准库可能会预读超过本程序实际需要的字节，导致后续程序拿不到输入。因此 `run_submit.sh` 在发现 stdin 是 pipe 或重定向文件时，会先把 stdin 缓存到临时文件，再把同一份输入文件分别重放给每个 qemu 进程；如果 stdin 是终端，则保持逐程序交互输入。非交互场景也可以通过 `INPUT` 变量给每个程序提供同一份输入：
 
 ```sh
 make run-allopt INPUT="1 2 3 4"
+```
+
+**在不提供输入时，默认输入无数个1。(`yes 1`)**
+
+批量运行和回归测试中的 qemu timeout 默认是 2 秒，可通过 `RUN_TIMEOUT` 调整：
+
+```sh
+make run-allopt RUN_TIMEOUT=5
+make run-allopt RUN_TIMEOUT=   # 关闭 timeout
 ```
 
 ### 编译和运行单个文件
@@ -483,7 +494,21 @@ make run-allopt INPUT="1 2 3 4"
 build/fmjcc --k 9 --opt-mode allopt path/to/file.fmj
 build/fmjinterp --check path/to/file.fmj
 make run-one path/to/file.fmj
+make run-one path/to/file.fmj OPT_MODE=none
+make run-one path/to/file.fmj OPT_MODE=allopt
+make run-one-all-mode path/to/file.fmj
 ```
+
+`make run-one` 默认使用 `OPT_MODE=allopt`，也可以设置为 `none`、`const`、`loop1`、`loop2`、`allloop` 或 `allopt`。`make run-one-all-mode` 会对同一个文件依次运行六种优化模式，打印每个模式的 process return code、stdout、stderr 和 harness 打印出的 FMJ return value，并比较这些可观察结果是否完全一致。
+
+`make run-one` 和 `make run-one-all-mode` 默认不自动提供 stdin。若 stdin 来自 pipe 或重定向文件，脚本同样会缓存并重放给每个优化模式，保证六种 mode 比较时看到同一份输入。需要外部输入的程序可以显式设置 `INPUT` 或从 shell 重定向标准输入，例如：
+
+```sh
+make run-one path/to/file.fmj INPUT="1 2 3"
+make run-one-all-mode path/to/file.fmj INPUT="1 2 3"
+```
+
+这两个单文件目标也默认不对 qemu 设置 timeout；它们更适合人工运行和观察交互式程序。自动回归脚本会显式传入 timeout，避免批量测试被非终止程序卡住。
 
 额外运行期语义可用：
 
@@ -507,7 +532,7 @@ make run-one path/to/file.fmj RUNTIME_CHECKS=1
 1. `--check` 只做 parser 和 semantic check，用于确认 reject 是否合理。
 2. 普通执行模式输出 stdout 和退出码，用于和 qemu 运行的编译产物比较。
 
-fuzz 时解释器还提供 hash 模式，和 ARM harness 使用相同的随机输入生成器以及相同的输出 hash 规则。这样一百万组输入不需要保存完整输出流，只比较最终 hash 和输入调用次数。
+fuzz 时解释器还提供 hash 模式，和 ARM harness 使用相同的随机输入生成器以及相同的输出 hash 规则。这样大量随机输入不需要保存完整输出流，只比较最终 hash 和输入调用次数。
 
 ### 回归测试
 
@@ -518,6 +543,7 @@ make compile-regression
 make interpreter-regression
 make runtime-regression
 make fuzz-regression
+make all-mode-regression
 ```
 
 `collect_tests.sh` 会遍历整个仓库，排除 `final/` 自身，收集各 HW 和 `PARSING/test` 中的 `.fmj` 文件到 `final/test/all`。当前一共收集到 280 个测试。
@@ -558,7 +584,17 @@ total=24 pass=24 compile_fail=0 link_fail=0 run_fail=0
 
 ```text
 make fuzz-regression
-fuzz_pass=41 fuzz_fail=0 fuzz_skip=3 iterations=1000000
+fuzz_pass=41 fuzz_fail=0 fuzz_skip=3 iterations=10000
+```
+
+```text
+make all-mode-regression
+total=285 run_consistent=148 reject_consistent=109 timeout_consistent=4 optional_semantics_skip=24 mismatch=0
+```
+
+```text
+RUNTIME_CHECKS=1 make all-mode-regression
+total=285 run_consistent=172 reject_consistent=109 timeout_consistent=4 optional_semantics_skip=0 mismatch=0
 ```
 
 默认无额外运行期语义的 `interpreter-regression` 中，`optional_semantics_skip=24` 是解释器确认依赖局部默认值、空引用、负长度数组或除零等可选语义的样例。默认 unchecked 编译器不承诺这些行为，因此不把它们纳入输出等价比较；数组越界和函数末尾隐式 `return 0` 不在这个集合内，默认仍要和解释器对齐。开启额外运行期语义后结果如下：
@@ -568,7 +604,7 @@ RUNTIME_CHECKS=1 make interpreter-regression
 total=280 run_match=167 reject_match=109 timeout_match=4 runtime_error_skip=0 optional_semantics_skip=0 mismatch=0 compile_only_reject=0 interp_only_reject=0 link_fail=0 run_fail=0 timeout=4 runtime_checks=1
 ```
 
-因此 109 个 reject 均由解释器语义/语法检查确认。4 个 timeout 是解释器和编译产物都超时的非终止程序，作为行为一致处理。对定义良好的程序，默认编译器与解释器完全一致；对依赖可选运行期语义的程序，开启选项后也与解释器一致。
+因此 109 个 reject 均由解释器语义/语法检查确认。4 个 timeout 是解释器和编译产物都超时的非终止程序，作为行为一致处理。对定义良好的程序，默认编译器与解释器完全一致；对依赖可选运行期语义的程序，开启选项后也与解释器一致。`all-mode-regression` 还会把每个文件在六种优化模式下的 process return code、stdout、stderr 和 FMJ return value 逐项比较，确认优化不会改变可观察行为。
 
 ### Fuzz 测试
 
@@ -579,12 +615,12 @@ total=280 run_match=167 reject_match=109 timeout_match=4 runtime_error_skip=0 op
 3. 对可接受程序，编译成 ARM 汇编，并把 `main` 改名为 `test_main`。
 4. ARM 侧链接一个 harness，在同一个 qemu 进程中循环调用 `test_main()`。
 5. harness 和解释器使用相同 seed、相同输入生成策略、相同输出 hash。
-6. 每个程序执行 `ITERS=1000000` 组随机输入。
+6. 每个程序执行 `ITERS=10000` 组随机输入。
 
 fuzz 结果如下：
 
 ```text
-fuzz_pass=41 fuzz_fail=0 fuzz_skip=3 iterations=1000000 kset="9" workdir=/tmp/final_fuzz_regression
+fuzz_pass=41 fuzz_fail=0 fuzz_skip=3 iterations=10000 kset="9" workdir=/tmp/final_fuzz_regression
 ```
 
 其中 `fuzz_skip=3` 是三个 spec-invalid 的 HW2 原始测试：
@@ -601,14 +637,14 @@ HW2/test/test_io.fmj
 input_total=46 accepted=42 rejected=4
 ```
 
-除上述三个语法无效文件外，还有一个语义无效用例 `semant_test30_getarray_non_lvalue` 被正确拒绝。可执行输入测试在一百万组随机输入下没有发现解释器和编译产物输出不一致。
+除上述三个语法无效文件外，还有一个语义无效用例 `semant_test30_getarray_non_lvalue` 被正确拒绝。可执行输入测试在 10000 组随机输入下没有发现解释器和编译产物输出不一致。
 
 实际进入 ARM harness 和解释器 hash 对照的 41 个输入程序全部通过；被跳过的程序都是前置 parser/semantic check 已确认应当拒绝的程序。部分 fuzz 输出如下：
 
 ```text
-OK interpreter k=9 HW10/test/optloopivextra2.fmj ab4e2331539ea869 1000000
-OK interpreter k=9 HW11/test/fibonacci.fmj b424d2ae97575e98 1000000
-OK interpreter k=9 HW9/test/opttest9.fmj d4e17d72c5b25503 1000000
+OK interpreter k=9 HW10/test/optloopivextra2.fmj 5bdac9544df208ea 10000
+OK interpreter k=9 HW11/test/fibonacci.fmj a8d38cf26e53b73d 10000
+OK interpreter k=9 HW9/test/opttest9.fmj 4110fa6c1bf841a3 10000
 ```
 
 ### 运行时回归测试
@@ -619,15 +655,11 @@ OK interpreter k=9 HW9/test/opttest9.fmj d4e17d72c5b25503 1000000
 total=24 pass=24 compile_fail=0 link_fail=0 run_fail=0 workdir=/tmp/final_runtime_regression
 ```
 
-这些结果说明：所有 280 个收集到的 FMJ 文件都被编译器和解释器一致地接受或拒绝；默认模式下，不依赖可选运行期语义的程序 stdout 和退出码完全一致，数组越界也与解释器的 `exit(-1)` 行为一致；开启运行期语义选项后，可选运行期错误和默认值语义也与解释器一致；含外部输入程序在一百万组随机输入下与解释器 oracle 一致；所有不合法输入均被正确拒绝，没有编译器 crash。
+这些结果说明：所有 280 个收集到的 FMJ 文件都被编译器和解释器一致地接受或拒绝；默认模式下，不依赖可选运行期语义的程序 stdout 和退出码完全一致，数组越界也与解释器的 `exit(-1)` 行为一致；开启运行期语义选项后，可选运行期错误和默认值语义也与解释器一致；含外部输入程序在 10000 组随机输入下与解释器 oracle 一致；所有不合法输入均被正确拒绝，没有编译器 crash。
 
 ## 实现中遇到的问题
 
 编译器集成中的很多 bug 本质上不是某一条语句写错，而是某个阶段没有维持后续阶段依赖的不变量。例如控制流阶段假设每个 block 有合法 label，SSA 阶段假设 def/use 完整，后端假设地址模式满足 ARM 立即数限制。下面几个问题都说明了同一个原则：只要某个阶段输出的中间表示看似能打印、但没有满足形式化约束，错误往往会在更后面的优化或代码生成阶段才暴露。
-
-### Parser 集成方式
-
-最开始考虑过直接使用 HW2/vendor 中已有 parser binary，但这样不满足最终代码包应当完整可构建的要求，也会让解释器和编译器难以共享语法边界。最终采用 `PARSING/` 中的 flex/bison 源码，把 `lexer.ll`、`parser.yy`、AST 头文件和 tinyxml2 相关工具作为 final 工程的一部分。CMake 在本地生成 parser 源码并链接进两个 executable，因此提交包不依赖任何预编译 parser。
 
 ### 空 label / 空 block
 
@@ -635,15 +667,17 @@ total=24 pass=24 compile_fail=0 link_fail=0 run_fail=0 workdir=/tmp/final_runtim
 
 这个问题在 Final 阶段比单次作业中更容易暴露，因为后端不再只消费少量手写 IR，而是要消费从全仓库 `.fmj` 程序自动生成的 IR。修复后，`blocking()`、SSA、LICM、IV/SR、调度和寄存器分配都能假设 block 入口和出口是有效 label。
 
+### Fallthrough 边上的 Phi Copy
+
+SSA 中的 phi 函数不是实际机器指令，离开 SSA 形式时必须在每条前驱边上插入 copy。例如循环头 `L102` 中的 `i_2 = phi(i_0 from L116, i_1 from L114)`，需要在 `L116 -> L102` 和 `L114 -> L102` 两条边上分别插入 `i_2 = i_0` 与 `i_2 = i_1`。如果只处理显式 `jump` 或 `cjump` 边，而漏掉没有显式跳转的 fallthrough 边，寄存器分配会认为 phi 目标有颜色，但实际汇编中从未给对应物理寄存器赋值。
+
+`final/lib/instr/schedule.cc` 中的 scheduler 已修复这个问题：当一个 block 的最后语句不是 `return`、`jump`、`cjump` 或 `exit`，且它有唯一后继 label 时，把这条边按 fallthrough successor 处理，先调用 `appendPhiCopies()`，再线性化后继 block 或跳转到已访问后继。贯穿例子中的 `Acc^sum` 正好覆盖了入口 block fallthrough 到循环头的情况，修复后所有优化模式输出一致。
+
 ### 可选运行期语义
 
 原作业中的部分阶段默认测试较短，没有完整规定未显式初始化局部变量的行为。Final 默认不为普通局部 `int` 和局部数组引用补语义；解释器在 `--runtime-status` 中标记 `default_int_zero`、`default_ref_null` 等原因，默认回归只比较不依赖这些语义的程序。函数 fallthrough return 则默认补 `return 0`，不算可选语义。`--runtime-checks` 开启后，编译器会补齐局部默认值等额外语义并与解释器逐项对齐。
 
 这个设计的关键是把"编译器应当保证的定义良好程序行为"和"为了让解释器与 ARM 在未定义/未规定程序上完全一致而补的防御语义"分开。默认模式保持更接近课程作业代码；检查模式用于更强的差分测试。
-
-### 数组布局
-
-数组字面量和运行时 `new int[n]` 必须使用同一布局。早期版本中数组字面量和动态数组布局不完全一致，会导致 `length`、`putarray`、越界检查和解释器模型无法同时对齐。最终采用首 word 存长度、后续 word 存元素的布局，并让 `GetArray` 返回 `int` 长度。这样 `putarray`、越界检查和解释器数组模型可以对齐。
 
 ### 后端立即数范围
 
