@@ -1,0 +1,15 @@
+public int main() {
+    int x;
+    int y;
+    if (1) {
+        x = 3;
+    } else {
+        x = getint();
+    }
+    if (x == 3) {
+        y = 4;
+    } else {
+        y = 5;
+    }
+    return y;
+}
