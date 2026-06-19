@@ -1,0 +1,26 @@
+Function __$main__^main() last_label=106 last_temp=115:
+  Block: Entry Label: L105
+    Exit labels: L102 
+    LABEL L105; 
+    MOVE_EXTCALL t10001:int <- getint(); 
+    JUMP L102; 
+  Block: Entry Label: L102
+    Exit labels: L103 L104 
+    LABEL L102; 
+    PHI t10002:int <- Phi([t10003, L103], [t10001, L105]); 
+    CJUMP > t10002:int Const:0? L103 : L104; 
+  Block: Entry Label: L103
+    Exit labels: L102 
+    LABEL L103; 
+    MOVE_BINOP t10901:int <- (*, Const:4, t10002:int); 
+    MOVE_BINOP t10301:int <- (+, t10901:int, Const:2); 
+    EXTCALL putint(t10301:int); 
+    EXTCALL putch(Const:32); 
+    MOVE_BINOP t10003:int <- (-, t10002:int, Const:2); 
+    JUMP L102; 
+  Block: Entry Label: L104
+    Exit labels: 
+    LABEL L104; 
+    EXTCALL putint(t10002:int); 
+    EXTCALL putch(Const:10); 
+    RETURN Const:2; 

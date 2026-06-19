@@ -1,0 +1,922 @@
+; Generated LLVM IR from Quad representation
+
+declare i8* @malloc(i32)
+declare void @free(i8*)
+
+declare i32 @printf(i8*, ...)
+declare i32 @__isoc99_scanf(i8*, ...)
+
+declare void @exit(i64)
+
+declare i64 @getint()
+declare i64 @getch()
+declare i64 @getarray(i64*)
+declare void @putint(i64)
+declare void @putch(i64)
+declare void @putarray(i64, i64*)
+
+define i32 @main() {
+entry:
+  br label %label_595
+
+label_595:
+  br label %label_102
+
+label_102:
+  br label %label_103
+
+label_103:
+  br label %label_107
+
+label_107:
+  br label %label_108
+
+label_108:
+  br label %label_112
+
+label_112:
+  br label %label_113
+
+label_113:
+  br label %label_117
+
+label_117:
+  br label %label_118
+
+label_118:
+  br label %label_122
+
+label_122:
+  br label %label_123
+
+label_123:
+  br label %label_127
+
+label_127:
+  br label %label_128
+
+label_128:
+  br label %label_132
+
+label_132:
+  br label %label_133
+
+label_133:
+  br label %label_137
+
+label_137:
+  br label %label_138
+
+label_138:
+  br label %label_142
+
+label_142:
+  br label %label_143
+
+label_143:
+  br label %label_147
+
+label_147:
+  br label %label_148
+
+label_148:
+  br label %label_152
+
+label_152:
+  br label %label_153
+
+label_153:
+  br label %label_157
+
+label_157:
+  br label %label_158
+
+label_158:
+  br label %label_162
+
+label_162:
+  br label %label_163
+
+label_163:
+  br label %label_167
+
+label_167:
+  br label %label_168
+
+label_168:
+  br label %label_172
+
+label_172:
+  br label %label_173
+
+label_173:
+  br label %label_177
+
+label_177:
+  br label %label_178
+
+label_178:
+  br label %label_182
+
+label_182:
+  br label %label_183
+
+label_183:
+  br label %label_187
+
+label_187:
+  br label %label_188
+
+label_188:
+  br label %label_192
+
+label_192:
+  br label %label_193
+
+label_193:
+  br label %label_197
+
+label_197:
+  br label %label_198
+
+label_198:
+  br label %label_202
+
+label_202:
+  br label %label_203
+
+label_203:
+  br label %label_207
+
+label_207:
+  br label %label_208
+
+label_208:
+  br label %label_212
+
+label_212:
+  br label %label_213
+
+label_213:
+  br label %label_217
+
+label_217:
+  br label %label_218
+
+label_218:
+  br label %label_222
+
+label_222:
+  br label %label_223
+
+label_223:
+  br label %label_227
+
+label_227:
+  br label %label_228
+
+label_228:
+  br label %label_232
+
+label_232:
+  br label %label_233
+
+label_233:
+  br label %label_237
+
+label_237:
+  br label %label_238
+
+label_238:
+  br label %label_242
+
+label_242:
+  br label %label_243
+
+label_243:
+  br label %label_247
+
+label_247:
+  br label %label_248
+
+label_248:
+  br label %label_252
+
+label_252:
+  br label %label_253
+
+label_253:
+  br label %label_257
+
+label_257:
+  br label %label_258
+
+label_258:
+  br label %label_262
+
+label_262:
+  br label %label_263
+
+label_263:
+  br label %label_267
+
+label_267:
+  br label %label_268
+
+label_268:
+  br label %label_272
+
+label_272:
+  br label %label_273
+
+label_273:
+  br label %label_277
+
+label_277:
+  br label %label_278
+
+label_278:
+  br label %label_282
+
+label_282:
+  br label %label_283
+
+label_283:
+  br label %label_287
+
+label_287:
+  br label %label_288
+
+label_288:
+  br label %label_292
+
+label_292:
+  br label %label_293
+
+label_293:
+  br label %label_297
+
+label_297:
+  br label %label_298
+
+label_298:
+  br label %label_302
+
+label_302:
+  br label %label_303
+
+label_303:
+  br label %label_307
+
+label_307:
+  br label %label_308
+
+label_308:
+  br label %label_312
+
+label_312:
+  br label %label_313
+
+label_313:
+  br label %label_317
+
+label_317:
+  br label %label_318
+
+label_318:
+  br label %label_322
+
+label_322:
+  br label %label_323
+
+label_323:
+  br label %label_327
+
+label_327:
+  br label %label_328
+
+label_328:
+  br label %label_332
+
+label_332:
+  br label %label_333
+
+label_333:
+  br label %label_337
+
+label_337:
+  br label %label_338
+
+label_338:
+  br label %label_342
+
+label_342:
+  br label %label_343
+
+label_343:
+  br label %label_347
+
+label_347:
+  br label %label_348
+
+label_348:
+  br label %label_352
+
+label_352:
+  br label %label_353
+
+label_353:
+  br label %label_357
+
+label_357:
+  br label %label_358
+
+label_358:
+  br label %label_362
+
+label_362:
+  br label %label_363
+
+label_363:
+  br label %label_367
+
+label_367:
+  br label %label_368
+
+label_368:
+  br label %label_372
+
+label_372:
+  br label %label_373
+
+label_373:
+  br label %label_377
+
+label_377:
+  br label %label_378
+
+label_378:
+  br label %label_382
+
+label_382:
+  br label %label_383
+
+label_383:
+  br label %label_387
+
+label_387:
+  br label %label_388
+
+label_388:
+  br label %label_392
+
+label_392:
+  br label %label_393
+
+label_393:
+  br label %label_397
+
+label_397:
+  br label %label_398
+
+label_398:
+  br label %label_402
+
+label_402:
+  br label %label_403
+
+label_403:
+  br label %label_407
+
+label_407:
+  br label %label_408
+
+label_408:
+  br label %label_412
+
+label_412:
+  br label %label_413
+
+label_413:
+  br label %label_417
+
+label_417:
+  br label %label_418
+
+label_418:
+  br label %label_422
+
+label_422:
+  br label %label_423
+
+label_423:
+  br label %label_427
+
+label_427:
+  br label %label_428
+
+label_428:
+  br label %label_432
+
+label_432:
+  br label %label_433
+
+label_433:
+  br label %label_437
+
+label_437:
+  br label %label_438
+
+label_438:
+  br label %label_442
+
+label_442:
+  br label %label_443
+
+label_443:
+  br label %label_447
+
+label_447:
+  br label %label_448
+
+label_448:
+  br label %label_452
+
+label_452:
+  br label %label_453
+
+label_453:
+  br label %label_457
+
+label_457:
+  br label %label_458
+
+label_458:
+  br label %label_462
+
+label_462:
+  br label %label_463
+
+label_463:
+  br label %label_467
+
+label_467:
+  br label %label_468
+
+label_468:
+  br label %label_472
+
+label_472:
+  br label %label_473
+
+label_473:
+  br label %label_477
+
+label_477:
+  br label %label_478
+
+label_478:
+  br label %label_482
+
+label_482:
+  br label %label_483
+
+label_483:
+  br label %label_487
+
+label_487:
+  br label %label_488
+
+label_488:
+  br label %label_492
+
+label_492:
+  br label %label_493
+
+label_493:
+  br label %label_497
+
+label_497:
+  br label %label_498
+
+label_498:
+  br label %label_502
+
+label_502:
+  br label %label_503
+
+label_503:
+  br label %label_507
+
+label_507:
+  br label %label_508
+
+label_508:
+  br label %label_512
+
+label_512:
+  br label %label_513
+
+label_513:
+  br label %label_517
+
+label_517:
+  br label %label_518
+
+label_518:
+  br label %label_522
+
+label_522:
+  br label %label_523
+
+label_523:
+  br label %label_527
+
+label_527:
+  br label %label_528
+
+label_528:
+  br label %label_532
+
+label_532:
+  br label %label_533
+
+label_533:
+  br label %label_537
+
+label_537:
+  br label %label_538
+
+label_538:
+  br label %label_542
+
+label_542:
+  br label %label_543
+
+label_543:
+  br label %label_547
+
+label_547:
+  br label %label_548
+
+label_548:
+  br label %label_552
+
+label_552:
+  br label %label_553
+
+label_553:
+  br label %label_557
+
+label_557:
+  br label %label_558
+
+label_558:
+  br label %label_562
+
+label_562:
+  br label %label_563
+
+label_563:
+  br label %label_567
+
+label_567:
+  br label %label_568
+
+label_568:
+  br label %label_572
+
+label_572:
+  br label %label_573
+
+label_573:
+  br label %label_577
+
+label_577:
+  br label %label_578
+
+label_578:
+  br label %label_582
+
+label_582:
+  br label %label_583
+
+label_583:
+  br label %label_587
+
+label_587:
+  br label %label_588
+
+label_588:
+  br label %label_592
+
+label_592:
+  br label %label_593
+
+label_593:
+  br label %label_594
+
+label_594:
+  br label %label_589
+
+label_589:
+  br label %label_584
+
+label_584:
+  br label %label_579
+
+label_579:
+  br label %label_574
+
+label_574:
+  br label %label_569
+
+label_569:
+  br label %label_564
+
+label_564:
+  br label %label_559
+
+label_559:
+  br label %label_554
+
+label_554:
+  br label %label_549
+
+label_549:
+  br label %label_544
+
+label_544:
+  br label %label_539
+
+label_539:
+  br label %label_534
+
+label_534:
+  br label %label_529
+
+label_529:
+  br label %label_524
+
+label_524:
+  br label %label_519
+
+label_519:
+  br label %label_514
+
+label_514:
+  br label %label_509
+
+label_509:
+  br label %label_504
+
+label_504:
+  br label %label_499
+
+label_499:
+  br label %label_494
+
+label_494:
+  br label %label_489
+
+label_489:
+  br label %label_484
+
+label_484:
+  br label %label_479
+
+label_479:
+  br label %label_474
+
+label_474:
+  br label %label_469
+
+label_469:
+  br label %label_464
+
+label_464:
+  br label %label_459
+
+label_459:
+  br label %label_454
+
+label_454:
+  br label %label_449
+
+label_449:
+  br label %label_444
+
+label_444:
+  br label %label_439
+
+label_439:
+  br label %label_434
+
+label_434:
+  br label %label_429
+
+label_429:
+  br label %label_424
+
+label_424:
+  br label %label_419
+
+label_419:
+  br label %label_414
+
+label_414:
+  br label %label_409
+
+label_409:
+  br label %label_404
+
+label_404:
+  br label %label_399
+
+label_399:
+  br label %label_394
+
+label_394:
+  br label %label_389
+
+label_389:
+  br label %label_384
+
+label_384:
+  br label %label_379
+
+label_379:
+  br label %label_374
+
+label_374:
+  br label %label_369
+
+label_369:
+  br label %label_364
+
+label_364:
+  br label %label_359
+
+label_359:
+  br label %label_354
+
+label_354:
+  br label %label_349
+
+label_349:
+  br label %label_344
+
+label_344:
+  br label %label_339
+
+label_339:
+  br label %label_334
+
+label_334:
+  br label %label_329
+
+label_329:
+  br label %label_324
+
+label_324:
+  br label %label_319
+
+label_319:
+  br label %label_314
+
+label_314:
+  br label %label_309
+
+label_309:
+  br label %label_304
+
+label_304:
+  br label %label_299
+
+label_299:
+  br label %label_294
+
+label_294:
+  br label %label_289
+
+label_289:
+  br label %label_284
+
+label_284:
+  br label %label_279
+
+label_279:
+  br label %label_274
+
+label_274:
+  br label %label_269
+
+label_269:
+  br label %label_264
+
+label_264:
+  br label %label_259
+
+label_259:
+  br label %label_254
+
+label_254:
+  br label %label_249
+
+label_249:
+  br label %label_244
+
+label_244:
+  br label %label_239
+
+label_239:
+  br label %label_234
+
+label_234:
+  br label %label_229
+
+label_229:
+  br label %label_224
+
+label_224:
+  br label %label_219
+
+label_219:
+  br label %label_214
+
+label_214:
+  br label %label_209
+
+label_209:
+  br label %label_204
+
+label_204:
+  br label %label_199
+
+label_199:
+  br label %label_194
+
+label_194:
+  br label %label_189
+
+label_189:
+  br label %label_184
+
+label_184:
+  br label %label_179
+
+label_179:
+  br label %label_174
+
+label_174:
+  br label %label_169
+
+label_169:
+  br label %label_164
+
+label_164:
+  br label %label_159
+
+label_159:
+  br label %label_154
+
+label_154:
+  br label %label_149
+
+label_149:
+  br label %label_144
+
+label_144:
+  br label %label_139
+
+label_139:
+  br label %label_134
+
+label_134:
+  br label %label_129
+
+label_129:
+  br label %label_124
+
+label_124:
+  br label %label_119
+
+label_119:
+  br label %label_114
+
+label_114:
+  br label %label_109
+
+label_109:
+  br label %label_104
+
+label_104:
+  call void @putint(i64 100)
+  call void @putch(i64 10)
+  %t0 = trunc i64 0 to i32
+  ret i32 %t0
+
+  ; Default return
+  ret i32 0
+}
+

@@ -1,0 +1,11 @@
+Function __$main__^main() last_label=103 last_temp=102:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; def: use: 
+    PTR_CALC t102010101:ptr <- t100:ptr + Const:0; def: t102010101 use: t100 
+    STORE Const:1 -> Mem(t102010101:ptr); def: use: t102010101 
+    JUMP L101; def: use: 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; def: use: 
+    RETURN Const:0; def: use: 

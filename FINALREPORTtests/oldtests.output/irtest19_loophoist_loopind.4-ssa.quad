@@ -1,0 +1,60 @@
+Function B^g(t100) last_label=103 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; def: use: 
+    JUMP L101; def: use: 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; def: use: 
+    RETURN Const:0; def: use: 
+Function C^f(t100) last_label=103 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; def: use: 
+    JUMP L101; def: use: 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; def: use: 
+    RETURN Const:0; def: use: 
+Function A^f(t100) last_label=103 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; def: use: 
+    JUMP L101; def: use: 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; def: use: 
+    RETURN Const:0; def: use: 
+Function __$main__^main() last_label=103 last_temp=100:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; def: use: 
+    JUMP L101; def: use: 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; def: use: 
+    RETURN Const:0; def: use: 
+Function D^f(t100) last_label=103 last_temp=112:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    PTR_CALC t104010101:ptr <- t100:ptr + Const:16; def: t104010101 use: t100 
+    LOAD t105010101:int <- Mem(t104010101:ptr); def: t105010101 use: t104010101 
+    PTR_CALC t106010101:ptr <- t100:ptr + Const:24; def: t106010101 use: t100 
+    LOAD t107010101:ptr <- Mem(t106010101:ptr); def: t107010101 use: t106010101 
+    PTR_CALC t108010101:ptr <- t107010101:ptr + Const:16; def: t108010101 use: t107010101 
+    LOAD t109010101:int <- Mem(t108010101:ptr); def: t109010101 use: t108010101 
+    MOVE_BINOP t102010101:int <- (+, t105010101:int, t109010101:int); def: t102010101 use: t105010101 t109010101 
+    EXTCALL putint(t102010101:int); def: use: t102010101 
+    PTR_CALC t111010101:ptr <- t100:ptr + Const:28; def: t111010101 use: t100 
+    LOAD t112010101:ptr <- Mem(t111010101:ptr); def: t112010101 use: t111010101 
+    RETURN t112010101:ptr; def: use: t112010101 
+Function B^f(t100) last_label=103 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; def: use: 
+    JUMP L101; def: use: 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; def: use: 
+    RETURN Const:0; def: use: 

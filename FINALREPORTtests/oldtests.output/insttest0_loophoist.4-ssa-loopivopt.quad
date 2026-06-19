@@ -1,0 +1,26 @@
+Function __$main__^main() last_label=102 last_temp=111:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; 
+    MOVE_EXTCALL t1010101:ptr <- malloc(Const:4); 
+    PTR_CALC t1080101:ptr <- t1010101:ptr + Const:0; 
+    STORE Name:C^max -> Mem(t1080101:ptr); 
+    MOVE t1020101:ptr <- t1010101:ptr; 
+    PTR_CALC t1090101:ptr <- t1020101:ptr + Const:0; 
+    LOAD t1040101:ptr <- Mem(t1090101:ptr); 
+    MOVE_CALL t1050101:int <- max[t1040101:ptr] (t1020101:ptr, Const:100, Const:200); 
+    EXTCALL putint(t1050101:int); 
+    RETURN Const:1; 
+Function C^max(t100, t101, t102) last_label=108 last_temp=103:
+  Block: Entry Label: L105
+    Exit labels: L102 L103 
+    LABEL L105; 
+    CJUMP > t101:int t102:int? L102 : L103; 
+  Block: Entry Label: L102
+    Exit labels: 
+    LABEL L102; 
+    RETURN t101:int; 
+  Block: Entry Label: L103
+    Exit labels: 
+    LABEL L103; 
+    RETURN t102:int; 

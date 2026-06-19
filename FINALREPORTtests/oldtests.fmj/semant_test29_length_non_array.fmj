@@ -1,0 +1,5 @@
+// EXPECT: FAIL
+// Target: length(...) requires array expression.
+public int main() {
+    return length(1);
+}

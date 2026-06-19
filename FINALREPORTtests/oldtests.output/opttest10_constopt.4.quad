@@ -1,0 +1,44 @@
+Function __$main__^main() last_label=111 last_temp=112:
+  Block: Entry Label: L110
+    Exit labels: L102 
+    LABEL L110; def: use: 
+    MOVE_EXTCALL t10101:int <- getint(); def: t10101 use: 
+    MOVE t109:int <- Const:10; def: t109 use: 
+    MOVE t110:int <- Const:0; def: t110 use: 
+    JUMP L102; def: use: 
+  Block: Entry Label: L102
+    Exit labels: L103 L104 
+    LABEL L102; def: use: 
+    PHI t10502:int <- Phi([t10503, L109], [t109, L110]); def: t10502 use: t109 t10503 
+    PHI t10201:int <- Phi([t10202, L109], [t102, L110]); def: t10201 use: t10202 t102 
+    PHI t10102:int <- Phi([t10103, L109], [t10101, L110]); def: t10102 use: t10101 t10103 
+    PHI t10002:int <- Phi([t10003, L109], [t110, L110]); def: t10002 use: t110 t10003 
+    CJUMP > t10502:int Const:0? L103 : L104; def: use: t10502 
+  Block: Entry Label: L103
+    Exit labels: L107 
+    LABEL L103; def: use: 
+    MOVE_BINOP t10003:int <- (+, t10002:int, Const:1); def: t10003 use: t10002 
+    JUMP L107; def: use: 
+  Block: Entry Label: L107
+    Exit labels: L108 L109 
+    LABEL L107; def: use: 
+    PHI t10202:int <- Phi([t10201, L103], [t10203, L108]); def: t10202 use: t10201 t10203 
+    PHI t10103:int <- Phi([t10102, L103], [t10104, L108]); def: t10103 use: t10102 t10104 
+    CJUMP > t10103:int Const:0? L108 : L109; def: use: t10103 
+  Block: Entry Label: L108
+    Exit labels: L107 
+    LABEL L108; def: use: 
+    MOVE_BINOP t10203:int <- (*, Const:3, t10003:int); def: t10203 use: t10003 
+    MOVE_BINOP t10301:int <- (+, t10203:int, Const:4); def: t10301 use: t10203 
+    MOVE_BINOP t10401:int <- (+, t10301:int, Const:6); def: t10401 use: t10301 
+    MOVE_BINOP t10104:int <- (-, t10103:int, Const:1); def: t10104 use: t10103 
+    JUMP L107; def: use: 
+  Block: Entry Label: L109
+    Exit labels: L102 
+    LABEL L109; def: use: 
+    MOVE_BINOP t10503:int <- (-, t10502:int, Const:1); def: t10503 use: t10502 
+    JUMP L102; def: use: 
+  Block: Entry Label: L104
+    Exit labels: 
+    LABEL L104; def: use: 
+    RETURN t10201:int; def: use: t10201 

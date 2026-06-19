@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program bline="3" bpos="1" eline="14" epos="1">
+    <MainMethod bline="3" bpos="1" eline="5" epos="1">
+        <VarDeclList/>
+        <StmList>
+            <Return bline="4" bpos="5" eline="4" epos="13">
+                <IntExp bline="4" bpos="12" eline="4" epos="12" val="0"/>
+            </Return>
+        </StmList>
+    </MainMethod>
+    <ClassDeclList>
+        <ClassDecl bline="7" bpos="1" eline="14" epos="1">
+            <IdExp id="A" bline="7" bpos="14" eline="7" epos="14"/>
+            <VarDeclList>
+                <VarDecl bline="8" bpos="5" eline="8" epos="10">
+                    <Type typeKind="INT" bline="8" bpos="5" eline="8" epos="7"/>
+                    <IdExp id="x" bline="8" bpos="9" eline="8" epos="9"/>
+                </VarDecl>
+            </VarDeclList>
+            <MethodDeclList>
+                <MethodDecl bline="10" bpos="5" eline="13" epos="5">
+                    <Type typeKind="INT" bline="10" bpos="12" eline="10" epos="14"/>
+                    <IdExp id="f" bline="10" bpos="16" eline="10" epos="16"/>
+                    <FormalList/>
+                    <VarDeclList/>
+                    <StmList>
+                        <Assign bline="11" bpos="9" eline="11" epos="14">
+                            <IdExp bline="11" bpos="9" eline="11" epos="9" id="x"/>
+                            <IntExp bline="11" bpos="13" eline="11" epos="13" val="1"/>
+                        </Assign>
+                        <Return bline="12" bpos="9" eline="12" epos="17">
+                            <IdExp bline="12" bpos="16" eline="12" epos="16" id="x"/>
+                        </Return>
+                    </StmList>
+                </MethodDecl>
+            </MethodDeclList>
+        </ClassDecl>
+    </ClassDeclList>
+</Program>

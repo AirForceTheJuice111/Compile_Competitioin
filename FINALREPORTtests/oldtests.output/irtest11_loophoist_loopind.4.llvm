@@ -1,0 +1,54 @@
+; Generated LLVM IR from Quad representation
+
+declare i8* @malloc(i32)
+declare void @free(i8*)
+
+declare i32 @printf(i8*, ...)
+declare i32 @__isoc99_scanf(i8*, ...)
+
+declare void @exit(i64)
+
+declare i64 @getint()
+declare i64 @getch()
+declare i64 @getarray(i64*)
+declare void @putint(i64)
+declare void @putch(i64)
+declare void @putarray(i64, i64*)
+
+define i32 @main() {
+entry:
+  br label %label_103
+
+label_103:
+  %t102010101 = sub i64 0, 123
+  %t105010101 = add i64 %t100, 0
+  %t0 = inttoptr i64 %t100 to i64*
+  %t103010101 = load i64, i64* %t0
+  %t1 = icmp sge i64 %t102010101, 0
+  br i1 %t1, label %label_101, label %label_100
+
+label_101:
+  %t2 = icmp sge i64 %t102010101, %t103010101
+  br i1 %t2, label %label_100, label %label_102
+
+label_100:
+  call void @exit(i64 -1)
+  unreachable
+
+label_102:
+  %t107010101 = add i64 %t102010101, 1
+  %t108010101 = mul i64 %t107010101, 4
+  %t3 = mul i64 %t108010101, 2
+  %t109010101 = add i64 %t105010101, %t3
+  %t4 = inttoptr i64 %t109010101 to i64*
+  store i64 4, i64* %t4
+  br label %label_104
+
+label_104:
+  %t5 = trunc i64 0 to i32
+  ret i32 %t5
+
+  ; Default return
+  ret i32 0
+}
+

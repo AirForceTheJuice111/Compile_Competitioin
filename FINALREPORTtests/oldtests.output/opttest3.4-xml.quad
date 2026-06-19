@@ -1,0 +1,69 @@
+<Program kind="PROGRAM" last_label_num="110" last_temp_num="105">
+    <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="110" last_temp_num="105">
+        <block kind="BLOCK" entry="110">
+            <label kind="LABEL" name="110"/>
+            <moveextcall kind="MOVE_EXTCALL" dst="100" temp_type="int">
+                <extcall kind="EXTCALL" name="getint"/>
+                <def>
+                    <temp id="100"/>
+                </def>
+            </moveextcall>
+            <move kind="MOVE" dst="102" temp_type="int">
+                <src kind="CONST" value="10"/>
+                <def>
+                    <temp id="102"/>
+                </def>
+            </move>
+            <cjump kind="CJUMP" relop="&gt;" true="107" false="108">
+                <left kind="TEMP" id="100" type="int"/>
+                <right kind="CONST" value="0"/>
+                <use>
+                    <temp id="100"/>
+                </use>
+            </cjump>
+            <label kind="LABEL" name="107"/>
+            <label kind="LABEL" name="104"/>
+            <cjump kind="CJUMP" relop="&gt;" true="105" false="106">
+                <left kind="TEMP" id="102" type="int"/>
+                <right kind="CONST" value="0"/>
+                <use>
+                    <temp id="102"/>
+                </use>
+            </cjump>
+            <label kind="LABEL" name="105"/>
+            <move kind="MOVE" dst="101" temp_type="int">
+                <src kind="CONST" value="3"/>
+                <def>
+                    <temp id="101"/>
+                </def>
+            </move>
+            <movebinop kind="MOVE_BINOP" dst="102" temp_type="int" op="-">
+                <left kind="TEMP" id="102" type="int"/>
+                <right kind="CONST" value="1"/>
+                <def>
+                    <temp id="102"/>
+                </def>
+                <use>
+                    <temp id="102"/>
+                </use>
+            </movebinop>
+            <jump kind="JUMP" target="104"/>
+            <label kind="LABEL" name="106"/>
+            <jump kind="JUMP" target="109"/>
+            <label kind="LABEL" name="108"/>
+            <move kind="MOVE" dst="101" temp_type="int">
+                <src kind="CONST" value="4"/>
+                <def>
+                    <temp id="101"/>
+                </def>
+            </move>
+            <label kind="LABEL" name="109"/>
+            <return kind="RETURN">
+                <value kind="TEMP" id="101" type="int"/>
+                <use>
+                    <temp id="101"/>
+                </use>
+            </return>
+        </block>
+    </funcdecl>
+</Program>

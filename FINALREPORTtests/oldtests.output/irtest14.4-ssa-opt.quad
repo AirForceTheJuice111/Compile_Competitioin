@@ -1,0 +1,24 @@
+Function A^f(t100) last_label=101 last_temp=103:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; 
+    JUMP L101; 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; 
+    RETURN Const:0; 
+Function __$main__^main() last_label=101 last_temp=108:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; 
+    MOVE_EXTCALL t10201:ptr <- malloc(Const:8); 
+    PTR_CALC t10501:ptr <- t10201:ptr + Const:4; 
+    STORE Name:A^f -> Mem(t10501:ptr); 
+    MOVE t10001:ptr <- t10201:ptr; 
+    PTR_CALC t10601:ptr <- t10001:ptr + Const:0; 
+    STORE Const:1 -> Mem(t10601:ptr); 
+    JUMP L101; 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; 
+    RETURN Const:0; 

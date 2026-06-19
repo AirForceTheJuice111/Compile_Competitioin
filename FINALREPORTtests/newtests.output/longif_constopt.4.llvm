@@ -1,0 +1,339 @@
+; Generated LLVM IR from Quad representation
+
+declare i8* @malloc(i32)
+declare void @free(i8*)
+
+declare i32 @printf(i8*, ...)
+declare i32 @__isoc99_scanf(i8*, ...)
+
+declare void @exit(i64)
+
+declare i64 @getint()
+declare i64 @getch()
+declare i64 @getarray(i64*)
+declare void @putint(i64)
+declare void @putch(i64)
+declare void @putarray(i64, i64*)
+
+define i32 @main() {
+entry:
+  br label %label_402
+
+label_402:
+  br label %label_104
+
+label_104:
+  br label %label_107
+
+label_107:
+  br label %label_110
+
+label_110:
+  br label %label_113
+
+label_113:
+  br label %label_116
+
+label_116:
+  br label %label_119
+
+label_119:
+  br label %label_122
+
+label_122:
+  br label %label_125
+
+label_125:
+  br label %label_128
+
+label_128:
+  br label %label_131
+
+label_131:
+  br label %label_134
+
+label_134:
+  br label %label_137
+
+label_137:
+  br label %label_140
+
+label_140:
+  br label %label_143
+
+label_143:
+  br label %label_146
+
+label_146:
+  br label %label_149
+
+label_149:
+  br label %label_152
+
+label_152:
+  br label %label_155
+
+label_155:
+  br label %label_158
+
+label_158:
+  br label %label_161
+
+label_161:
+  br label %label_164
+
+label_164:
+  br label %label_165
+
+label_165:
+  %t1010101 = call i64 @getint()
+  %t0 = icmp ne i64 %t1010101, 0
+  br i1 %t0, label %label_170, label %label_400
+
+label_170:
+  br label %label_173
+
+label_173:
+  br label %label_176
+
+label_176:
+  br label %label_179
+
+label_179:
+  br label %label_182
+
+label_182:
+  br label %label_185
+
+label_185:
+  br label %label_188
+
+label_188:
+  br label %label_191
+
+label_191:
+  br label %label_194
+
+label_194:
+  br label %label_197
+
+label_197:
+  br label %label_200
+
+label_200:
+  br label %label_203
+
+label_203:
+  br label %label_206
+
+label_206:
+  br label %label_209
+
+label_209:
+  br label %label_212
+
+label_212:
+  br label %label_215
+
+label_215:
+  br label %label_218
+
+label_218:
+  br label %label_221
+
+label_221:
+  br label %label_224
+
+label_224:
+  br label %label_227
+
+label_227:
+  br label %label_230
+
+label_230:
+  br label %label_233
+
+label_233:
+  br label %label_236
+
+label_236:
+  br label %label_239
+
+label_239:
+  br label %label_242
+
+label_242:
+  br label %label_245
+
+label_245:
+  br label %label_248
+
+label_248:
+  br label %label_251
+
+label_251:
+  br label %label_254
+
+label_254:
+  br label %label_257
+
+label_257:
+  br label %label_260
+
+label_260:
+  br label %label_263
+
+label_263:
+  br label %label_266
+
+label_266:
+  br label %label_269
+
+label_269:
+  br label %label_272
+
+label_272:
+  br label %label_275
+
+label_275:
+  br label %label_278
+
+label_278:
+  br label %label_281
+
+label_281:
+  br label %label_284
+
+label_284:
+  br label %label_287
+
+label_287:
+  br label %label_290
+
+label_290:
+  br label %label_293
+
+label_293:
+  br label %label_296
+
+label_296:
+  br label %label_299
+
+label_299:
+  br label %label_302
+
+label_302:
+  br label %label_305
+
+label_305:
+  br label %label_308
+
+label_308:
+  br label %label_311
+
+label_311:
+  br label %label_314
+
+label_314:
+  br label %label_317
+
+label_317:
+  br label %label_320
+
+label_320:
+  br label %label_323
+
+label_323:
+  br label %label_326
+
+label_326:
+  br label %label_329
+
+label_329:
+  br label %label_332
+
+label_332:
+  br label %label_335
+
+label_335:
+  br label %label_338
+
+label_338:
+  br label %label_341
+
+label_341:
+  br label %label_344
+
+label_344:
+  br label %label_347
+
+label_347:
+  br label %label_350
+
+label_350:
+  br label %label_353
+
+label_353:
+  br label %label_356
+
+label_356:
+  br label %label_359
+
+label_359:
+  br label %label_362
+
+label_362:
+  br label %label_365
+
+label_365:
+  br label %label_368
+
+label_368:
+  br label %label_371
+
+label_371:
+  br label %label_374
+
+label_374:
+  br label %label_377
+
+label_377:
+  br label %label_380
+
+label_380:
+  br label %label_383
+
+label_383:
+  br label %label_386
+
+label_386:
+  br label %label_389
+
+label_389:
+  br label %label_392
+
+label_392:
+  br label %label_395
+
+label_395:
+  br label %label_398
+
+label_398:
+  br label %label_399
+
+label_399:
+  call void @putint(i64 100)
+  call void @putch(i64 10)
+  br label %label_401
+
+label_400:
+  br label %label_401
+
+label_401:
+  %t1 = trunc i64 0 to i32
+  ret i32 %t1
+
+  ; Default return
+  ret i32 0
+}
+

@@ -1,0 +1,60 @@
+Function D^f(t100) last_label=101 last_temp=112:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; 
+    PTR_CALC t10401:ptr <- t100:ptr + Const:16; 
+    LOAD t10501:int <- Mem(t10401:ptr); 
+    PTR_CALC t10601:ptr <- t100:ptr + Const:24; 
+    LOAD t10701:ptr <- Mem(t10601:ptr); 
+    PTR_CALC t10801:ptr <- t10701:ptr + Const:16; 
+    LOAD t10901:int <- Mem(t10801:ptr); 
+    MOVE_BINOP t10201:int <- (+, t10501:int, t10901:int); 
+    EXTCALL putint(t10201:int); 
+    PTR_CALC t11101:ptr <- t100:ptr + Const:28; 
+    LOAD t11201:ptr <- Mem(t11101:ptr); 
+    RETURN t11201:ptr; 
+Function B^g(t100) last_label=101 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; 
+    JUMP L101; 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; 
+    RETURN Const:0; 
+Function B^f(t100) last_label=101 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; 
+    JUMP L101; 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; 
+    RETURN Const:0; 
+Function A^f(t100) last_label=101 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; 
+    JUMP L101; 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; 
+    RETURN Const:0; 
+Function C^f(t100) last_label=101 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; 
+    JUMP L101; 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; 
+    RETURN Const:0; 
+Function __$main__^main() last_label=101 last_temp=100:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; 
+    JUMP L101; 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; 
+    RETURN Const:0; 

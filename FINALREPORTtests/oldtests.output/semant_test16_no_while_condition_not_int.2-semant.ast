@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDMJAST>
+    <NameMaps>
+        <Class name="A">
+            <Var id="x">
+                <VarDecl bline="11" bpos="5" eline="11" epos="10">
+                    <Type typeKind="INT" bline="11" bpos="5" eline="11" epos="7"/>
+                    <IdExp id="x" bline="11" bpos="9" eline="11" epos="9"/>
+                </VarDecl>
+            </Var>
+        </Class>
+        <Class name="__$main__">
+            <Method name="main">
+                <Formal id="_^return^_main">
+                    <Formal bline="3" bpos="1" eline="8" epos="1">
+                        <Type typeKind="INT" bline="3" bpos="1" eline="8" epos="1"/>
+                        <IdExp bline="3" bpos="1" eline="8" epos="1" id="_^return^_main"/>
+                    </Formal>
+                </Formal>
+                <Var id="a">
+                    <VarDecl bline="4" bpos="5" eline="4" epos="14">
+                        <Type typeKind="CLASS" bline="4" bpos="5" eline="4" epos="11">
+                            <IdExp id="A" bline="4" bpos="11" eline="4" epos="11"/>
+                        </Type>
+                        <IdExp id="a" bline="4" bpos="13" eline="4" epos="13"/>
+                    </VarDecl>
+                </Var>
+            </Method>
+        </Class>
+    </NameMaps>
+    <Program bline="3" bpos="1" eline="12" epos="1">
+        <MainMethod bline="3" bpos="1" eline="8" epos="1">
+            <VarDeclList>
+                <VarDecl bline="4" bpos="5" eline="4" epos="14">
+                    <Type typeKind="CLASS" bline="4" bpos="5" eline="4" epos="11">
+                        <IdExp id="A" bline="4" bpos="11" eline="4" epos="11"/>
+                    </Type>
+                    <IdExp id="a" bline="4" bpos="13" eline="4" epos="13"/>
+                </VarDecl>
+            </VarDeclList>
+            <StmList>
+                <Assign bline="5" bpos="5" eline="5" epos="16">
+                    <IdExp bline="5" bpos="5" eline="5" epos="5" s_kind="Value" typeKind="CLASS" lvalue="true" type_par="A" id="a"/>
+                    <NewObject bline="5" bpos="9" eline="5" epos="15" s_kind="Value" typeKind="CLASS" lvalue="false" type_par="A">
+                        <Id id="A"/>
+                    </NewObject>
+                </Assign>
+                <While bline="6" bpos="5" eline="6" epos="17">
+                    <ClassVar bline="6" bpos="12" eline="6" epos="14" s_kind="Value" typeKind="INT" lvalue="true">
+                        <IdExp bline="6" bpos="12" eline="6" epos="12" s_kind="Value" typeKind="CLASS" lvalue="true" type_par="A" id="a"/>
+                        <IdExp id="x" bline="6" bpos="14" eline="6" epos="14" s_kind="Value" typeKind="INT" lvalue="true"/>
+                    </ClassVar>
+                </While>
+                <Return bline="7" bpos="5" eline="7" epos="13" s_kind="Value" typeKind="INT" lvalue="false">
+                    <IntExp bline="7" bpos="12" eline="7" epos="12" s_kind="Value" typeKind="INT" lvalue="false" val="0"/>
+                </Return>
+            </StmList>
+        </MainMethod>
+        <ClassDeclList>
+            <ClassDecl bline="10" bpos="1" eline="12" epos="1">
+                <IdExp id="A" bline="10" bpos="14" eline="10" epos="14"/>
+                <VarDeclList>
+                    <VarDecl bline="11" bpos="5" eline="11" epos="10">
+                        <Type typeKind="INT" bline="11" bpos="5" eline="11" epos="7"/>
+                        <IdExp id="x" bline="11" bpos="9" eline="11" epos="9"/>
+                    </VarDecl>
+                </VarDeclList>
+                <MethodDeclList/>
+            </ClassDecl>
+        </ClassDeclList>
+    </Program>
+</FDMJAST>

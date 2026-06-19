@@ -1,0 +1,65 @@
+Function __$main__^main() last_label=118 last_temp=115:
+  Block: Entry Label: L115
+    Exit labels: L102 
+    LABEL L115; def: use: 
+    MOVE t10401:int <- Const:47; def: t10401 use: 
+    MOVE t10301:int <- Const:0; def: t10301 use: 
+    MOVE t10001:int <- Const:0; def: t10001 use: 
+    MOVE t10101:int <- Const:1; def: t10101 use: 
+    JUMP L102; def: use: 
+  Block: Entry Label: L102
+    Exit labels: L103 L104 
+    LABEL L102; def: use: 
+    PHI t10302:int <- Phi([t10303, L114], [t10301, L115]); def: t10302 use: t10301 t10303 
+    PHI t10102:int <- Phi([t10105, L114], [t10101, L115]); def: t10102 use: t10101 t10105 
+    PHI t10002:int <- Phi([t10005, L114], [t10001, L115]); def: t10002 use: t10001 t10005 
+    CJUMP < t10302:int t10401:int? L103 : L104; def: use: t10401 t10302 
+  Block: Entry Label: L103
+    Exit labels: L112 L113 
+    LABEL L103; def: use: 
+    CJUMP == t10302:int Const:0? L112 : L113; def: use: t10302 
+  Block: Entry Label: L112
+    Exit labels: L114 
+    LABEL L112; def: use: 
+    EXTCALL putint(t10302:int); def: use: t10302 
+    JUMP L114; def: use: 
+  Block: Entry Label: L113
+    Exit labels: L109 L110 
+    LABEL L113; def: use: 
+    CJUMP == t10302:int Const:1? L109 : L110; def: use: t10302 
+  Block: Entry Label: L109
+    Exit labels: L111 
+    LABEL L109; def: use: 
+    EXTCALL putint(t10302:int); def: use: t10302 
+    JUMP L111; def: use: 
+  Block: Entry Label: L110
+    Exit labels: L111 
+    LABEL L110; def: use: 
+    MOVE t10201:int <- t10002:int; def: t10201 use: t10002 
+    MOVE t10003:int <- t10102:int; def: t10003 use: t10102 
+    MOVE_BINOP t10103:int <- (+, t10201:int, t10003:int); def: t10103 use: t10003 t10201 
+    EXTCALL putint(t10103:int); def: use: t10103 
+    JUMP L111; def: use: 
+  Block: Entry Label: L111
+    Exit labels: L114 
+    LABEL L111; def: use: 
+    PHI t10104:int <- Phi([t10102, L109], [t10103, L110]); def: t10104 use: t10102 t10103 
+    PHI t10004:int <- Phi([t10002, L109], [t10003, L110]); def: t10004 use: t10002 t10003 
+    JUMP L114; def: use: 
+  Block: Entry Label: L114
+    Exit labels: L102 
+    LABEL L114; def: use: 
+    PHI t10105:int <- Phi([t10104, L111], [t10102, L112]); def: t10105 use: t10102 t10104 
+    PHI t10005:int <- Phi([t10004, L111], [t10002, L112]); def: t10005 use: t10002 t10004 
+    EXTCALL putch(Const:32); def: use: 
+    MOVE_BINOP t10303:int <- (+, t10302:int, Const:1); def: t10303 use: t10302 
+    JUMP L102; def: use: 
+  Block: Entry Label: L104
+    Exit labels: 
+    LABEL L104; def: use: 
+    EXTCALL putch(Const:10); def: use: 
+    RETURN Const:0; def: use: 
+  Block: Entry Label: L118
+    Exit labels: 
+    LABEL L118; def: use: 
+    RETURN Const:0; def: use: 

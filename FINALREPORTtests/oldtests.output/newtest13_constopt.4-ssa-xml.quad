@@ -1,0 +1,35 @@
+<Program kind="PROGRAM" last_label_num="102" last_temp_num="104">
+    <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="102" last_temp_num="104">
+        <block kind="BLOCK" entry="100">
+            <exits>
+                <exit label="101"/>
+            </exits>
+            <label kind="LABEL" name="100"/>
+            <ptrcalc kind="PTR_CALC">
+                <dst kind="TEMP" id="1020101" type="ptr"/>
+                <ptr kind="TEMP" id="100" type="ptr"/>
+                <offset kind="CONST" value="0"/>
+                <def>
+                    <temp id="1020101"/>
+                </def>
+                <use>
+                    <temp id="100"/>
+                </use>
+            </ptrcalc>
+            <store kind="STORE">
+                <src kind="CONST" value="1"/>
+                <dst kind="TEMP" id="1020101" type="ptr"/>
+                <use>
+                    <temp id="1020101"/>
+                </use>
+            </store>
+            <jump kind="JUMP" target="101"/>
+        </block>
+        <block kind="BLOCK" entry="101">
+            <label kind="LABEL" name="101"/>
+            <return kind="RETURN">
+                <value kind="CONST" value="0"/>
+            </return>
+        </block>
+    </funcdecl>
+</Program>

@@ -1,0 +1,751 @@
+<Program kind="PROGRAM" last_label_num="403" last_temp_num="106">
+    <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="403" last_temp_num="108">
+        <block kind="BLOCK" entry="402">
+            <exits>
+                <exit label="104"/>
+            </exits>
+            <label kind="LABEL" name="402"/>
+            <jump kind="JUMP" target="104"/>
+        </block>
+        <block kind="BLOCK" entry="104">
+            <exits>
+                <exit label="107"/>
+            </exits>
+            <label kind="LABEL" name="104"/>
+            <jump kind="JUMP" target="107"/>
+        </block>
+        <block kind="BLOCK" entry="107">
+            <exits>
+                <exit label="110"/>
+            </exits>
+            <label kind="LABEL" name="107"/>
+            <jump kind="JUMP" target="110"/>
+        </block>
+        <block kind="BLOCK" entry="110">
+            <exits>
+                <exit label="113"/>
+            </exits>
+            <label kind="LABEL" name="110"/>
+            <jump kind="JUMP" target="113"/>
+        </block>
+        <block kind="BLOCK" entry="113">
+            <exits>
+                <exit label="116"/>
+            </exits>
+            <label kind="LABEL" name="113"/>
+            <jump kind="JUMP" target="116"/>
+        </block>
+        <block kind="BLOCK" entry="116">
+            <exits>
+                <exit label="119"/>
+            </exits>
+            <label kind="LABEL" name="116"/>
+            <jump kind="JUMP" target="119"/>
+        </block>
+        <block kind="BLOCK" entry="119">
+            <exits>
+                <exit label="122"/>
+            </exits>
+            <label kind="LABEL" name="119"/>
+            <jump kind="JUMP" target="122"/>
+        </block>
+        <block kind="BLOCK" entry="122">
+            <exits>
+                <exit label="125"/>
+            </exits>
+            <label kind="LABEL" name="122"/>
+            <jump kind="JUMP" target="125"/>
+        </block>
+        <block kind="BLOCK" entry="125">
+            <exits>
+                <exit label="128"/>
+            </exits>
+            <label kind="LABEL" name="125"/>
+            <jump kind="JUMP" target="128"/>
+        </block>
+        <block kind="BLOCK" entry="128">
+            <exits>
+                <exit label="131"/>
+            </exits>
+            <label kind="LABEL" name="128"/>
+            <jump kind="JUMP" target="131"/>
+        </block>
+        <block kind="BLOCK" entry="131">
+            <exits>
+                <exit label="134"/>
+            </exits>
+            <label kind="LABEL" name="131"/>
+            <jump kind="JUMP" target="134"/>
+        </block>
+        <block kind="BLOCK" entry="134">
+            <exits>
+                <exit label="137"/>
+            </exits>
+            <label kind="LABEL" name="134"/>
+            <jump kind="JUMP" target="137"/>
+        </block>
+        <block kind="BLOCK" entry="137">
+            <exits>
+                <exit label="140"/>
+            </exits>
+            <label kind="LABEL" name="137"/>
+            <jump kind="JUMP" target="140"/>
+        </block>
+        <block kind="BLOCK" entry="140">
+            <exits>
+                <exit label="143"/>
+            </exits>
+            <label kind="LABEL" name="140"/>
+            <jump kind="JUMP" target="143"/>
+        </block>
+        <block kind="BLOCK" entry="143">
+            <exits>
+                <exit label="146"/>
+            </exits>
+            <label kind="LABEL" name="143"/>
+            <jump kind="JUMP" target="146"/>
+        </block>
+        <block kind="BLOCK" entry="146">
+            <exits>
+                <exit label="149"/>
+            </exits>
+            <label kind="LABEL" name="146"/>
+            <jump kind="JUMP" target="149"/>
+        </block>
+        <block kind="BLOCK" entry="149">
+            <exits>
+                <exit label="152"/>
+            </exits>
+            <label kind="LABEL" name="149"/>
+            <jump kind="JUMP" target="152"/>
+        </block>
+        <block kind="BLOCK" entry="152">
+            <exits>
+                <exit label="155"/>
+            </exits>
+            <label kind="LABEL" name="152"/>
+            <jump kind="JUMP" target="155"/>
+        </block>
+        <block kind="BLOCK" entry="155">
+            <exits>
+                <exit label="158"/>
+            </exits>
+            <label kind="LABEL" name="155"/>
+            <jump kind="JUMP" target="158"/>
+        </block>
+        <block kind="BLOCK" entry="158">
+            <exits>
+                <exit label="161"/>
+            </exits>
+            <label kind="LABEL" name="158"/>
+            <jump kind="JUMP" target="161"/>
+        </block>
+        <block kind="BLOCK" entry="161">
+            <exits>
+                <exit label="164"/>
+            </exits>
+            <label kind="LABEL" name="161"/>
+            <jump kind="JUMP" target="164"/>
+        </block>
+        <block kind="BLOCK" entry="164">
+            <exits>
+                <exit label="165"/>
+            </exits>
+            <label kind="LABEL" name="164"/>
+            <jump kind="JUMP" target="165"/>
+        </block>
+        <block kind="BLOCK" entry="165">
+            <exits>
+                <exit label="170"/>
+                <exit label="400"/>
+            </exits>
+            <label kind="LABEL" name="165"/>
+            <moveextcall kind="MOVE_EXTCALL" dst="10101" temp_type="int">
+                <extcall kind="EXTCALL" name="getint"/>
+                <def>
+                    <temp id="10101"/>
+                </def>
+            </moveextcall>
+            <cjump kind="CJUMP" relop="!=" true="170" false="400">
+                <left kind="TEMP" id="10101" type="int"/>
+                <right kind="CONST" value="0"/>
+                <use>
+                    <temp id="10101"/>
+                </use>
+            </cjump>
+        </block>
+        <block kind="BLOCK" entry="170">
+            <exits>
+                <exit label="173"/>
+            </exits>
+            <label kind="LABEL" name="170"/>
+            <jump kind="JUMP" target="173"/>
+        </block>
+        <block kind="BLOCK" entry="173">
+            <exits>
+                <exit label="176"/>
+            </exits>
+            <label kind="LABEL" name="173"/>
+            <jump kind="JUMP" target="176"/>
+        </block>
+        <block kind="BLOCK" entry="176">
+            <exits>
+                <exit label="179"/>
+            </exits>
+            <label kind="LABEL" name="176"/>
+            <jump kind="JUMP" target="179"/>
+        </block>
+        <block kind="BLOCK" entry="179">
+            <exits>
+                <exit label="182"/>
+            </exits>
+            <label kind="LABEL" name="179"/>
+            <jump kind="JUMP" target="182"/>
+        </block>
+        <block kind="BLOCK" entry="182">
+            <exits>
+                <exit label="185"/>
+            </exits>
+            <label kind="LABEL" name="182"/>
+            <jump kind="JUMP" target="185"/>
+        </block>
+        <block kind="BLOCK" entry="185">
+            <exits>
+                <exit label="188"/>
+            </exits>
+            <label kind="LABEL" name="185"/>
+            <jump kind="JUMP" target="188"/>
+        </block>
+        <block kind="BLOCK" entry="188">
+            <exits>
+                <exit label="191"/>
+            </exits>
+            <label kind="LABEL" name="188"/>
+            <jump kind="JUMP" target="191"/>
+        </block>
+        <block kind="BLOCK" entry="191">
+            <exits>
+                <exit label="194"/>
+            </exits>
+            <label kind="LABEL" name="191"/>
+            <jump kind="JUMP" target="194"/>
+        </block>
+        <block kind="BLOCK" entry="194">
+            <exits>
+                <exit label="197"/>
+            </exits>
+            <label kind="LABEL" name="194"/>
+            <jump kind="JUMP" target="197"/>
+        </block>
+        <block kind="BLOCK" entry="197">
+            <exits>
+                <exit label="200"/>
+            </exits>
+            <label kind="LABEL" name="197"/>
+            <jump kind="JUMP" target="200"/>
+        </block>
+        <block kind="BLOCK" entry="200">
+            <exits>
+                <exit label="203"/>
+            </exits>
+            <label kind="LABEL" name="200"/>
+            <jump kind="JUMP" target="203"/>
+        </block>
+        <block kind="BLOCK" entry="203">
+            <exits>
+                <exit label="206"/>
+            </exits>
+            <label kind="LABEL" name="203"/>
+            <jump kind="JUMP" target="206"/>
+        </block>
+        <block kind="BLOCK" entry="206">
+            <exits>
+                <exit label="209"/>
+            </exits>
+            <label kind="LABEL" name="206"/>
+            <jump kind="JUMP" target="209"/>
+        </block>
+        <block kind="BLOCK" entry="209">
+            <exits>
+                <exit label="212"/>
+            </exits>
+            <label kind="LABEL" name="209"/>
+            <jump kind="JUMP" target="212"/>
+        </block>
+        <block kind="BLOCK" entry="212">
+            <exits>
+                <exit label="215"/>
+            </exits>
+            <label kind="LABEL" name="212"/>
+            <jump kind="JUMP" target="215"/>
+        </block>
+        <block kind="BLOCK" entry="215">
+            <exits>
+                <exit label="218"/>
+            </exits>
+            <label kind="LABEL" name="215"/>
+            <jump kind="JUMP" target="218"/>
+        </block>
+        <block kind="BLOCK" entry="218">
+            <exits>
+                <exit label="221"/>
+            </exits>
+            <label kind="LABEL" name="218"/>
+            <jump kind="JUMP" target="221"/>
+        </block>
+        <block kind="BLOCK" entry="221">
+            <exits>
+                <exit label="224"/>
+            </exits>
+            <label kind="LABEL" name="221"/>
+            <jump kind="JUMP" target="224"/>
+        </block>
+        <block kind="BLOCK" entry="224">
+            <exits>
+                <exit label="227"/>
+            </exits>
+            <label kind="LABEL" name="224"/>
+            <jump kind="JUMP" target="227"/>
+        </block>
+        <block kind="BLOCK" entry="227">
+            <exits>
+                <exit label="230"/>
+            </exits>
+            <label kind="LABEL" name="227"/>
+            <jump kind="JUMP" target="230"/>
+        </block>
+        <block kind="BLOCK" entry="230">
+            <exits>
+                <exit label="233"/>
+            </exits>
+            <label kind="LABEL" name="230"/>
+            <jump kind="JUMP" target="233"/>
+        </block>
+        <block kind="BLOCK" entry="233">
+            <exits>
+                <exit label="236"/>
+            </exits>
+            <label kind="LABEL" name="233"/>
+            <jump kind="JUMP" target="236"/>
+        </block>
+        <block kind="BLOCK" entry="236">
+            <exits>
+                <exit label="239"/>
+            </exits>
+            <label kind="LABEL" name="236"/>
+            <jump kind="JUMP" target="239"/>
+        </block>
+        <block kind="BLOCK" entry="239">
+            <exits>
+                <exit label="242"/>
+            </exits>
+            <label kind="LABEL" name="239"/>
+            <jump kind="JUMP" target="242"/>
+        </block>
+        <block kind="BLOCK" entry="242">
+            <exits>
+                <exit label="245"/>
+            </exits>
+            <label kind="LABEL" name="242"/>
+            <jump kind="JUMP" target="245"/>
+        </block>
+        <block kind="BLOCK" entry="245">
+            <exits>
+                <exit label="248"/>
+            </exits>
+            <label kind="LABEL" name="245"/>
+            <jump kind="JUMP" target="248"/>
+        </block>
+        <block kind="BLOCK" entry="248">
+            <exits>
+                <exit label="251"/>
+            </exits>
+            <label kind="LABEL" name="248"/>
+            <jump kind="JUMP" target="251"/>
+        </block>
+        <block kind="BLOCK" entry="251">
+            <exits>
+                <exit label="254"/>
+            </exits>
+            <label kind="LABEL" name="251"/>
+            <jump kind="JUMP" target="254"/>
+        </block>
+        <block kind="BLOCK" entry="254">
+            <exits>
+                <exit label="257"/>
+            </exits>
+            <label kind="LABEL" name="254"/>
+            <jump kind="JUMP" target="257"/>
+        </block>
+        <block kind="BLOCK" entry="257">
+            <exits>
+                <exit label="260"/>
+            </exits>
+            <label kind="LABEL" name="257"/>
+            <jump kind="JUMP" target="260"/>
+        </block>
+        <block kind="BLOCK" entry="260">
+            <exits>
+                <exit label="263"/>
+            </exits>
+            <label kind="LABEL" name="260"/>
+            <jump kind="JUMP" target="263"/>
+        </block>
+        <block kind="BLOCK" entry="263">
+            <exits>
+                <exit label="266"/>
+            </exits>
+            <label kind="LABEL" name="263"/>
+            <jump kind="JUMP" target="266"/>
+        </block>
+        <block kind="BLOCK" entry="266">
+            <exits>
+                <exit label="269"/>
+            </exits>
+            <label kind="LABEL" name="266"/>
+            <jump kind="JUMP" target="269"/>
+        </block>
+        <block kind="BLOCK" entry="269">
+            <exits>
+                <exit label="272"/>
+            </exits>
+            <label kind="LABEL" name="269"/>
+            <jump kind="JUMP" target="272"/>
+        </block>
+        <block kind="BLOCK" entry="272">
+            <exits>
+                <exit label="275"/>
+            </exits>
+            <label kind="LABEL" name="272"/>
+            <jump kind="JUMP" target="275"/>
+        </block>
+        <block kind="BLOCK" entry="275">
+            <exits>
+                <exit label="278"/>
+            </exits>
+            <label kind="LABEL" name="275"/>
+            <jump kind="JUMP" target="278"/>
+        </block>
+        <block kind="BLOCK" entry="278">
+            <exits>
+                <exit label="281"/>
+            </exits>
+            <label kind="LABEL" name="278"/>
+            <jump kind="JUMP" target="281"/>
+        </block>
+        <block kind="BLOCK" entry="281">
+            <exits>
+                <exit label="284"/>
+            </exits>
+            <label kind="LABEL" name="281"/>
+            <jump kind="JUMP" target="284"/>
+        </block>
+        <block kind="BLOCK" entry="284">
+            <exits>
+                <exit label="287"/>
+            </exits>
+            <label kind="LABEL" name="284"/>
+            <jump kind="JUMP" target="287"/>
+        </block>
+        <block kind="BLOCK" entry="287">
+            <exits>
+                <exit label="290"/>
+            </exits>
+            <label kind="LABEL" name="287"/>
+            <jump kind="JUMP" target="290"/>
+        </block>
+        <block kind="BLOCK" entry="290">
+            <exits>
+                <exit label="293"/>
+            </exits>
+            <label kind="LABEL" name="290"/>
+            <jump kind="JUMP" target="293"/>
+        </block>
+        <block kind="BLOCK" entry="293">
+            <exits>
+                <exit label="296"/>
+            </exits>
+            <label kind="LABEL" name="293"/>
+            <jump kind="JUMP" target="296"/>
+        </block>
+        <block kind="BLOCK" entry="296">
+            <exits>
+                <exit label="299"/>
+            </exits>
+            <label kind="LABEL" name="296"/>
+            <jump kind="JUMP" target="299"/>
+        </block>
+        <block kind="BLOCK" entry="299">
+            <exits>
+                <exit label="302"/>
+            </exits>
+            <label kind="LABEL" name="299"/>
+            <jump kind="JUMP" target="302"/>
+        </block>
+        <block kind="BLOCK" entry="302">
+            <exits>
+                <exit label="305"/>
+            </exits>
+            <label kind="LABEL" name="302"/>
+            <jump kind="JUMP" target="305"/>
+        </block>
+        <block kind="BLOCK" entry="305">
+            <exits>
+                <exit label="308"/>
+            </exits>
+            <label kind="LABEL" name="305"/>
+            <jump kind="JUMP" target="308"/>
+        </block>
+        <block kind="BLOCK" entry="308">
+            <exits>
+                <exit label="311"/>
+            </exits>
+            <label kind="LABEL" name="308"/>
+            <jump kind="JUMP" target="311"/>
+        </block>
+        <block kind="BLOCK" entry="311">
+            <exits>
+                <exit label="314"/>
+            </exits>
+            <label kind="LABEL" name="311"/>
+            <jump kind="JUMP" target="314"/>
+        </block>
+        <block kind="BLOCK" entry="314">
+            <exits>
+                <exit label="317"/>
+            </exits>
+            <label kind="LABEL" name="314"/>
+            <jump kind="JUMP" target="317"/>
+        </block>
+        <block kind="BLOCK" entry="317">
+            <exits>
+                <exit label="320"/>
+            </exits>
+            <label kind="LABEL" name="317"/>
+            <jump kind="JUMP" target="320"/>
+        </block>
+        <block kind="BLOCK" entry="320">
+            <exits>
+                <exit label="323"/>
+            </exits>
+            <label kind="LABEL" name="320"/>
+            <jump kind="JUMP" target="323"/>
+        </block>
+        <block kind="BLOCK" entry="323">
+            <exits>
+                <exit label="326"/>
+            </exits>
+            <label kind="LABEL" name="323"/>
+            <jump kind="JUMP" target="326"/>
+        </block>
+        <block kind="BLOCK" entry="326">
+            <exits>
+                <exit label="329"/>
+            </exits>
+            <label kind="LABEL" name="326"/>
+            <jump kind="JUMP" target="329"/>
+        </block>
+        <block kind="BLOCK" entry="329">
+            <exits>
+                <exit label="332"/>
+            </exits>
+            <label kind="LABEL" name="329"/>
+            <jump kind="JUMP" target="332"/>
+        </block>
+        <block kind="BLOCK" entry="332">
+            <exits>
+                <exit label="335"/>
+            </exits>
+            <label kind="LABEL" name="332"/>
+            <jump kind="JUMP" target="335"/>
+        </block>
+        <block kind="BLOCK" entry="335">
+            <exits>
+                <exit label="338"/>
+            </exits>
+            <label kind="LABEL" name="335"/>
+            <jump kind="JUMP" target="338"/>
+        </block>
+        <block kind="BLOCK" entry="338">
+            <exits>
+                <exit label="341"/>
+            </exits>
+            <label kind="LABEL" name="338"/>
+            <jump kind="JUMP" target="341"/>
+        </block>
+        <block kind="BLOCK" entry="341">
+            <exits>
+                <exit label="344"/>
+            </exits>
+            <label kind="LABEL" name="341"/>
+            <jump kind="JUMP" target="344"/>
+        </block>
+        <block kind="BLOCK" entry="344">
+            <exits>
+                <exit label="347"/>
+            </exits>
+            <label kind="LABEL" name="344"/>
+            <jump kind="JUMP" target="347"/>
+        </block>
+        <block kind="BLOCK" entry="347">
+            <exits>
+                <exit label="350"/>
+            </exits>
+            <label kind="LABEL" name="347"/>
+            <jump kind="JUMP" target="350"/>
+        </block>
+        <block kind="BLOCK" entry="350">
+            <exits>
+                <exit label="353"/>
+            </exits>
+            <label kind="LABEL" name="350"/>
+            <jump kind="JUMP" target="353"/>
+        </block>
+        <block kind="BLOCK" entry="353">
+            <exits>
+                <exit label="356"/>
+            </exits>
+            <label kind="LABEL" name="353"/>
+            <jump kind="JUMP" target="356"/>
+        </block>
+        <block kind="BLOCK" entry="356">
+            <exits>
+                <exit label="359"/>
+            </exits>
+            <label kind="LABEL" name="356"/>
+            <jump kind="JUMP" target="359"/>
+        </block>
+        <block kind="BLOCK" entry="359">
+            <exits>
+                <exit label="362"/>
+            </exits>
+            <label kind="LABEL" name="359"/>
+            <jump kind="JUMP" target="362"/>
+        </block>
+        <block kind="BLOCK" entry="362">
+            <exits>
+                <exit label="365"/>
+            </exits>
+            <label kind="LABEL" name="362"/>
+            <jump kind="JUMP" target="365"/>
+        </block>
+        <block kind="BLOCK" entry="365">
+            <exits>
+                <exit label="368"/>
+            </exits>
+            <label kind="LABEL" name="365"/>
+            <jump kind="JUMP" target="368"/>
+        </block>
+        <block kind="BLOCK" entry="368">
+            <exits>
+                <exit label="371"/>
+            </exits>
+            <label kind="LABEL" name="368"/>
+            <jump kind="JUMP" target="371"/>
+        </block>
+        <block kind="BLOCK" entry="371">
+            <exits>
+                <exit label="374"/>
+            </exits>
+            <label kind="LABEL" name="371"/>
+            <jump kind="JUMP" target="374"/>
+        </block>
+        <block kind="BLOCK" entry="374">
+            <exits>
+                <exit label="377"/>
+            </exits>
+            <label kind="LABEL" name="374"/>
+            <jump kind="JUMP" target="377"/>
+        </block>
+        <block kind="BLOCK" entry="377">
+            <exits>
+                <exit label="380"/>
+            </exits>
+            <label kind="LABEL" name="377"/>
+            <jump kind="JUMP" target="380"/>
+        </block>
+        <block kind="BLOCK" entry="380">
+            <exits>
+                <exit label="383"/>
+            </exits>
+            <label kind="LABEL" name="380"/>
+            <jump kind="JUMP" target="383"/>
+        </block>
+        <block kind="BLOCK" entry="383">
+            <exits>
+                <exit label="386"/>
+            </exits>
+            <label kind="LABEL" name="383"/>
+            <jump kind="JUMP" target="386"/>
+        </block>
+        <block kind="BLOCK" entry="386">
+            <exits>
+                <exit label="389"/>
+            </exits>
+            <label kind="LABEL" name="386"/>
+            <jump kind="JUMP" target="389"/>
+        </block>
+        <block kind="BLOCK" entry="389">
+            <exits>
+                <exit label="392"/>
+            </exits>
+            <label kind="LABEL" name="389"/>
+            <jump kind="JUMP" target="392"/>
+        </block>
+        <block kind="BLOCK" entry="392">
+            <exits>
+                <exit label="395"/>
+            </exits>
+            <label kind="LABEL" name="392"/>
+            <jump kind="JUMP" target="395"/>
+        </block>
+        <block kind="BLOCK" entry="395">
+            <exits>
+                <exit label="398"/>
+            </exits>
+            <label kind="LABEL" name="395"/>
+            <jump kind="JUMP" target="398"/>
+        </block>
+        <block kind="BLOCK" entry="398">
+            <exits>
+                <exit label="399"/>
+            </exits>
+            <label kind="LABEL" name="398"/>
+            <jump kind="JUMP" target="399"/>
+        </block>
+        <block kind="BLOCK" entry="399">
+            <exits>
+                <exit label="401"/>
+            </exits>
+            <label kind="LABEL" name="399"/>
+            <extcall kind="EXTCALL" name="putint">
+                <args>
+                    <arg index="0">
+                        <value kind="CONST" value="100"/>
+                    </arg>
+                </args>
+            </extcall>
+            <extcall kind="EXTCALL" name="putch">
+                <args>
+                    <arg index="0">
+                        <value kind="CONST" value="10"/>
+                    </arg>
+                </args>
+            </extcall>
+            <jump kind="JUMP" target="401"/>
+        </block>
+        <block kind="BLOCK" entry="400">
+            <exits>
+                <exit label="401"/>
+            </exits>
+            <label kind="LABEL" name="400"/>
+            <jump kind="JUMP" target="401"/>
+        </block>
+        <block kind="BLOCK" entry="401">
+            <label kind="LABEL" name="401"/>
+            <return kind="RETURN">
+                <value kind="CONST" value="0"/>
+            </return>
+        </block>
+    </funcdecl>
+</Program>

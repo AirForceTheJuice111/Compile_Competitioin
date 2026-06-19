@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program bline="1" bpos="1" eline="7" epos="1">
+    <MainMethod bline="1" bpos="1" eline="7" epos="1">
+        <VarDeclList/>
+        <StmList>
+            <Assign bline="2" bpos="2" eline="2" epos="7">
+                <IdExp bline="2" bpos="2" eline="2" epos="2" id="x"/>
+                <IntExp bline="2" bpos="6" eline="2" epos="6" val="0"/>
+            </Assign>
+            <Assign bline="3" bpos="2" eline="3" epos="7">
+                <IdExp bline="3" bpos="2" eline="3" epos="2" id="x"/>
+                <IntExp bline="3" bpos="6" eline="3" epos="6" val="1"/>
+            </Assign>
+            <Assign bline="4" bpos="2" eline="4" epos="7">
+                <IdExp bline="4" bpos="2" eline="4" epos="2" id="x"/>
+                <IntExp bline="4" bpos="6" eline="4" epos="6" val="2"/>
+            </Assign>
+            <Assign bline="5" bpos="2" eline="5" epos="7">
+                <IdExp bline="5" bpos="2" eline="5" epos="2" id="x"/>
+                <IntExp bline="5" bpos="6" eline="5" epos="6" val="3"/>
+            </Assign>
+            <Return bline="6" bpos="2" eline="6" epos="10">
+                <IdExp bline="6" bpos="9" eline="6" epos="9" id="x"/>
+            </Return>
+        </StmList>
+    </MainMethod>
+    <ClassDeclList/>
+</Program>

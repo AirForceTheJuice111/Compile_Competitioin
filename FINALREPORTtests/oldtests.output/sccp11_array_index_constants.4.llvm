@@ -1,0 +1,94 @@
+; Generated LLVM IR from Quad representation
+
+declare i8* @malloc(i32)
+declare void @free(i8*)
+
+declare i32 @printf(i8*, ...)
+declare i32 @__isoc99_scanf(i8*, ...)
+
+declare void @exit(i64)
+
+declare i64 @getint()
+declare i64 @getch()
+declare i64 @getarray(i64*)
+declare void @putint(i64)
+declare void @putch(i64)
+declare void @putarray(i64, i64*)
+
+define i32 @main() {
+entry:
+  br label %label_106
+
+label_106:
+  %t0 = mul i64 20, 2
+  %t1 = trunc i64 %t0 to i32
+  %t2 = call i8* @malloc(i32 %t1)
+  %t10001 = ptrtoint i8* %t2 to i64
+  %t3 = inttoptr i64 %t10001 to i64*
+  store i64 4, i64* %t3
+  %t4 = mul i64 4, 2
+  %t11101 = add i64 %t10001, %t4
+  %t5 = inttoptr i64 %t11101 to i64*
+  store i64 1, i64* %t5
+  %t6 = mul i64 8, 2
+  %t11201 = add i64 %t10001, %t6
+  %t7 = inttoptr i64 %t11201 to i64*
+  store i64 2, i64* %t7
+  %t8 = mul i64 12, 2
+  %t11301 = add i64 %t10001, %t8
+  %t9 = inttoptr i64 %t11301 to i64*
+  store i64 3, i64* %t9
+  %t10 = mul i64 16, 2
+  %t11401 = add i64 %t10001, %t10
+  %t11 = inttoptr i64 %t11401 to i64*
+  store i64 4, i64* %t11
+  %t10101 = add i64 1, 1
+  %t10701 = add i64 %t10001, 0
+  %t12 = inttoptr i64 %t10001 to i64*
+  %t10301 = load i64, i64* %t12
+  %t13 = icmp sge i64 %t10101, 0
+  br i1 %t13, label %label_101, label %label_100
+
+label_101:
+  %t14 = icmp sge i64 %t10101, %t10301
+  br i1 %t14, label %label_100, label %label_102
+
+label_100:
+  call void @exit(i64 -1)
+  unreachable
+
+label_102:
+  %t11601 = add i64 %t10101, 1
+  %t11701 = mul i64 %t11601, 4
+  %t15 = mul i64 %t11701, 2
+  %t11801 = add i64 %t10701, %t15
+  %t16 = inttoptr i64 %t11801 to i64*
+  store i64 7, i64* %t16
+  %t10901 = add i64 %t10001, 0
+  %t17 = inttoptr i64 %t10001 to i64*
+  %t10401 = load i64, i64* %t17
+  %t18 = icmp sge i64 2, 0
+  br i1 %t18, label %label_104, label %label_103
+
+label_104:
+  %t19 = icmp sge i64 2, %t10401
+  br i1 %t19, label %label_103, label %label_105
+
+label_103:
+  call void @exit(i64 -1)
+  unreachable
+
+label_105:
+  %t12001 = add i64 2, 1
+  %t12101 = mul i64 %t12001, 4
+  %t20 = mul i64 %t12101, 2
+  %t12201 = add i64 %t10901, %t20
+  %t21 = inttoptr i64 %t12201 to i64*
+  %t12301 = load i64, i64* %t21
+  %t22 = trunc i64 %t12301 to i32
+  ret i32 %t22
+
+  ; Default return
+  ret i32 0
+}
+

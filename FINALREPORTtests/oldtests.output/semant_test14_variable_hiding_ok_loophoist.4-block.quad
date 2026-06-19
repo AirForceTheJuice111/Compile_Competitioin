@@ -1,0 +1,15 @@
+Function __$main__^main() last_label=102 last_temp=107:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    MOVE_EXTCALL t10201:ptr <- malloc(Const:8); def: t10201 use: 
+    MOVE t10001:ptr <- t10201:ptr; def: t10001 use: t10201 
+    PTR_CALC t10501:ptr <- t10001:ptr + Const:4; def: t10501 use: t10001 
+    STORE Const:1 -> Mem(t10501:ptr); def: use: t10501 
+    PTR_CALC t10601:ptr <- t10001:ptr + Const:4; def: t10601 use: t10001 
+    LOAD t10701:int <- Mem(t10601:ptr); def: t10701 use: t10601 
+    RETURN t10701:int; def: use: t10701 
+  Block: Entry Label: L102
+    Exit labels: 
+    LABEL L102; def: use: 
+    RETURN Const:0; def: use: 

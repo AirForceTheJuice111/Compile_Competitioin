@@ -1,0 +1,14 @@
+Function __$main__^main() last_label=100 last_temp=100:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    RETURN Const:0; def: use: 
+Function A^f(t100) last_label=100 last_temp=104:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    PTR_CALC t102:ptr <- t100:ptr + Const:0; def: t102 use: t100 
+    STORE Const:1 -> Mem(t102:ptr); def: use: t102 
+    PTR_CALC t103:ptr <- t100:ptr + Const:0; def: t103 use: t100 
+    LOAD t104:int <- Mem(t103:ptr); def: t104 use: t103 
+    RETURN t104:int; def: use: t104 

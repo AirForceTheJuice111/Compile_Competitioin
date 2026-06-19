@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program bline="1" bpos="1" eline="53" epos="1">
+    <MainMethod bline="1" bpos="1" eline="23" epos="1">
+        <VarDeclList>
+            <VarDecl bline="2" bpos="3" eline="2" epos="8">
+                <Type typeKind="INT" bline="2" bpos="3" eline="2" epos="5"/>
+                <IdExp id="n" bline="2" bpos="7" eline="2" epos="7"/>
+            </VarDecl>
+            <VarDecl bline="2" bpos="10" eline="2" epos="15">
+                <Type typeKind="INT" bline="2" bpos="10" eline="2" epos="12"/>
+                <IdExp id="i" bline="2" bpos="14" eline="2" epos="14"/>
+            </VarDecl>
+            <VarDecl bline="2" bpos="18" eline="2" epos="23">
+                <Type typeKind="INT" bline="2" bpos="18" eline="2" epos="20"/>
+                <IdExp id="e" bline="2" bpos="22" eline="2" epos="22"/>
+            </VarDecl>
+            <VarDecl bline="3" bpos="3" eline="3" epos="18">
+                <Type typeKind="CLASS" bline="3" bpos="3" eline="3" epos="12">
+                    <IdExp id="List" bline="3" bpos="9" eline="3" epos="12"/>
+                </Type>
+                <IdExp id="head" bline="3" bpos="14" eline="3" epos="17"/>
+            </VarDecl>
+            <VarDecl bline="4" bpos="3" eline="4" epos="21">
+                <Type typeKind="CLASS" bline="4" bpos="3" eline="4" epos="12">
+                    <IdExp id="List" bline="4" bpos="9" eline="4" epos="12"/>
+                </Type>
+                <IdExp id="current" bline="4" bpos="14" eline="4" epos="20"/>
+            </VarDecl>
+        </VarDeclList>
+        <StmList>
+            <Assign bline="5" bpos="3" eline="5" epos="15">
+                <IdExp bline="5" bpos="3" eline="5" epos="3" id="n"/>
+                <IntExp bline="5" bpos="7" eline="5" epos="14" val="30000000"/>
+            </Assign>
+            <Assign bline="6" bpos="3" eline="6" epos="8">
+                <IdExp bline="6" bpos="3" eline="6" epos="3" id="i"/>
+                <IntExp bline="6" bpos="7" eline="6" epos="7" val="0"/>
+            </Assign>
+            <Assign bline="7" bpos="3" eline="7" epos="27">
+                <IdExp bline="7" bpos="3" eline="7" epos="6" id="head"/>
+                <CallExp bline="7" bpos="10" eline="7" epos="26">
+                    <NewObject bline="7" bpos="10" eline="7" epos="19">
+                        <Id id="List"/>
+                    </NewObject>
+                    <IdExp id="init" bline="7" bpos="21" eline="7" epos="24"/>
+                    <ParList/>
+                </CallExp>
+            </Assign>
+            <Assign bline="8" bpos="3" eline="8" epos="17">
+                <IdExp bline="8" bpos="3" eline="8" epos="9" id="current"/>
+                <IdExp bline="8" bpos="13" eline="8" epos="16" id="head"/>
+            </Assign>
+            <While bline="9" bpos="3" eline="12" epos="3">
+                <BinaryOp bline="9" bpos="10" eline="9" epos="14">
+                    <IdExp bline="9" bpos="10" eline="9" epos="10" id="i"/>
+                    <OpExp op="&lt;" bline="9" bpos="12" eline="9" epos="12"/>
+                    <IdExp bline="9" bpos="14" eline="9" epos="14" id="n"/>
+                </BinaryOp>
+                <Nested bline="9" bpos="17" eline="12" epos="3">
+                    <StmList>
+                        <Assign bline="10" bpos="5" eline="10" epos="14">
+                            <IdExp bline="10" bpos="5" eline="10" epos="5" id="i"/>
+                            <BinaryOp bline="10" bpos="9" eline="10" epos="13">
+                                <IdExp bline="10" bpos="9" eline="10" epos="9" id="i"/>
+                                <OpExp op="+" bline="10" bpos="11" eline="10" epos="11"/>
+                                <IntExp bline="10" bpos="13" eline="10" epos="13" val="1"/>
+                            </BinaryOp>
+                        </Assign>
+                        <Assign bline="11" bpos="5" eline="11" epos="29">
+                            <IdExp bline="11" bpos="5" eline="11" epos="11" id="current"/>
+                            <CallExp bline="11" bpos="15" eline="11" epos="28">
+                                <IdExp bline="11" bpos="15" eline="11" epos="21" id="current"/>
+                                <IdExp id="add" bline="11" bpos="23" eline="11" epos="25"/>
+                                <ParList>
+                                    <IdExp bline="11" bpos="27" eline="11" epos="27" id="i"/>
+                                </ParList>
+                            </CallExp>
+                        </Assign>
+                    </StmList>
+                </Nested>
+            </While>
+            <Assign bline="13" bpos="3" eline="13" epos="17">
+                <IdExp bline="13" bpos="3" eline="13" epos="9" id="current"/>
+                <IdExp bline="13" bpos="13" eline="13" epos="16" id="head"/>
+            </Assign>
+            <While bline="14" bpos="3" eline="21" epos="3">
+                <IntExp bline="14" bpos="10" eline="14" epos="10" val="1"/>
+                <Nested bline="14" bpos="13" eline="21" epos="3">
+                    <StmList>
+                        <If bline="15" bpos="5" eline="15" epos="32">
+                            <ClassVar bline="15" bpos="9" eline="15" epos="24">
+                                <IdExp bline="15" bpos="9" eline="15" epos="15" id="current"/>
+                                <IdExp id="end_flag" bline="15" bpos="17" eline="15" epos="24"/>
+                            </ClassVar>
+                            <Break bline="15" bpos="27" eline="15" epos="32"/>
+                        </If>
+                        <Assign bline="16" bpos="5" eline="16" epos="24">
+                            <IdExp bline="16" bpos="5" eline="16" epos="5" id="e"/>
+                            <ClassVar bline="16" bpos="9" eline="16" epos="23">
+                                <IdExp bline="16" bpos="9" eline="16" epos="15" id="current"/>
+                                <IdExp id="element" bline="16" bpos="17" eline="16" epos="23"/>
+                            </ClassVar>
+                        </Assign>
+                        <If bline="17" bpos="5" eline="19" epos="5">
+                            <BinaryOp bline="17" bpos="9" eline="17" epos="30">
+                                <BinaryOp bline="17" bpos="9" eline="17" epos="25">
+                                    <BinaryOp bline="17" bpos="10" eline="17" epos="17">
+                                        <IdExp bline="17" bpos="10" eline="17" epos="10" id="e"/>
+                                        <OpExp op="/" bline="17" bpos="11" eline="17" epos="11"/>
+                                        <IntExp bline="17" bpos="12" eline="17" epos="17" val="100000"/>
+                                    </BinaryOp>
+                                    <OpExp op="*" bline="17" bpos="19" eline="17" epos="19"/>
+                                    <IntExp bline="17" bpos="20" eline="17" epos="25" val="100000"/>
+                                </BinaryOp>
+                                <OpExp op="==" bline="17" bpos="27" eline="17" epos="28"/>
+                                <IdExp bline="17" bpos="30" eline="17" epos="30" id="e"/>
+                            </BinaryOp>
+                            <Nested bline="17" bpos="33" eline="19" epos="5">
+                                <StmList>
+                                    <PutInt bline="18" bpos="7" eline="18" epos="23">
+                                        <BinaryOp bline="18" bpos="14" eline="18" epos="21">
+                                            <IdExp bline="18" bpos="14" eline="18" epos="14" id="e"/>
+                                            <OpExp op="/" bline="18" bpos="15" eline="18" epos="15"/>
+                                            <IntExp bline="18" bpos="16" eline="18" epos="21" val="100000"/>
+                                        </BinaryOp>
+                                    </PutInt>
+                                    <PutCh bline="18" bpos="25" eline="18" epos="34">
+                                        <IntExp bline="18" bpos="31" eline="18" epos="32" val="32"/>
+                                    </PutCh>
+                                </StmList>
+                            </Nested>
+                        </If>
+                        <Assign bline="20" bpos="5" eline="20" epos="29">
+                            <IdExp bline="20" bpos="5" eline="20" epos="11" id="current"/>
+                            <CallExp bline="20" bpos="15" eline="20" epos="28">
+                                <IdExp bline="20" bpos="15" eline="20" epos="21" id="current"/>
+                                <IdExp id="next" bline="20" bpos="23" eline="20" epos="26"/>
+                                <ParList/>
+                            </CallExp>
+                        </Assign>
+                    </StmList>
+                </Nested>
+            </While>
+            <PutCh bline="22" bpos="3" eline="22" epos="12">
+                <IntExp bline="22" bpos="9" eline="22" epos="10" val="10"/>
+            </PutCh>
+        </StmList>
+    </MainMethod>
+    <ClassDeclList>
+        <ClassDecl bline="25" bpos="1" eline="53" epos="1">
+            <IdExp id="List" bline="25" bpos="14" eline="25" epos="17"/>
+            <VarDeclList>
+                <VarDecl bline="26" bpos="3" eline="26" epos="18">
+                    <Type typeKind="CLASS" bline="26" bpos="3" eline="26" epos="12">
+                        <IdExp id="List" bline="26" bpos="9" eline="26" epos="12"/>
+                    </Type>
+                    <IdExp id="next" bline="26" bpos="14" eline="26" epos="17"/>
+                </VarDecl>
+                <VarDecl bline="27" bpos="3" eline="27" epos="15">
+                    <Type typeKind="INT" bline="27" bpos="3" eline="27" epos="5"/>
+                    <IdExp id="end_flag" bline="27" bpos="7" eline="27" epos="14"/>
+                </VarDecl>
+                <VarDecl bline="30" bpos="3" eline="30" epos="14">
+                    <Type typeKind="INT" bline="30" bpos="3" eline="30" epos="5"/>
+                    <IdExp id="element" bline="30" bpos="7" eline="30" epos="13"/>
+                </VarDecl>
+            </VarDeclList>
+            <MethodDeclList>
+                <MethodDecl bline="32" bpos="3" eline="35" epos="3">
+                    <Type typeKind="CLASS" bline="32" bpos="10" eline="32" epos="19">
+                        <IdExp id="List" bline="32" bpos="16" eline="32" epos="19"/>
+                    </Type>
+                    <IdExp id="next" bline="32" bpos="21" eline="32" epos="24"/>
+                    <FormalList/>
+                    <VarDeclList/>
+                    <StmList>
+                        <If bline="33" bpos="5" eline="33" epos="41">
+                            <UnaryOp bline="33" bpos="9" eline="33" epos="22">
+                                <OpExp op="!" bline="33" bpos="9" eline="33" epos="9"/>
+                                <ClassVar bline="33" bpos="10" eline="33" epos="22">
+                                    <This bline="33" bpos="10" eline="33" epos="13"/>
+                                    <IdExp id="end_flag" bline="33" bpos="15" eline="33" epos="22"/>
+                                </ClassVar>
+                            </UnaryOp>
+                            <Return bline="33" bpos="25" eline="33" epos="41">
+                                <ClassVar bline="33" bpos="32" eline="33" epos="40">
+                                    <This bline="33" bpos="32" eline="33" epos="35"/>
+                                    <IdExp id="next" bline="33" bpos="37" eline="33" epos="40"/>
+                                </ClassVar>
+                            </Return>
+                        </If>
+                        <Return bline="34" bpos="5" eline="34" epos="16">
+                            <This bline="34" bpos="12" eline="34" epos="15"/>
+                        </Return>
+                    </StmList>
+                </MethodDecl>
+                <MethodDecl bline="37" bpos="3" eline="41" epos="3">
+                    <Type typeKind="CLASS" bline="37" bpos="10" eline="37" epos="19">
+                        <IdExp id="List" bline="37" bpos="16" eline="37" epos="19"/>
+                    </Type>
+                    <IdExp id="init" bline="37" bpos="21" eline="37" epos="24"/>
+                    <FormalList/>
+                    <VarDeclList/>
+                    <StmList>
+                        <Assign bline="38" bpos="5" eline="38" epos="21">
+                            <ClassVar bline="38" bpos="5" eline="38" epos="17">
+                                <This bline="38" bpos="5" eline="38" epos="8"/>
+                                <IdExp id="end_flag" bline="38" bpos="10" eline="38" epos="17"/>
+                            </ClassVar>
+                            <IntExp bline="38" bpos="20" eline="38" epos="20" val="1"/>
+                        </Assign>
+                        <Assign bline="39" bpos="5" eline="39" epos="21">
+                            <ClassVar bline="39" bpos="5" eline="39" epos="16">
+                                <This bline="39" bpos="5" eline="39" epos="8"/>
+                                <IdExp id="element" bline="39" bpos="10" eline="39" epos="16"/>
+                            </ClassVar>
+                            <IntExp bline="39" bpos="20" eline="39" epos="20" val="0"/>
+                        </Assign>
+                        <Return bline="40" bpos="5" eline="40" epos="16">
+                            <This bline="40" bpos="12" eline="40" epos="15"/>
+                        </Return>
+                    </StmList>
+                </MethodDecl>
+                <MethodDecl bline="43" bpos="3" eline="52" epos="3">
+                    <Type typeKind="CLASS" bline="43" bpos="10" eline="43" epos="19">
+                        <IdExp id="List" bline="43" bpos="16" eline="43" epos="19"/>
+                    </Type>
+                    <IdExp id="add" bline="43" bpos="21" eline="43" epos="23"/>
+                    <FormalList>
+                        <Formal bline="43" bpos="25" eline="43" epos="29">
+                            <Type typeKind="INT" bline="43" bpos="25" eline="43" epos="27"/>
+                            <IdExp bline="43" bpos="29" eline="43" epos="29" id="e"/>
+                        </Formal>
+                    </FormalList>
+                    <VarDeclList/>
+                    <StmList>
+                        <If bline="44" bpos="5" eline="51" epos="5">
+                            <ClassVar bline="44" bpos="9" eline="44" epos="21">
+                                <This bline="44" bpos="9" eline="44" epos="12"/>
+                                <IdExp id="end_flag" bline="44" bpos="14" eline="44" epos="21"/>
+                            </ClassVar>
+                            <Nested bline="44" bpos="24" eline="49" epos="5">
+                                <StmList>
+                                    <Assign bline="45" bpos="8" eline="45" epos="24">
+                                        <ClassVar bline="45" bpos="8" eline="45" epos="19">
+                                            <This bline="45" bpos="8" eline="45" epos="11"/>
+                                            <IdExp id="element" bline="45" bpos="13" eline="45" epos="19"/>
+                                        </ClassVar>
+                                        <IdExp bline="45" bpos="23" eline="45" epos="23" id="e"/>
+                                    </Assign>
+                                    <Assign bline="46" bpos="8" eline="46" epos="25">
+                                        <ClassVar bline="46" bpos="8" eline="46" epos="20">
+                                            <This bline="46" bpos="8" eline="46" epos="11"/>
+                                            <IdExp id="end_flag" bline="46" bpos="13" eline="46" epos="20"/>
+                                        </ClassVar>
+                                        <IntExp bline="46" bpos="24" eline="46" epos="24" val="0"/>
+                                    </Assign>
+                                    <Assign bline="47" bpos="8" eline="47" epos="37">
+                                        <ClassVar bline="47" bpos="8" eline="47" epos="16">
+                                            <This bline="47" bpos="8" eline="47" epos="11"/>
+                                            <IdExp id="next" bline="47" bpos="13" eline="47" epos="16"/>
+                                        </ClassVar>
+                                        <CallExp bline="47" bpos="20" eline="47" epos="36">
+                                            <NewObject bline="47" bpos="20" eline="47" epos="29">
+                                                <Id id="List"/>
+                                            </NewObject>
+                                            <IdExp id="init" bline="47" bpos="31" eline="47" epos="34"/>
+                                            <ParList/>
+                                        </CallExp>
+                                    </Assign>
+                                    <Return bline="48" bpos="8" eline="48" epos="24">
+                                        <ClassVar bline="48" bpos="15" eline="48" epos="23">
+                                            <This bline="48" bpos="15" eline="48" epos="18"/>
+                                            <IdExp id="next" bline="48" bpos="20" eline="48" epos="23"/>
+                                        </ClassVar>
+                                    </Return>
+                                </StmList>
+                            </Nested>
+                            <Nested bline="49" bpos="12" eline="51" epos="5">
+                                <StmList>
+                                    <Return bline="50" bpos="8" eline="50" epos="31">
+                                        <CallExp bline="50" bpos="15" eline="50" epos="30">
+                                            <ClassVar bline="50" bpos="15" eline="50" epos="23">
+                                                <This bline="50" bpos="15" eline="50" epos="18"/>
+                                                <IdExp id="next" bline="50" bpos="20" eline="50" epos="23"/>
+                                            </ClassVar>
+                                            <IdExp id="add" bline="50" bpos="25" eline="50" epos="27"/>
+                                            <ParList>
+                                                <IdExp bline="50" bpos="29" eline="50" epos="29" id="e"/>
+                                            </ParList>
+                                        </CallExp>
+                                    </Return>
+                                </StmList>
+                            </Nested>
+                        </If>
+                    </StmList>
+                </MethodDecl>
+            </MethodDeclList>
+        </ClassDecl>
+    </ClassDeclList>
+</Program>

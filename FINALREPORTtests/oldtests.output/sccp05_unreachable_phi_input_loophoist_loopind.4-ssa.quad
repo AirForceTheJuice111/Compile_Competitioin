@@ -1,0 +1,35 @@
+Function __$main__^main() last_label=113 last_temp=104:
+  Block: Entry Label: L110
+    Exit labels: L102 L103 
+    LABEL L110; def: use: 
+    CJUMP != Const:1 Const:0? L102 : L103; def: use: 
+  Block: Entry Label: L102
+    Exit labels: L104 
+    LABEL L102; def: use: 
+    MOVE t10001:int <- Const:3; def: t10001 use: 
+    JUMP L104; def: use: 
+  Block: Entry Label: L103
+    Exit labels: L104 
+    LABEL L103; def: use: 
+    MOVE_EXTCALL t10002:int <- getint(); def: t10002 use: 
+    JUMP L104; def: use: 
+  Block: Entry Label: L104
+    Exit labels: L107 L108 
+    LABEL L104; def: use: 
+    PHI t10003:int <- Phi([t10001, L102], [t10002, L103]); def: t10003 use: t10001 t10002 
+    CJUMP == t10003:int Const:3? L107 : L108; def: use: t10003 
+  Block: Entry Label: L107
+    Exit labels: L109 
+    LABEL L107; def: use: 
+    MOVE t10101:int <- Const:4; def: t10101 use: 
+    JUMP L109; def: use: 
+  Block: Entry Label: L108
+    Exit labels: L109 
+    LABEL L108; def: use: 
+    MOVE t10102:int <- Const:5; def: t10102 use: 
+    JUMP L109; def: use: 
+  Block: Entry Label: L109
+    Exit labels: 
+    LABEL L109; def: use: 
+    PHI t10103:int <- Phi([t10101, L107], [t10102, L108]); def: t10103 use: t10101 t10102 
+    RETURN t10103:int; def: use: t10103 

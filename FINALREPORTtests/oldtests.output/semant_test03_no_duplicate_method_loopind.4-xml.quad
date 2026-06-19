@@ -1,0 +1,32 @@
+<Program kind="PROGRAM" last_label_num="101" last_temp_num="101">
+    <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="101" last_temp_num="100">
+        <block kind="BLOCK" entry="100">
+            <label kind="LABEL" name="100"/>
+            <return kind="RETURN">
+                <value kind="CONST" value="0"/>
+            </return>
+        </block>
+    </funcdecl>
+    <funcdecl kind="FUNCDECL" name="A^ff" last_label_num="101" last_temp_num="101">
+        <params>
+            <param temp="100"/>
+        </params>
+        <block kind="BLOCK" entry="100">
+            <label kind="LABEL" name="100"/>
+            <return kind="RETURN">
+                <value kind="CONST" value="1"/>
+            </return>
+        </block>
+    </funcdecl>
+    <funcdecl kind="FUNCDECL" name="A^f" last_label_num="101" last_temp_num="101">
+        <params>
+            <param temp="100"/>
+        </params>
+        <block kind="BLOCK" entry="100">
+            <label kind="LABEL" name="100"/>
+            <return kind="RETURN">
+                <value kind="CONST" value="0"/>
+            </return>
+        </block>
+    </funcdecl>
+</Program>

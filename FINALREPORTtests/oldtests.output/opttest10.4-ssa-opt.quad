@@ -1,0 +1,44 @@
+Function __$main__^main() last_label=111 last_temp=112:
+  Block: Entry Label: L110
+    Exit labels: L102 
+    LABEL L110; 
+    MOVE_EXTCALL t10101:int <- getint(); 
+    MOVE t109:int <- Const:10; 
+    MOVE t110:int <- Const:0; 
+    JUMP L102; 
+  Block: Entry Label: L102
+    Exit labels: L103 L104 
+    LABEL L102; 
+    PHI t10502:int <- Phi([t10503, L109], [t109, L110]); 
+    PHI t10201:int <- Phi([t10202, L109], [t102, L110]); 
+    PHI t10102:int <- Phi([t10103, L109], [t10101, L110]); 
+    PHI t10002:int <- Phi([t10003, L109], [t110, L110]); 
+    CJUMP > t10502:int Const:0? L103 : L104; 
+  Block: Entry Label: L103
+    Exit labels: L107 
+    LABEL L103; 
+    MOVE_BINOP t10003:int <- (+, t10002:int, Const:1); 
+    JUMP L107; 
+  Block: Entry Label: L107
+    Exit labels: L108 L109 
+    LABEL L107; 
+    PHI t10202:int <- Phi([t10201, L103], [t10203, L108]); 
+    PHI t10103:int <- Phi([t10102, L103], [t10104, L108]); 
+    CJUMP > t10103:int Const:0? L108 : L109; 
+  Block: Entry Label: L108
+    Exit labels: L107 
+    LABEL L108; 
+    MOVE_BINOP t10203:int <- (*, Const:3, t10003:int); 
+    MOVE_BINOP t10301:int <- (+, t10203:int, Const:4); 
+    MOVE_BINOP t10401:int <- (+, t10301:int, Const:6); 
+    MOVE_BINOP t10104:int <- (-, t10103:int, Const:1); 
+    JUMP L107; 
+  Block: Entry Label: L109
+    Exit labels: L102 
+    LABEL L109; 
+    MOVE_BINOP t10503:int <- (-, t10502:int, Const:1); 
+    JUMP L102; 
+  Block: Entry Label: L104
+    Exit labels: 
+    LABEL L104; 
+    RETURN t10201:int; 

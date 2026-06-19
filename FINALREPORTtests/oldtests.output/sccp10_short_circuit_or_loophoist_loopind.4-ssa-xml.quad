@@ -1,0 +1,93 @@
+<Program kind="PROGRAM" last_label_num="111" last_temp_num="103">
+    <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="111" last_temp_num="103">
+        <block kind="BLOCK" entry="108">
+            <exits>
+                <exit label="105"/>
+                <exit label="100"/>
+            </exits>
+            <label kind="LABEL" name="108"/>
+            <move kind="MOVE" dst="10001" temp_type="int">
+                <src kind="CONST" value="0"/>
+                <def>
+                    <temp id="10001"/>
+                </def>
+            </move>
+            <cjump kind="CJUMP" relop="!=" true="105" false="100">
+                <left kind="CONST" value="1"/>
+                <right kind="CONST" value="0"/>
+            </cjump>
+        </block>
+        <block kind="BLOCK" entry="100">
+            <exits>
+                <exit label="105"/>
+                <exit label="106"/>
+            </exits>
+            <label kind="LABEL" name="100"/>
+            <movebinop kind="MOVE_BINOP" dst="10301" temp_type="int" op="/">
+                <left kind="CONST" value="10"/>
+                <right kind="TEMP" id="10001" type="int"/>
+                <def>
+                    <temp id="10301"/>
+                </def>
+                <use>
+                    <temp id="10001"/>
+                </use>
+            </movebinop>
+            <cjump kind="CJUMP" relop="!=" true="105" false="106">
+                <left kind="TEMP" id="10301" type="int"/>
+                <right kind="CONST" value="0"/>
+                <use>
+                    <temp id="10301"/>
+                </use>
+            </cjump>
+        </block>
+        <block kind="BLOCK" entry="105">
+            <exits>
+                <exit label="107"/>
+            </exits>
+            <label kind="LABEL" name="105"/>
+            <move kind="MOVE" dst="10102" temp_type="int">
+                <src kind="CONST" value="3"/>
+                <def>
+                    <temp id="10102"/>
+                </def>
+            </move>
+            <jump kind="JUMP" target="107"/>
+        </block>
+        <block kind="BLOCK" entry="106">
+            <exits>
+                <exit label="107"/>
+            </exits>
+            <label kind="LABEL" name="106"/>
+            <move kind="MOVE" dst="10101" temp_type="int">
+                <src kind="CONST" value="4"/>
+                <def>
+                    <temp id="10101"/>
+                </def>
+            </move>
+            <jump kind="JUMP" target="107"/>
+        </block>
+        <block kind="BLOCK" entry="107">
+            <label kind="LABEL" name="107"/>
+            <phi kind="PHI" dst="10103" temp_type="int">
+                <args>
+                    <arg temp="t10102" label="L105"/>
+                    <arg temp="t10101" label="L106"/>
+                </args>
+                <def>
+                    <temp id="10103"/>
+                </def>
+                <use>
+                    <temp id="10102"/>
+                    <temp id="10101"/>
+                </use>
+            </phi>
+            <return kind="RETURN">
+                <value kind="TEMP" id="10103" type="int"/>
+                <use>
+                    <temp id="10103"/>
+                </use>
+            </return>
+        </block>
+    </funcdecl>
+</Program>

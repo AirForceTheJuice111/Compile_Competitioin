@@ -1,0 +1,43 @@
+Function __$main__^main() last_label=103 last_temp=124:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    MOVE_EXTCALL t103010101:ptr <- malloc(Const:16); def: t103010101 use: 
+    PTR_CALC t113010101:ptr <- t103010101:ptr + Const:8; def: t113010101 use: t103010101 
+    STORE Name:A^f -> Mem(t113010101:ptr); def: use: t113010101 
+    MOVE t100010101:ptr <- t103010101:ptr; def: t100010101 use: t103010101 
+    PTR_CALC t114010101:ptr <- t100010101:ptr + Const:0; def: t114010101 use: t100010101 
+    STORE Const:4 -> Mem(t114010101:ptr); def: use: t114010101 
+    MOVE_EXTCALL t104010101:ptr <- malloc(Const:16); def: t104010101 use: 
+    PTR_CALC t116010101:ptr <- t104010101:ptr + Const:8; def: t116010101 use: t104010101 
+    STORE Name:B^f -> Mem(t116010101:ptr); def: use: t116010101 
+    PTR_CALC t117010101:ptr <- t104010101:ptr + Const:12; def: t117010101 use: t104010101 
+    STORE Name:B^g -> Mem(t117010101:ptr); def: use: t117010101 
+    MOVE t101010101:ptr <- t104010101:ptr; def: t101010101 use: t104010101 
+    PTR_CALC t118010101:ptr <- t101010101:ptr + Const:4; def: t118010101 use: t101010101 
+    STORE Const:2 -> Mem(t118010101:ptr); def: use: t118010101 
+    MOVE t100020101:ptr <- t101010101:ptr; def: t100020101 use: t101010101 
+    PTR_CALC t119010101:ptr <- t100020101:ptr + Const:8; def: t119010101 use: t100020101 
+    LOAD t107010101:ptr <- Mem(t119010101:ptr); def: t107010101 use: t119010101 
+    MOVE_CALL t108010101:int <- f[t107010101:ptr] (t100020101:ptr); def: t108010101 use: t100020101 t107010101 
+    PTR_CALC t121010101:ptr <- t101010101:ptr + Const:4; def: t121010101 use: t101010101 
+    LOAD t122010101:int <- Mem(t121010101:ptr); def: t122010101 use: t121010101 
+    MOVE_BINOP t109010101:int <- (+, t108010101:int, t122010101:int); def: t109010101 use: t122010101 t108010101 
+    EXTCALL putint(t109010101:int); def: use: t109010101 
+    EXTCALL putch(Const:10); def: use: 
+    RETURN Const:0; def: use: 
+Function B^f(t100) last_label=103 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    RETURN Const:200; def: use: 
+Function B^g(t100) last_label=103 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    RETURN Const:300; def: use: 
+Function A^f(t100) last_label=103 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    RETURN Const:100; def: use: 
