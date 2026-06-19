@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program>
+    <FunctionDeclaration name="__$main__^main" return_type="INT" last_temp="110" last_label="114">
+        <Sequence>
+            <Move>
+                <Temp type="INT" temp="104"/>
+                <Const value="47"/>
+            </Move>
+            <Move>
+                <Temp type="INT" temp="103"/>
+                <Const value="0"/>
+            </Move>
+            <Move>
+                <Temp type="INT" temp="100"/>
+                <Const value="0"/>
+            </Move>
+            <Move>
+                <Temp type="INT" temp="101"/>
+                <Const value="1"/>
+            </Move>
+            <Label label="102"/>
+            <CJump relop="&lt;" true="103" false="104">
+                <Temp type="INT" temp="103"/>
+                <Temp type="INT" temp="104"/>
+            </CJump>
+            <Label label="103"/>
+            <CJump relop="==" true="112" false="113">
+                <Temp type="INT" temp="103"/>
+                <Const value="0"/>
+            </CJump>
+            <Label label="112"/>
+            <ExpressionStatement>
+                <ExtCall type="INT" extfun="putint">
+                    <Arguments>
+                        <Temp type="INT" temp="103"/>
+                    </Arguments>
+                </ExtCall>
+            </ExpressionStatement>
+            <Jump label="114"/>
+            <Label label="113"/>
+            <CJump relop="==" true="109" false="110">
+                <Temp type="INT" temp="103"/>
+                <Const value="1"/>
+            </CJump>
+            <Label label="109"/>
+            <ExpressionStatement>
+                <ExtCall type="INT" extfun="putint">
+                    <Arguments>
+                        <Temp type="INT" temp="103"/>
+                    </Arguments>
+                </ExtCall>
+            </ExpressionStatement>
+            <Jump label="111"/>
+            <Label label="110"/>
+            <Move>
+                <Temp type="INT" temp="102"/>
+                <Temp type="INT" temp="100"/>
+            </Move>
+            <Move>
+                <Temp type="INT" temp="100"/>
+                <Temp type="INT" temp="101"/>
+            </Move>
+            <Move>
+                <Temp type="INT" temp="101"/>
+                <BinOp type="INT" op="+">
+                    <Temp type="INT" temp="102"/>
+                    <Temp type="INT" temp="100"/>
+                </BinOp>
+            </Move>
+            <ExpressionStatement>
+                <ExtCall type="INT" extfun="putint">
+                    <Arguments>
+                        <Temp type="INT" temp="101"/>
+                    </Arguments>
+                </ExtCall>
+            </ExpressionStatement>
+            <Label label="111"/>
+            <Label label="114"/>
+            <ExpressionStatement>
+                <ExtCall type="INT" extfun="putch">
+                    <Arguments>
+                        <Const value="32"/>
+                    </Arguments>
+                </ExtCall>
+            </ExpressionStatement>
+            <Move>
+                <Temp type="INT" temp="103"/>
+                <BinOp type="INT" op="+">
+                    <Temp type="INT" temp="103"/>
+                    <Const value="1"/>
+                </BinOp>
+            </Move>
+            <Jump label="102"/>
+            <Label label="104"/>
+            <ExpressionStatement>
+                <ExtCall type="INT" extfun="putch">
+                    <Arguments>
+                        <Const value="10"/>
+                    </Arguments>
+                </ExtCall>
+            </ExpressionStatement>
+            <Return>
+                <Const value="0"/>
+            </Return>
+        </Sequence>
+    </FunctionDeclaration>
+</Program>

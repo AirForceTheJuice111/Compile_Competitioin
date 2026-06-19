@@ -1,0 +1,115 @@
+Function TestClass^test1(t101, t100) last_label=105 last_temp=120:
+  Block: Entry Label: L103
+    Exit labels: L101 L100 
+    LABEL L103; 
+    MOVE t1040101:int <- Const:1; 
+    MOVE_BINOP t1120101:int <- (+, t1040101:int, Const:1); 
+    MOVE_BINOP t1080101:int <- (*, t1120101:int, Const:4); 
+    MOVE_EXTCALL t1050101:ptr <- malloc(t1080101:int); 
+    STORE t1040101:int -> Mem(t1050101:ptr); 
+    PTR_CALC t1140101:ptr <- t101:ptr + Const:0; 
+    STORE t1050101:ptr -> Mem(t1140101:ptr); 
+    PTR_CALC t1150101:ptr <- t101:ptr + Const:0; 
+    LOAD t1060101:ptr <- Mem(t1150101:ptr); 
+    MOVE t1110101:ptr <- t1060101:ptr; 
+    LOAD t1070101:int <- Mem(t1060101:ptr); 
+    CJUMP >= Const:0 Const:0? L101 : L100; 
+  Block: Entry Label: L101
+    Exit labels: L100 L102 
+    LABEL L101; 
+    CJUMP >= Const:0 t1070101:int? L100 : L102; 
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; 
+    EXTCALL exit(Const:-1); 
+  Block: Entry Label: L102
+    Exit labels: 
+    LABEL L102; 
+    MOVE_BINOP t1170101:int <- (+, Const:0, Const:1); 
+    MOVE_BINOP t1180101:int <- (*, t1170101:int, Const:4); 
+    PTR_CALC t1190101:ptr <- t1110101:ptr + t1180101:int; 
+    LOAD t1200101:int <- Mem(t1190101:ptr); 
+    RETURN t1200101:int; 
+Function TestClass^test0(t101, t100) last_label=102 last_temp=112:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; 
+    MOVE t1040101:int <- Const:1; 
+    MOVE_BINOP t1080101:int <- (+, t1040101:int, Const:1); 
+    MOVE_BINOP t1060101:int <- (*, t1080101:int, Const:4); 
+    MOVE_EXTCALL t1050101:ptr <- malloc(t1060101:int); 
+    STORE t1040101:int -> Mem(t1050101:ptr); 
+    PTR_CALC t1100101:ptr <- t101:ptr + Const:0; 
+    STORE t1050101:ptr -> Mem(t1100101:ptr); 
+    PTR_CALC t1110101:ptr <- t101:ptr + Const:0; 
+    LOAD t1120101:ptr <- Mem(t1110101:ptr); 
+    RETURN t1120101:ptr; 
+Function __$main__^main() last_label=105 last_temp=122:
+  Block: Entry Label: L103
+    Exit labels: L101 L100 
+    LABEL L103; 
+    MOVE_EXTCALL t1000101:ptr <- malloc(Const:16); 
+    STORE Const:3 -> Mem(t1000101:ptr); 
+    PTR_CALC t1120101:ptr <- t1000101:ptr + Const:4; 
+    STORE Const:1 -> Mem(t1120101:ptr); 
+    PTR_CALC t1130101:ptr <- t1000101:ptr + Const:8; 
+    STORE Const:2 -> Mem(t1130101:ptr); 
+    PTR_CALC t1140101:ptr <- t1000101:ptr + Const:12; 
+    STORE Const:3 -> Mem(t1140101:ptr); 
+    MOVE t1030101:int <- Const:10; 
+    MOVE_BINOP t1150101:int <- (+, t1030101:int, Const:1); 
+    MOVE_BINOP t1070101:int <- (*, t1150101:int, Const:4); 
+    MOVE_EXTCALL t1040101:ptr <- malloc(t1070101:int); 
+    STORE t1030101:int -> Mem(t1040101:ptr); 
+    PTR_CALC t1170101:ptr <- t101:ptr + Const:0; 
+    STORE t1040101:ptr -> Mem(t1170101:ptr); 
+    MOVE t1100101:ptr <- t1000101:ptr; 
+    LOAD t1050101:int <- Mem(t1000101:ptr); 
+    CJUMP >= Const:1000000 Const:0? L101 : L100; 
+  Block: Entry Label: L101
+    Exit labels: L100 L102 
+    LABEL L101; 
+    CJUMP >= Const:1000000 t1050101:int? L100 : L102; 
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; 
+    EXTCALL exit(Const:-1); 
+  Block: Entry Label: L102
+    Exit labels: 
+    LABEL L102; 
+    MOVE_BINOP t1190101:int <- (+, Const:1000000, Const:1); 
+    MOVE_BINOP t1200101:int <- (*, t1190101:int, Const:4); 
+    PTR_CALC t1210101:ptr <- t1100101:ptr + t1200101:int; 
+    LOAD t1220101:int <- Mem(t1210101:ptr); 
+    RETURN t1220101:int; 
+Function TestClass^test2(t101, t100) last_label=105 last_temp=119:
+  Block: Entry Label: L103
+    Exit labels: L101 L100 
+    LABEL L103; 
+    MOVE t1040101:int <- Const:1; 
+    MOVE_BINOP t1120101:int <- (+, t1040101:int, Const:1); 
+    MOVE_BINOP t1080101:int <- (*, t1120101:int, Const:4); 
+    MOVE_EXTCALL t1050101:ptr <- malloc(t1080101:int); 
+    STORE t1040101:int -> Mem(t1050101:ptr); 
+    MOVE t1060101:ptr <- t1050101:ptr; 
+    MOVE t1110101:ptr <- t1060101:ptr; 
+    LOAD t1070101:int <- Mem(t1060101:ptr); 
+    CJUMP >= Const:0 Const:0? L101 : L100; 
+  Block: Entry Label: L101
+    Exit labels: L100 L102 
+    LABEL L101; 
+    CJUMP >= Const:0 t1070101:int? L100 : L102; 
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; 
+    EXTCALL exit(Const:-1); 
+  Block: Entry Label: L102
+    Exit labels: 
+    LABEL L102; 
+    MOVE_BINOP t1150101:int <- (+, Const:0, Const:1); 
+    MOVE_BINOP t1160101:int <- (*, t1150101:int, Const:4); 
+    PTR_CALC t1170101:ptr <- t1110101:ptr + t1160101:int; 
+    STORE t100:int -> Mem(t1170101:ptr); 
+    PTR_CALC t1180101:ptr <- t101:ptr + Const:0; 
+    LOAD t1190101:ptr <- Mem(t1180101:ptr); 
+    RETURN t1190101:ptr; 

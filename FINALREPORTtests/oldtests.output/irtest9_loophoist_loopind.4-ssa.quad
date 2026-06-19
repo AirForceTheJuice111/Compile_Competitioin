@@ -1,0 +1,14 @@
+Function __$main__^main() last_label=103 last_temp=107:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; def: use: 
+    MOVE t102010101:int <- Const:3; def: t102010101 use: 
+    MOVE_BINOP t106010101:int <- (+, t102010101:int, Const:1); def: t106010101 use: t102010101 
+    MOVE_BINOP t104010101:int <- (*, t106010101:int, Const:4); def: t104010101 use: t106010101 
+    MOVE_EXTCALL t103010101:ptr <- malloc(t104010101:int); def: t103010101 use: t104010101 
+    STORE t102010101:int -> Mem(t103010101:ptr); def: use: t102010101 t103010101 
+    JUMP L101; def: use: 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; def: use: 
+    RETURN Const:0; def: use: 

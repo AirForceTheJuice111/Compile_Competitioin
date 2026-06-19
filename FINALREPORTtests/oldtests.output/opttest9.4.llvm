@@ -1,0 +1,64 @@
+; Generated LLVM IR from Quad representation
+
+declare i8* @malloc(i32)
+declare void @free(i8*)
+
+declare i32 @printf(i8*, ...)
+declare i32 @__isoc99_scanf(i8*, ...)
+
+declare void @exit(i64)
+
+declare i64 @getint()
+declare i64 @getch()
+declare i64 @getarray(i64*)
+declare void @putint(i64)
+declare void @putch(i64)
+declare void @putarray(i64, i64*)
+
+define i32 @main() {
+entry:
+  br label %label_110
+
+label_110:
+  %t10301 = call i64 @getint()
+  %t10501 = add i64 10, 0
+  %t10001 = add i64 0, 0
+  %t10401 = add i64 100, 0
+  br label %label_102
+
+label_102:
+  %t10502 = phi i64 [ %t10503, %label_109 ], [ %t10501, %label_110 ]
+  %t10402 = phi i64 [ %t10403, %label_109 ], [ %t10401, %label_110 ]
+  %t10302 = phi i64 [ %t10303, %label_109 ], [ %t10301, %label_110 ]
+  %t0 = icmp sgt i64 %t10502, 0
+  br i1 %t0, label %label_103, label %label_104
+
+label_103:
+  %t10002 = add i64 10, 0
+  %t10101 = add i64 %t10002, 1
+  %t10201 = add i64 %t10002, %t10101
+  br label %label_107
+
+label_107:
+  %t10403 = phi i64 [ %t10402, %label_103 ], [ %t10404, %label_108 ]
+  %t10303 = phi i64 [ %t10302, %label_103 ], [ %t10304, %label_108 ]
+  %t1 = icmp sgt i64 %t10303, 0
+  br i1 %t1, label %label_108, label %label_109
+
+label_108:
+  %t10404 = mul i64 3, %t10201
+  %t10304 = sub i64 %t10303, 1
+  br label %label_107
+
+label_109:
+  %t10503 = sub i64 %t10502, 1
+  br label %label_102
+
+label_104:
+  %t2 = trunc i64 %t10402 to i32
+  ret i32 %t2
+
+  ; Default return
+  ret i32 0
+}
+

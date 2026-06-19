@@ -1,0 +1,1021 @@
+; Generated LLVM IR from Quad representation
+
+declare i8* @malloc(i32)
+declare void @free(i8*)
+
+declare i32 @printf(i8*, ...)
+declare i32 @__isoc99_scanf(i8*, ...)
+
+declare void @exit(i64)
+
+declare i64 @getint()
+declare i64 @getch()
+declare i64 @getarray(i64*)
+declare void @putint(i64)
+declare void @putch(i64)
+declare void @putarray(i64, i64*)
+
+define i32 @main() {
+entry:
+  br label %label_595
+
+label_595:
+  br label %label_102
+
+label_102:
+  %t0 = icmp sgt i64 2, 1
+  br i1 %t0, label %label_103, label %label_104
+
+label_103:
+  br label %label_107
+
+label_107:
+  %t1 = icmp sgt i64 3, 2
+  br i1 %t1, label %label_108, label %label_109
+
+label_108:
+  br label %label_112
+
+label_112:
+  %t2 = icmp sgt i64 4, 3
+  br i1 %t2, label %label_113, label %label_114
+
+label_113:
+  br label %label_117
+
+label_117:
+  %t3 = icmp sgt i64 5, 4
+  br i1 %t3, label %label_118, label %label_119
+
+label_118:
+  br label %label_122
+
+label_122:
+  %t4 = icmp sgt i64 6, 5
+  br i1 %t4, label %label_123, label %label_124
+
+label_123:
+  br label %label_127
+
+label_127:
+  %t5 = icmp sgt i64 7, 6
+  br i1 %t5, label %label_128, label %label_129
+
+label_128:
+  br label %label_132
+
+label_132:
+  %t6 = icmp sgt i64 8, 7
+  br i1 %t6, label %label_133, label %label_134
+
+label_133:
+  br label %label_137
+
+label_137:
+  %t7 = icmp sgt i64 9, 8
+  br i1 %t7, label %label_138, label %label_139
+
+label_138:
+  br label %label_142
+
+label_142:
+  %t8 = icmp sgt i64 10, 9
+  br i1 %t8, label %label_143, label %label_144
+
+label_143:
+  br label %label_147
+
+label_147:
+  %t9 = icmp sgt i64 11, 10
+  br i1 %t9, label %label_148, label %label_149
+
+label_148:
+  br label %label_152
+
+label_152:
+  %t10 = icmp sgt i64 12, 11
+  br i1 %t10, label %label_153, label %label_154
+
+label_153:
+  br label %label_157
+
+label_157:
+  %t11 = icmp sgt i64 13, 12
+  br i1 %t11, label %label_158, label %label_159
+
+label_158:
+  br label %label_162
+
+label_162:
+  %t12 = icmp sgt i64 14, 13
+  br i1 %t12, label %label_163, label %label_164
+
+label_163:
+  br label %label_167
+
+label_167:
+  %t13 = icmp sgt i64 15, 14
+  br i1 %t13, label %label_168, label %label_169
+
+label_168:
+  br label %label_172
+
+label_172:
+  %t14 = icmp sgt i64 16, 15
+  br i1 %t14, label %label_173, label %label_174
+
+label_173:
+  br label %label_177
+
+label_177:
+  %t15 = icmp sgt i64 17, 16
+  br i1 %t15, label %label_178, label %label_179
+
+label_178:
+  br label %label_182
+
+label_182:
+  %t16 = icmp sgt i64 18, 17
+  br i1 %t16, label %label_183, label %label_184
+
+label_183:
+  br label %label_187
+
+label_187:
+  %t17 = icmp sgt i64 19, 18
+  br i1 %t17, label %label_188, label %label_189
+
+label_188:
+  br label %label_192
+
+label_192:
+  %t18 = icmp sgt i64 20, 19
+  br i1 %t18, label %label_193, label %label_194
+
+label_193:
+  br label %label_197
+
+label_197:
+  %t19 = icmp sgt i64 21, 20
+  br i1 %t19, label %label_198, label %label_199
+
+label_198:
+  br label %label_202
+
+label_202:
+  %t20 = icmp sgt i64 22, 21
+  br i1 %t20, label %label_203, label %label_204
+
+label_203:
+  br label %label_207
+
+label_207:
+  %t21 = icmp sgt i64 23, 22
+  br i1 %t21, label %label_208, label %label_209
+
+label_208:
+  br label %label_212
+
+label_212:
+  %t22 = icmp sgt i64 24, 23
+  br i1 %t22, label %label_213, label %label_214
+
+label_213:
+  br label %label_217
+
+label_217:
+  %t23 = icmp sgt i64 25, 24
+  br i1 %t23, label %label_218, label %label_219
+
+label_218:
+  br label %label_222
+
+label_222:
+  %t24 = icmp sgt i64 26, 25
+  br i1 %t24, label %label_223, label %label_224
+
+label_223:
+  br label %label_227
+
+label_227:
+  %t25 = icmp sgt i64 27, 26
+  br i1 %t25, label %label_228, label %label_229
+
+label_228:
+  br label %label_232
+
+label_232:
+  %t26 = icmp sgt i64 28, 27
+  br i1 %t26, label %label_233, label %label_234
+
+label_233:
+  br label %label_237
+
+label_237:
+  %t27 = icmp sgt i64 29, 28
+  br i1 %t27, label %label_238, label %label_239
+
+label_238:
+  br label %label_242
+
+label_242:
+  %t28 = icmp sgt i64 30, 29
+  br i1 %t28, label %label_243, label %label_244
+
+label_243:
+  br label %label_247
+
+label_247:
+  %t29 = icmp sgt i64 31, 30
+  br i1 %t29, label %label_248, label %label_249
+
+label_248:
+  br label %label_252
+
+label_252:
+  %t30 = icmp sgt i64 32, 31
+  br i1 %t30, label %label_253, label %label_254
+
+label_253:
+  br label %label_257
+
+label_257:
+  %t31 = icmp sgt i64 33, 32
+  br i1 %t31, label %label_258, label %label_259
+
+label_258:
+  br label %label_262
+
+label_262:
+  %t32 = icmp sgt i64 34, 33
+  br i1 %t32, label %label_263, label %label_264
+
+label_263:
+  br label %label_267
+
+label_267:
+  %t33 = icmp sgt i64 35, 34
+  br i1 %t33, label %label_268, label %label_269
+
+label_268:
+  br label %label_272
+
+label_272:
+  %t34 = icmp sgt i64 36, 35
+  br i1 %t34, label %label_273, label %label_274
+
+label_273:
+  br label %label_277
+
+label_277:
+  %t35 = icmp sgt i64 37, 36
+  br i1 %t35, label %label_278, label %label_279
+
+label_278:
+  br label %label_282
+
+label_282:
+  %t36 = icmp sgt i64 38, 37
+  br i1 %t36, label %label_283, label %label_284
+
+label_283:
+  br label %label_287
+
+label_287:
+  %t37 = icmp sgt i64 39, 38
+  br i1 %t37, label %label_288, label %label_289
+
+label_288:
+  br label %label_292
+
+label_292:
+  %t38 = icmp sgt i64 40, 39
+  br i1 %t38, label %label_293, label %label_294
+
+label_293:
+  br label %label_297
+
+label_297:
+  %t39 = icmp sgt i64 41, 40
+  br i1 %t39, label %label_298, label %label_299
+
+label_298:
+  br label %label_302
+
+label_302:
+  %t40 = icmp sgt i64 42, 41
+  br i1 %t40, label %label_303, label %label_304
+
+label_303:
+  br label %label_307
+
+label_307:
+  %t41 = icmp sgt i64 43, 42
+  br i1 %t41, label %label_308, label %label_309
+
+label_308:
+  br label %label_312
+
+label_312:
+  %t42 = icmp sgt i64 44, 43
+  br i1 %t42, label %label_313, label %label_314
+
+label_313:
+  br label %label_317
+
+label_317:
+  %t43 = icmp sgt i64 45, 44
+  br i1 %t43, label %label_318, label %label_319
+
+label_318:
+  br label %label_322
+
+label_322:
+  %t44 = icmp sgt i64 46, 45
+  br i1 %t44, label %label_323, label %label_324
+
+label_323:
+  br label %label_327
+
+label_327:
+  %t45 = icmp sgt i64 47, 46
+  br i1 %t45, label %label_328, label %label_329
+
+label_328:
+  br label %label_332
+
+label_332:
+  %t46 = icmp sgt i64 48, 47
+  br i1 %t46, label %label_333, label %label_334
+
+label_333:
+  br label %label_337
+
+label_337:
+  %t47 = icmp sgt i64 49, 48
+  br i1 %t47, label %label_338, label %label_339
+
+label_338:
+  br label %label_342
+
+label_342:
+  %t48 = icmp sgt i64 50, 49
+  br i1 %t48, label %label_343, label %label_344
+
+label_343:
+  br label %label_347
+
+label_347:
+  %t49 = icmp sgt i64 51, 50
+  br i1 %t49, label %label_348, label %label_349
+
+label_348:
+  br label %label_352
+
+label_352:
+  %t50 = icmp sgt i64 52, 51
+  br i1 %t50, label %label_353, label %label_354
+
+label_353:
+  br label %label_357
+
+label_357:
+  %t51 = icmp sgt i64 53, 52
+  br i1 %t51, label %label_358, label %label_359
+
+label_358:
+  br label %label_362
+
+label_362:
+  %t52 = icmp sgt i64 54, 53
+  br i1 %t52, label %label_363, label %label_364
+
+label_363:
+  br label %label_367
+
+label_367:
+  %t53 = icmp sgt i64 55, 54
+  br i1 %t53, label %label_368, label %label_369
+
+label_368:
+  br label %label_372
+
+label_372:
+  %t54 = icmp sgt i64 56, 55
+  br i1 %t54, label %label_373, label %label_374
+
+label_373:
+  br label %label_377
+
+label_377:
+  %t55 = icmp sgt i64 57, 56
+  br i1 %t55, label %label_378, label %label_379
+
+label_378:
+  br label %label_382
+
+label_382:
+  %t56 = icmp sgt i64 58, 57
+  br i1 %t56, label %label_383, label %label_384
+
+label_383:
+  br label %label_387
+
+label_387:
+  %t57 = icmp sgt i64 59, 58
+  br i1 %t57, label %label_388, label %label_389
+
+label_388:
+  br label %label_392
+
+label_392:
+  %t58 = icmp sgt i64 60, 59
+  br i1 %t58, label %label_393, label %label_394
+
+label_393:
+  br label %label_397
+
+label_397:
+  %t59 = icmp sgt i64 61, 60
+  br i1 %t59, label %label_398, label %label_399
+
+label_398:
+  br label %label_402
+
+label_402:
+  %t60 = icmp sgt i64 62, 61
+  br i1 %t60, label %label_403, label %label_404
+
+label_403:
+  br label %label_407
+
+label_407:
+  %t61 = icmp sgt i64 63, 62
+  br i1 %t61, label %label_408, label %label_409
+
+label_408:
+  br label %label_412
+
+label_412:
+  %t62 = icmp sgt i64 64, 63
+  br i1 %t62, label %label_413, label %label_414
+
+label_413:
+  br label %label_417
+
+label_417:
+  %t63 = icmp sgt i64 65, 64
+  br i1 %t63, label %label_418, label %label_419
+
+label_418:
+  br label %label_422
+
+label_422:
+  %t64 = icmp sgt i64 66, 65
+  br i1 %t64, label %label_423, label %label_424
+
+label_423:
+  br label %label_427
+
+label_427:
+  %t65 = icmp sgt i64 67, 66
+  br i1 %t65, label %label_428, label %label_429
+
+label_428:
+  br label %label_432
+
+label_432:
+  %t66 = icmp sgt i64 68, 67
+  br i1 %t66, label %label_433, label %label_434
+
+label_433:
+  br label %label_437
+
+label_437:
+  %t67 = icmp sgt i64 69, 68
+  br i1 %t67, label %label_438, label %label_439
+
+label_438:
+  br label %label_442
+
+label_442:
+  %t68 = icmp sgt i64 70, 69
+  br i1 %t68, label %label_443, label %label_444
+
+label_443:
+  br label %label_447
+
+label_447:
+  %t69 = icmp sgt i64 71, 70
+  br i1 %t69, label %label_448, label %label_449
+
+label_448:
+  br label %label_452
+
+label_452:
+  %t70 = icmp sgt i64 72, 71
+  br i1 %t70, label %label_453, label %label_454
+
+label_453:
+  br label %label_457
+
+label_457:
+  %t71 = icmp sgt i64 73, 72
+  br i1 %t71, label %label_458, label %label_459
+
+label_458:
+  br label %label_462
+
+label_462:
+  %t72 = icmp sgt i64 74, 73
+  br i1 %t72, label %label_463, label %label_464
+
+label_463:
+  br label %label_467
+
+label_467:
+  %t73 = icmp sgt i64 75, 74
+  br i1 %t73, label %label_468, label %label_469
+
+label_468:
+  br label %label_472
+
+label_472:
+  %t74 = icmp sgt i64 76, 75
+  br i1 %t74, label %label_473, label %label_474
+
+label_473:
+  br label %label_477
+
+label_477:
+  %t75 = icmp sgt i64 77, 76
+  br i1 %t75, label %label_478, label %label_479
+
+label_478:
+  br label %label_482
+
+label_482:
+  %t76 = icmp sgt i64 78, 77
+  br i1 %t76, label %label_483, label %label_484
+
+label_483:
+  br label %label_487
+
+label_487:
+  %t77 = icmp sgt i64 79, 78
+  br i1 %t77, label %label_488, label %label_489
+
+label_488:
+  br label %label_492
+
+label_492:
+  %t78 = icmp sgt i64 80, 79
+  br i1 %t78, label %label_493, label %label_494
+
+label_493:
+  br label %label_497
+
+label_497:
+  %t79 = icmp sgt i64 81, 80
+  br i1 %t79, label %label_498, label %label_499
+
+label_498:
+  br label %label_502
+
+label_502:
+  %t80 = icmp sgt i64 82, 81
+  br i1 %t80, label %label_503, label %label_504
+
+label_503:
+  br label %label_507
+
+label_507:
+  %t81 = icmp sgt i64 83, 82
+  br i1 %t81, label %label_508, label %label_509
+
+label_508:
+  br label %label_512
+
+label_512:
+  %t82 = icmp sgt i64 84, 83
+  br i1 %t82, label %label_513, label %label_514
+
+label_513:
+  br label %label_517
+
+label_517:
+  %t83 = icmp sgt i64 85, 84
+  br i1 %t83, label %label_518, label %label_519
+
+label_518:
+  br label %label_522
+
+label_522:
+  %t84 = icmp sgt i64 86, 85
+  br i1 %t84, label %label_523, label %label_524
+
+label_523:
+  br label %label_527
+
+label_527:
+  %t85 = icmp sgt i64 87, 86
+  br i1 %t85, label %label_528, label %label_529
+
+label_528:
+  br label %label_532
+
+label_532:
+  %t86 = icmp sgt i64 88, 87
+  br i1 %t86, label %label_533, label %label_534
+
+label_533:
+  br label %label_537
+
+label_537:
+  %t87 = icmp sgt i64 89, 88
+  br i1 %t87, label %label_538, label %label_539
+
+label_538:
+  br label %label_542
+
+label_542:
+  %t88 = icmp sgt i64 90, 89
+  br i1 %t88, label %label_543, label %label_544
+
+label_543:
+  br label %label_547
+
+label_547:
+  %t89 = icmp sgt i64 91, 90
+  br i1 %t89, label %label_548, label %label_549
+
+label_548:
+  br label %label_552
+
+label_552:
+  %t90 = icmp sgt i64 92, 91
+  br i1 %t90, label %label_553, label %label_554
+
+label_553:
+  br label %label_557
+
+label_557:
+  %t91 = icmp sgt i64 93, 92
+  br i1 %t91, label %label_558, label %label_559
+
+label_558:
+  br label %label_562
+
+label_562:
+  %t92 = icmp sgt i64 94, 93
+  br i1 %t92, label %label_563, label %label_564
+
+label_563:
+  br label %label_567
+
+label_567:
+  %t93 = icmp sgt i64 95, 94
+  br i1 %t93, label %label_568, label %label_569
+
+label_568:
+  br label %label_572
+
+label_572:
+  %t94 = icmp sgt i64 96, 95
+  br i1 %t94, label %label_573, label %label_574
+
+label_573:
+  br label %label_577
+
+label_577:
+  %t95 = icmp sgt i64 97, 96
+  br i1 %t95, label %label_578, label %label_579
+
+label_578:
+  br label %label_582
+
+label_582:
+  %t96 = icmp sgt i64 98, 97
+  br i1 %t96, label %label_583, label %label_584
+
+label_583:
+  br label %label_587
+
+label_587:
+  %t97 = icmp sgt i64 99, 98
+  br i1 %t97, label %label_588, label %label_589
+
+label_588:
+  br label %label_592
+
+label_592:
+  %t98 = icmp sgt i64 100, 99
+  br i1 %t98, label %label_593, label %label_594
+
+label_593:
+  br label %label_594
+
+label_594:
+  br label %label_589
+
+label_589:
+  br label %label_584
+
+label_584:
+  br label %label_579
+
+label_579:
+  br label %label_574
+
+label_574:
+  br label %label_569
+
+label_569:
+  br label %label_564
+
+label_564:
+  br label %label_559
+
+label_559:
+  br label %label_554
+
+label_554:
+  br label %label_549
+
+label_549:
+  br label %label_544
+
+label_544:
+  br label %label_539
+
+label_539:
+  br label %label_534
+
+label_534:
+  br label %label_529
+
+label_529:
+  br label %label_524
+
+label_524:
+  br label %label_519
+
+label_519:
+  br label %label_514
+
+label_514:
+  br label %label_509
+
+label_509:
+  br label %label_504
+
+label_504:
+  br label %label_499
+
+label_499:
+  br label %label_494
+
+label_494:
+  br label %label_489
+
+label_489:
+  br label %label_484
+
+label_484:
+  br label %label_479
+
+label_479:
+  br label %label_474
+
+label_474:
+  br label %label_469
+
+label_469:
+  br label %label_464
+
+label_464:
+  br label %label_459
+
+label_459:
+  br label %label_454
+
+label_454:
+  br label %label_449
+
+label_449:
+  br label %label_444
+
+label_444:
+  br label %label_439
+
+label_439:
+  br label %label_434
+
+label_434:
+  br label %label_429
+
+label_429:
+  br label %label_424
+
+label_424:
+  br label %label_419
+
+label_419:
+  br label %label_414
+
+label_414:
+  br label %label_409
+
+label_409:
+  br label %label_404
+
+label_404:
+  br label %label_399
+
+label_399:
+  br label %label_394
+
+label_394:
+  br label %label_389
+
+label_389:
+  br label %label_384
+
+label_384:
+  br label %label_379
+
+label_379:
+  br label %label_374
+
+label_374:
+  br label %label_369
+
+label_369:
+  br label %label_364
+
+label_364:
+  br label %label_359
+
+label_359:
+  br label %label_354
+
+label_354:
+  br label %label_349
+
+label_349:
+  br label %label_344
+
+label_344:
+  br label %label_339
+
+label_339:
+  br label %label_334
+
+label_334:
+  br label %label_329
+
+label_329:
+  br label %label_324
+
+label_324:
+  br label %label_319
+
+label_319:
+  br label %label_314
+
+label_314:
+  br label %label_309
+
+label_309:
+  br label %label_304
+
+label_304:
+  br label %label_299
+
+label_299:
+  br label %label_294
+
+label_294:
+  br label %label_289
+
+label_289:
+  br label %label_284
+
+label_284:
+  br label %label_279
+
+label_279:
+  br label %label_274
+
+label_274:
+  br label %label_269
+
+label_269:
+  br label %label_264
+
+label_264:
+  br label %label_259
+
+label_259:
+  br label %label_254
+
+label_254:
+  br label %label_249
+
+label_249:
+  br label %label_244
+
+label_244:
+  br label %label_239
+
+label_239:
+  br label %label_234
+
+label_234:
+  br label %label_229
+
+label_229:
+  br label %label_224
+
+label_224:
+  br label %label_219
+
+label_219:
+  br label %label_214
+
+label_214:
+  br label %label_209
+
+label_209:
+  br label %label_204
+
+label_204:
+  br label %label_199
+
+label_199:
+  br label %label_194
+
+label_194:
+  br label %label_189
+
+label_189:
+  br label %label_184
+
+label_184:
+  br label %label_179
+
+label_179:
+  br label %label_174
+
+label_174:
+  br label %label_169
+
+label_169:
+  br label %label_164
+
+label_164:
+  br label %label_159
+
+label_159:
+  br label %label_154
+
+label_154:
+  br label %label_149
+
+label_149:
+  br label %label_144
+
+label_144:
+  br label %label_139
+
+label_139:
+  br label %label_134
+
+label_134:
+  br label %label_129
+
+label_129:
+  br label %label_124
+
+label_124:
+  br label %label_119
+
+label_119:
+  br label %label_114
+
+label_114:
+  br label %label_109
+
+label_109:
+  br label %label_104
+
+label_104:
+  call void @putint(i64 100)
+  call void @putch(i64 10)
+  %t99 = trunc i64 0 to i32
+  ret i32 %t99
+
+  ; Default return
+  ret i32 0
+}
+

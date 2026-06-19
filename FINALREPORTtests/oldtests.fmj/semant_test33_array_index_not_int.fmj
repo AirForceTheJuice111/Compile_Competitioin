@@ -1,0 +1,7 @@
+// EXPECT: FAIL
+// Target: array index must be int.
+public int main() {
+    int[] a;
+    a = new int[2];
+    return a[a];
+}

@@ -1,0 +1,102 @@
+<Program kind="PROGRAM" last_label_num="103" last_temp_num="110">
+    <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="103" last_temp_num="110">
+        <block kind="BLOCK" entry="103">
+            <label kind="LABEL" name="103"/>
+            <ptrcalc kind="PTR_CALC">
+                <dst kind="TEMP" id="106" type="ptr"/>
+                <ptr kind="TEMP" id="100" type="ptr"/>
+                <offset kind="CONST" value="4"/>
+                <def>
+                    <temp id="106"/>
+                </def>
+                <use>
+                    <temp id="100"/>
+                </use>
+            </ptrcalc>
+            <load kind="LOAD" dst="102" temp_type="ptr">
+                <src kind="TEMP" id="106" type="ptr"/>
+                <def>
+                    <temp id="102"/>
+                </def>
+                <use>
+                    <temp id="106"/>
+                </use>
+            </load>
+            <move kind="MOVE" dst="105" temp_type="ptr">
+                <src kind="TEMP" id="102" type="ptr"/>
+                <def>
+                    <temp id="105"/>
+                </def>
+                <use>
+                    <temp id="102"/>
+                </use>
+            </move>
+            <load kind="LOAD" dst="103" temp_type="int">
+                <src kind="TEMP" id="102" type="ptr"/>
+                <def>
+                    <temp id="103"/>
+                </def>
+                <use>
+                    <temp id="102"/>
+                </use>
+            </load>
+            <cjump kind="CJUMP" relop="&gt;=" true="101" false="100">
+                <left kind="CONST" value="1"/>
+                <right kind="CONST" value="0"/>
+            </cjump>
+            <label kind="LABEL" name="101"/>
+            <cjump kind="CJUMP" relop="&gt;=" true="100" false="102">
+                <left kind="CONST" value="1"/>
+                <right kind="TEMP" id="103" type="int"/>
+                <use>
+                    <temp id="103"/>
+                </use>
+            </cjump>
+            <label kind="LABEL" name="100"/>
+            <extcall kind="EXTCALL" name="exit">
+                <args>
+                    <arg index="0">
+                        <value kind="CONST" value="-1"/>
+                    </arg>
+                </args>
+            </extcall>
+            <label kind="LABEL" name="102"/>
+            <movebinop kind="MOVE_BINOP" dst="108" temp_type="int" op="+">
+                <left kind="CONST" value="1"/>
+                <right kind="CONST" value="1"/>
+                <def>
+                    <temp id="108"/>
+                </def>
+            </movebinop>
+            <movebinop kind="MOVE_BINOP" dst="109" temp_type="int" op="*">
+                <left kind="TEMP" id="108" type="int"/>
+                <right kind="CONST" value="4"/>
+                <def>
+                    <temp id="109"/>
+                </def>
+                <use>
+                    <temp id="108"/>
+                </use>
+            </movebinop>
+            <ptrcalc kind="PTR_CALC">
+                <dst kind="TEMP" id="110" type="ptr"/>
+                <ptr kind="TEMP" id="105" type="ptr"/>
+                <offset kind="TEMP" id="109" type="int"/>
+                <def>
+                    <temp id="110"/>
+                </def>
+                <use>
+                    <temp id="105"/>
+                    <temp id="109"/>
+                </use>
+            </ptrcalc>
+            <store kind="STORE">
+                <src kind="CONST" value="1"/>
+                <dst kind="TEMP" id="110" type="ptr"/>
+                <use>
+                    <temp id="110"/>
+                </use>
+            </store>
+        </block>
+    </funcdecl>
+</Program>

@@ -1,0 +1,96 @@
+; Generated LLVM IR from Quad representation
+
+declare i8* @malloc(i32)
+declare void @free(i8*)
+
+declare i32 @printf(i8*, ...)
+declare i32 @__isoc99_scanf(i8*, ...)
+
+declare void @exit(i64)
+
+declare i64 @getint()
+declare i64 @getch()
+declare i64 @getarray(i64*)
+declare void @putint(i64)
+declare void @putch(i64)
+declare void @putarray(i64, i64*)
+
+define i32 @main() {
+entry:
+  br label %label_100
+
+label_100:
+  %t0 = mul i64 12, 2
+  %t1 = trunc i64 %t0 to i32
+  %t2 = call i8* @malloc(i32 %t1)
+  %t10301 = ptrtoint i8* %t2 to i64
+  %t3 = mul i64 8, 2
+  %t11101 = add i64 %t10301, %t3
+  %t4 = ptrtoint i64 (i64)* @A$f to i64
+  %t5 = inttoptr i64 %t11101 to i64*
+  store i64 %t4, i64* %t5
+  %t10001 = add i64 %t10301, 0
+  %t6 = mul i64 0, 2
+  %t11201 = add i64 %t10001, %t6
+  %t7 = inttoptr i64 %t11201 to i64*
+  store i64 1, i64* %t7
+  %t8 = mul i64 12, 2
+  %t9 = trunc i64 %t8 to i32
+  %t10 = call i8* @malloc(i32 %t9)
+  %t10401 = ptrtoint i8* %t10 to i64
+  %t11 = mul i64 8, 2
+  %t11401 = add i64 %t10401, %t11
+  %t12 = ptrtoint i64 (i64)* @B$f to i64
+  %t13 = inttoptr i64 %t11401 to i64*
+  store i64 %t12, i64* %t13
+  %t10101 = add i64 %t10401, 0
+  %t14 = mul i64 4, 2
+  %t11501 = add i64 %t10101, %t14
+  %t15 = inttoptr i64 %t11501 to i64*
+  store i64 10, i64* %t15
+  %t16 = mul i64 0, 2
+  %t11601 = add i64 %t10001, %t16
+  %t17 = inttoptr i64 %t11601 to i64*
+  %t11701 = load i64, i64* %t17
+  %t18 = mul i64 4, 2
+  %t11801 = add i64 %t10101, %t18
+  %t19 = inttoptr i64 %t11801 to i64*
+  %t11901 = load i64, i64* %t19
+  %t10701 = add i64 %t11701, %t11901
+  call void @putint(i64 %t10701)
+  call void @putch(i64 10)
+  %t20 = trunc i64 0 to i32
+  ret i32 %t20
+
+  ; Default return
+  ret i32 0
+}
+
+define i64 @A$f(i64 %t100) {
+entry:
+  br label %label_100
+
+label_100:
+  br label %label_101
+
+label_101:
+  ret i64 0
+
+  ; Default return
+  ret i64 0
+}
+
+define i64 @B$f(i64 %t100) {
+entry:
+  br label %label_100
+
+label_100:
+  br label %label_101
+
+label_101:
+  ret i64 0
+
+  ; Default return
+  ret i64 0
+}
+

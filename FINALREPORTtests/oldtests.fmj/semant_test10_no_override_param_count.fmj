@@ -1,0 +1,16 @@
+// EXPECT: PASS
+public int main() {
+    return 0;
+}
+
+public class A {
+    public int f(int x) {
+        return x;
+    }
+}
+
+public class B extends A {
+    public int f(int z) {
+        return 0;
+    }
+}

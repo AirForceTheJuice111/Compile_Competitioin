@@ -1,0 +1,56 @@
+Function __$main__^main() last_label=109 last_temp=123:
+  Block: Entry Label: L108
+    Exit labels: L102 
+    LABEL L108; 
+    MOVE_EXTCALL t10001:ptr <- malloc(Const:24); 
+    STORE Const:5 -> Mem(t10001:ptr); 
+    PTR_CALC t11301:ptr <- t10001:ptr + Const:4; 
+    STORE Const:1 -> Mem(t11301:ptr); 
+    PTR_CALC t11401:ptr <- t10001:ptr + Const:8; 
+    STORE Const:2 -> Mem(t11401:ptr); 
+    PTR_CALC t11501:ptr <- t10001:ptr + Const:12; 
+    STORE Const:3 -> Mem(t11501:ptr); 
+    PTR_CALC t11601:ptr <- t10001:ptr + Const:16; 
+    STORE Const:4 -> Mem(t11601:ptr); 
+    PTR_CALC t11701:ptr <- t10001:ptr + Const:20; 
+    STORE Const:5 -> Mem(t11701:ptr); 
+    MOVE t10101:int <- Const:0; 
+    MOVE_BINOP t12005:int <- (*, t10101:int, Const:4); 
+    MOVE_BINOP t12003:int <- (+, t12005:int, Const:4); 
+    JUMP L102; 
+  Block: Entry Label: L102
+    Exit labels: L103 L104 
+    LABEL L102; 
+    PHI t10102:int <- Phi([t10103, L107], [t10101, L108]); 
+    PHI t12002:int <- Phi([t12004, L107], [t12003, L108]); 
+    MOVE t10601:int <- t10102:int; 
+    LOAD t10301:int <- Mem(t10001:ptr); 
+    CJUMP < t10601:int t10301:int? L103 : L104; 
+  Block: Entry Label: L103
+    Exit labels: L106 L105 
+    LABEL L103; 
+    MOVE t10801:ptr <- t10001:ptr; 
+    LOAD t10401:int <- Mem(t10001:ptr); 
+    CJUMP >= t10102:int Const:0? L106 : L105; 
+  Block: Entry Label: L106
+    Exit labels: L105 L107 
+    LABEL L106; 
+    CJUMP >= t10102:int t10401:int? L105 : L107; 
+  Block: Entry Label: L105
+    Exit labels: 
+    LABEL L105; 
+    EXTCALL exit(Const:-1); 
+  Block: Entry Label: L107
+    Exit labels: L102 
+    LABEL L107; 
+    PTR_CALC t12101:ptr <- t10801:ptr + t12002:int; 
+    LOAD t10901:int <- Mem(t12101:ptr); 
+    EXTCALL putint(t10901:int); 
+    EXTCALL putch(Const:10); 
+    MOVE_BINOP t10103:int <- (+, t10102:int, Const:1); 
+    MOVE_BINOP t12004:int <- (+, t12002:int, Const:4); 
+    JUMP L102; 
+  Block: Entry Label: L104
+    Exit labels: 
+    LABEL L104; 
+    RETURN Const:1; 

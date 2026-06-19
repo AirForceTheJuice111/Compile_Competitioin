@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program bline="3" bpos="1" eline="5" epos="1">
+    <MainMethod bline="3" bpos="1" eline="5" epos="1">
+        <VarDeclList/>
+        <StmList>
+            <Return bline="4" bpos="5" eline="4" epos="32">
+                <GetArray bline="4" bpos="12" eline="4" epos="31">
+                    <NewArray bline="4" bpos="21" eline="4" epos="30">
+                        <IntExp bline="4" bpos="29" eline="4" epos="29" val="4"/>
+                    </NewArray>
+                </GetArray>
+            </Return>
+        </StmList>
+    </MainMethod>
+    <ClassDeclList/>
+</Program>

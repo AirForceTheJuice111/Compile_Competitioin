@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program>
+    <FunctionDeclaration name="__$main__^main" return_type="INT" last_temp="105" last_label="99">
+        <Sequence>
+            <Move>
+                <Temp type="INT" temp="102"/>
+                <Const value="3"/>
+            </Move>
+            <Move>
+                <Temp type="INT" temp="104"/>
+                <BinOp type="INT" op="*">
+                    <BinOp type="INT" op="+">
+                        <Temp type="INT" temp="102"/>
+                        <Const value="1"/>
+                    </BinOp>
+                    <Const value="4"/>
+                </BinOp>
+            </Move>
+            <Move>
+                <Temp type="PTR" temp="103"/>
+                <ExtCall type="PTR" extfun="malloc">
+                    <Arguments>
+                        <Temp type="INT" temp="104"/>
+                    </Arguments>
+                </ExtCall>
+            </Move>
+            <Move>
+                <Memory type="INT">
+                    <Temp type="PTR" temp="103"/>
+                </Memory>
+                <Temp type="INT" temp="102"/>
+            </Move>
+            <Move>
+                <Temp type="PTR" temp="100"/>
+                <Temp type="PTR" temp="103"/>
+            </Move>
+        </Sequence>
+    </FunctionDeclaration>
+</Program>

@@ -1,0 +1,45 @@
+<Program kind="PROGRAM" last_label_num="102" last_temp_num="107">
+    <funcdecl kind="FUNCDECL" name="A^f" last_label_num="102" last_temp_num="107">
+        <params>
+            <param temp="101"/>
+            <param temp="100"/>
+        </params>
+        <block kind="BLOCK" entry="100">
+            <label kind="LABEL" name="100"/>
+            <ptrcalc kind="PTR_CALC">
+                <dst kind="TEMP" id="1040101" type="ptr"/>
+                <ptr kind="TEMP" id="101" type="ptr"/>
+                <offset kind="CONST" value="0"/>
+                <def>
+                    <temp id="1040101"/>
+                </def>
+                <use>
+                    <temp id="101"/>
+                </use>
+            </ptrcalc>
+            <load kind="LOAD" dst="1050101" temp_type="int">
+                <src kind="TEMP" id="1040101" type="ptr"/>
+                <def>
+                    <temp id="1050101"/>
+                </def>
+                <use>
+                    <temp id="1040101"/>
+                </use>
+            </load>
+            <return kind="RETURN">
+                <value kind="TEMP" id="1050101" type="int"/>
+                <use>
+                    <temp id="1050101"/>
+                </use>
+            </return>
+        </block>
+    </funcdecl>
+    <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="102" last_temp_num="102">
+        <block kind="BLOCK" entry="100">
+            <label kind="LABEL" name="100"/>
+            <return kind="RETURN">
+                <value kind="CONST" value="0"/>
+            </return>
+        </block>
+    </funcdecl>
+</Program>

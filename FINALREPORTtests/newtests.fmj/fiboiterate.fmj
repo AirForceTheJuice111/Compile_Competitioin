@@ -1,0 +1,28 @@
+public
+int main() {
+  int n;
+  int i;
+  int f1;
+  int f2;
+  int ftemp;
+
+  n = 47; //biggest 32-bit fibonacci number
+
+  i = 0; f1 = 0; f2 = 1;
+
+  while (i < n) {
+    if (i==0) putint(i);
+    else 
+      if (i==1) putint(i);
+      else {
+        ftemp = f1;
+        f1 = f2;
+        f2 = ftemp + f1;
+        putint(f2);
+      }
+    putch(32);
+    i = i + 1;
+  }
+  putch(10);
+  return 0;
+}

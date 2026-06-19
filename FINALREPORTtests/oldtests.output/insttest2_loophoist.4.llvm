@@ -1,0 +1,101 @@
+; Generated LLVM IR from Quad representation
+
+declare i8* @malloc(i32)
+declare void @free(i8*)
+
+declare i32 @printf(i8*, ...)
+declare i32 @__isoc99_scanf(i8*, ...)
+
+declare void @exit(i64)
+
+declare i64 @getint()
+declare i64 @getch()
+declare i64 @getarray(i64*)
+declare void @putint(i64)
+declare void @putch(i64)
+declare void @putarray(i64, i64*)
+
+define i32 @main() {
+entry:
+  br label %label_108
+
+label_108:
+  %t0 = mul i64 4, 2
+  %t1 = trunc i64 %t0 to i32
+  %t2 = call i8* @malloc(i32 %t1)
+  %t10301 = ptrtoint i8* %t2 to i64
+  %t3 = mul i64 20, 2
+  %t4 = trunc i64 %t3 to i32
+  %t5 = call i8* @malloc(i32 %t4)
+  %t10401 = ptrtoint i8* %t5 to i64
+  %t6 = inttoptr i64 %t10401 to i64*
+  store i64 4, i64* %t6
+  %t7 = mul i64 4, 2
+  %t11701 = add i64 %t10401, %t7
+  %t8 = inttoptr i64 %t11701 to i64*
+  store i64 1, i64* %t8
+  %t9 = mul i64 8, 2
+  %t11801 = add i64 %t10401, %t9
+  %t10 = inttoptr i64 %t11801 to i64*
+  store i64 2, i64* %t10
+  %t11 = mul i64 12, 2
+  %t11901 = add i64 %t10401, %t11
+  %t12 = inttoptr i64 %t11901 to i64*
+  store i64 3, i64* %t12
+  %t13 = mul i64 16, 2
+  %t12001 = add i64 %t10401, %t13
+  %t14 = inttoptr i64 %t12001 to i64*
+  store i64 4, i64* %t14
+  %t15 = mul i64 0, 2
+  %t12101 = add i64 %t10301, %t15
+  %t16 = inttoptr i64 %t12101 to i64*
+  store i64 %t10401, i64* %t16
+  %t10001 = add i64 %t10301, 0
+  %t10101 = add i64 3, 0
+  %t17 = mul i64 0, 2
+  %t12201 = add i64 %t10001, %t17
+  br label %label_102
+
+label_102:
+  %t10102 = phi i64 [ %t10103, %label_107 ], [ %t10101, %label_108 ]
+  %t18 = icmp sge i64 %t10102, 0
+  br i1 %t18, label %label_103, label %label_104
+
+label_103:
+  %t10103 = sub i64 %t10102, 1
+  %t19 = inttoptr i64 %t12201 to i64*
+  %t10501 = load i64, i64* %t19
+  %t11001 = add i64 %t10501, 0
+  %t20 = inttoptr i64 %t10501 to i64*
+  %t10601 = load i64, i64* %t20
+  %t21 = icmp sge i64 %t10103, 0
+  br i1 %t21, label %label_106, label %label_105
+
+label_106:
+  %t22 = icmp sge i64 %t10103, %t10601
+  br i1 %t22, label %label_105, label %label_107
+
+label_105:
+  call void @exit(i64 -1)
+  unreachable
+
+label_107:
+  %t12401 = add i64 %t10103, 1
+  %t12501 = mul i64 %t12401, 4
+  %t23 = mul i64 %t12501, 2
+  %t12601 = add i64 %t11001, %t23
+  %t24 = inttoptr i64 %t12601 to i64*
+  %t11101 = load i64, i64* %t24
+  call void @putint(i64 %t11101)
+  call void @putch(i64 32)
+  br label %label_102
+
+label_104:
+  call void @putch(i64 10)
+  %t25 = trunc i64 2 to i32
+  ret i32 %t25
+
+  ; Default return
+  ret i32 0
+}
+

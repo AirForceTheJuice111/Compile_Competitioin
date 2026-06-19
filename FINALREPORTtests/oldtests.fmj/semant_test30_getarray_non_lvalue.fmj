@@ -1,0 +1,5 @@
+// EXPECT: FAIL
+// Target: getarray(...) requires array lvalue.
+public int main() {
+    return getarray(new int[4]);
+}

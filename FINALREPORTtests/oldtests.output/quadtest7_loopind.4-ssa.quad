@@ -1,0 +1,42 @@
+Function B^f(t100) last_label=102 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; def: use: 
+    JUMP L101; def: use: 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; def: use: 
+    RETURN Const:0; def: use: 
+Function __$main__^main() last_label=102 last_temp=121:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    MOVE_EXTCALL t1030101:ptr <- malloc(Const:12); def: t1030101 use: 
+    PTR_CALC t1110101:ptr <- t1030101:ptr + Const:8; def: t1110101 use: t1030101 
+    STORE Name:A^f -> Mem(t1110101:ptr); def: use: t1110101 
+    MOVE t1000101:ptr <- t1030101:ptr; def: t1000101 use: t1030101 
+    PTR_CALC t1120101:ptr <- t1000101:ptr + Const:0; def: t1120101 use: t1000101 
+    STORE Const:1 -> Mem(t1120101:ptr); def: use: t1120101 
+    MOVE_EXTCALL t1040101:ptr <- malloc(Const:12); def: t1040101 use: 
+    PTR_CALC t1140101:ptr <- t1040101:ptr + Const:8; def: t1140101 use: t1040101 
+    STORE Name:B^f -> Mem(t1140101:ptr); def: use: t1140101 
+    MOVE t1010101:ptr <- t1040101:ptr; def: t1010101 use: t1040101 
+    PTR_CALC t1150101:ptr <- t1010101:ptr + Const:4; def: t1150101 use: t1010101 
+    STORE Const:10 -> Mem(t1150101:ptr); def: use: t1150101 
+    PTR_CALC t1160101:ptr <- t1000101:ptr + Const:0; def: t1160101 use: t1000101 
+    LOAD t1170101:int <- Mem(t1160101:ptr); def: t1170101 use: t1160101 
+    PTR_CALC t1180101:ptr <- t1010101:ptr + Const:4; def: t1180101 use: t1010101 
+    LOAD t1190101:int <- Mem(t1180101:ptr); def: t1190101 use: t1180101 
+    MOVE_BINOP t1070101:int <- (+, t1170101:int, t1190101:int); def: t1070101 use: t1190101 t1170101 
+    EXTCALL putint(t1070101:int); def: use: t1070101 
+    EXTCALL putch(Const:10); def: use: 
+    RETURN Const:0; def: use: 
+Function A^f(t100) last_label=102 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; def: use: 
+    JUMP L101; def: use: 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; def: use: 
+    RETURN Const:0; def: use: 

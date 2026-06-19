@@ -1,0 +1,17 @@
+Function __$main__^main() last_label=110 last_temp=105:
+  Block: Entry Label: L108
+    Exit labels: L106 
+    LABEL L108; def: use: 
+    JUMP L106; def: use: 
+  Block: Entry Label: L106
+    Exit labels: L107 
+    LABEL L106; def: use: 
+    JUMP L107; def: use: 
+  Block: Entry Label: L107
+    Exit labels: 
+    LABEL L107; def: use: 
+    RETURN Const:2; def: use: 
+  Block: Entry Label: L110
+    Exit labels: 
+    LABEL L110; def: use: 
+    RETURN Const:0; def: use: 

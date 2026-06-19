@@ -1,0 +1,136 @@
+<Program kind="PROGRAM" last_label_num="105" last_temp_num="111">
+    <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="100" last_temp_num="111">
+        <block kind="BLOCK" entry="100">
+            <label kind="LABEL" name="100"/>
+            <moveextcall kind="MOVE_EXTCALL" dst="101" temp_type="ptr">
+                <extcall kind="EXTCALL" name="malloc">
+                    <args>
+                        <arg index="0">
+                            <value kind="CONST" value="4"/>
+                        </arg>
+                    </args>
+                </extcall>
+                <def>
+                    <temp id="101"/>
+                </def>
+            </moveextcall>
+            <ptrcalc kind="PTR_CALC">
+                <dst kind="TEMP" id="108" type="ptr"/>
+                <ptr kind="TEMP" id="101" type="ptr"/>
+                <offset kind="CONST" value="0"/>
+                <def>
+                    <temp id="108"/>
+                </def>
+                <use>
+                    <temp id="101"/>
+                </use>
+            </ptrcalc>
+            <store kind="STORE">
+                <src kind="NAME" name="C^max"/>
+                <dst kind="TEMP" id="108" type="ptr"/>
+                <use>
+                    <temp id="108"/>
+                </use>
+            </store>
+            <move kind="MOVE" dst="102" temp_type="ptr">
+                <src kind="TEMP" id="101" type="ptr"/>
+                <def>
+                    <temp id="102"/>
+                </def>
+                <use>
+                    <temp id="101"/>
+                </use>
+            </move>
+            <ptrcalc kind="PTR_CALC">
+                <dst kind="TEMP" id="109" type="ptr"/>
+                <ptr kind="TEMP" id="102" type="ptr"/>
+                <offset kind="CONST" value="0"/>
+                <def>
+                    <temp id="109"/>
+                </def>
+                <use>
+                    <temp id="102"/>
+                </use>
+            </ptrcalc>
+            <load kind="LOAD" dst="104" temp_type="ptr">
+                <src kind="TEMP" id="109" type="ptr"/>
+                <def>
+                    <temp id="104"/>
+                </def>
+                <use>
+                    <temp id="109"/>
+                </use>
+            </load>
+            <movecall kind="MOVE_CALL" dst="105" temp_type="int">
+                <call kind="CALL" name="max">
+                    <object kind="TEMP" id="104" type="ptr"/>
+                    <args>
+                        <arg index="0">
+                            <value kind="TEMP" id="102" type="ptr"/>
+                        </arg>
+                        <arg index="1">
+                            <value kind="CONST" value="100"/>
+                        </arg>
+                        <arg index="2">
+                            <value kind="CONST" value="200"/>
+                        </arg>
+                    </args>
+                </call>
+                <def>
+                    <temp id="105"/>
+                </def>
+                <use>
+                    <temp id="104"/>
+                    <temp id="102"/>
+                </use>
+            </movecall>
+            <extcall kind="EXTCALL" name="putint">
+                <args>
+                    <arg index="0">
+                        <value kind="TEMP" id="105" type="int"/>
+                    </arg>
+                </args>
+                <use>
+                    <temp id="105"/>
+                </use>
+            </extcall>
+            <return kind="RETURN">
+                <value kind="CONST" value="1"/>
+            </return>
+        </block>
+    </funcdecl>
+    <funcdecl kind="FUNCDECL" name="C^max" last_label_num="105" last_temp_num="103">
+        <params>
+            <param temp="100"/>
+            <param temp="101"/>
+            <param temp="102"/>
+        </params>
+        <block kind="BLOCK" entry="105">
+            <label kind="LABEL" name="105"/>
+            <cjump kind="CJUMP" relop="&gt;" true="102" false="103">
+                <left kind="TEMP" id="101" type="int"/>
+                <right kind="TEMP" id="102" type="int"/>
+                <use>
+                    <temp id="101"/>
+                    <temp id="102"/>
+                </use>
+            </cjump>
+            <label kind="LABEL" name="102"/>
+            <return kind="RETURN">
+                <value kind="TEMP" id="101" type="int"/>
+                <use>
+                    <temp id="101"/>
+                </use>
+            </return>
+            <jump kind="JUMP" target="104"/>
+            <label kind="LABEL" name="103"/>
+            <return kind="RETURN">
+                <value kind="TEMP" id="102" type="int"/>
+                <use>
+                    <temp id="102"/>
+                </use>
+            </return>
+            <label kind="LABEL" name="104"/>
+        </block>
+    </funcdecl>
+</Program>

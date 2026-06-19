@@ -1,0 +1,39 @@
+<Program kind="PROGRAM" last_label_num="104" last_temp_num="109">
+    <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="104" last_temp_num="111">
+        <block kind="BLOCK" entry="103">
+            <exits>
+                <exit label="100"/>
+            </exits>
+            <label kind="LABEL" name="103"/>
+            <move kind="MOVE" dst="10501" temp_type="ptr">
+                <src kind="TEMP" id="100" type="ptr"/>
+                <def>
+                    <temp id="10501"/>
+                </def>
+                <use>
+                    <temp id="100"/>
+                </use>
+            </move>
+            <load kind="LOAD" dst="10301" temp_type="int">
+                <src kind="TEMP" id="100" type="ptr"/>
+                <def>
+                    <temp id="10301"/>
+                </def>
+                <use>
+                    <temp id="100"/>
+                </use>
+            </load>
+            <jump kind="JUMP" target="100"/>
+        </block>
+        <block kind="BLOCK" entry="100">
+            <label kind="LABEL" name="100"/>
+            <extcall kind="EXTCALL" name="exit">
+                <args>
+                    <arg index="0">
+                        <value kind="CONST" value="-1"/>
+                    </arg>
+                </args>
+            </extcall>
+        </block>
+    </funcdecl>
+</Program>

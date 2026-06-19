@@ -1,0 +1,11 @@
+public int main() {
+    int c;
+    int x;
+    c = getint();
+    if (c) {
+        x = 1;
+    } else {
+        x = 2;
+    }
+    return x;
+}

@@ -1,0 +1,34 @@
+Function __$main__^main() last_label=102 last_temp=113:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    MOVE_EXTCALL t10101:ptr <- malloc(Const:4); def: t10101 use: 
+    PTR_CALC t10801:ptr <- t10101:ptr + Const:0; def: t10801 use: t10101 
+    STORE Name:C^max -> Mem(t10801:ptr); def: use: t10801 
+    MOVE t10201:ptr <- t10101:ptr; def: t10201 use: t10101 
+    PTR_CALC t10901:ptr <- t10201:ptr + Const:0; def: t10901 use: t10201 
+    LOAD t10401:ptr <- Mem(t10901:ptr); def: t10401 use: t10901 
+    MOVE_CALL t10501:int <- max[t10401:ptr] (t10201:ptr, Const:100, Const:200); def: t10501 use: t10201 t10401 
+    EXTCALL putint(t10501:int); def: use: t10501 
+    RETURN Const:1; def: use: 
+  Block: Entry Label: L102
+    Exit labels: 
+    LABEL L102; def: use: 
+    RETURN Const:0; def: use: 
+Function C^max(t100, t101, t102) last_label=108 last_temp=105:
+  Block: Entry Label: L105
+    Exit labels: L102 L103 
+    LABEL L105; def: use: 
+    CJUMP > t101:int t102:int? L102 : L103; def: use: t102 t101 
+  Block: Entry Label: L102
+    Exit labels: 
+    LABEL L102; def: use: 
+    RETURN t101:int; def: use: t101 
+  Block: Entry Label: L103
+    Exit labels: 
+    LABEL L103; def: use: 
+    RETURN t102:int; def: use: t102 
+  Block: Entry Label: L108
+    Exit labels: 
+    LABEL L108; def: use: 
+    RETURN Const:0; def: use: 

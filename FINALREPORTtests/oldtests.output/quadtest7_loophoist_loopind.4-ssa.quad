@@ -1,0 +1,42 @@
+Function A^f(t100) last_label=103 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; def: use: 
+    JUMP L101; def: use: 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; def: use: 
+    RETURN Const:0; def: use: 
+Function __$main__^main() last_label=103 last_temp=121:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    MOVE_EXTCALL t103010101:ptr <- malloc(Const:12); def: t103010101 use: 
+    PTR_CALC t111010101:ptr <- t103010101:ptr + Const:8; def: t111010101 use: t103010101 
+    STORE Name:A^f -> Mem(t111010101:ptr); def: use: t111010101 
+    MOVE t100010101:ptr <- t103010101:ptr; def: t100010101 use: t103010101 
+    PTR_CALC t112010101:ptr <- t100010101:ptr + Const:0; def: t112010101 use: t100010101 
+    STORE Const:1 -> Mem(t112010101:ptr); def: use: t112010101 
+    MOVE_EXTCALL t104010101:ptr <- malloc(Const:12); def: t104010101 use: 
+    PTR_CALC t114010101:ptr <- t104010101:ptr + Const:8; def: t114010101 use: t104010101 
+    STORE Name:B^f -> Mem(t114010101:ptr); def: use: t114010101 
+    MOVE t101010101:ptr <- t104010101:ptr; def: t101010101 use: t104010101 
+    PTR_CALC t115010101:ptr <- t101010101:ptr + Const:4; def: t115010101 use: t101010101 
+    STORE Const:10 -> Mem(t115010101:ptr); def: use: t115010101 
+    PTR_CALC t116010101:ptr <- t100010101:ptr + Const:0; def: t116010101 use: t100010101 
+    LOAD t117010101:int <- Mem(t116010101:ptr); def: t117010101 use: t116010101 
+    PTR_CALC t118010101:ptr <- t101010101:ptr + Const:4; def: t118010101 use: t101010101 
+    LOAD t119010101:int <- Mem(t118010101:ptr); def: t119010101 use: t118010101 
+    MOVE_BINOP t107010101:int <- (+, t117010101:int, t119010101:int); def: t107010101 use: t119010101 t117010101 
+    EXTCALL putint(t107010101:int); def: use: t107010101 
+    EXTCALL putch(Const:10); def: use: 
+    RETURN Const:0; def: use: 
+Function B^f(t100) last_label=103 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; def: use: 
+    JUMP L101; def: use: 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; def: use: 
+    RETURN Const:0; def: use: 

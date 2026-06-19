@@ -1,0 +1,57 @@
+Function __$main__^main() last_label=109 last_temp=129:
+  Block: Entry Label: L108
+    Exit labels: L102 
+    LABEL L108; 
+    MOVE_EXTCALL t10301:ptr <- malloc(Const:4); 
+    MOVE_EXTCALL t10401:ptr <- malloc(Const:20); 
+    STORE Const:4 -> Mem(t10401:ptr); 
+    PTR_CALC t11701:ptr <- t10401:ptr + Const:4; 
+    STORE Const:1 -> Mem(t11701:ptr); 
+    PTR_CALC t11801:ptr <- t10401:ptr + Const:8; 
+    STORE Const:2 -> Mem(t11801:ptr); 
+    PTR_CALC t11901:ptr <- t10401:ptr + Const:12; 
+    STORE Const:3 -> Mem(t11901:ptr); 
+    PTR_CALC t12001:ptr <- t10401:ptr + Const:16; 
+    STORE Const:4 -> Mem(t12001:ptr); 
+    PTR_CALC t12101:ptr <- t10301:ptr + Const:0; 
+    STORE t10401:ptr -> Mem(t12101:ptr); 
+    MOVE t10001:ptr <- t10301:ptr; 
+    MOVE t10101:int <- Const:3; 
+    PTR_CALC t12201:ptr <- t10001:ptr + Const:0; 
+    JUMP L102; 
+  Block: Entry Label: L102
+    Exit labels: L103 L104 
+    LABEL L102; 
+    PHI t10102:int <- Phi([t10103, L107], [t10101, L108]); 
+    CJUMP >= t10102:int Const:0? L103 : L104; 
+  Block: Entry Label: L103
+    Exit labels: L106 L105 
+    LABEL L103; 
+    MOVE_BINOP t10103:int <- (-, t10102:int, Const:1); 
+    LOAD t10501:ptr <- Mem(t12201:ptr); 
+    MOVE t11001:ptr <- t10501:ptr; 
+    LOAD t10601:int <- Mem(t10501:ptr); 
+    CJUMP >= t10103:int Const:0? L106 : L105; 
+  Block: Entry Label: L106
+    Exit labels: L105 L107 
+    LABEL L106; 
+    CJUMP >= t10103:int t10601:int? L105 : L107; 
+  Block: Entry Label: L105
+    Exit labels: 
+    LABEL L105; 
+    EXTCALL exit(Const:-1); 
+  Block: Entry Label: L107
+    Exit labels: L102 
+    LABEL L107; 
+    MOVE_BINOP t12401:int <- (+, t10103:int, Const:1); 
+    MOVE_BINOP t12501:int <- (*, t12401:int, Const:4); 
+    PTR_CALC t12601:ptr <- t11001:ptr + t12501:int; 
+    LOAD t11101:int <- Mem(t12601:ptr); 
+    EXTCALL putint(t11101:int); 
+    EXTCALL putch(Const:32); 
+    JUMP L102; 
+  Block: Entry Label: L104
+    Exit labels: 
+    LABEL L104; 
+    EXTCALL putch(Const:10); 
+    RETURN Const:2; 

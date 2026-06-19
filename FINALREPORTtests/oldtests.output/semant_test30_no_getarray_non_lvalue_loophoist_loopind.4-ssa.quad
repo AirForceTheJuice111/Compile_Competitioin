@@ -1,0 +1,6 @@
+Function __$main__^main() last_label=103 last_temp=103:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    MOVE_EXTCALL t102010101:int <- getarray(t100:ptr); def: t102010101 use: t100 
+    RETURN t102010101:int; def: use: t102010101 

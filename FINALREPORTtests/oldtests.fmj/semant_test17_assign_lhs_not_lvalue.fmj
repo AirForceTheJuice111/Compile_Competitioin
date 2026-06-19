@@ -1,0 +1,6 @@
+// EXPECT: FAIL
+// Target: assignment lhs must be an lvalue.
+public int main() {
+    1 = 2;
+    return 0;
+}

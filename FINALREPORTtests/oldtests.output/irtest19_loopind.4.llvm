@@ -1,0 +1,117 @@
+; Generated LLVM IR from Quad representation
+
+declare i8* @malloc(i32)
+declare void @free(i8*)
+
+declare i32 @printf(i8*, ...)
+declare i32 @__isoc99_scanf(i8*, ...)
+
+declare void @exit(i64)
+
+declare i64 @getint()
+declare i64 @getch()
+declare i64 @getarray(i64*)
+declare void @putint(i64)
+declare void @putch(i64)
+declare void @putarray(i64, i64*)
+
+define i64 @D$f(i64 %t100) {
+entry:
+  br label %label_100
+
+label_100:
+  %t0 = mul i64 16, 2
+  %t1040101 = add i64 %t100, %t0
+  %t1 = inttoptr i64 %t1040101 to i64*
+  %t1050101 = load i64, i64* %t1
+  %t2 = mul i64 24, 2
+  %t1060101 = add i64 %t100, %t2
+  %t3 = inttoptr i64 %t1060101 to i64*
+  %t1070101 = load i64, i64* %t3
+  %t4 = mul i64 16, 2
+  %t1080101 = add i64 %t1070101, %t4
+  %t5 = inttoptr i64 %t1080101 to i64*
+  %t1090101 = load i64, i64* %t5
+  %t1020101 = add i64 %t1050101, %t1090101
+  call void @putint(i64 %t1020101)
+  %t6 = mul i64 28, 2
+  %t1110101 = add i64 %t100, %t6
+  %t7 = inttoptr i64 %t1110101 to i64*
+  %t1120101 = load i64, i64* %t7
+  ret i64 %t1120101
+
+  ; Default return
+  ret i64 0
+}
+
+define i64 @B$g(i64 %t100) {
+entry:
+  br label %label_100
+
+label_100:
+  br label %label_101
+
+label_101:
+  ret i64 0
+
+  ; Default return
+  ret i64 0
+}
+
+define i64 @B$f(i64 %t100) {
+entry:
+  br label %label_100
+
+label_100:
+  br label %label_101
+
+label_101:
+  ret i64 0
+
+  ; Default return
+  ret i64 0
+}
+
+define i64 @A$f(i64 %t100) {
+entry:
+  br label %label_100
+
+label_100:
+  br label %label_101
+
+label_101:
+  ret i64 0
+
+  ; Default return
+  ret i64 0
+}
+
+define i64 @C$f(i64 %t100) {
+entry:
+  br label %label_100
+
+label_100:
+  br label %label_101
+
+label_101:
+  ret i64 0
+
+  ; Default return
+  ret i64 0
+}
+
+define i32 @main() {
+entry:
+  br label %label_100
+
+label_100:
+  br label %label_101
+
+label_101:
+  %t0 = trunc i64 0 to i32
+  ret i32 %t0
+
+  ; Default return
+  ret i32 0
+}
+

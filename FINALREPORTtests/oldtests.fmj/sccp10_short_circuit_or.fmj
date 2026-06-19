@@ -1,0 +1,11 @@
+public int main() {
+    int x;
+    int y;
+    x = 0;
+    if (1 || (10 / x)) {
+        y = 3;
+    } else {
+        y = 4;
+    }
+    return y;
+}

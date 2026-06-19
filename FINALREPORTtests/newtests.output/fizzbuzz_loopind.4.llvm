@@ -1,0 +1,189 @@
+; Generated LLVM IR from Quad representation
+
+declare i8* @malloc(i32)
+declare void @free(i8*)
+
+declare i32 @printf(i8*, ...)
+declare i32 @__isoc99_scanf(i8*, ...)
+
+declare void @exit(i64)
+
+declare i64 @getint()
+declare i64 @getch()
+declare i64 @getarray(i64*)
+declare void @putint(i64)
+declare void @putch(i64)
+declare void @putarray(i64, i64*)
+
+define i32 @main() {
+entry:
+  br label %label_144
+
+label_144:
+  %t0 = mul i64 4, 2
+  %t1 = trunc i64 %t0 to i32
+  %t2 = call i8* @malloc(i32 %t1)
+  %t10401 = ptrtoint i8* %t2 to i64
+  %t3 = mul i64 0, 2
+  %t12601 = add i64 %t10401, %t3
+  %t4 = ptrtoint i64 (i64, i64)* @p$p to i64
+  %t5 = inttoptr i64 %t12601 to i64*
+  store i64 %t4, i64* %t5
+  %t10101 = add i64 %t10401, 0
+  %t10001 = add i64 1, 0
+  br label %label_102
+
+label_102:
+  %t10002 = phi i64 [ %t10003, %label_143 ], [ %t10001, %label_144 ]
+  %t6 = icmp sle i64 %t10002, 100
+  br i1 %t6, label %label_103, label %label_104
+
+label_103:
+  %t10201 = add i64 0, 0
+  %t12701 = sdiv i64 %t10002, 3
+  %t12801 = mul i64 %t12701, 3
+  %t7 = icmp eq i64 %t12801, %t10002
+  br i1 %t7, label %label_107, label %label_120
+
+label_107:
+  %t8 = mul i64 0, 2
+  %t12901 = add i64 %t10101, %t8
+  %t9 = inttoptr i64 %t12901 to i64*
+  %t10601 = load i64, i64* %t9
+  %t10 = inttoptr i64 %t10601 to i64(i64, i64)*
+  %t10701 = call i64 %t10(i64 %t10101, i64 102)
+  %t11 = icmp ne i64 %t10701, 0
+  br i1 %t11, label %label_110, label %label_120
+
+label_110:
+  %t12 = mul i64 0, 2
+  %t13101 = add i64 %t10101, %t12
+  %t13 = inttoptr i64 %t13101 to i64*
+  %t10801 = load i64, i64* %t13
+  %t14 = inttoptr i64 %t10801 to i64(i64, i64)*
+  %t10901 = call i64 %t14(i64 %t10101, i64 105)
+  %t15 = icmp ne i64 %t10901, 0
+  br i1 %t15, label %label_113, label %label_120
+
+label_113:
+  %t16 = mul i64 0, 2
+  %t13301 = add i64 %t10101, %t16
+  %t17 = inttoptr i64 %t13301 to i64*
+  %t11001 = load i64, i64* %t17
+  %t18 = inttoptr i64 %t11001 to i64(i64, i64)*
+  %t11101 = call i64 %t18(i64 %t10101, i64 122)
+  %t19 = icmp ne i64 %t11101, 0
+  br i1 %t19, label %label_116, label %label_120
+
+label_116:
+  %t20 = mul i64 0, 2
+  %t13501 = add i64 %t10101, %t20
+  %t21 = inttoptr i64 %t13501 to i64*
+  %t11201 = load i64, i64* %t21
+  %t22 = inttoptr i64 %t11201 to i64(i64, i64)*
+  %t11301 = call i64 %t22(i64 %t10101, i64 122)
+  %t23 = icmp ne i64 %t11301, 0
+  br i1 %t23, label %label_119, label %label_120
+
+label_119:
+  %t10202 = add i64 1, 0
+  br label %label_121
+
+label_120:
+  br label %label_121
+
+label_121:
+  %t10203 = phi i64 [ %t10202, %label_119 ], [ %t10201, %label_120 ]
+  %t13701 = sdiv i64 %t10002, 5
+  %t13801 = mul i64 %t13701, 5
+  %t24 = icmp eq i64 %t13801, %t10002
+  br i1 %t24, label %label_124, label %label_137
+
+label_124:
+  %t25 = mul i64 0, 2
+  %t13901 = add i64 %t10101, %t25
+  %t26 = inttoptr i64 %t13901 to i64*
+  %t11401 = load i64, i64* %t26
+  %t27 = inttoptr i64 %t11401 to i64(i64, i64)*
+  %t11501 = call i64 %t27(i64 %t10101, i64 98)
+  %t28 = icmp ne i64 %t11501, 0
+  br i1 %t28, label %label_127, label %label_137
+
+label_127:
+  %t29 = mul i64 0, 2
+  %t14101 = add i64 %t10101, %t29
+  %t30 = inttoptr i64 %t14101 to i64*
+  %t11601 = load i64, i64* %t30
+  %t31 = inttoptr i64 %t11601 to i64(i64, i64)*
+  %t11701 = call i64 %t31(i64 %t10101, i64 117)
+  %t32 = icmp ne i64 %t11701, 0
+  br i1 %t32, label %label_130, label %label_137
+
+label_130:
+  %t33 = mul i64 0, 2
+  %t14301 = add i64 %t10101, %t33
+  %t34 = inttoptr i64 %t14301 to i64*
+  %t11801 = load i64, i64* %t34
+  %t35 = inttoptr i64 %t11801 to i64(i64, i64)*
+  %t11901 = call i64 %t35(i64 %t10101, i64 122)
+  %t36 = icmp ne i64 %t11901, 0
+  br i1 %t36, label %label_133, label %label_137
+
+label_133:
+  %t37 = mul i64 0, 2
+  %t14501 = add i64 %t10101, %t37
+  %t38 = inttoptr i64 %t14501 to i64*
+  %t12001 = load i64, i64* %t38
+  %t39 = inttoptr i64 %t12001 to i64(i64, i64)*
+  %t12101 = call i64 %t39(i64 %t10101, i64 122)
+  %t40 = icmp ne i64 %t12101, 0
+  br i1 %t40, label %label_136, label %label_137
+
+label_136:
+  %t10204 = add i64 1, 0
+  br label %label_138
+
+label_137:
+  br label %label_138
+
+label_138:
+  %t10205 = phi i64 [ %t10204, %label_136 ], [ %t10203, %label_137 ]
+  %t41 = icmp eq i64 %t10205, 0
+  br i1 %t41, label %label_141, label %label_142
+
+label_141:
+  call void @putint(i64 %t10002)
+  br label %label_143
+
+label_142:
+  br label %label_143
+
+label_143:
+  call void @putch(i64 32)
+  %t10003 = add i64 %t10002, 1
+  br label %label_102
+
+label_104:
+  call void @putch(i64 10)
+  br label %label_145
+
+label_145:
+  %t42 = trunc i64 0 to i32
+  ret i32 %t42
+
+  ; Default return
+  ret i32 0
+}
+
+define i64 @p$p(i64 %t100, i64 %t101) {
+entry:
+  br label %label_100
+
+label_100:
+  call void @putch(i64 %t101)
+  ret i64 1
+
+  ; Default return
+  ret i64 0
+}
+

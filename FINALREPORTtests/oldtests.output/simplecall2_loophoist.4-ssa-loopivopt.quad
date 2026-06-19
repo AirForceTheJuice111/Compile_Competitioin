@@ -1,0 +1,49 @@
+Function C^m(t100, t101) last_label=105 last_temp=110:
+  Block: Entry Label: L103
+    Exit labels: L101 L100 
+    LABEL L103; 
+    MOVE t1050101:ptr <- t101:ptr; 
+    LOAD t1030101:int <- Mem(t101:ptr); 
+    CJUMP >= Const:1 Const:0? L101 : L100; 
+  Block: Entry Label: L101
+    Exit labels: L100 L102 
+    LABEL L101; 
+    CJUMP >= Const:1 t1030101:int? L100 : L102; 
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; 
+    EXTCALL exit(Const:-1); 
+  Block: Entry Label: L102
+    Exit labels: 
+    LABEL L102; 
+    MOVE_BINOP t1070101:int <- (+, Const:1, Const:1); 
+    MOVE_BINOP t1080101:int <- (*, t1070101:int, Const:4); 
+    PTR_CALC t1090101:ptr <- t1050101:ptr + t1080101:int; 
+    LOAD t1100101:int <- Mem(t1090101:ptr); 
+    RETURN t1100101:int; 
+Function __$main__^main() last_label=102 last_temp=119:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; 
+    MOVE_EXTCALL t1000101:ptr <- malloc(Const:16); 
+    STORE Const:3 -> Mem(t1000101:ptr); 
+    PTR_CALC t1110101:ptr <- t1000101:ptr + Const:4; 
+    STORE Const:1 -> Mem(t1110101:ptr); 
+    PTR_CALC t1120101:ptr <- t1000101:ptr + Const:8; 
+    STORE Const:2 -> Mem(t1120101:ptr); 
+    PTR_CALC t1130101:ptr <- t1000101:ptr + Const:12; 
+    STORE Const:3 -> Mem(t1130101:ptr); 
+    MOVE_EXTCALL t1030101:ptr <- malloc(Const:4); 
+    PTR_CALC t1150101:ptr <- t1030101:ptr + Const:0; 
+    STORE Name:C^m -> Mem(t1150101:ptr); 
+    MOVE t1010101:ptr <- t1030101:ptr; 
+    PTR_CALC t1160101:ptr <- t1010101:ptr + Const:0; 
+    LOAD t1060101:ptr <- Mem(t1160101:ptr); 
+    MOVE_CALL t1070101:int <- m[t1060101:ptr] (t1010101:ptr, t1000101:ptr); 
+    EXTCALL putint(t1070101:int); 
+    EXTCALL putch(Const:10); 
+    JUMP L101; 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; 
+    RETURN Const:0; 

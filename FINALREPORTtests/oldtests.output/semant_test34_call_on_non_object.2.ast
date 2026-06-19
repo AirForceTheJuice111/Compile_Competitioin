@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program bline="3" bpos="1" eline="7" epos="1">
+    <MainMethod bline="3" bpos="1" eline="7" epos="1">
+        <VarDeclList>
+            <VarDecl bline="4" bpos="5" eline="4" epos="10">
+                <Type typeKind="INT" bline="4" bpos="5" eline="4" epos="7"/>
+                <IdExp id="x" bline="4" bpos="9" eline="4" epos="9"/>
+            </VarDecl>
+        </VarDeclList>
+        <StmList>
+            <Assign bline="5" bpos="5" eline="5" epos="10">
+                <IdExp bline="5" bpos="5" eline="5" epos="5" id="x"/>
+                <IntExp bline="5" bpos="9" eline="5" epos="9" val="0"/>
+            </Assign>
+            <Return bline="6" bpos="5" eline="6" epos="17">
+                <CallExp bline="6" bpos="12" eline="6" epos="16">
+                    <IdExp bline="6" bpos="12" eline="6" epos="12" id="x"/>
+                    <IdExp id="f" bline="6" bpos="14" eline="6" epos="14"/>
+                    <ParList/>
+                </CallExp>
+            </Return>
+        </StmList>
+    </MainMethod>
+    <ClassDeclList/>
+</Program>

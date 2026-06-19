@@ -1,0 +1,8 @@
+// EXPECT: FAIL
+// Target: namemap should reject extends from an undeclared class.
+public int main() {
+    return 0;
+}
+
+public class Child extends MissingParent {
+}

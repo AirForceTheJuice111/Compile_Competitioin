@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program bline="1" bpos="1" eline="3" epos="1">
+    <MainMethod bline="1" bpos="1" eline="3" epos="1">
+        <VarDeclList/>
+        <StmList>
+            <Return bline="2" bpos="2" eline="2" epos="26">
+                <BinaryOp bline="2" bpos="10" eline="2" epos="24">
+                    <IntExp bline="2" bpos="10" eline="2" epos="10" val="1"/>
+                    <OpExp op="+" bline="2" bpos="11" eline="2" epos="11"/>
+                    <BinaryOp bline="2" bpos="13" eline="2" epos="23">
+                        <IntExp bline="2" bpos="13" eline="2" epos="13" val="2"/>
+                        <OpExp op="+" bline="2" bpos="14" eline="2" epos="14"/>
+                        <BinaryOp bline="2" bpos="16" eline="2" epos="22">
+                            <IntExp bline="2" bpos="16" eline="2" epos="16" val="3"/>
+                            <OpExp op="+" bline="2" bpos="17" eline="2" epos="17"/>
+                            <BinaryOp bline="2" bpos="19" eline="2" epos="21">
+                                <IntExp bline="2" bpos="19" eline="2" epos="19" val="4"/>
+                                <OpExp op="+" bline="2" bpos="20" eline="2" epos="20"/>
+                                <IntExp bline="2" bpos="21" eline="2" epos="21" val="5"/>
+                            </BinaryOp>
+                        </BinaryOp>
+                    </BinaryOp>
+                </BinaryOp>
+            </Return>
+        </StmList>
+    </MainMethod>
+    <ClassDeclList/>
+</Program>

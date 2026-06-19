@@ -1,0 +1,62 @@
+<Program kind="PROGRAM" last_label_num="103" last_temp_num="104">
+    <funcdecl kind="FUNCDECL" name="A^f" last_label_num="103" last_temp_num="104">
+        <params>
+            <param temp="100"/>
+        </params>
+        <block kind="BLOCK" entry="100">
+            <label kind="LABEL" name="100"/>
+            <ptrcalc kind="PTR_CALC">
+                <dst kind="TEMP" id="102010101" type="ptr"/>
+                <ptr kind="TEMP" id="100" type="ptr"/>
+                <offset kind="CONST" value="0"/>
+                <def>
+                    <temp id="102010101"/>
+                </def>
+                <use>
+                    <temp id="100"/>
+                </use>
+            </ptrcalc>
+            <store kind="STORE">
+                <src kind="CONST" value="1"/>
+                <dst kind="TEMP" id="102010101" type="ptr"/>
+                <use>
+                    <temp id="102010101"/>
+                </use>
+            </store>
+            <ptrcalc kind="PTR_CALC">
+                <dst kind="TEMP" id="103010101" type="ptr"/>
+                <ptr kind="TEMP" id="100" type="ptr"/>
+                <offset kind="CONST" value="0"/>
+                <def>
+                    <temp id="103010101"/>
+                </def>
+                <use>
+                    <temp id="100"/>
+                </use>
+            </ptrcalc>
+            <load kind="LOAD" dst="104010101" temp_type="int">
+                <src kind="TEMP" id="103010101" type="ptr"/>
+                <def>
+                    <temp id="104010101"/>
+                </def>
+                <use>
+                    <temp id="103010101"/>
+                </use>
+            </load>
+            <return kind="RETURN">
+                <value kind="TEMP" id="104010101" type="int"/>
+                <use>
+                    <temp id="104010101"/>
+                </use>
+            </return>
+        </block>
+    </funcdecl>
+    <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="103" last_temp_num="100">
+        <block kind="BLOCK" entry="100">
+            <label kind="LABEL" name="100"/>
+            <return kind="RETURN">
+                <value kind="CONST" value="0"/>
+            </return>
+        </block>
+    </funcdecl>
+</Program>

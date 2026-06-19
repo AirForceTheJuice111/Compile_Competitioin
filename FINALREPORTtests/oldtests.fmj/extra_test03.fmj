@@ -1,0 +1,6 @@
+public int main() {
+	x = (-5);
+	y = (-(-3));
+	z = (-(-(-1)));
+	return ((x+y)+z);
+}

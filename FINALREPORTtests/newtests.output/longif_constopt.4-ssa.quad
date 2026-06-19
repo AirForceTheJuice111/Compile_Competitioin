@@ -1,0 +1,416 @@
+Function __$main__^main() last_label=404 last_temp=108:
+  Block: Entry Label: L402
+    Exit labels: L104 
+    LABEL L402; def: use: 
+    JUMP L104; def: use: 
+  Block: Entry Label: L104
+    Exit labels: L107 
+    LABEL L104; def: use: 
+    JUMP L107; def: use: 
+  Block: Entry Label: L107
+    Exit labels: L110 
+    LABEL L107; def: use: 
+    JUMP L110; def: use: 
+  Block: Entry Label: L110
+    Exit labels: L113 
+    LABEL L110; def: use: 
+    JUMP L113; def: use: 
+  Block: Entry Label: L113
+    Exit labels: L116 
+    LABEL L113; def: use: 
+    JUMP L116; def: use: 
+  Block: Entry Label: L116
+    Exit labels: L119 
+    LABEL L116; def: use: 
+    JUMP L119; def: use: 
+  Block: Entry Label: L119
+    Exit labels: L122 
+    LABEL L119; def: use: 
+    JUMP L122; def: use: 
+  Block: Entry Label: L122
+    Exit labels: L125 
+    LABEL L122; def: use: 
+    JUMP L125; def: use: 
+  Block: Entry Label: L125
+    Exit labels: L128 
+    LABEL L125; def: use: 
+    JUMP L128; def: use: 
+  Block: Entry Label: L128
+    Exit labels: L131 
+    LABEL L128; def: use: 
+    JUMP L131; def: use: 
+  Block: Entry Label: L131
+    Exit labels: L134 
+    LABEL L131; def: use: 
+    JUMP L134; def: use: 
+  Block: Entry Label: L134
+    Exit labels: L137 
+    LABEL L134; def: use: 
+    JUMP L137; def: use: 
+  Block: Entry Label: L137
+    Exit labels: L140 
+    LABEL L137; def: use: 
+    JUMP L140; def: use: 
+  Block: Entry Label: L140
+    Exit labels: L143 
+    LABEL L140; def: use: 
+    JUMP L143; def: use: 
+  Block: Entry Label: L143
+    Exit labels: L146 
+    LABEL L143; def: use: 
+    JUMP L146; def: use: 
+  Block: Entry Label: L146
+    Exit labels: L149 
+    LABEL L146; def: use: 
+    JUMP L149; def: use: 
+  Block: Entry Label: L149
+    Exit labels: L152 
+    LABEL L149; def: use: 
+    JUMP L152; def: use: 
+  Block: Entry Label: L152
+    Exit labels: L155 
+    LABEL L152; def: use: 
+    JUMP L155; def: use: 
+  Block: Entry Label: L155
+    Exit labels: L158 
+    LABEL L155; def: use: 
+    JUMP L158; def: use: 
+  Block: Entry Label: L158
+    Exit labels: L161 
+    LABEL L158; def: use: 
+    JUMP L161; def: use: 
+  Block: Entry Label: L161
+    Exit labels: L164 
+    LABEL L161; def: use: 
+    JUMP L164; def: use: 
+  Block: Entry Label: L164
+    Exit labels: L165 
+    LABEL L164; def: use: 
+    JUMP L165; def: use: 
+  Block: Entry Label: L165
+    Exit labels: L170 L400 
+    LABEL L165; def: use: 
+    MOVE_EXTCALL t1010101:int <- getint(); def: t1010101 use: 
+    CJUMP != t1010101:int Const:0? L170 : L400; def: use: t1010101 
+  Block: Entry Label: L170
+    Exit labels: L173 
+    LABEL L170; def: use: 
+    JUMP L173; def: use: 
+  Block: Entry Label: L173
+    Exit labels: L176 
+    LABEL L173; def: use: 
+    JUMP L176; def: use: 
+  Block: Entry Label: L176
+    Exit labels: L179 
+    LABEL L176; def: use: 
+    JUMP L179; def: use: 
+  Block: Entry Label: L179
+    Exit labels: L182 
+    LABEL L179; def: use: 
+    JUMP L182; def: use: 
+  Block: Entry Label: L182
+    Exit labels: L185 
+    LABEL L182; def: use: 
+    JUMP L185; def: use: 
+  Block: Entry Label: L185
+    Exit labels: L188 
+    LABEL L185; def: use: 
+    JUMP L188; def: use: 
+  Block: Entry Label: L188
+    Exit labels: L191 
+    LABEL L188; def: use: 
+    JUMP L191; def: use: 
+  Block: Entry Label: L191
+    Exit labels: L194 
+    LABEL L191; def: use: 
+    JUMP L194; def: use: 
+  Block: Entry Label: L194
+    Exit labels: L197 
+    LABEL L194; def: use: 
+    JUMP L197; def: use: 
+  Block: Entry Label: L197
+    Exit labels: L200 
+    LABEL L197; def: use: 
+    JUMP L200; def: use: 
+  Block: Entry Label: L200
+    Exit labels: L203 
+    LABEL L200; def: use: 
+    JUMP L203; def: use: 
+  Block: Entry Label: L203
+    Exit labels: L206 
+    LABEL L203; def: use: 
+    JUMP L206; def: use: 
+  Block: Entry Label: L206
+    Exit labels: L209 
+    LABEL L206; def: use: 
+    JUMP L209; def: use: 
+  Block: Entry Label: L209
+    Exit labels: L212 
+    LABEL L209; def: use: 
+    JUMP L212; def: use: 
+  Block: Entry Label: L212
+    Exit labels: L215 
+    LABEL L212; def: use: 
+    JUMP L215; def: use: 
+  Block: Entry Label: L215
+    Exit labels: L218 
+    LABEL L215; def: use: 
+    JUMP L218; def: use: 
+  Block: Entry Label: L218
+    Exit labels: L221 
+    LABEL L218; def: use: 
+    JUMP L221; def: use: 
+  Block: Entry Label: L221
+    Exit labels: L224 
+    LABEL L221; def: use: 
+    JUMP L224; def: use: 
+  Block: Entry Label: L224
+    Exit labels: L227 
+    LABEL L224; def: use: 
+    JUMP L227; def: use: 
+  Block: Entry Label: L227
+    Exit labels: L230 
+    LABEL L227; def: use: 
+    JUMP L230; def: use: 
+  Block: Entry Label: L230
+    Exit labels: L233 
+    LABEL L230; def: use: 
+    JUMP L233; def: use: 
+  Block: Entry Label: L233
+    Exit labels: L236 
+    LABEL L233; def: use: 
+    JUMP L236; def: use: 
+  Block: Entry Label: L236
+    Exit labels: L239 
+    LABEL L236; def: use: 
+    JUMP L239; def: use: 
+  Block: Entry Label: L239
+    Exit labels: L242 
+    LABEL L239; def: use: 
+    JUMP L242; def: use: 
+  Block: Entry Label: L242
+    Exit labels: L245 
+    LABEL L242; def: use: 
+    JUMP L245; def: use: 
+  Block: Entry Label: L245
+    Exit labels: L248 
+    LABEL L245; def: use: 
+    JUMP L248; def: use: 
+  Block: Entry Label: L248
+    Exit labels: L251 
+    LABEL L248; def: use: 
+    JUMP L251; def: use: 
+  Block: Entry Label: L251
+    Exit labels: L254 
+    LABEL L251; def: use: 
+    JUMP L254; def: use: 
+  Block: Entry Label: L254
+    Exit labels: L257 
+    LABEL L254; def: use: 
+    JUMP L257; def: use: 
+  Block: Entry Label: L257
+    Exit labels: L260 
+    LABEL L257; def: use: 
+    JUMP L260; def: use: 
+  Block: Entry Label: L260
+    Exit labels: L263 
+    LABEL L260; def: use: 
+    JUMP L263; def: use: 
+  Block: Entry Label: L263
+    Exit labels: L266 
+    LABEL L263; def: use: 
+    JUMP L266; def: use: 
+  Block: Entry Label: L266
+    Exit labels: L269 
+    LABEL L266; def: use: 
+    JUMP L269; def: use: 
+  Block: Entry Label: L269
+    Exit labels: L272 
+    LABEL L269; def: use: 
+    JUMP L272; def: use: 
+  Block: Entry Label: L272
+    Exit labels: L275 
+    LABEL L272; def: use: 
+    JUMP L275; def: use: 
+  Block: Entry Label: L275
+    Exit labels: L278 
+    LABEL L275; def: use: 
+    JUMP L278; def: use: 
+  Block: Entry Label: L278
+    Exit labels: L281 
+    LABEL L278; def: use: 
+    JUMP L281; def: use: 
+  Block: Entry Label: L281
+    Exit labels: L284 
+    LABEL L281; def: use: 
+    JUMP L284; def: use: 
+  Block: Entry Label: L284
+    Exit labels: L287 
+    LABEL L284; def: use: 
+    JUMP L287; def: use: 
+  Block: Entry Label: L287
+    Exit labels: L290 
+    LABEL L287; def: use: 
+    JUMP L290; def: use: 
+  Block: Entry Label: L290
+    Exit labels: L293 
+    LABEL L290; def: use: 
+    JUMP L293; def: use: 
+  Block: Entry Label: L293
+    Exit labels: L296 
+    LABEL L293; def: use: 
+    JUMP L296; def: use: 
+  Block: Entry Label: L296
+    Exit labels: L299 
+    LABEL L296; def: use: 
+    JUMP L299; def: use: 
+  Block: Entry Label: L299
+    Exit labels: L302 
+    LABEL L299; def: use: 
+    JUMP L302; def: use: 
+  Block: Entry Label: L302
+    Exit labels: L305 
+    LABEL L302; def: use: 
+    JUMP L305; def: use: 
+  Block: Entry Label: L305
+    Exit labels: L308 
+    LABEL L305; def: use: 
+    JUMP L308; def: use: 
+  Block: Entry Label: L308
+    Exit labels: L311 
+    LABEL L308; def: use: 
+    JUMP L311; def: use: 
+  Block: Entry Label: L311
+    Exit labels: L314 
+    LABEL L311; def: use: 
+    JUMP L314; def: use: 
+  Block: Entry Label: L314
+    Exit labels: L317 
+    LABEL L314; def: use: 
+    JUMP L317; def: use: 
+  Block: Entry Label: L317
+    Exit labels: L320 
+    LABEL L317; def: use: 
+    JUMP L320; def: use: 
+  Block: Entry Label: L320
+    Exit labels: L323 
+    LABEL L320; def: use: 
+    JUMP L323; def: use: 
+  Block: Entry Label: L323
+    Exit labels: L326 
+    LABEL L323; def: use: 
+    JUMP L326; def: use: 
+  Block: Entry Label: L326
+    Exit labels: L329 
+    LABEL L326; def: use: 
+    JUMP L329; def: use: 
+  Block: Entry Label: L329
+    Exit labels: L332 
+    LABEL L329; def: use: 
+    JUMP L332; def: use: 
+  Block: Entry Label: L332
+    Exit labels: L335 
+    LABEL L332; def: use: 
+    JUMP L335; def: use: 
+  Block: Entry Label: L335
+    Exit labels: L338 
+    LABEL L335; def: use: 
+    JUMP L338; def: use: 
+  Block: Entry Label: L338
+    Exit labels: L341 
+    LABEL L338; def: use: 
+    JUMP L341; def: use: 
+  Block: Entry Label: L341
+    Exit labels: L344 
+    LABEL L341; def: use: 
+    JUMP L344; def: use: 
+  Block: Entry Label: L344
+    Exit labels: L347 
+    LABEL L344; def: use: 
+    JUMP L347; def: use: 
+  Block: Entry Label: L347
+    Exit labels: L350 
+    LABEL L347; def: use: 
+    JUMP L350; def: use: 
+  Block: Entry Label: L350
+    Exit labels: L353 
+    LABEL L350; def: use: 
+    JUMP L353; def: use: 
+  Block: Entry Label: L353
+    Exit labels: L356 
+    LABEL L353; def: use: 
+    JUMP L356; def: use: 
+  Block: Entry Label: L356
+    Exit labels: L359 
+    LABEL L356; def: use: 
+    JUMP L359; def: use: 
+  Block: Entry Label: L359
+    Exit labels: L362 
+    LABEL L359; def: use: 
+    JUMP L362; def: use: 
+  Block: Entry Label: L362
+    Exit labels: L365 
+    LABEL L362; def: use: 
+    JUMP L365; def: use: 
+  Block: Entry Label: L365
+    Exit labels: L368 
+    LABEL L365; def: use: 
+    JUMP L368; def: use: 
+  Block: Entry Label: L368
+    Exit labels: L371 
+    LABEL L368; def: use: 
+    JUMP L371; def: use: 
+  Block: Entry Label: L371
+    Exit labels: L374 
+    LABEL L371; def: use: 
+    JUMP L374; def: use: 
+  Block: Entry Label: L374
+    Exit labels: L377 
+    LABEL L374; def: use: 
+    JUMP L377; def: use: 
+  Block: Entry Label: L377
+    Exit labels: L380 
+    LABEL L377; def: use: 
+    JUMP L380; def: use: 
+  Block: Entry Label: L380
+    Exit labels: L383 
+    LABEL L380; def: use: 
+    JUMP L383; def: use: 
+  Block: Entry Label: L383
+    Exit labels: L386 
+    LABEL L383; def: use: 
+    JUMP L386; def: use: 
+  Block: Entry Label: L386
+    Exit labels: L389 
+    LABEL L386; def: use: 
+    JUMP L389; def: use: 
+  Block: Entry Label: L389
+    Exit labels: L392 
+    LABEL L389; def: use: 
+    JUMP L392; def: use: 
+  Block: Entry Label: L392
+    Exit labels: L395 
+    LABEL L392; def: use: 
+    JUMP L395; def: use: 
+  Block: Entry Label: L395
+    Exit labels: L398 
+    LABEL L395; def: use: 
+    JUMP L398; def: use: 
+  Block: Entry Label: L398
+    Exit labels: L399 
+    LABEL L398; def: use: 
+    JUMP L399; def: use: 
+  Block: Entry Label: L399
+    Exit labels: L401 
+    LABEL L399; def: use: 
+    EXTCALL putint(Const:100); def: use: 
+    EXTCALL putch(Const:10); def: use: 
+    JUMP L401; def: use: 
+  Block: Entry Label: L400
+    Exit labels: L401 
+    LABEL L400; def: use: 
+    JUMP L401; def: use: 
+  Block: Entry Label: L401
+    Exit labels: 
+    LABEL L401; def: use: 
+    RETURN Const:0; def: use: 

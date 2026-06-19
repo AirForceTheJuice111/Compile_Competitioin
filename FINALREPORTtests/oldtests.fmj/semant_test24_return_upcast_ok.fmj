@@ -1,0 +1,17 @@
+// EXPECT: PASS
+// Target: return should allow subclass value for parent return type.
+public int main() {
+    return 0;
+}
+
+public class A {
+}
+
+public class B extends A {
+}
+
+public class Maker {
+    public class A f() {
+        return new B();
+    }
+}

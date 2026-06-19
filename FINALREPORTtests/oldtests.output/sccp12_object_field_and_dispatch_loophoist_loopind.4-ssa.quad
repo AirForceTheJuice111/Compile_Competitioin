@@ -1,0 +1,42 @@
+Function __$main__^main() last_label=108 last_temp=114:
+  Block: Entry Label: L105
+    Exit labels: L102 L103 
+    LABEL L105; def: use: 
+    MOVE_EXTCALL t103010101:ptr <- malloc(Const:8); def: t103010101 use: 
+    PTR_CALC t108010101:ptr <- t103010101:ptr + Const:4; def: t108010101 use: t103010101 
+    STORE Name:Child^value -> Mem(t108010101:ptr); def: use: t108010101 
+    MOVE t100010101:ptr <- t103010101:ptr; def: t100010101 use: t103010101 
+    PTR_CALC t109010101:ptr <- t100010101:ptr + Const:4; def: t109010101 use: t100010101 
+    LOAD t105010101:ptr <- Mem(t109010101:ptr); def: t105010101 use: t109010101 
+    MOVE_CALL t101010101:int <- value[t105010101:ptr] (t100010101:ptr, Const:10); def: t101010101 use: t105010101 t100010101 
+    CJUMP != Const:1 Const:0? L102 : L103; def: use: 
+  Block: Entry Label: L102
+    Exit labels: L104 
+    LABEL L102; def: use: 
+    PTR_CALC t111010101:ptr <- t100010101:ptr + Const:0; def: t111010101 use: t100010101 
+    STORE t101010101:int -> Mem(t111010101:ptr); def: use: t111010101 t101010101 
+    JUMP L104; def: use: 
+  Block: Entry Label: L103
+    Exit labels: L104 
+    LABEL L103; def: use: 
+    PTR_CALC t112010101:ptr <- t100010101:ptr + Const:0; def: t112010101 use: t100010101 
+    STORE Const:0 -> Mem(t112010101:ptr); def: use: t112010101 
+    JUMP L104; def: use: 
+  Block: Entry Label: L104
+    Exit labels: 
+    LABEL L104; def: use: 
+    PTR_CALC t113010101:ptr <- t100010101:ptr + Const:0; def: t113010101 use: t100010101 
+    LOAD t114010101:int <- Mem(t113010101:ptr); def: t114010101 use: t113010101 
+    RETURN t114010101:int; def: use: t114010101 
+Function Base^value(t100, t101) last_label=103 last_temp=103:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    MOVE_BINOP t103010101:int <- (+, t101:int, Const:1); def: t103010101 use: t101 
+    RETURN t103010101:int; def: use: t103010101 
+Function Child^value(t100, t101) last_label=103 last_temp=103:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    MOVE_BINOP t103010101:int <- (+, t101:int, Const:2); def: t103010101 use: t101 
+    RETURN t103010101:int; def: use: t103010101 

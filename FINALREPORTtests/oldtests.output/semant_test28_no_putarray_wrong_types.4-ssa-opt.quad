@@ -1,0 +1,9 @@
+Function __$main__^main() last_label=101 last_temp=111:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; 
+    MOVE_EXTCALL t10301:ptr <- malloc(Const:12); 
+    STORE Const:2 -> Mem(t10301:ptr); 
+    MOVE t10001:ptr <- t10301:ptr; 
+    EXTCALL putarray(Const:1, t10001:ptr); 
+    RETURN Const:0; 

@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDMJAST>
+    <NameMaps>
+        <Class name="__$main__">
+            <Method name="main">
+                <Formal id="_^return^_main">
+                    <Formal bline="1" bpos="1" eline="12" epos="1">
+                        <Type typeKind="INT" bline="1" bpos="1" eline="12" epos="1"/>
+                        <IdExp bline="1" bpos="1" eline="12" epos="1" id="_^return^_main"/>
+                    </Formal>
+                </Formal>
+                <Var id="a">
+                    <VarDecl bline="2" bpos="5" eline="2" epos="22">
+                        <Type typeKind="ARRAY" bline="2" bpos="5" eline="2" epos="9">
+                            <Arity val="0" bline="2" bpos="8" eline="2" epos="8"/>
+                        </Type>
+                        <IdExp id="a" bline="2" bpos="11" eline="2" epos="11"/>
+                        <IntInitList>
+                            <IntExp val="1" bline="2" bpos="14" eline="2" epos="14"/>
+                            <IntExp val="2" bline="2" bpos="16" eline="2" epos="16"/>
+                            <IntExp val="3" bline="2" bpos="18" eline="2" epos="18"/>
+                            <IntExp val="4" bline="2" bpos="20" eline="2" epos="20"/>
+                        </IntInitList>
+                    </VarDecl>
+                </Var>
+                <Var id="k">
+                    <VarDecl bline="3" bpos="5" eline="3" epos="10">
+                        <Type typeKind="INT" bline="3" bpos="5" eline="3" epos="7"/>
+                        <IdExp id="k" bline="3" bpos="9" eline="3" epos="9"/>
+                    </VarDecl>
+                </Var>
+            </Method>
+        </Class>
+    </NameMaps>
+    <Program bline="1" bpos="1" eline="12" epos="1">
+        <MainMethod bline="1" bpos="1" eline="12" epos="1">
+            <VarDeclList>
+                <VarDecl bline="2" bpos="5" eline="2" epos="22">
+                    <Type typeKind="ARRAY" bline="2" bpos="5" eline="2" epos="9">
+                        <Arity val="0" bline="2" bpos="8" eline="2" epos="8"/>
+                    </Type>
+                    <IdExp id="a" bline="2" bpos="11" eline="2" epos="11"/>
+                    <IntInitList>
+                        <IntExp val="1" bline="2" bpos="14" eline="2" epos="14"/>
+                        <IntExp val="2" bline="2" bpos="16" eline="2" epos="16"/>
+                        <IntExp val="3" bline="2" bpos="18" eline="2" epos="18"/>
+                        <IntExp val="4" bline="2" bpos="20" eline="2" epos="20"/>
+                    </IntInitList>
+                </VarDecl>
+                <VarDecl bline="3" bpos="5" eline="3" epos="10">
+                    <Type typeKind="INT" bline="3" bpos="5" eline="3" epos="7"/>
+                    <IdExp id="k" bline="3" bpos="9" eline="3" epos="9"/>
+                </VarDecl>
+            </VarDeclList>
+            <StmList>
+                <Assign bline="4" bpos="5" eline="4" epos="18">
+                    <IdExp bline="4" bpos="5" eline="4" epos="5" s_kind="Value" typeKind="INT" lvalue="true" id="k"/>
+                    <Length bline="4" bpos="9" eline="4" epos="17" s_kind="Value" typeKind="INT" lvalue="false">
+                        <IdExp bline="4" bpos="16" eline="4" epos="16" s_kind="Value" typeKind="ARRAY" lvalue="true" type_par="0" id="a"/>
+                    </Length>
+                </Assign>
+                <While bline="5" bpos="5" eline="9" epos="5">
+                    <BinaryOp bline="5" bpos="12" eline="5" epos="14" s_kind="Value" typeKind="INT" lvalue="false">
+                        <IdExp bline="5" bpos="12" eline="5" epos="12" s_kind="Value" typeKind="INT" lvalue="true" id="k"/>
+                        <OpExp op="&gt;" bline="5" bpos="13" eline="5" epos="13"/>
+                        <IntExp bline="5" bpos="14" eline="5" epos="14" s_kind="Value" typeKind="INT" lvalue="false" val="0"/>
+                    </BinaryOp>
+                    <Nested bline="5" bpos="17" eline="9" epos="5">
+                        <StmList>
+                            <Assign bline="6" bpos="8" eline="6" epos="15">
+                                <IdExp bline="6" bpos="8" eline="6" epos="8" s_kind="Value" typeKind="INT" lvalue="true" id="k"/>
+                                <BinaryOp bline="6" bpos="12" eline="6" epos="14" s_kind="Value" typeKind="INT" lvalue="false">
+                                    <IdExp bline="6" bpos="12" eline="6" epos="12" s_kind="Value" typeKind="INT" lvalue="true" id="k"/>
+                                    <OpExp op="-" bline="6" bpos="13" eline="6" epos="13"/>
+                                    <IntExp bline="6" bpos="14" eline="6" epos="14" s_kind="Value" typeKind="INT" lvalue="false" val="1"/>
+                                </BinaryOp>
+                            </Assign>
+                            <PutInt bline="7" bpos="8" eline="7" epos="20">
+                                <ArrayExp bline="7" bpos="15" eline="7" epos="18" s_kind="Value" typeKind="INT" lvalue="true">
+                                    <IdExp bline="7" bpos="15" eline="7" epos="15" s_kind="Value" typeKind="ARRAY" lvalue="true" type_par="0" id="a"/>
+                                    <IdExp bline="7" bpos="17" eline="7" epos="17" s_kind="Value" typeKind="INT" lvalue="true" id="k"/>
+                                </ArrayExp>
+                            </PutInt>
+                            <PutCh bline="8" bpos="8" eline="8" epos="17">
+                                <IntExp bline="8" bpos="14" eline="8" epos="15" s_kind="Value" typeKind="INT" lvalue="false" val="32"/>
+                            </PutCh>
+                        </StmList>
+                    </Nested>
+                </While>
+                <PutCh bline="10" bpos="5" eline="10" epos="14">
+                    <IntExp bline="10" bpos="11" eline="10" epos="12" s_kind="Value" typeKind="INT" lvalue="false" val="10"/>
+                </PutCh>
+                <Return bline="11" bpos="5" eline="11" epos="13" s_kind="Value" typeKind="INT" lvalue="false">
+                    <IntExp bline="11" bpos="12" eline="11" epos="12" s_kind="Value" typeKind="INT" lvalue="false" val="2"/>
+                </Return>
+            </StmList>
+        </MainMethod>
+        <ClassDeclList/>
+    </Program>
+</FDMJAST>
