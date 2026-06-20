@@ -667,7 +667,7 @@ OK interpreter k=9 HW9/test/opttest9.fmj 4110fa6c1bf841a3 10000
 | `deepnestedloops.fmj` | 825 | 330 | 825 | 825 | 825 | 330 |
 | `bubblesort.fmj` | 315 | 314 | 330 | 423 | 423 | 423 |
 
-这些数字体现了两个现象。第一，优化不是单调减少汇编行数：LICM 会增加 preheader 计算，归纳变量强度削弱会增加循环内维护的派生变量，因此 `bubblesort.fmj` 在 loop2/allloop/allopt 下行数明显增加，但输出 hash 仍完全一致。第二，优化收益取决于样例结构：`bigloop.fmj` 的 allopt 从约 70.4 秒降到约 67.0 秒，而 `deepnestedloops.fmj` 主要受常量传播影响，汇编行数从 825 降到 330，但 qemu 运行时间本身太短，单次计时只适合说明趋势，不能作为精确微基准。
+这些数字体现了两个现象。第一，优化不是单调减少汇编行数：LICM 会增加 preheader 计算，归纳变量强度削弱会增加循环内维护的派生变量，因此 `bubblesort.fmj` 在 loop2/allloop/allopt 下行数明显增加。第二，优化收益取决于样例结构：`bigloop.fmj` 的 allopt 从约 70.4 秒降到约 67.0 秒，而 `deepnestedloops.fmj` 主要受常量传播影响，汇编行数从 825 降到 330，但 qemu 运行时间本身太短，单次计时只适合说明趋势，不能作为精确微基准。
 
 ### 运行时回归测试
 
