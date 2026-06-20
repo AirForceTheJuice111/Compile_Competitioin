@@ -1,0 +1,42 @@
+Function Base^value(t100, t101) last_label=101 last_temp=103:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; 
+    MOVE_BINOP t10301:int <- (+, t101:int, Const:1); 
+    RETURN t10301:int; 
+Function Child^value(t100, t101) last_label=101 last_temp=103:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; 
+    MOVE_BINOP t10301:int <- (+, t101:int, Const:2); 
+    RETURN t10301:int; 
+Function __$main__^main() last_label=106 last_temp=114:
+  Block: Entry Label: L105
+    Exit labels: L102 L103 
+    LABEL L105; 
+    MOVE_EXTCALL t10301:ptr <- malloc(Const:8); 
+    PTR_CALC t10801:ptr <- t10301:ptr + Const:4; 
+    STORE Name:Child^value -> Mem(t10801:ptr); 
+    MOVE t10001:ptr <- t10301:ptr; 
+    PTR_CALC t10901:ptr <- t10001:ptr + Const:4; 
+    LOAD t10501:ptr <- Mem(t10901:ptr); 
+    MOVE_CALL t10101:int <- value[t10501:ptr] (t10001:ptr, Const:10); 
+    CJUMP != Const:1 Const:0? L102 : L103; 
+  Block: Entry Label: L102
+    Exit labels: L104 
+    LABEL L102; 
+    PTR_CALC t11101:ptr <- t10001:ptr + Const:0; 
+    STORE t10101:int -> Mem(t11101:ptr); 
+    JUMP L104; 
+  Block: Entry Label: L103
+    Exit labels: L104 
+    LABEL L103; 
+    PTR_CALC t11201:ptr <- t10001:ptr + Const:0; 
+    STORE Const:0 -> Mem(t11201:ptr); 
+    JUMP L104; 
+  Block: Entry Label: L104
+    Exit labels: 
+    LABEL L104; 
+    PTR_CALC t11301:ptr <- t10001:ptr + Const:0; 
+    LOAD t11401:int <- Mem(t11301:ptr); 
+    RETURN t11401:int; 

@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program bline="1" bpos="1" eline="26" epos="1">
+    <MainMethod bline="1" bpos="1" eline="19" epos="1">
+        <VarDeclList>
+            <VarDecl bline="2" bpos="3" eline="2" epos="12">
+                <Type typeKind="CLASS" bline="2" bpos="3" eline="2" epos="9">
+                    <IdExp id="p" bline="2" bpos="9" eline="2" epos="9"/>
+                </Type>
+                <IdExp id="o" bline="2" bpos="11" eline="2" epos="11"/>
+            </VarDecl>
+            <VarDecl bline="3" bpos="3" eline="3" epos="8">
+                <Type typeKind="INT" bline="3" bpos="3" eline="3" epos="5"/>
+                <IdExp id="i" bline="3" bpos="7" eline="3" epos="7"/>
+            </VarDecl>
+            <VarDecl bline="4" bpos="3" eline="4" epos="8">
+                <Type typeKind="INT" bline="4" bpos="3" eline="4" epos="5"/>
+                <IdExp id="p" bline="4" bpos="7" eline="4" epos="7"/>
+            </VarDecl>
+        </VarDeclList>
+        <StmList>
+            <Assign bline="5" bpos="3" eline="5" epos="14">
+                <IdExp bline="5" bpos="3" eline="5" epos="3" id="o"/>
+                <NewObject bline="5" bpos="7" eline="5" epos="13">
+                    <Id id="p"/>
+                </NewObject>
+            </Assign>
+            <Assign bline="6" bpos="3" eline="6" epos="8">
+                <IdExp bline="6" bpos="3" eline="6" epos="3" id="i"/>
+                <IntExp bline="6" bpos="7" eline="6" epos="7" val="1"/>
+            </Assign>
+            <While bline="7" bpos="3" eline="17" epos="3">
+                <BinaryOp bline="7" bpos="10" eline="7" epos="15">
+                    <IdExp bline="7" bpos="10" eline="7" epos="10" id="i"/>
+                    <OpExp op="&lt;=" bline="7" bpos="11" eline="7" epos="12"/>
+                    <IntExp bline="7" bpos="13" eline="7" epos="15" val="100"/>
+                </BinaryOp>
+                <Nested bline="7" bpos="18" eline="17" epos="3">
+                    <StmList>
+                        <Assign bline="8" bpos="5" eline="8" epos="10">
+                            <IdExp bline="8" bpos="5" eline="8" epos="5" id="p"/>
+                            <IntExp bline="8" bpos="9" eline="8" epos="9" val="0"/>
+                        </Assign>
+                        <If bline="9" bpos="5" eline="10" epos="12">
+                            <BinaryOp bline="9" bpos="10" eline="9" epos="69">
+                                <BinaryOp bline="9" bpos="10" eline="9" epos="57">
+                                    <BinaryOp bline="9" bpos="10" eline="9" epos="45">
+                                        <BinaryOp bline="9" bpos="10" eline="9" epos="33">
+                                            <BinaryOp bline="9" bpos="10" eline="9" epos="21">
+                                                <BinaryOp bline="9" bpos="10" eline="9" epos="16">
+                                                    <BinaryOp bline="9" bpos="11" eline="9" epos="13">
+                                                        <IdExp bline="9" bpos="11" eline="9" epos="11" id="i"/>
+                                                        <OpExp op="/" bline="9" bpos="12" eline="9" epos="12"/>
+                                                        <IntExp bline="9" bpos="13" eline="9" epos="13" val="3"/>
+                                                    </BinaryOp>
+                                                    <OpExp op="*" bline="9" bpos="15" eline="9" epos="15"/>
+                                                    <IntExp bline="9" bpos="16" eline="9" epos="16" val="3"/>
+                                                </BinaryOp>
+                                                <OpExp op="==" bline="9" bpos="18" eline="9" epos="19"/>
+                                                <IdExp bline="9" bpos="21" eline="9" epos="21" id="i"/>
+                                            </BinaryOp>
+                                            <OpExp op="&amp;&amp;" bline="9" bpos="23" eline="9" epos="24"/>
+                                            <CallExp bline="9" bpos="26" eline="9" epos="33">
+                                                <IdExp bline="9" bpos="26" eline="9" epos="26" id="o"/>
+                                                <IdExp id="p" bline="9" bpos="28" eline="9" epos="28"/>
+                                                <ParList>
+                                                    <IntExp bline="9" bpos="30" eline="9" epos="32" val="102"/>
+                                                </ParList>
+                                            </CallExp>
+                                        </BinaryOp>
+                                        <OpExp op="&amp;&amp;" bline="9" bpos="35" eline="9" epos="36"/>
+                                        <CallExp bline="9" bpos="38" eline="9" epos="45">
+                                            <IdExp bline="9" bpos="38" eline="9" epos="38" id="o"/>
+                                            <IdExp id="p" bline="9" bpos="40" eline="9" epos="40"/>
+                                            <ParList>
+                                                <IntExp bline="9" bpos="42" eline="9" epos="44" val="105"/>
+                                            </ParList>
+                                        </CallExp>
+                                    </BinaryOp>
+                                    <OpExp op="&amp;&amp;" bline="9" bpos="47" eline="9" epos="48"/>
+                                    <CallExp bline="9" bpos="50" eline="9" epos="57">
+                                        <IdExp bline="9" bpos="50" eline="9" epos="50" id="o"/>
+                                        <IdExp id="p" bline="9" bpos="52" eline="9" epos="52"/>
+                                        <ParList>
+                                            <IntExp bline="9" bpos="54" eline="9" epos="56" val="122"/>
+                                        </ParList>
+                                    </CallExp>
+                                </BinaryOp>
+                                <OpExp op="&amp;&amp;" bline="9" bpos="59" eline="9" epos="60"/>
+                                <CallExp bline="9" bpos="62" eline="9" epos="69">
+                                    <IdExp bline="9" bpos="62" eline="9" epos="62" id="o"/>
+                                    <IdExp id="p" bline="9" bpos="64" eline="9" epos="64"/>
+                                    <ParList>
+                                        <IntExp bline="9" bpos="66" eline="9" epos="68" val="122"/>
+                                    </ParList>
+                                </CallExp>
+                            </BinaryOp>
+                            <Assign bline="10" bpos="7" eline="10" epos="12">
+                                <IdExp bline="10" bpos="7" eline="10" epos="7" id="p"/>
+                                <IntExp bline="10" bpos="11" eline="10" epos="11" val="1"/>
+                            </Assign>
+                        </If>
+                        <If bline="11" bpos="5" eline="12" epos="12">
+                            <BinaryOp bline="11" bpos="10" eline="11" epos="68">
+                                <BinaryOp bline="11" bpos="10" eline="11" epos="56">
+                                    <BinaryOp bline="11" bpos="10" eline="11" epos="44">
+                                        <BinaryOp bline="11" bpos="10" eline="11" epos="32">
+                                            <BinaryOp bline="11" bpos="10" eline="11" epos="21">
+                                                <BinaryOp bline="11" bpos="10" eline="11" epos="16">
+                                                    <BinaryOp bline="11" bpos="11" eline="11" epos="13">
+                                                        <IdExp bline="11" bpos="11" eline="11" epos="11" id="i"/>
+                                                        <OpExp op="/" bline="11" bpos="12" eline="11" epos="12"/>
+                                                        <IntExp bline="11" bpos="13" eline="11" epos="13" val="5"/>
+                                                    </BinaryOp>
+                                                    <OpExp op="*" bline="11" bpos="15" eline="11" epos="15"/>
+                                                    <IntExp bline="11" bpos="16" eline="11" epos="16" val="5"/>
+                                                </BinaryOp>
+                                                <OpExp op="==" bline="11" bpos="18" eline="11" epos="19"/>
+                                                <IdExp bline="11" bpos="21" eline="11" epos="21" id="i"/>
+                                            </BinaryOp>
+                                            <OpExp op="&amp;&amp;" bline="11" bpos="23" eline="11" epos="24"/>
+                                            <CallExp bline="11" bpos="26" eline="11" epos="32">
+                                                <IdExp bline="11" bpos="26" eline="11" epos="26" id="o"/>
+                                                <IdExp id="p" bline="11" bpos="28" eline="11" epos="28"/>
+                                                <ParList>
+                                                    <IntExp bline="11" bpos="30" eline="11" epos="31" val="98"/>
+                                                </ParList>
+                                            </CallExp>
+                                        </BinaryOp>
+                                        <OpExp op="&amp;&amp;" bline="11" bpos="34" eline="11" epos="35"/>
+                                        <CallExp bline="11" bpos="37" eline="11" epos="44">
+                                            <IdExp bline="11" bpos="37" eline="11" epos="37" id="o"/>
+                                            <IdExp id="p" bline="11" bpos="39" eline="11" epos="39"/>
+                                            <ParList>
+                                                <IntExp bline="11" bpos="41" eline="11" epos="43" val="117"/>
+                                            </ParList>
+                                        </CallExp>
+                                    </BinaryOp>
+                                    <OpExp op="&amp;&amp;" bline="11" bpos="46" eline="11" epos="47"/>
+                                    <CallExp bline="11" bpos="49" eline="11" epos="56">
+                                        <IdExp bline="11" bpos="49" eline="11" epos="49" id="o"/>
+                                        <IdExp id="p" bline="11" bpos="51" eline="11" epos="51"/>
+                                        <ParList>
+                                            <IntExp bline="11" bpos="53" eline="11" epos="55" val="122"/>
+                                        </ParList>
+                                    </CallExp>
+                                </BinaryOp>
+                                <OpExp op="&amp;&amp;" bline="11" bpos="58" eline="11" epos="59"/>
+                                <CallExp bline="11" bpos="61" eline="11" epos="68">
+                                    <IdExp bline="11" bpos="61" eline="11" epos="61" id="o"/>
+                                    <IdExp id="p" bline="11" bpos="63" eline="11" epos="63"/>
+                                    <ParList>
+                                        <IntExp bline="11" bpos="65" eline="11" epos="67" val="122"/>
+                                    </ParList>
+                                </CallExp>
+                            </BinaryOp>
+                            <Assign bline="12" bpos="7" eline="12" epos="12">
+                                <IdExp bline="12" bpos="7" eline="12" epos="7" id="p"/>
+                                <IntExp bline="12" bpos="11" eline="12" epos="11" val="1"/>
+                            </Assign>
+                        </If>
+                        <If bline="13" bpos="5" eline="14" epos="16">
+                            <UnaryOp bline="13" bpos="9" eline="13" epos="10">
+                                <OpExp op="!" bline="13" bpos="9" eline="13" epos="9"/>
+                                <IdExp bline="13" bpos="10" eline="13" epos="10" id="p"/>
+                            </UnaryOp>
+                            <PutInt bline="14" bpos="7" eline="14" epos="16">
+                                <IdExp bline="14" bpos="14" eline="14" epos="14" id="i"/>
+                            </PutInt>
+                        </If>
+                        <PutCh bline="15" bpos="5" eline="15" epos="14">
+                            <IntExp bline="15" bpos="11" eline="15" epos="12" val="32"/>
+                        </PutCh>
+                        <Assign bline="16" bpos="5" eline="16" epos="14">
+                            <IdExp bline="16" bpos="5" eline="16" epos="5" id="i"/>
+                            <BinaryOp bline="16" bpos="9" eline="16" epos="13">
+                                <IdExp bline="16" bpos="9" eline="16" epos="9" id="i"/>
+                                <OpExp op="+" bline="16" bpos="11" eline="16" epos="11"/>
+                                <IntExp bline="16" bpos="13" eline="16" epos="13" val="1"/>
+                            </BinaryOp>
+                        </Assign>
+                    </StmList>
+                </Nested>
+            </While>
+            <PutCh bline="18" bpos="3" eline="18" epos="12">
+                <IntExp bline="18" bpos="9" eline="18" epos="10" val="10"/>
+            </PutCh>
+        </StmList>
+    </MainMethod>
+    <ClassDeclList>
+        <ClassDecl bline="21" bpos="1" eline="26" epos="1">
+            <IdExp id="p" bline="21" bpos="14" eline="21" epos="14"/>
+            <VarDeclList/>
+            <MethodDeclList>
+                <MethodDecl bline="22" bpos="3" eline="25" epos="3">
+                    <Type typeKind="INT" bline="22" bpos="10" eline="22" epos="12"/>
+                    <IdExp id="p" bline="22" bpos="14" eline="22" epos="14"/>
+                    <FormalList>
+                        <Formal bline="22" bpos="16" eline="22" epos="20">
+                            <Type typeKind="INT" bline="22" bpos="16" eline="22" epos="18"/>
+                            <IdExp bline="22" bpos="20" eline="22" epos="20" id="c"/>
+                        </Formal>
+                    </FormalList>
+                    <VarDeclList/>
+                    <StmList>
+                        <PutCh bline="23" bpos="5" eline="23" epos="13">
+                            <IdExp bline="23" bpos="11" eline="23" epos="11" id="c"/>
+                        </PutCh>
+                        <Return bline="24" bpos="5" eline="24" epos="13">
+                            <IntExp bline="24" bpos="12" eline="24" epos="12" val="1"/>
+                        </Return>
+                    </StmList>
+                </MethodDecl>
+            </MethodDeclList>
+        </ClassDecl>
+    </ClassDeclList>
+</Program>

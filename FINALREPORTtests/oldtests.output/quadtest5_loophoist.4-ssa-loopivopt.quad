@@ -1,0 +1,29 @@
+Function __$main__^main() last_label=113 last_temp=106:
+  Block: Entry Label: L110
+    Exit labels: L102 
+    LABEL L110; 
+    MOVE t1000101:int <- Const:1; 
+    MOVE t1010101:int <- Const:2; 
+    JUMP L102; 
+  Block: Entry Label: L102
+    Exit labels: L103 L104 
+    LABEL L102; 
+    CJUMP != t1000101:int Const:0? L103 : L104; 
+  Block: Entry Label: L103
+    Exit labels: L107 L108 
+    LABEL L103; 
+    CJUMP != t1010101:int Const:0? L107 : L108; 
+  Block: Entry Label: L107
+    Exit labels: L104 
+    LABEL L107; 
+    JUMP L104; 
+  Block: Entry Label: L108
+    Exit labels: L102 
+    LABEL L108; 
+    JUMP L102; 
+  Block: Entry Label: L104
+    Exit labels: 
+    LABEL L104; 
+    EXTCALL putint(Const:100); 
+    EXTCALL putch(Const:10); 
+    RETURN Const:1; 

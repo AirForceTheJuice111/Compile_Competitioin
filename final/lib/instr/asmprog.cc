@@ -5,16 +5,25 @@
 namespace instr {
 
 namespace {
+    bool is_local_numeric_label(const std::string &label_name) {
+        if (label_name.size() < 2 || label_name[0] != 'L') return false;
+        for (size_t i = 1; i < label_name.size(); ++i) {
+            if (label_name[i] < '0' || label_name[i] > '9') return false;
+        }
+        return true;
+    }
+
     void postprocess_label_addresses(std::string &result, const std::string &func_name) {
         // Handle adr instructions - look for literal labels (not placeholders)
-        std::regex adr_literal(R"(adr\s+\w+,\s+([A-Za-z_]\w*))");
+        std::regex adr_literal(R"(adr\s+\w+,\s+([^\s,]+))");
         std::string::const_iterator searchStart(result.cbegin());
         std::smatch match;
 
         while (std::regex_search(searchStart, result.cend(), match, adr_literal)) {
             std::string label_name = match[1].str();
-            // Only prefix if it doesn't already contain the function name and is an L label
-            if (label_name[0] == 'L' && label_name.find('$') == std::string::npos) {
+            // Only numbered IR-local labels are scoped under the current function.
+            // Method labels such as List$add are global function symbols.
+            if (is_local_numeric_label(label_name) && label_name.find('$') == std::string::npos) {
                 std::string prefixed_label = func_name + "$" + label_name;
                 size_t label_pos = std::distance(result.cbegin(), match[1].first);
                 result = result.substr(0, label_pos) + prefixed_label + result.substr(label_pos + label_name.length());

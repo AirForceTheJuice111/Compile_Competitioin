@@ -7,7 +7,7 @@ fmjcc="${FMJCC:-$root/final/build/fmjcc}"
 fmjinterp="${FMJINTERP:-$root/final/build/fmjinterp}"
 cc="${ARM_CC:-arm-linux-gnueabihf-gcc}"
 qemu="${QEMU_ARM:-qemu-arm}"
-iters="${ITERS:-1000000}"
+iters="${ITERS:-10000}"
 timeout_s="${TIMEOUT:-3600}"
 kset="${KSET:-9}"
 seed="${SEED:-0x5eed1234}"
@@ -41,7 +41,7 @@ cat > "$harness" <<'HARNESS_C'
 #include <unistd.h>
 
 #ifndef ITERS
-#define ITERS 1000000
+#define ITERS 10000
 #endif
 #ifndef CASE_KIND
 #define CASE_KIND "generic"

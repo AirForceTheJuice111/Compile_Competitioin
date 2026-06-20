@@ -1,0 +1,8 @@
+Function __$main__^main() last_label=102 last_temp=105:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; 
+    MOVE t1000101:int <- Const:1; 
+    EXTCALL putint(t1000101:int); 
+    EXTCALL putch(Const:10); 
+    RETURN t1000101:int; 

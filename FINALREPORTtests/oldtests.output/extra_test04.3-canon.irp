@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program>
+    <FunctionDeclaration name="__$main__^main" return_type="INT" last_temp="100" last_label="99">
+        <Sequence>
+            <Return>
+                <BinOp type="INT" op="+">
+                    <BinOp type="INT" op="+">
+                        <BinOp type="INT" op="+">
+                            <BinOp type="INT" op="+">
+                                <Const value="1"/>
+                                <Const value="2"/>
+                            </BinOp>
+                            <Const value="3"/>
+                        </BinOp>
+                        <Const value="4"/>
+                    </BinOp>
+                    <Const value="5"/>
+                </BinOp>
+            </Return>
+        </Sequence>
+    </FunctionDeclaration>
+</Program>

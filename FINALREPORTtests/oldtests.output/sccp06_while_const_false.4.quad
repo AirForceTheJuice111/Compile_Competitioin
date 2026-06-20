@@ -1,0 +1,12 @@
+Function __$main__^main() last_label=105 last_temp=103:
+  Block: Entry Label: L105
+    Exit labels: 
+    LABEL L105; def: use: 
+    MOVE t100:int <- Const:6; def: t100 use: 
+    LABEL L102; def: use: 
+    CJUMP != Const:0 Const:0? L103 : L104; def: use: 
+    LABEL L103; def: use: 
+    MOVE_EXTCALL t100:int <- getint(); def: t100 use: 
+    JUMP L102; def: use: 
+    LABEL L104; def: use: 
+    RETURN t100:int; def: use: t100 

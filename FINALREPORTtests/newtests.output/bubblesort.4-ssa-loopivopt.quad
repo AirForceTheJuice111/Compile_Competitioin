@@ -1,0 +1,257 @@
+Function __$main__^main() last_label=109 last_temp=140:
+  Block: Entry Label: L108
+    Exit labels: L102 
+    LABEL L108; 
+    MOVE_EXTCALL t10001:ptr <- malloc(Const:32); 
+    STORE Const:7 -> Mem(t10001:ptr); 
+    PTR_CALC t12301:ptr <- t10001:ptr + Const:4; 
+    STORE Const:6 -> Mem(t12301:ptr); 
+    PTR_CALC t12401:ptr <- t10001:ptr + Const:8; 
+    STORE Const:3 -> Mem(t12401:ptr); 
+    PTR_CALC t12501:ptr <- t10001:ptr + Const:12; 
+    STORE Const:0 -> Mem(t12501:ptr); 
+    PTR_CALC t12601:ptr <- t10001:ptr + Const:16; 
+    STORE Const:5 -> Mem(t12601:ptr); 
+    PTR_CALC t12701:ptr <- t10001:ptr + Const:20; 
+    STORE Const:9 -> Mem(t12701:ptr); 
+    PTR_CALC t12801:ptr <- t10001:ptr + Const:24; 
+    STORE Const:1 -> Mem(t12801:ptr); 
+    PTR_CALC t12901:ptr <- t10001:ptr + Const:28; 
+    STORE Const:2 -> Mem(t12901:ptr); 
+    MOVE t10201:int <- Const:0; 
+    MOVE_EXTCALL t10401:ptr <- malloc(Const:8); 
+    PTR_CALC t13101:ptr <- t10401:ptr + Const:4; 
+    STORE Name:b1^bubbleSort -> Mem(t13101:ptr); 
+    MOVE t10101:ptr <- t10401:ptr; 
+    PTR_CALC t13201:ptr <- t10101:ptr + Const:4; 
+    LOAD t11001:ptr <- Mem(t13201:ptr); 
+    MOVE t11301:ptr <- t11001:ptr; 
+    MOVE t11201:ptr <- t10101:ptr; 
+    MOVE t11101:ptr <- t10001:ptr; 
+    LOAD t10501:int <- Mem(t10001:ptr); 
+    CALL bubbleSort[t11301:ptr] (t11201:ptr, t11101:ptr, t10501:int); 
+    MOVE_BINOP t13605:int <- (*, t10201:int, Const:4); 
+    MOVE_BINOP t13603:int <- (+, t13605:int, Const:4); 
+    JUMP L102; 
+  Block: Entry Label: L102
+    Exit labels: L103 L104 
+    LABEL L102; 
+    PHI t10202:int <- Phi([t10203, L107], [t10201, L108]); 
+    PHI t13602:int <- Phi([t13604, L107], [t13603, L108]); 
+    MOVE t11501:int <- t10202:int; 
+    LOAD t10601:int <- Mem(t10001:ptr); 
+    CJUMP < t11501:int t10601:int? L103 : L104; 
+  Block: Entry Label: L103
+    Exit labels: L106 L105 
+    LABEL L103; 
+    MOVE t11701:ptr <- t10001:ptr; 
+    LOAD t10701:int <- Mem(t10001:ptr); 
+    CJUMP >= t10202:int Const:0? L106 : L105; 
+  Block: Entry Label: L106
+    Exit labels: L105 L107 
+    LABEL L106; 
+    CJUMP >= t10202:int t10701:int? L105 : L107; 
+  Block: Entry Label: L105
+    Exit labels: 
+    LABEL L105; 
+    EXTCALL exit(Const:-1); 
+  Block: Entry Label: L107
+    Exit labels: L102 
+    LABEL L107; 
+    PTR_CALC t13701:ptr <- t11701:ptr + t13602:int; 
+    LOAD t11801:int <- Mem(t13701:ptr); 
+    EXTCALL putint(t11801:int); 
+    EXTCALL putch(Const:32); 
+    MOVE_BINOP t10203:int <- (+, t10202:int, Const:1); 
+    MOVE_BINOP t13604:int <- (+, t13602:int, Const:4); 
+    JUMP L102; 
+  Block: Entry Label: L104
+    Exit labels: 
+    LABEL L104; 
+    EXTCALL putch(Const:10); 
+    RETURN Const:0; 
+Function b1^bubbleSort(t101, t102, t103) last_label=135 last_temp=165:
+  Block: Entry Label: L133
+    Exit labels: L102 L103 
+    LABEL L133; 
+    MOVE t10001:int <- Const:0; 
+    CJUMP <= t103:int Const:1? L102 : L103; 
+  Block: Entry Label: L102
+    Exit labels: 
+    LABEL L102; 
+    RETURN Const:0; 
+  Block: Entry Label: L103
+    Exit labels: L104 
+    LABEL L103; 
+    JUMP L104; 
+  Block: Entry Label: L104
+    Exit labels: L107 
+    LABEL L104; 
+    MOVE_BINOP t13605:int <- (*, t10001:int, Const:4); 
+    MOVE_BINOP t13603:int <- (+, t13605:int, Const:4); 
+    MOVE_BINOP t14005:int <- (*, t10001:int, Const:4); 
+    MOVE_BINOP t14003:int <- (+, t14005:int, Const:8); 
+    MOVE_BINOP t14605:int <- (*, t10001:int, Const:4); 
+    MOVE_BINOP t14603:int <- (+, t14605:int, Const:4); 
+    MOVE_BINOP t15205:int <- (*, t10001:int, Const:4); 
+    MOVE_BINOP t15203:int <- (+, t15205:int, Const:4); 
+    MOVE_BINOP t15505:int <- (*, t10001:int, Const:4); 
+    MOVE_BINOP t15503:int <- (+, t15505:int, Const:8); 
+    MOVE_BINOP t16005:int <- (*, t10001:int, Const:4); 
+    MOVE_BINOP t16003:int <- (+, t16005:int, Const:8); 
+    MOVE_BINOP t10603:int <- (+, t10001:int, Const:1); 
+    MOVE_BINOP t11003:int <- (+, t10001:int, Const:1); 
+    MOVE_BINOP t11203:int <- (+, t10001:int, Const:1); 
+    JUMP L107; 
+  Block: Entry Label: L107
+    Exit labels: L108 L109 
+    LABEL L107; 
+    PHI t10002:int <- Phi([t10001, L104], [t10003, L132]); 
+    PHI t13602:int <- Phi([t13604, L132], [t13603, L104]); 
+    PHI t14002:int <- Phi([t14004, L132], [t14003, L104]); 
+    PHI t14602:int <- Phi([t14604, L132], [t14603, L104]); 
+    PHI t15202:int <- Phi([t15204, L132], [t15203, L104]); 
+    PHI t15502:int <- Phi([t15504, L132], [t15503, L104]); 
+    PHI t16002:int <- Phi([t16004, L132], [t16003, L104]); 
+    PHI t10602:int <- Phi([t10604, L132], [t10603, L104]); 
+    PHI t11002:int <- Phi([t11004, L132], [t11003, L104]); 
+    PHI t11202:int <- Phi([t11204, L132], [t11203, L104]); 
+    MOVE_BINOP t13301:int <- (-, t103:int, Const:1); 
+    CJUMP < t10002:int t13301:int? L108 : L109; 
+  Block: Entry Label: L108
+    Exit labels: L111 L110 
+    LABEL L108; 
+    MOVE t11501:ptr <- t102:ptr; 
+    LOAD t10501:int <- Mem(t102:ptr); 
+    CJUMP >= t10002:int Const:0? L111 : L110; 
+  Block: Entry Label: L111
+    Exit labels: L110 L112 
+    LABEL L111; 
+    CJUMP >= t10002:int t10501:int? L110 : L112; 
+  Block: Entry Label: L110
+    Exit labels: 
+    LABEL L110; 
+    EXTCALL exit(Const:-1); 
+  Block: Entry Label: L112
+    Exit labels: L114 L113 
+    LABEL L112; 
+    PTR_CALC t13701:ptr <- t11501:ptr + t13602:int; 
+    LOAD t11801:int <- Mem(t13701:ptr); 
+    MOVE t11701:ptr <- t102:ptr; 
+    LOAD t10701:int <- Mem(t102:ptr); 
+    CJUMP >= t10602:int Const:0? L114 : L113; 
+  Block: Entry Label: L114
+    Exit labels: L113 L115 
+    LABEL L114; 
+    CJUMP >= t10602:int t10701:int? L113 : L115; 
+  Block: Entry Label: L113
+    Exit labels: 
+    LABEL L113; 
+    EXTCALL exit(Const:-1); 
+  Block: Entry Label: L115
+    Exit labels: L130 L131 
+    LABEL L115; 
+    PTR_CALC t14101:ptr <- t11701:ptr + t14002:int; 
+    LOAD t14201:int <- Mem(t14101:ptr); 
+    CJUMP > t11801:int t14201:int? L130 : L131; 
+  Block: Entry Label: L130
+    Exit labels: L119 L118 
+    LABEL L130; 
+    MOVE t12001:ptr <- t102:ptr; 
+    LOAD t10801:int <- Mem(t102:ptr); 
+    CJUMP >= t10002:int Const:0? L119 : L118; 
+  Block: Entry Label: L119
+    Exit labels: L118 L120 
+    LABEL L119; 
+    CJUMP >= t10002:int t10801:int? L118 : L120; 
+  Block: Entry Label: L118
+    Exit labels: 
+    LABEL L118; 
+    EXTCALL exit(Const:-1); 
+  Block: Entry Label: L120
+    Exit labels: L122 L121 
+    LABEL L120; 
+    PTR_CALC t14401:ptr <- t101:ptr + Const:0; 
+    PTR_CALC t14701:ptr <- t12001:ptr + t14602:int; 
+    LOAD t14801:int <- Mem(t14701:ptr); 
+    STORE t14801:int -> Mem(t14401:ptr); 
+    MOVE t12201:ptr <- t102:ptr; 
+    LOAD t10901:int <- Mem(t102:ptr); 
+    CJUMP >= t10002:int Const:0? L122 : L121; 
+  Block: Entry Label: L122
+    Exit labels: L121 L123 
+    LABEL L122; 
+    CJUMP >= t10002:int t10901:int? L121 : L123; 
+  Block: Entry Label: L121
+    Exit labels: 
+    LABEL L121; 
+    EXTCALL exit(Const:-1); 
+  Block: Entry Label: L123
+    Exit labels: L125 L124 
+    LABEL L123; 
+    MOVE t12401:ptr <- t102:ptr; 
+    LOAD t11101:int <- Mem(t102:ptr); 
+    CJUMP >= t11002:int Const:0? L125 : L124; 
+  Block: Entry Label: L125
+    Exit labels: L124 L126 
+    LABEL L125; 
+    CJUMP >= t11002:int t11101:int? L124 : L126; 
+  Block: Entry Label: L124
+    Exit labels: 
+    LABEL L124; 
+    EXTCALL exit(Const:-1); 
+  Block: Entry Label: L126
+    Exit labels: L128 L127 
+    LABEL L126; 
+    PTR_CALC t15301:ptr <- t12201:ptr + t15202:int; 
+    PTR_CALC t15601:ptr <- t12401:ptr + t15502:int; 
+    LOAD t15701:int <- Mem(t15601:ptr); 
+    STORE t15701:int -> Mem(t15301:ptr); 
+    MOVE t12601:ptr <- t102:ptr; 
+    LOAD t11301:int <- Mem(t102:ptr); 
+    CJUMP >= t11202:int Const:0? L128 : L127; 
+  Block: Entry Label: L128
+    Exit labels: L127 L129 
+    LABEL L128; 
+    CJUMP >= t11202:int t11301:int? L127 : L129; 
+  Block: Entry Label: L127
+    Exit labels: 
+    LABEL L127; 
+    EXTCALL exit(Const:-1); 
+  Block: Entry Label: L129
+    Exit labels: L132 
+    LABEL L129; 
+    PTR_CALC t16101:ptr <- t12601:ptr + t16002:int; 
+    PTR_CALC t16201:ptr <- t101:ptr + Const:0; 
+    LOAD t16301:int <- Mem(t16201:ptr); 
+    STORE t16301:int -> Mem(t16101:ptr); 
+    JUMP L132; 
+  Block: Entry Label: L131
+    Exit labels: L132 
+    LABEL L131; 
+    JUMP L132; 
+  Block: Entry Label: L132
+    Exit labels: L107 
+    LABEL L132; 
+    MOVE_BINOP t10003:int <- (+, t10002:int, Const:1); 
+    MOVE_BINOP t13604:int <- (+, t13602:int, Const:4); 
+    MOVE_BINOP t14004:int <- (+, t14002:int, Const:4); 
+    MOVE_BINOP t14604:int <- (+, t14602:int, Const:4); 
+    MOVE_BINOP t15204:int <- (+, t15202:int, Const:4); 
+    MOVE_BINOP t15504:int <- (+, t15502:int, Const:4); 
+    MOVE_BINOP t16004:int <- (+, t16002:int, Const:4); 
+    MOVE_BINOP t10604:int <- (+, t10602:int, Const:1); 
+    MOVE_BINOP t11004:int <- (+, t11002:int, Const:1); 
+    MOVE_BINOP t11204:int <- (+, t11202:int, Const:1); 
+    JUMP L107; 
+  Block: Entry Label: L109
+    Exit labels: 
+    LABEL L109; 
+    PTR_CALC t16401:ptr <- t101:ptr + Const:4; 
+    LOAD t12701:ptr <- Mem(t16401:ptr); 
+    MOVE t13101:ptr <- t12701:ptr; 
+    MOVE t13001:ptr <- t101:ptr; 
+    MOVE t12901:ptr <- t102:ptr; 
+    MOVE_BINOP t12801:int <- (-, t103:int, Const:1); 
+    MOVE_CALL t13201:int <- bubbleSort[t13101:ptr] (t13001:ptr, t12901:ptr, t12801:int); 
+    RETURN t13201:int; 

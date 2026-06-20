@@ -1,0 +1,13 @@
+// EXPECT: FAIL
+// Target: method call should reject missing method.
+public int main() {
+    class A a;
+    a = new A();
+    return a.g();
+}
+
+public class A {
+    public int f() {
+        return 0;
+    }
+}

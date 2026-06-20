@@ -1,0 +1,116 @@
+; Generated LLVM IR from Quad representation
+
+declare i8* @malloc(i32)
+declare void @free(i8*)
+
+declare i32 @printf(i8*, ...)
+declare i32 @__isoc99_scanf(i8*, ...)
+
+declare void @exit(i64)
+
+declare i64 @getint()
+declare i64 @getch()
+declare i64 @getarray(i64*)
+declare void @putint(i64)
+declare void @putch(i64)
+declare void @putarray(i64, i64*)
+
+define i32 @main() {
+entry:
+  br label %label_115
+
+label_115:
+  %t10101 = call i64 @getint()
+  %t116 = add i64 10, 0
+  %t117 = add i64 0, 0
+  br label %label_102
+
+label_102:
+  %t10302 = phi i64 [ %t10303, %label_109 ], [ %t116, %label_115 ]
+  %t10201 = phi i64 [ %t10202, %label_109 ], [ %t102, %label_115 ]
+  %t10102 = phi i64 [ %t10103, %label_109 ], [ %t10101, %label_115 ]
+  %t10002 = phi i64 [ %t10003, %label_109 ], [ %t117, %label_115 ]
+  %t0 = icmp sgt i64 %t10302, 0
+  br i1 %t0, label %label_103, label %label_104
+
+label_103:
+  %t10003 = add i64 %t10002, 1
+  br label %label_107
+
+label_107:
+  %t10202 = phi i64 [ %t10201, %label_103 ], [ %t10205, %label_114 ]
+  %t10103 = phi i64 [ %t10102, %label_103 ], [ %t10104, %label_114 ]
+  %t1 = icmp sgt i64 %t10103, 0
+  br i1 %t1, label %label_108, label %label_109
+
+label_108:
+  %t2 = icmp sgt i64 %t10003, 3
+  br i1 %t2, label %label_112, label %label_113
+
+label_112:
+  %t10203 = mul i64 3, %t10003
+  br label %label_114
+
+label_113:
+  %t3 = mul i64 4, 2
+  %t4 = trunc i64 %t3 to i32
+  %t5 = call i8* @malloc(i32 %t4)
+  %t10501 = ptrtoint i8* %t5 to i64
+  %t6 = mul i64 0, 2
+  %t11301 = add i64 %t10501, %t6
+  %t7 = ptrtoint i64 (i64, i64)* @C$m to i64
+  %t8 = inttoptr i64 %t11301 to i64*
+  store i64 %t7, i64* %t8
+  %t10601 = add i64 %t10501, 0
+  %t9 = mul i64 0, 2
+  %t11401 = add i64 %t10601, %t9
+  %t10 = inttoptr i64 %t11401 to i64*
+  %t10901 = load i64, i64* %t10
+  %t11 = inttoptr i64 %t10901 to i64(i64, i64)*
+  %t11001 = call i64 %t11(i64 %t10601, i64 3)
+  %t10204 = add i64 %t11001, 0
+  br label %label_114
+
+label_114:
+  %t10205 = phi i64 [ %t10203, %label_112 ], [ %t10204, %label_113 ]
+  %t10104 = sub i64 %t10103, 1
+  br label %label_107
+
+label_109:
+  %t10303 = sub i64 %t10302, 1
+  br label %label_102
+
+label_104:
+  %t12 = trunc i64 %t10201 to i32
+  ret i32 %t12
+
+  ; Default return
+  ret i32 0
+}
+
+define i64 @C$m(i64 %t101, i64 %t102) {
+entry:
+  br label %label_105
+
+label_105:
+  %t105 = add i64 0, 0
+  br label %label_102
+
+label_102:
+  %t10201 = phi i64 [ %t10202, %label_103 ], [ %t102, %label_105 ]
+  %t10002 = phi i64 [ %t104, %label_103 ], [ %t105, %label_105 ]
+  %t0 = icmp ne i64 %t10201, 0
+  br i1 %t0, label %label_103, label %label_104
+
+label_103:
+  %t10202 = sub i64 %t10201, 1
+  %t104 = add i64 3, 0
+  br label %label_102
+
+label_104:
+  ret i64 %t10002
+
+  ; Default return
+  ret i64 0
+}
+

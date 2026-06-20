@@ -202,9 +202,9 @@ run_mode() {
         fi
     else
         if [[ "$timeout_set" -eq 1 ]]; then
-            yes 1 | timeout "$timeout_s" "$qemu" "$arm" > "$stdout_file" 2> "$stderr_file"
+            timeout "$timeout_s" "$qemu" "$arm" > "$stdout_file" 2> "$stderr_file"
         else
-            yes 1 | "$qemu" "$arm" > "$stdout_file" 2> "$stderr_file"
+            "$qemu" "$arm" > "$stdout_file" 2> "$stderr_file"
         fi
     fi
     local run_rc=$?

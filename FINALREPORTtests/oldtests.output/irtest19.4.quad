@@ -1,0 +1,35 @@
+Function __$main__^main() last_label=100 last_temp=100:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+Function A^f(t100) last_label=100 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+Function B^f(t100) last_label=100 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+Function B^g(t100) last_label=100 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+Function C^f(t100) last_label=100 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+Function D^f(t100) last_label=100 last_temp=112:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    PTR_CALC t104:ptr <- t100:ptr + Const:16; def: t104 use: t100 
+    LOAD t105:int <- Mem(t104:ptr); def: t105 use: t104 
+    PTR_CALC t106:ptr <- t100:ptr + Const:24; def: t106 use: t100 
+    LOAD t107:ptr <- Mem(t106:ptr); def: t107 use: t106 
+    PTR_CALC t108:ptr <- t107:ptr + Const:16; def: t108 use: t107 
+    LOAD t109:int <- Mem(t108:ptr); def: t109 use: t108 
+    MOVE_BINOP t102:int <- (+, t105:int, t109:int); def: t102 use: t105 t109 
+    EXTCALL putint(t102:int); def: use: t102 
+    PTR_CALC t111:ptr <- t100:ptr + Const:28; def: t111 use: t100 
+    LOAD t112:ptr <- Mem(t111:ptr); def: t112 use: t111 
+    RETURN t112:ptr; def: use: t112 

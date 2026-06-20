@@ -1,0 +1,22 @@
+Function __$main__^main() last_label=103 last_temp=114:
+  Block: Entry Label: L103
+    Exit labels: 
+    LABEL L103; def: use: 
+    MOVE t101:int <- Const:1; def: t101 use: 
+    MOVE_BINOP t109:int <- (+, t101:int, Const:1); def: t109 use: t101 
+    MOVE_BINOP t105:int <- (*, t109:int, Const:4); def: t105 use: t109 
+    MOVE_EXTCALL t102:ptr <- malloc(t105:int); def: t102 use: t105 
+    STORE t101:int -> Mem(t102:ptr); def: use: t101 t102 
+    MOVE t103:ptr <- t102:ptr; def: t103 use: t102 
+    MOVE t108:ptr <- t103:ptr; def: t108 use: t103 
+    LOAD t104:int <- Mem(t103:ptr); def: t104 use: t103 
+    CJUMP >= Const:0 Const:0? L101 : L100; def: use: 
+    LABEL L101; def: use: 
+    CJUMP >= Const:0 t104:int? L100 : L102; def: use: t104 
+    LABEL L100; def: use: 
+    EXTCALL exit(Const:-1); def: use: 
+    LABEL L102; def: use: 
+    MOVE_BINOP t112:int <- (+, Const:0, Const:1); def: t112 use: 
+    MOVE_BINOP t113:int <- (*, t112:int, Const:4); def: t113 use: t112 
+    PTR_CALC t114:ptr <- t108:ptr + t113:int; def: t114 use: t108 t113 
+    STORE Const:0 -> Mem(t114:ptr); def: use: t114 

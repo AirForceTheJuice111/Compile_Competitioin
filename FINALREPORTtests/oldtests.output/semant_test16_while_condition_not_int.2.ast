@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program bline="3" bpos="1" eline="11" epos="1">
+    <MainMethod bline="3" bpos="1" eline="8" epos="1">
+        <VarDeclList>
+            <VarDecl bline="4" bpos="5" eline="4" epos="14">
+                <Type typeKind="CLASS" bline="4" bpos="5" eline="4" epos="11">
+                    <IdExp id="A" bline="4" bpos="11" eline="4" epos="11"/>
+                </Type>
+                <IdExp id="a" bline="4" bpos="13" eline="4" epos="13"/>
+            </VarDecl>
+        </VarDeclList>
+        <StmList>
+            <Assign bline="5" bpos="5" eline="5" epos="16">
+                <IdExp bline="5" bpos="5" eline="5" epos="5" id="a"/>
+                <NewObject bline="5" bpos="9" eline="5" epos="15">
+                    <Id id="A"/>
+                </NewObject>
+            </Assign>
+            <While bline="6" bpos="5" eline="6" epos="15">
+                <IdExp bline="6" bpos="12" eline="6" epos="12" id="a"/>
+            </While>
+            <Return bline="7" bpos="5" eline="7" epos="13">
+                <IntExp bline="7" bpos="12" eline="7" epos="12" val="0"/>
+            </Return>
+        </StmList>
+    </MainMethod>
+    <ClassDeclList>
+        <ClassDecl bline="10" bpos="1" eline="11" epos="1">
+            <IdExp id="A" bline="10" bpos="14" eline="10" epos="14"/>
+            <VarDeclList/>
+            <MethodDeclList/>
+        </ClassDecl>
+    </ClassDeclList>
+</Program>

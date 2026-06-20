@@ -1,0 +1,11 @@
+Function __$main__^main() last_label=105 last_temp=100:
+  Block: Entry Label: L105
+    Exit labels: 
+    LABEL L105; def: use: 
+    LABEL L102; def: use: 
+    CJUMP != Const:1 Const:0? L103 : L104; def: use: 
+    LABEL L103; def: use: 
+    JUMP L102; def: use: 
+    JUMP L102; def: use: 
+    LABEL L104; def: use: 
+    RETURN Const:0; def: use: 

@@ -1,0 +1,53 @@
+public int main() {
+  int n; int i;  int e;
+  class List head;
+  class List current;
+  n = 30000000;
+  i = 0;
+  head = new List().init();
+  current = head;
+  while (i < n) {
+    i = i + 1;
+    current = current.add(i); // current always point to the last empty node
+  }
+  current = head;
+  while (1) {
+    if (current.end_flag) break;
+    e = current.element;
+    if ((e/100000)*100000 == e) {
+      putint(e/100000); putch(32);
+    }
+    current = current.next();
+  }
+  putch(10);
+}
+
+public class List {
+  class List next;
+  int end_flag; //end flag = true means that the current element the last element
+                //we assume the last element is not part of the linked list.
+                //Hence, each list has at least one pseudo-element (with end_flag true)
+  int element;  //This is the element stuff.
+
+  public class List next() {
+    if (!this.end_flag) return this.next;
+    return this;
+  }
+
+  public class List init() {
+    this.end_flag= 1;
+    this.element = 0;
+    return this;
+  }
+
+  public class List add(int e) { //alway add to the end node, and return the new end node
+    if (this.end_flag) { //this is the end node
+       this.element = e;
+       this.end_flag = 0;
+       this.next = new List().init();
+       return this.next;
+    } else { //this is not the end node
+       return this.next.add(e);
+    }
+  }
+}

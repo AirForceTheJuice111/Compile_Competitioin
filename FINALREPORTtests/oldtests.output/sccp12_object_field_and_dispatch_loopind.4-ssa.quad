@@ -1,0 +1,42 @@
+Function Child^value(t100, t101) last_label=102 last_temp=103:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    MOVE_BINOP t1030101:int <- (+, t101:int, Const:2); def: t1030101 use: t101 
+    RETURN t1030101:int; def: use: t1030101 
+Function Base^value(t100, t101) last_label=102 last_temp=103:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    MOVE_BINOP t1030101:int <- (+, t101:int, Const:1); def: t1030101 use: t101 
+    RETURN t1030101:int; def: use: t1030101 
+Function __$main__^main() last_label=107 last_temp=114:
+  Block: Entry Label: L105
+    Exit labels: L102 L103 
+    LABEL L105; def: use: 
+    MOVE_EXTCALL t1030101:ptr <- malloc(Const:8); def: t1030101 use: 
+    PTR_CALC t1080101:ptr <- t1030101:ptr + Const:4; def: t1080101 use: t1030101 
+    STORE Name:Child^value -> Mem(t1080101:ptr); def: use: t1080101 
+    MOVE t1000101:ptr <- t1030101:ptr; def: t1000101 use: t1030101 
+    PTR_CALC t1090101:ptr <- t1000101:ptr + Const:4; def: t1090101 use: t1000101 
+    LOAD t1050101:ptr <- Mem(t1090101:ptr); def: t1050101 use: t1090101 
+    MOVE_CALL t1010101:int <- value[t1050101:ptr] (t1000101:ptr, Const:10); def: t1010101 use: t1050101 t1000101 
+    CJUMP != Const:1 Const:0? L102 : L103; def: use: 
+  Block: Entry Label: L102
+    Exit labels: L104 
+    LABEL L102; def: use: 
+    PTR_CALC t1110101:ptr <- t1000101:ptr + Const:0; def: t1110101 use: t1000101 
+    STORE t1010101:int -> Mem(t1110101:ptr); def: use: t1110101 t1010101 
+    JUMP L104; def: use: 
+  Block: Entry Label: L103
+    Exit labels: L104 
+    LABEL L103; def: use: 
+    PTR_CALC t1120101:ptr <- t1000101:ptr + Const:0; def: t1120101 use: t1000101 
+    STORE Const:0 -> Mem(t1120101:ptr); def: use: t1120101 
+    JUMP L104; def: use: 
+  Block: Entry Label: L104
+    Exit labels: 
+    LABEL L104; def: use: 
+    PTR_CALC t1130101:ptr <- t1000101:ptr + Const:0; def: t1130101 use: t1000101 
+    LOAD t1140101:int <- Mem(t1130101:ptr); def: t1140101 use: t1130101 
+    RETURN t1140101:int; def: use: t1140101 

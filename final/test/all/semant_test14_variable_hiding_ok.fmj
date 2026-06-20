@@ -1,0 +1,16 @@
+// EXPECT: PASS
+// Target: subclass field hiding should be accepted.
+public int main() {
+    class B b;
+    b = new B();
+    b.x = 1;
+    return b.x;
+}
+
+public class A {
+    int[] x;
+}
+
+public class B extends A {
+    int x;
+}

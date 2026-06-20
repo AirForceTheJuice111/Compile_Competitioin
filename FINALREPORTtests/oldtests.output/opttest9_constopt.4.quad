@@ -1,0 +1,40 @@
+Function __$main__^main() last_label=111 last_temp=113:
+  Block: Entry Label: L110
+    Exit labels: L102 
+    LABEL L110; def: use: 
+    MOVE_EXTCALL t10301:int <- getint(); def: t10301 use: 
+    MOVE t109:int <- Const:10; def: t109 use: 
+    MOVE t110:int <- Const:100; def: t110 use: 
+    JUMP L102; def: use: 
+  Block: Entry Label: L102
+    Exit labels: L103 L104 
+    LABEL L102; def: use: 
+    PHI t10502:int <- Phi([t10503, L109], [t109, L110]); def: t10502 use: t109 t10503 
+    PHI t10402:int <- Phi([t10403, L109], [t110, L110]); def: t10402 use: t110 t10403 
+    PHI t10302:int <- Phi([t10303, L109], [t10301, L110]); def: t10302 use: t10301 t10303 
+    CJUMP > t10502:int Const:0? L103 : L104; def: use: t10502 
+  Block: Entry Label: L103
+    Exit labels: L107 
+    LABEL L103; def: use: 
+    JUMP L107; def: use: 
+  Block: Entry Label: L107
+    Exit labels: L108 L109 
+    LABEL L107; def: use: 
+    PHI t10403:int <- Phi([t10402, L103], [t111, L108]); def: t10403 use: t10402 t111 
+    PHI t10303:int <- Phi([t10302, L103], [t10304, L108]); def: t10303 use: t10302 t10304 
+    CJUMP > t10303:int Const:0? L108 : L109; def: use: t10303 
+  Block: Entry Label: L108
+    Exit labels: L107 
+    LABEL L108; def: use: 
+    MOVE_BINOP t10304:int <- (-, t10303:int, Const:1); def: t10304 use: t10303 
+    MOVE t111:int <- Const:63; def: t111 use: 
+    JUMP L107; def: use: 
+  Block: Entry Label: L109
+    Exit labels: L102 
+    LABEL L109; def: use: 
+    MOVE_BINOP t10503:int <- (-, t10502:int, Const:1); def: t10503 use: t10502 
+    JUMP L102; def: use: 
+  Block: Entry Label: L104
+    Exit labels: 
+    LABEL L104; def: use: 
+    RETURN t10402:int; def: use: t10402 

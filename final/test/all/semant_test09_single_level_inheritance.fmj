@@ -1,0 +1,14 @@
+// EXPECT: FAIL
+// Target: semant should reject multi-level inheritance in FDMJ2026.
+public int main() {
+    return 0;
+}
+
+public class A {
+}
+
+public class B extends A {
+}
+
+public class C extends B {
+}

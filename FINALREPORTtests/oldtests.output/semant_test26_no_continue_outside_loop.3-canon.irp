@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program>
+    <FunctionDeclaration name="__$main__^main" return_type="INT" last_temp="100" last_label="104">
+        <Sequence>
+            <Label label="102"/>
+            <CJump relop="!=" true="103" false="104">
+                <Const value="1"/>
+                <Const value="0"/>
+            </CJump>
+            <Label label="103"/>
+            <Jump label="102"/>
+            <Jump label="102"/>
+            <Label label="104"/>
+            <Return>
+                <Const value="0"/>
+            </Return>
+        </Sequence>
+    </FunctionDeclaration>
+</Program>

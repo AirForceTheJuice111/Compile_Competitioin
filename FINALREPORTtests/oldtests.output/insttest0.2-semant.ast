@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDMJAST>
+    <NameMaps>
+        <Class name="C">
+            <Method name="max">
+                <Formal id="a">
+                    <Formal bline="7" bpos="19" eline="7" epos="23">
+                        <Type typeKind="INT" bline="7" bpos="19" eline="7" epos="21"/>
+                        <IdExp bline="7" bpos="23" eline="7" epos="23" id="a"/>
+                    </Formal>
+                </Formal>
+                <Formal id="b">
+                    <Formal bline="7" bpos="30" eline="7" epos="30">
+                        <Type typeKind="INT" bline="7" bpos="26" eline="7" epos="28"/>
+                        <IdExp bline="7" bpos="30" eline="7" epos="30" id="b"/>
+                    </Formal>
+                </Formal>
+                <Formal id="_^return^_max">
+                    <Formal bline="7" bpos="4" eline="10" epos="4">
+                        <Type typeKind="INT" bline="7" bpos="11" eline="7" epos="13"/>
+                        <IdExp bline="7" bpos="4" eline="10" epos="4" id="_^return^_max"/>
+                    </Formal>
+                </Formal>
+            </Method>
+        </Class>
+        <Class name="__$main__">
+            <Method name="main">
+                <Formal id="_^return^_main">
+                    <Formal bline="1" bpos="1" eline="4" epos="1">
+                        <Type typeKind="INT" bline="1" bpos="1" eline="4" epos="1"/>
+                        <IdExp bline="1" bpos="1" eline="4" epos="1" id="_^return^_main"/>
+                    </Formal>
+                </Formal>
+            </Method>
+        </Class>
+    </NameMaps>
+    <Program bline="1" bpos="1" eline="11" epos="1">
+        <MainMethod bline="1" bpos="1" eline="4" epos="1">
+            <VarDeclList/>
+            <StmList>
+                <PutInt bline="2" bpos="4" eline="2" epos="33">
+                    <CallExp bline="2" bpos="11" eline="2" epos="31" s_kind="Value" typeKind="INT" lvalue="false">
+                        <NewObject bline="2" bpos="11" eline="2" epos="17" s_kind="Value" typeKind="CLASS" lvalue="false" type_par="C">
+                            <Id id="C"/>
+                        </NewObject>
+                        <IdExp id="max" bline="2" bpos="19" eline="2" epos="21" s_kind="MethodName"/>
+                        <ParList>
+                            <IntExp bline="2" bpos="23" eline="2" epos="25" s_kind="Value" typeKind="INT" lvalue="false" val="100"/>
+                            <IntExp bline="2" bpos="28" eline="2" epos="30" s_kind="Value" typeKind="INT" lvalue="false" val="200"/>
+                        </ParList>
+                    </CallExp>
+                </PutInt>
+                <Return bline="3" bpos="4" eline="3" epos="12" s_kind="Value" typeKind="INT" lvalue="false">
+                    <IntExp bline="3" bpos="11" eline="3" epos="11" s_kind="Value" typeKind="INT" lvalue="false" val="1"/>
+                </Return>
+            </StmList>
+        </MainMethod>
+        <ClassDeclList>
+            <ClassDecl bline="6" bpos="1" eline="11" epos="1">
+                <IdExp id="C" bline="6" bpos="14" eline="6" epos="14"/>
+                <VarDeclList/>
+                <MethodDeclList>
+                    <MethodDecl bline="7" bpos="4" eline="10" epos="4">
+                        <Type typeKind="INT" bline="7" bpos="11" eline="7" epos="13"/>
+                        <IdExp id="max" bline="7" bpos="15" eline="7" epos="17"/>
+                        <FormalList>
+                            <Formal bline="7" bpos="19" eline="7" epos="23">
+                                <Type typeKind="INT" bline="7" bpos="19" eline="7" epos="21"/>
+                                <IdExp bline="7" bpos="23" eline="7" epos="23" id="a"/>
+                            </Formal>
+                            <Formal bline="7" bpos="30" eline="7" epos="30">
+                                <Type typeKind="INT" bline="7" bpos="26" eline="7" epos="28"/>
+                                <IdExp bline="7" bpos="30" eline="7" epos="30" id="b"/>
+                            </Formal>
+                        </FormalList>
+                        <VarDeclList/>
+                        <StmList>
+                            <If bline="8" bpos="6" eline="9" epos="19">
+                                <BinaryOp bline="8" bpos="10" eline="8" epos="12" s_kind="Value" typeKind="INT" lvalue="false">
+                                    <IdExp bline="8" bpos="10" eline="8" epos="10" s_kind="Value" typeKind="INT" lvalue="true" id="a"/>
+                                    <OpExp op="&gt;" bline="8" bpos="11" eline="8" epos="11"/>
+                                    <IdExp bline="8" bpos="12" eline="8" epos="12" s_kind="Value" typeKind="INT" lvalue="true" id="b"/>
+                                </BinaryOp>
+                                <Return bline="8" bpos="15" eline="8" epos="23" s_kind="Value" typeKind="INT" lvalue="false">
+                                    <IdExp bline="8" bpos="22" eline="8" epos="22" s_kind="Value" typeKind="INT" lvalue="true" id="a"/>
+                                </Return>
+                                <Return bline="9" bpos="11" eline="9" epos="19" s_kind="Value" typeKind="INT" lvalue="false">
+                                    <IdExp bline="9" bpos="18" eline="9" epos="18" s_kind="Value" typeKind="INT" lvalue="true" id="b"/>
+                                </Return>
+                            </If>
+                        </StmList>
+                    </MethodDecl>
+                </MethodDeclList>
+            </ClassDecl>
+        </ClassDeclList>
+    </Program>
+</FDMJAST>

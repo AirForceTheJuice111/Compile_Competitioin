@@ -1,0 +1,15 @@
+Function __$main__^main() last_label=101 last_temp=100:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; 
+    RETURN Const:0; 
+Function A^ff(t100) last_label=101 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; 
+    RETURN Const:1; 
+Function A^f(t100) last_label=101 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; 
+    RETURN Const:0; 

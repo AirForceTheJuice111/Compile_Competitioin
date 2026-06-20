@@ -1,0 +1,28 @@
+// EXPECT: PASS
+// Target: overriding method may use covariant return type.
+public int main() {
+    class A a;
+    class B b;
+    a = new A();
+    b = new B();
+    a = b;
+    return 0;
+}
+
+public class BaseRet {
+}
+
+public class GoodRet extends BaseRet {
+}
+
+public class A {
+    public class BaseRet f() {
+        return new BaseRet();
+    }
+}
+
+public class B extends A {
+    public class GoodRet f() {
+        return new GoodRet();
+    }
+}

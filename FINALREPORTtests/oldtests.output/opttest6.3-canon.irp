@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program>
+    <FunctionDeclaration name="__$main__^main" return_type="INT" last_temp="110" last_label="114">
+        <Sequence>
+            <Move>
+                <Temp type="INT" temp="101"/>
+                <ExtCall type="INT" extfun="getint">
+                    <Arguments/>
+                </ExtCall>
+            </Move>
+            <Move>
+                <Temp type="INT" temp="103"/>
+                <Const value="10"/>
+            </Move>
+            <Move>
+                <Temp type="INT" temp="100"/>
+                <Const value="0"/>
+            </Move>
+            <Label label="102"/>
+            <CJump relop="&gt;" true="103" false="104">
+                <Temp type="INT" temp="103"/>
+                <Const value="0"/>
+            </CJump>
+            <Label label="103"/>
+            <Move>
+                <Temp type="INT" temp="100"/>
+                <BinOp type="INT" op="+">
+                    <Temp type="INT" temp="100"/>
+                    <Const value="1"/>
+                </BinOp>
+            </Move>
+            <Label label="107"/>
+            <CJump relop="&gt;" true="108" false="109">
+                <Temp type="INT" temp="101"/>
+                <Const value="0"/>
+            </CJump>
+            <Label label="108"/>
+            <CJump relop="&gt;" true="112" false="113">
+                <Temp type="INT" temp="100"/>
+                <Const value="3"/>
+            </CJump>
+            <Label label="112"/>
+            <Move>
+                <Temp type="INT" temp="102"/>
+                <BinOp type="INT" op="*">
+                    <Const value="3"/>
+                    <Temp type="INT" temp="100"/>
+                </BinOp>
+            </Move>
+            <Jump label="114"/>
+            <Label label="113"/>
+            <Move>
+                <Temp type="PTR" temp="105"/>
+                <ExtCall type="PTR" extfun="malloc">
+                    <Arguments>
+                        <Const value="4"/>
+                    </Arguments>
+                </ExtCall>
+            </Move>
+            <Move>
+                <Memory type="PTR">
+                    <BinOp type="PTR" op="+">
+                        <Temp type="PTR" temp="105"/>
+                        <Const value="0"/>
+                    </BinOp>
+                </Memory>
+                <Name type="PTR" sname="C^m"/>
+            </Move>
+            <Move>
+                <Temp type="PTR" temp="106"/>
+                <Temp type="PTR" temp="105"/>
+            </Move>
+            <Move>
+                <Temp type="PTR" temp="109"/>
+                <Memory type="PTR">
+                    <BinOp type="PTR" op="+">
+                        <Temp type="PTR" temp="106"/>
+                        <Const value="0"/>
+                    </BinOp>
+                </Memory>
+            </Move>
+            <Move>
+                <Temp type="INT" temp="110"/>
+                <Call type="INT" id="m">
+                    <Temp type="PTR" temp="109"/>
+                    <Arguments>
+                        <Temp type="PTR" temp="106"/>
+                        <Const value="3"/>
+                    </Arguments>
+                </Call>
+            </Move>
+            <Move>
+                <Temp type="INT" temp="102"/>
+                <Temp type="INT" temp="110"/>
+            </Move>
+            <Label label="114"/>
+            <Move>
+                <Temp type="INT" temp="101"/>
+                <BinOp type="INT" op="-">
+                    <Temp type="INT" temp="101"/>
+                    <Const value="1"/>
+                </BinOp>
+            </Move>
+            <Jump label="107"/>
+            <Label label="109"/>
+            <Move>
+                <Temp type="INT" temp="103"/>
+                <BinOp type="INT" op="-">
+                    <Temp type="INT" temp="103"/>
+                    <Const value="1"/>
+                </BinOp>
+            </Move>
+            <Jump label="102"/>
+            <Label label="104"/>
+            <Return>
+                <Temp type="INT" temp="102"/>
+            </Return>
+        </Sequence>
+    </FunctionDeclaration>
+    <FunctionDeclaration name="C^m" return_type="INT" last_temp="103" last_label="104" arg_temp_0="101" arg_temp_1="102">
+        <Sequence>
+            <Move>
+                <Temp type="INT" temp="100"/>
+                <Const value="0"/>
+            </Move>
+            <Label label="102"/>
+            <CJump relop="!=" true="103" false="104">
+                <Temp type="INT" temp="102"/>
+                <Const value="0"/>
+            </CJump>
+            <Label label="103"/>
+            <Move>
+                <Temp type="INT" temp="100"/>
+                <Const value="3"/>
+            </Move>
+            <Move>
+                <Temp type="INT" temp="102"/>
+                <BinOp type="INT" op="-">
+                    <Temp type="INT" temp="102"/>
+                    <Const value="1"/>
+                </BinOp>
+            </Move>
+            <Jump label="102"/>
+            <Label label="104"/>
+            <Return>
+                <Temp type="INT" temp="100"/>
+            </Return>
+        </Sequence>
+    </FunctionDeclaration>
+</Program>

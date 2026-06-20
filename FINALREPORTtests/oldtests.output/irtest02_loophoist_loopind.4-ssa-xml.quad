@@ -1,0 +1,53 @@
+<Program kind="PROGRAM" last_label_num="108" last_temp_num="103">
+    <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="108" last_temp_num="103">
+        <block kind="BLOCK" entry="105">
+            <exits>
+                <exit label="102"/>
+                <exit label="103"/>
+            </exits>
+            <label kind="LABEL" name="105"/>
+            <move kind="MOVE" dst="100010101" temp_type="int">
+                <src kind="CONST" value="0"/>
+                <def>
+                    <temp id="100010101"/>
+                </def>
+            </move>
+            <cjump kind="CJUMP" relop="&gt;" true="102" false="103">
+                <left kind="TEMP" id="100010101" type="int"/>
+                <right kind="CONST" value="0"/>
+                <use>
+                    <temp id="100010101"/>
+                </use>
+            </cjump>
+        </block>
+        <block kind="BLOCK" entry="102">
+            <exits>
+                <exit label="104"/>
+            </exits>
+            <label kind="LABEL" name="102"/>
+            <jump kind="JUMP" target="104"/>
+        </block>
+        <block kind="BLOCK" entry="103">
+            <exits>
+                <exit label="104"/>
+            </exits>
+            <label kind="LABEL" name="103"/>
+            <jump kind="JUMP" target="104"/>
+        </block>
+        <block kind="BLOCK" entry="104">
+            <label kind="LABEL" name="104"/>
+            <moveextcall kind="MOVE_EXTCALL" dst="102010101" temp_type="int">
+                <extcall kind="EXTCALL" name="getint"/>
+                <def>
+                    <temp id="102010101"/>
+                </def>
+            </moveextcall>
+            <return kind="RETURN">
+                <value kind="TEMP" id="102010101" type="int"/>
+                <use>
+                    <temp id="102010101"/>
+                </use>
+            </return>
+        </block>
+    </funcdecl>
+</Program>

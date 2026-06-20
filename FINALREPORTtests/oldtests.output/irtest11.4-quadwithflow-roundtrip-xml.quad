@@ -1,0 +1,363 @@
+<QuadWithFlowProgram program_last_label_num="104" program_last_temp_num="109">
+    <Program kind="PROGRAM" last_label_num="104" last_temp_num="109">
+        <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="104" last_temp_num="109">
+            <block kind="BLOCK" entry="103">
+                <exits>
+                    <exit label="101"/>
+                    <exit label="100"/>
+                </exits>
+                <label kind="LABEL" name="103"/>
+                <movebinop kind="MOVE_BINOP" dst="102" temp_type="int" op="-">
+                    <left kind="CONST" value="0"/>
+                    <right kind="CONST" value="123"/>
+                    <def>
+                        <temp id="102"/>
+                    </def>
+                </movebinop>
+                <move kind="MOVE" dst="105" temp_type="ptr">
+                    <src kind="TEMP" id="100" type="ptr"/>
+                    <def>
+                        <temp id="105"/>
+                    </def>
+                    <use>
+                        <temp id="100"/>
+                    </use>
+                </move>
+                <load kind="LOAD" dst="103" temp_type="int">
+                    <src kind="TEMP" id="100" type="ptr"/>
+                    <def>
+                        <temp id="103"/>
+                    </def>
+                    <use>
+                        <temp id="100"/>
+                    </use>
+                </load>
+                <cjump kind="CJUMP" relop="&gt;=" true="101" false="100">
+                    <left kind="TEMP" id="102" type="int"/>
+                    <right kind="CONST" value="0"/>
+                    <use>
+                        <temp id="102"/>
+                    </use>
+                </cjump>
+            </block>
+            <block kind="BLOCK" entry="101">
+                <exits>
+                    <exit label="100"/>
+                    <exit label="102"/>
+                </exits>
+                <label kind="LABEL" name="101"/>
+                <cjump kind="CJUMP" relop="&gt;=" true="100" false="102">
+                    <left kind="TEMP" id="102" type="int"/>
+                    <right kind="TEMP" id="103" type="int"/>
+                    <use>
+                        <temp id="102"/>
+                        <temp id="103"/>
+                    </use>
+                </cjump>
+            </block>
+            <block kind="BLOCK" entry="100">
+                <label kind="LABEL" name="100"/>
+                <extcall kind="EXTCALL" name="exit">
+                    <args>
+                        <arg index="0">
+                            <value kind="CONST" value="-1"/>
+                        </arg>
+                    </args>
+                </extcall>
+            </block>
+            <block kind="BLOCK" entry="102">
+                <exits>
+                    <exit label="104"/>
+                </exits>
+                <label kind="LABEL" name="102"/>
+                <movebinop kind="MOVE_BINOP" dst="107" temp_type="int" op="+">
+                    <left kind="TEMP" id="102" type="int"/>
+                    <right kind="CONST" value="1"/>
+                    <def>
+                        <temp id="107"/>
+                    </def>
+                    <use>
+                        <temp id="102"/>
+                    </use>
+                </movebinop>
+                <movebinop kind="MOVE_BINOP" dst="108" temp_type="int" op="*">
+                    <left kind="TEMP" id="107" type="int"/>
+                    <right kind="CONST" value="4"/>
+                    <def>
+                        <temp id="108"/>
+                    </def>
+                    <use>
+                        <temp id="107"/>
+                    </use>
+                </movebinop>
+                <ptrcalc kind="PTR_CALC">
+                    <dst kind="TEMP" id="109" type="ptr"/>
+                    <ptr kind="TEMP" id="105" type="ptr"/>
+                    <offset kind="TEMP" id="108" type="int"/>
+                    <def>
+                        <temp id="109"/>
+                    </def>
+                    <use>
+                        <temp id="105"/>
+                        <temp id="108"/>
+                    </use>
+                </ptrcalc>
+                <store kind="STORE">
+                    <src kind="CONST" value="4"/>
+                    <dst kind="TEMP" id="109" type="ptr"/>
+                    <use>
+                        <temp id="109"/>
+                    </use>
+                </store>
+                <jump kind="JUMP" target="104"/>
+            </block>
+            <block kind="BLOCK" entry="104">
+                <label kind="LABEL" name="104"/>
+                <return kind="RETURN">
+                    <value kind="CONST" value="0"/>
+                </return>
+            </block>
+        </funcdecl>
+    </Program>
+    <Function name="__$main__^main">
+        <ControlFlow>
+            <Predecessors>
+                <Block id="100">
+                    <Item id="101"/>
+                    <Item id="103"/>
+                </Block>
+                <Block id="101">
+                    <Item id="103"/>
+                </Block>
+                <Block id="102">
+                    <Item id="101"/>
+                </Block>
+                <Block id="103"/>
+                <Block id="104">
+                    <Item id="102"/>
+                </Block>
+            </Predecessors>
+            <Successors>
+                <Block id="100"/>
+                <Block id="101">
+                    <Item id="100"/>
+                    <Item id="102"/>
+                </Block>
+                <Block id="102">
+                    <Item id="104"/>
+                </Block>
+                <Block id="103">
+                    <Item id="100"/>
+                    <Item id="101"/>
+                </Block>
+                <Block id="104"/>
+            </Successors>
+            <Dominators>
+                <Block id="100">
+                    <Item id="100"/>
+                    <Item id="103"/>
+                </Block>
+                <Block id="101">
+                    <Item id="101"/>
+                    <Item id="103"/>
+                </Block>
+                <Block id="102">
+                    <Item id="101"/>
+                    <Item id="102"/>
+                    <Item id="103"/>
+                </Block>
+                <Block id="103">
+                    <Item id="103"/>
+                </Block>
+                <Block id="104">
+                    <Item id="101"/>
+                    <Item id="102"/>
+                    <Item id="103"/>
+                    <Item id="104"/>
+                </Block>
+            </Dominators>
+            <ImmediateDominators>
+                <Block id="100" idom="103"/>
+                <Block id="101" idom="103"/>
+                <Block id="102" idom="101"/>
+                <Block id="103" idom="-1"/>
+                <Block id="104" idom="102"/>
+            </ImmediateDominators>
+            <DominanceFrontier>
+                <Block id="100"/>
+                <Block id="101">
+                    <Item id="100"/>
+                </Block>
+                <Block id="102"/>
+                <Block id="103"/>
+                <Block id="104"/>
+            </DominanceFrontier>
+            <DominatorTree>
+                <Block id="100"/>
+                <Block id="101">
+                    <Item id="102"/>
+                </Block>
+                <Block id="102">
+                    <Item id="104"/>
+                </Block>
+                <Block id="103">
+                    <Item id="100"/>
+                    <Item id="101"/>
+                </Block>
+                <Block id="104"/>
+            </DominatorTree>
+        </ControlFlow>
+        <Liveness>
+            <Block id="103">
+                <Statement kind="LABEL">
+                    <LiveIn>
+                        <Var id="100"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="100"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="MOVE_BINOP">
+                    <LiveIn>
+                        <Var id="100"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="100"/>
+                        <Var id="102"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="MOVE">
+                    <LiveIn>
+                        <Var id="100"/>
+                        <Var id="102"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="100"/>
+                        <Var id="102"/>
+                        <Var id="105"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="LOAD">
+                    <LiveIn>
+                        <Var id="100"/>
+                        <Var id="102"/>
+                        <Var id="105"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="102"/>
+                        <Var id="103"/>
+                        <Var id="105"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="CJUMP">
+                    <LiveIn>
+                        <Var id="102"/>
+                        <Var id="103"/>
+                        <Var id="105"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="102"/>
+                        <Var id="103"/>
+                        <Var id="105"/>
+                    </LiveOut>
+                </Statement>
+            </Block>
+            <Block id="101">
+                <Statement kind="LABEL">
+                    <LiveIn>
+                        <Var id="102"/>
+                        <Var id="103"/>
+                        <Var id="105"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="102"/>
+                        <Var id="103"/>
+                        <Var id="105"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="CJUMP">
+                    <LiveIn>
+                        <Var id="102"/>
+                        <Var id="103"/>
+                        <Var id="105"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="102"/>
+                        <Var id="105"/>
+                    </LiveOut>
+                </Statement>
+            </Block>
+            <Block id="100">
+                <Statement kind="LABEL">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+                <Statement kind="EXTCALL">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+            </Block>
+            <Block id="102">
+                <Statement kind="LABEL">
+                    <LiveIn>
+                        <Var id="102"/>
+                        <Var id="105"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="102"/>
+                        <Var id="105"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="MOVE_BINOP">
+                    <LiveIn>
+                        <Var id="102"/>
+                        <Var id="105"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="105"/>
+                        <Var id="107"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="MOVE_BINOP">
+                    <LiveIn>
+                        <Var id="105"/>
+                        <Var id="107"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="105"/>
+                        <Var id="108"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="PTR_CALC">
+                    <LiveIn>
+                        <Var id="105"/>
+                        <Var id="108"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="109"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="STORE">
+                    <LiveIn>
+                        <Var id="109"/>
+                    </LiveIn>
+                    <LiveOut/>
+                </Statement>
+                <Statement kind="JUMP">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+            </Block>
+            <Block id="104">
+                <Statement kind="LABEL">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+                <Statement kind="RETURN">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+            </Block>
+        </Liveness>
+    </Function>
+</QuadWithFlowProgram>

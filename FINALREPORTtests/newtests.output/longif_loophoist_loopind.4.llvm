@@ -1,0 +1,438 @@
+; Generated LLVM IR from Quad representation
+
+declare i8* @malloc(i32)
+declare void @free(i8*)
+
+declare i32 @printf(i8*, ...)
+declare i32 @__isoc99_scanf(i8*, ...)
+
+declare void @exit(i64)
+
+declare i64 @getint()
+declare i64 @getch()
+declare i64 @getarray(i64*)
+declare void @putint(i64)
+declare void @putch(i64)
+declare void @putarray(i64, i64*)
+
+define i32 @main() {
+entry:
+  br label %label_402
+
+label_402:
+  %t0 = icmp sgt i64 2, 1
+  br i1 %t0, label %label_104, label %label_400
+
+label_104:
+  %t1 = icmp sgt i64 3, 2
+  br i1 %t1, label %label_107, label %label_400
+
+label_107:
+  %t2 = icmp sgt i64 4, 3
+  br i1 %t2, label %label_110, label %label_400
+
+label_110:
+  %t3 = icmp sgt i64 5, 4
+  br i1 %t3, label %label_113, label %label_400
+
+label_113:
+  %t4 = icmp sgt i64 6, 5
+  br i1 %t4, label %label_116, label %label_400
+
+label_116:
+  %t5 = icmp sgt i64 7, 6
+  br i1 %t5, label %label_119, label %label_400
+
+label_119:
+  %t6 = icmp sgt i64 8, 7
+  br i1 %t6, label %label_122, label %label_400
+
+label_122:
+  %t7 = icmp sgt i64 9, 8
+  br i1 %t7, label %label_125, label %label_400
+
+label_125:
+  %t8 = icmp sgt i64 10, 9
+  br i1 %t8, label %label_128, label %label_400
+
+label_128:
+  %t9 = icmp sgt i64 11, 10
+  br i1 %t9, label %label_131, label %label_400
+
+label_131:
+  %t10 = icmp sgt i64 12, 11
+  br i1 %t10, label %label_134, label %label_400
+
+label_134:
+  %t11 = icmp sgt i64 13, 12
+  br i1 %t11, label %label_137, label %label_400
+
+label_137:
+  %t12 = icmp sgt i64 14, 13
+  br i1 %t12, label %label_140, label %label_400
+
+label_140:
+  %t13 = icmp sgt i64 15, 14
+  br i1 %t13, label %label_143, label %label_400
+
+label_143:
+  %t14 = icmp sgt i64 16, 15
+  br i1 %t14, label %label_146, label %label_400
+
+label_146:
+  %t15 = icmp sgt i64 17, 16
+  br i1 %t15, label %label_149, label %label_400
+
+label_149:
+  %t16 = icmp sgt i64 18, 17
+  br i1 %t16, label %label_152, label %label_400
+
+label_152:
+  %t17 = icmp sgt i64 19, 18
+  br i1 %t17, label %label_155, label %label_400
+
+label_155:
+  %t18 = icmp sgt i64 20, 19
+  br i1 %t18, label %label_158, label %label_400
+
+label_158:
+  %t19 = icmp sgt i64 21, 20
+  br i1 %t19, label %label_161, label %label_400
+
+label_161:
+  %t20 = icmp sgt i64 22, 21
+  br i1 %t20, label %label_164, label %label_400
+
+label_164:
+  %t21 = icmp sgt i64 23, 22
+  br i1 %t21, label %label_165, label %label_400
+
+label_165:
+  %t101010101 = call i64 @getint()
+  %t22 = icmp ne i64 %t101010101, 0
+  br i1 %t22, label %label_170, label %label_400
+
+label_170:
+  %t23 = icmp sgt i64 24, 23
+  br i1 %t23, label %label_173, label %label_400
+
+label_173:
+  %t24 = icmp sgt i64 25, 24
+  br i1 %t24, label %label_176, label %label_400
+
+label_176:
+  %t25 = icmp sgt i64 26, 25
+  br i1 %t25, label %label_179, label %label_400
+
+label_179:
+  %t26 = icmp sgt i64 27, 26
+  br i1 %t26, label %label_182, label %label_400
+
+label_182:
+  %t27 = icmp sgt i64 28, 27
+  br i1 %t27, label %label_185, label %label_400
+
+label_185:
+  %t28 = icmp sgt i64 29, 28
+  br i1 %t28, label %label_188, label %label_400
+
+label_188:
+  %t29 = icmp sgt i64 30, 29
+  br i1 %t29, label %label_191, label %label_400
+
+label_191:
+  %t30 = icmp sgt i64 31, 30
+  br i1 %t30, label %label_194, label %label_400
+
+label_194:
+  %t31 = icmp sgt i64 32, 31
+  br i1 %t31, label %label_197, label %label_400
+
+label_197:
+  %t32 = icmp sgt i64 33, 32
+  br i1 %t32, label %label_200, label %label_400
+
+label_200:
+  %t33 = icmp sgt i64 34, 33
+  br i1 %t33, label %label_203, label %label_400
+
+label_203:
+  %t34 = icmp sgt i64 35, 34
+  br i1 %t34, label %label_206, label %label_400
+
+label_206:
+  %t35 = icmp sgt i64 36, 35
+  br i1 %t35, label %label_209, label %label_400
+
+label_209:
+  %t36 = icmp sgt i64 37, 36
+  br i1 %t36, label %label_212, label %label_400
+
+label_212:
+  %t37 = icmp sgt i64 38, 37
+  br i1 %t37, label %label_215, label %label_400
+
+label_215:
+  %t38 = icmp sgt i64 39, 38
+  br i1 %t38, label %label_218, label %label_400
+
+label_218:
+  %t39 = icmp sgt i64 40, 39
+  br i1 %t39, label %label_221, label %label_400
+
+label_221:
+  %t40 = icmp sgt i64 41, 40
+  br i1 %t40, label %label_224, label %label_400
+
+label_224:
+  %t41 = icmp sgt i64 42, 41
+  br i1 %t41, label %label_227, label %label_400
+
+label_227:
+  %t42 = icmp sgt i64 43, 42
+  br i1 %t42, label %label_230, label %label_400
+
+label_230:
+  %t43 = icmp sgt i64 44, 43
+  br i1 %t43, label %label_233, label %label_400
+
+label_233:
+  %t44 = icmp sgt i64 45, 44
+  br i1 %t44, label %label_236, label %label_400
+
+label_236:
+  %t45 = icmp sgt i64 46, 45
+  br i1 %t45, label %label_239, label %label_400
+
+label_239:
+  %t46 = icmp sgt i64 47, 46
+  br i1 %t46, label %label_242, label %label_400
+
+label_242:
+  %t47 = icmp sgt i64 48, 47
+  br i1 %t47, label %label_245, label %label_400
+
+label_245:
+  %t48 = icmp sgt i64 49, 48
+  br i1 %t48, label %label_248, label %label_400
+
+label_248:
+  %t49 = icmp sgt i64 50, 49
+  br i1 %t49, label %label_251, label %label_400
+
+label_251:
+  %t50 = icmp sgt i64 51, 50
+  br i1 %t50, label %label_254, label %label_400
+
+label_254:
+  %t51 = icmp sgt i64 52, 51
+  br i1 %t51, label %label_257, label %label_400
+
+label_257:
+  %t52 = icmp sgt i64 53, 52
+  br i1 %t52, label %label_260, label %label_400
+
+label_260:
+  %t53 = icmp sgt i64 54, 53
+  br i1 %t53, label %label_263, label %label_400
+
+label_263:
+  %t54 = icmp sgt i64 55, 54
+  br i1 %t54, label %label_266, label %label_400
+
+label_266:
+  %t55 = icmp sgt i64 56, 55
+  br i1 %t55, label %label_269, label %label_400
+
+label_269:
+  %t56 = icmp sgt i64 57, 56
+  br i1 %t56, label %label_272, label %label_400
+
+label_272:
+  %t57 = icmp sgt i64 58, 57
+  br i1 %t57, label %label_275, label %label_400
+
+label_275:
+  %t58 = icmp sgt i64 59, 58
+  br i1 %t58, label %label_278, label %label_400
+
+label_278:
+  %t59 = icmp sgt i64 60, 59
+  br i1 %t59, label %label_281, label %label_400
+
+label_281:
+  %t60 = icmp sgt i64 61, 60
+  br i1 %t60, label %label_284, label %label_400
+
+label_284:
+  %t61 = icmp sgt i64 62, 61
+  br i1 %t61, label %label_287, label %label_400
+
+label_287:
+  %t62 = icmp sgt i64 63, 62
+  br i1 %t62, label %label_290, label %label_400
+
+label_290:
+  %t63 = icmp sgt i64 64, 63
+  br i1 %t63, label %label_293, label %label_400
+
+label_293:
+  %t64 = icmp sgt i64 65, 64
+  br i1 %t64, label %label_296, label %label_400
+
+label_296:
+  %t65 = icmp sgt i64 66, 65
+  br i1 %t65, label %label_299, label %label_400
+
+label_299:
+  %t66 = icmp sgt i64 67, 66
+  br i1 %t66, label %label_302, label %label_400
+
+label_302:
+  %t67 = icmp sgt i64 68, 67
+  br i1 %t67, label %label_305, label %label_400
+
+label_305:
+  %t68 = icmp sgt i64 69, 68
+  br i1 %t68, label %label_308, label %label_400
+
+label_308:
+  %t69 = icmp sgt i64 70, 69
+  br i1 %t69, label %label_311, label %label_400
+
+label_311:
+  %t70 = icmp sgt i64 71, 70
+  br i1 %t70, label %label_314, label %label_400
+
+label_314:
+  %t71 = icmp sgt i64 72, 71
+  br i1 %t71, label %label_317, label %label_400
+
+label_317:
+  %t72 = icmp sgt i64 73, 72
+  br i1 %t72, label %label_320, label %label_400
+
+label_320:
+  %t73 = icmp sgt i64 74, 73
+  br i1 %t73, label %label_323, label %label_400
+
+label_323:
+  %t74 = icmp sgt i64 75, 74
+  br i1 %t74, label %label_326, label %label_400
+
+label_326:
+  %t75 = icmp sgt i64 76, 75
+  br i1 %t75, label %label_329, label %label_400
+
+label_329:
+  %t76 = icmp sgt i64 77, 76
+  br i1 %t76, label %label_332, label %label_400
+
+label_332:
+  %t77 = icmp sgt i64 78, 77
+  br i1 %t77, label %label_335, label %label_400
+
+label_335:
+  %t78 = icmp sgt i64 79, 78
+  br i1 %t78, label %label_338, label %label_400
+
+label_338:
+  %t79 = icmp sgt i64 80, 79
+  br i1 %t79, label %label_341, label %label_400
+
+label_341:
+  %t80 = icmp sgt i64 81, 80
+  br i1 %t80, label %label_344, label %label_400
+
+label_344:
+  %t81 = icmp sgt i64 82, 81
+  br i1 %t81, label %label_347, label %label_400
+
+label_347:
+  %t82 = icmp sgt i64 83, 82
+  br i1 %t82, label %label_350, label %label_400
+
+label_350:
+  %t83 = icmp sgt i64 84, 83
+  br i1 %t83, label %label_353, label %label_400
+
+label_353:
+  %t84 = icmp sgt i64 85, 84
+  br i1 %t84, label %label_356, label %label_400
+
+label_356:
+  %t85 = icmp sgt i64 86, 85
+  br i1 %t85, label %label_359, label %label_400
+
+label_359:
+  %t86 = icmp sgt i64 87, 86
+  br i1 %t86, label %label_362, label %label_400
+
+label_362:
+  %t87 = icmp sgt i64 88, 87
+  br i1 %t87, label %label_365, label %label_400
+
+label_365:
+  %t88 = icmp sgt i64 89, 88
+  br i1 %t88, label %label_368, label %label_400
+
+label_368:
+  %t89 = icmp sgt i64 90, 89
+  br i1 %t89, label %label_371, label %label_400
+
+label_371:
+  %t90 = icmp sgt i64 91, 90
+  br i1 %t90, label %label_374, label %label_400
+
+label_374:
+  %t91 = icmp sgt i64 92, 91
+  br i1 %t91, label %label_377, label %label_400
+
+label_377:
+  %t92 = icmp sgt i64 93, 92
+  br i1 %t92, label %label_380, label %label_400
+
+label_380:
+  %t93 = icmp sgt i64 94, 93
+  br i1 %t93, label %label_383, label %label_400
+
+label_383:
+  %t94 = icmp sgt i64 95, 94
+  br i1 %t94, label %label_386, label %label_400
+
+label_386:
+  %t95 = icmp sgt i64 96, 95
+  br i1 %t95, label %label_389, label %label_400
+
+label_389:
+  %t96 = icmp sgt i64 97, 96
+  br i1 %t96, label %label_392, label %label_400
+
+label_392:
+  %t97 = icmp sgt i64 98, 97
+  br i1 %t97, label %label_395, label %label_400
+
+label_395:
+  %t98 = icmp sgt i64 99, 98
+  br i1 %t98, label %label_398, label %label_400
+
+label_398:
+  %t99 = icmp sgt i64 100, 99
+  br i1 %t99, label %label_399, label %label_400
+
+label_399:
+  call void @putint(i64 100)
+  call void @putch(i64 10)
+  br label %label_401
+
+label_400:
+  br label %label_401
+
+label_401:
+  %t100 = trunc i64 0 to i32
+  ret i32 %t100
+
+  ; Default return
+  ret i32 0
+}
+

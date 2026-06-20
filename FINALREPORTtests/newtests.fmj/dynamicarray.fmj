@@ -1,0 +1,30 @@
+public int main() {
+  int[] a; 
+  int n; int i; int j; int size; int factor;
+  n = 1030;
+  factor = 1000;
+  i = 0;
+  size = 0;
+  while (i < n) {
+    i = i + 1;
+    a = new C().a(i*factor);
+    size = size + i*factor;
+    j = 0; 
+    while (j<i*10) {
+      a[j] = j*i;
+      j = j + 1;
+    }
+    putint(a[j-1]);
+    putch(32);
+  }
+  putch(10);
+  putint(size);
+  putch(10);
+  return 0;
+}
+
+public class C {
+  public int[] a(int n) {
+    return new int[n];
+  }
+}

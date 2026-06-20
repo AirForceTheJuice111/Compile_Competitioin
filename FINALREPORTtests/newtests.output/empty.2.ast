@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program bline="1" bpos="1" eline="2" epos="1">
+    <MainMethod bline="1" bpos="1" eline="2" epos="1">
+        <VarDeclList/>
+        <StmList/>
+    </MainMethod>
+    <ClassDeclList/>
+</Program>

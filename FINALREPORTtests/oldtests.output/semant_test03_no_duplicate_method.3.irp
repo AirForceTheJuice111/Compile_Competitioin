@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program>
+    <FunctionDeclaration name="__$main__^main" return_type="INT" last_temp="100" last_label="99">
+        <Sequence>
+            <Return>
+                <Const value="0"/>
+            </Return>
+        </Sequence>
+    </FunctionDeclaration>
+    <FunctionDeclaration name="A^f" return_type="INT" last_temp="101" last_label="99" arg_temp_0="100">
+        <Sequence>
+            <Return>
+                <Const value="0"/>
+            </Return>
+        </Sequence>
+    </FunctionDeclaration>
+    <FunctionDeclaration name="A^ff" return_type="INT" last_temp="101" last_label="99" arg_temp_0="100">
+        <Sequence>
+            <Return>
+                <Const value="1"/>
+            </Return>
+        </Sequence>
+    </FunctionDeclaration>
+</Program>

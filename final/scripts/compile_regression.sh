@@ -6,6 +6,7 @@ work="${WORKDIR:-/tmp/final_compile_regression}"
 fmjcc="${FMJCC:-$root/final/build/fmjcc}"
 timeout_s="${TIMEOUT:-30}"
 k="${K:-9}"
+source "$root/final/scripts/test_expect.sh"
 
 if [[ ! -x "$fmjcc" ]]; then
     echo "Error: compiler not found or not executable: $fmjcc" >&2
@@ -31,6 +32,11 @@ done < <("$root/final/scripts/collect_tests.sh")
 
 pass=0
 reject=0
+expect_pass=0
+expect_reject=0
+unmarked_pass=0
+unmarked_reject=0
+expect_mismatch=0
 crash=0
 timeout_count=0
 failures="$work/failures.txt"
@@ -38,6 +44,7 @@ failures="$work/failures.txt"
 
 while IFS='|' read -r test_file original; do
     log="$test_file.log"
+    expect="$(fmj_expect "$test_file")"
     set +e
     timeout "$timeout_s" "$fmjcc" --k "$k" "$test_file" > "$log" 2>&1
     rc=$?
@@ -45,12 +52,30 @@ while IFS='|' read -r test_file original; do
 
     if [[ "$rc" -eq 0 ]]; then
         pass=$((pass + 1))
+        if [[ "$expect" == "FAIL" ]]; then
+            expect_mismatch=$((expect_mismatch + 1))
+            printf 'UNEXPECTED_COMPILE_PASS expected=FAIL %s\n' "$original" >> "$failures"
+        elif [[ "$expect" == "PASS" ]]; then
+            expect_pass=$((expect_pass + 1))
+        else
+            unmarked_pass=$((unmarked_pass + 1))
+        fi
     elif [[ "$rc" -eq 124 ]]; then
         timeout_count=$((timeout_count + 1))
         crash=$((crash + 1))
         printf 'TIMEOUT %s\n' "$original" >> "$failures"
-    elif grep -qiE 'error|syntax|parse|semantic|invalid|undefined|not found|cannot|duplicate|must be|not allowed|failed' "$log"; then
+    elif is_compile_diagnostic "$log"; then
         reject=$((reject + 1))
+        if [[ "$expect" == "PASS" ]]; then
+            expect_mismatch=$((expect_mismatch + 1))
+            printf 'UNEXPECTED_COMPILE_REJECT expected=PASS rc=%s %s\n' "$rc" "$original" >> "$failures"
+            tail -n 30 "$log" >> "$failures"
+            printf '\n' >> "$failures"
+        elif [[ "$expect" == "FAIL" ]]; then
+            expect_reject=$((expect_reject + 1))
+        else
+            unmarked_reject=$((unmarked_reject + 1))
+        fi
     else
         crash=$((crash + 1))
         printf 'CRASH rc=%s %s\n' "$rc" "$original" >> "$failures"
@@ -65,8 +90,8 @@ empty_label_hits=$(wc -l < "$empty_labels")
 set -e
 
 total=$(wc -l < "$map")
-printf 'total=%s pass=%s reject=%s crash=%s timeout=%s empty_label_hits=%s workdir=%s\n' \
-    "$total" "$pass" "$reject" "$crash" "$timeout_count" "$empty_label_hits" "$work"
+printf 'total=%s pass=%s reject=%s expect_pass=%s expect_reject=%s unmarked_pass=%s unmarked_reject=%s expect_mismatch=%s crash=%s timeout=%s empty_label_hits=%s workdir=%s\n' \
+    "$total" "$pass" "$reject" "$expect_pass" "$expect_reject" "$unmarked_pass" "$unmarked_reject" "$expect_mismatch" "$crash" "$timeout_count" "$empty_label_hits" "$work"
 
 if [[ -s "$failures" ]]; then
     cat "$failures"
@@ -76,6 +101,6 @@ if [[ "$empty_label_hits" -ne 0 ]]; then
     head -n 80 "$empty_labels"
 fi
 
-if [[ "$crash" -ne 0 || "$empty_label_hits" -ne 0 ]]; then
+if [[ "$crash" -ne 0 || "$empty_label_hits" -ne 0 || "$expect_mismatch" -ne 0 ]]; then
     exit 1
 fi

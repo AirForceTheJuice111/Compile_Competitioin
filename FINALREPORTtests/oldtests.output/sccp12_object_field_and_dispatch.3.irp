@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program>
+    <FunctionDeclaration name="__$main__^main" return_type="INT" last_temp="103" last_label="104">
+        <Sequence>
+            <Move>
+                <Temp type="PTR" temp="100"/>
+                <ESeq>
+                    <Sequence>
+                        <Move>
+                            <Temp type="PTR" temp="103"/>
+                            <ExtCall type="PTR" extfun="malloc">
+                                <Arguments>
+                                    <Const value="8"/>
+                                </Arguments>
+                            </ExtCall>
+                        </Move>
+                        <Move>
+                            <Memory type="PTR">
+                                <BinOp type="PTR" op="+">
+                                    <Temp type="PTR" temp="103"/>
+                                    <Const value="4"/>
+                                </BinOp>
+                            </Memory>
+                            <Name type="PTR" sname="Child^value"/>
+                        </Move>
+                    </Sequence>
+                    <Temp type="PTR" temp="103"/>
+                </ESeq>
+            </Move>
+            <Move>
+                <Temp type="INT" temp="101"/>
+                <Call type="INT" id="value">
+                    <Memory type="PTR">
+                        <BinOp type="PTR" op="+">
+                            <Temp type="PTR" temp="100"/>
+                            <Const value="4"/>
+                        </BinOp>
+                    </Memory>
+                    <Arguments>
+                        <Temp type="PTR" temp="100"/>
+                        <Const value="10"/>
+                    </Arguments>
+                </Call>
+            </Move>
+            <Sequence>
+                <CJump relop="!=" true="102" false="103">
+                    <Const value="1"/>
+                    <Const value="0"/>
+                </CJump>
+                <Label label="102"/>
+                <Sequence>
+                    <Move>
+                        <Memory type="INT">
+                            <BinOp type="PTR" op="+">
+                                <Temp type="PTR" temp="100"/>
+                                <Const value="0"/>
+                            </BinOp>
+                        </Memory>
+                        <Temp type="INT" temp="101"/>
+                    </Move>
+                </Sequence>
+                <Jump label="104"/>
+                <Label label="103"/>
+                <Sequence>
+                    <Move>
+                        <Memory type="INT">
+                            <BinOp type="PTR" op="+">
+                                <Temp type="PTR" temp="100"/>
+                                <Const value="0"/>
+                            </BinOp>
+                        </Memory>
+                        <Const value="0"/>
+                    </Move>
+                </Sequence>
+                <Label label="104"/>
+            </Sequence>
+            <Return>
+                <Memory type="INT">
+                    <BinOp type="PTR" op="+">
+                        <Temp type="PTR" temp="100"/>
+                        <Const value="0"/>
+                    </BinOp>
+                </Memory>
+            </Return>
+        </Sequence>
+    </FunctionDeclaration>
+    <FunctionDeclaration name="Base^value" return_type="INT" last_temp="102" last_label="99" arg_temp_0="100" arg_temp_1="101">
+        <Sequence>
+            <Return>
+                <BinOp type="INT" op="+">
+                    <Temp type="INT" temp="101"/>
+                    <Const value="1"/>
+                </BinOp>
+            </Return>
+        </Sequence>
+    </FunctionDeclaration>
+    <FunctionDeclaration name="Child^value" return_type="INT" last_temp="102" last_label="99" arg_temp_0="100" arg_temp_1="101">
+        <Sequence>
+            <Return>
+                <BinOp type="INT" op="+">
+                    <Temp type="INT" temp="101"/>
+                    <Const value="2"/>
+                </BinOp>
+            </Return>
+        </Sequence>
+    </FunctionDeclaration>
+</Program>

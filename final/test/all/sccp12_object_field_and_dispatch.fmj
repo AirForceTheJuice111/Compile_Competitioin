@@ -1,0 +1,25 @@
+public int main() {
+    class Base obj;
+    int x;
+    obj = new Child();
+    x = obj.value(10);
+    if (1) {
+        obj.n = x;
+    } else {
+        obj.n = 0;
+    }
+    return obj.n;
+}
+
+public class Base {
+    int n;
+    public int value(int x) {
+        return x + 1;
+    }
+}
+
+public class Child extends Base {
+    public int value(int x) {
+        return x + 2;
+    }
+}

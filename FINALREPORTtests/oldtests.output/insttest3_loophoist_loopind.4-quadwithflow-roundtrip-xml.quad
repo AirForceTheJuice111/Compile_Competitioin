@@ -1,0 +1,1302 @@
+<QuadWithFlowProgram program_last_label_num="111" program_last_temp_num="134">
+    <Program kind="PROGRAM" last_label_num="111" last_temp_num="134">
+        <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="111" last_temp_num="134">
+            <block kind="BLOCK" entry="108">
+                <exits>
+                    <exit label="102"/>
+                </exits>
+                <label kind="LABEL" name="108"/>
+                <moveextcall kind="MOVE_EXTCALL" dst="10401" temp_type="ptr">
+                    <extcall kind="EXTCALL" name="malloc">
+                        <args>
+                            <arg index="0">
+                                <value kind="CONST" value="8"/>
+                            </arg>
+                        </args>
+                    </extcall>
+                    <def>
+                        <temp id="10401"/>
+                    </def>
+                </moveextcall>
+                <moveextcall kind="MOVE_EXTCALL" dst="10501" temp_type="ptr">
+                    <extcall kind="EXTCALL" name="malloc">
+                        <args>
+                            <arg index="0">
+                                <value kind="CONST" value="20"/>
+                            </arg>
+                        </args>
+                    </extcall>
+                    <def>
+                        <temp id="10501"/>
+                    </def>
+                </moveextcall>
+                <store kind="STORE">
+                    <src kind="CONST" value="4"/>
+                    <dst kind="TEMP" id="10501" type="ptr"/>
+                    <use>
+                        <temp id="10501"/>
+                    </use>
+                </store>
+                <ptrcalc kind="PTR_CALC">
+                    <dst kind="TEMP" id="12001" type="ptr"/>
+                    <ptr kind="TEMP" id="10501" type="ptr"/>
+                    <offset kind="CONST" value="4"/>
+                    <def>
+                        <temp id="12001"/>
+                    </def>
+                    <use>
+                        <temp id="10501"/>
+                    </use>
+                </ptrcalc>
+                <store kind="STORE">
+                    <src kind="CONST" value="1"/>
+                    <dst kind="TEMP" id="12001" type="ptr"/>
+                    <use>
+                        <temp id="12001"/>
+                    </use>
+                </store>
+                <ptrcalc kind="PTR_CALC">
+                    <dst kind="TEMP" id="12101" type="ptr"/>
+                    <ptr kind="TEMP" id="10501" type="ptr"/>
+                    <offset kind="CONST" value="8"/>
+                    <def>
+                        <temp id="12101"/>
+                    </def>
+                    <use>
+                        <temp id="10501"/>
+                    </use>
+                </ptrcalc>
+                <store kind="STORE">
+                    <src kind="CONST" value="2"/>
+                    <dst kind="TEMP" id="12101" type="ptr"/>
+                    <use>
+                        <temp id="12101"/>
+                    </use>
+                </store>
+                <ptrcalc kind="PTR_CALC">
+                    <dst kind="TEMP" id="12201" type="ptr"/>
+                    <ptr kind="TEMP" id="10501" type="ptr"/>
+                    <offset kind="CONST" value="12"/>
+                    <def>
+                        <temp id="12201"/>
+                    </def>
+                    <use>
+                        <temp id="10501"/>
+                    </use>
+                </ptrcalc>
+                <store kind="STORE">
+                    <src kind="CONST" value="3"/>
+                    <dst kind="TEMP" id="12201" type="ptr"/>
+                    <use>
+                        <temp id="12201"/>
+                    </use>
+                </store>
+                <ptrcalc kind="PTR_CALC">
+                    <dst kind="TEMP" id="12301" type="ptr"/>
+                    <ptr kind="TEMP" id="10501" type="ptr"/>
+                    <offset kind="CONST" value="16"/>
+                    <def>
+                        <temp id="12301"/>
+                    </def>
+                    <use>
+                        <temp id="10501"/>
+                    </use>
+                </ptrcalc>
+                <store kind="STORE">
+                    <src kind="CONST" value="4"/>
+                    <dst kind="TEMP" id="12301" type="ptr"/>
+                    <use>
+                        <temp id="12301"/>
+                    </use>
+                </store>
+                <ptrcalc kind="PTR_CALC">
+                    <dst kind="TEMP" id="12401" type="ptr"/>
+                    <ptr kind="TEMP" id="10401" type="ptr"/>
+                    <offset kind="CONST" value="0"/>
+                    <def>
+                        <temp id="12401"/>
+                    </def>
+                    <use>
+                        <temp id="10401"/>
+                    </use>
+                </ptrcalc>
+                <store kind="STORE">
+                    <src kind="TEMP" id="10501" type="ptr"/>
+                    <dst kind="TEMP" id="12401" type="ptr"/>
+                    <use>
+                        <temp id="10501"/>
+                        <temp id="12401"/>
+                    </use>
+                </store>
+                <ptrcalc kind="PTR_CALC">
+                    <dst kind="TEMP" id="12501" type="ptr"/>
+                    <ptr kind="TEMP" id="10401" type="ptr"/>
+                    <offset kind="CONST" value="4"/>
+                    <def>
+                        <temp id="12501"/>
+                    </def>
+                    <use>
+                        <temp id="10401"/>
+                    </use>
+                </ptrcalc>
+                <store kind="STORE">
+                    <src kind="NAME" name="C^m"/>
+                    <dst kind="TEMP" id="12501" type="ptr"/>
+                    <use>
+                        <temp id="12501"/>
+                    </use>
+                </store>
+                <move kind="MOVE" dst="10601" temp_type="ptr">
+                    <src kind="TEMP" id="10401" type="ptr"/>
+                    <def>
+                        <temp id="10601"/>
+                    </def>
+                    <use>
+                        <temp id="10401"/>
+                    </use>
+                </move>
+                <ptrcalc kind="PTR_CALC">
+                    <dst kind="TEMP" id="12601" type="ptr"/>
+                    <ptr kind="TEMP" id="10601" type="ptr"/>
+                    <offset kind="CONST" value="4"/>
+                    <def>
+                        <temp id="12601"/>
+                    </def>
+                    <use>
+                        <temp id="10601"/>
+                    </use>
+                </ptrcalc>
+                <load kind="LOAD" dst="11001" temp_type="ptr">
+                    <src kind="TEMP" id="12601" type="ptr"/>
+                    <def>
+                        <temp id="11001"/>
+                    </def>
+                    <use>
+                        <temp id="12601"/>
+                    </use>
+                </load>
+                <movecall kind="MOVE_CALL" dst="11101" temp_type="ptr">
+                    <call kind="CALL" name="m">
+                        <object kind="TEMP" id="11001" type="ptr"/>
+                        <args>
+                            <arg index="0">
+                                <value kind="TEMP" id="10601" type="ptr"/>
+                            </arg>
+                        </args>
+                    </call>
+                    <def>
+                        <temp id="11101"/>
+                    </def>
+                    <use>
+                        <temp id="10601"/>
+                        <temp id="11001"/>
+                    </use>
+                </movecall>
+                <move kind="MOVE" dst="10001" temp_type="ptr">
+                    <src kind="TEMP" id="11101" type="ptr"/>
+                    <def>
+                        <temp id="10001"/>
+                    </def>
+                    <use>
+                        <temp id="11101"/>
+                    </use>
+                </move>
+                <move kind="MOVE" dst="10201" temp_type="int">
+                    <src kind="CONST" value="3"/>
+                    <def>
+                        <temp id="10201"/>
+                    </def>
+                </move>
+                <move kind="MOVE" dst="11301" temp_type="ptr">
+                    <src kind="TEMP" id="10001" type="ptr"/>
+                    <def>
+                        <temp id="11301"/>
+                    </def>
+                    <use>
+                        <temp id="10001"/>
+                    </use>
+                </move>
+                <movebinop kind="MOVE_BINOP" dst="13005" temp_type="int" op="-">
+                    <left kind="TEMP" id="10201" type="int"/>
+                    <right kind="CONST" value="1"/>
+                    <def>
+                        <temp id="13005"/>
+                    </def>
+                    <use>
+                        <temp id="10201"/>
+                    </use>
+                </movebinop>
+                <movebinop kind="MOVE_BINOP" dst="13006" temp_type="int" op="*">
+                    <left kind="TEMP" id="13005" type="int"/>
+                    <right kind="CONST" value="4"/>
+                    <def>
+                        <temp id="13006"/>
+                    </def>
+                    <use>
+                        <temp id="13005"/>
+                    </use>
+                </movebinop>
+                <movebinop kind="MOVE_BINOP" dst="13003" temp_type="int" op="+">
+                    <left kind="TEMP" id="13006" type="int"/>
+                    <right kind="CONST" value="4"/>
+                    <def>
+                        <temp id="13003"/>
+                    </def>
+                    <use>
+                        <temp id="13006"/>
+                    </use>
+                </movebinop>
+                <jump kind="JUMP" target="102"/>
+            </block>
+            <block kind="BLOCK" entry="102">
+                <exits>
+                    <exit label="103"/>
+                    <exit label="104"/>
+                </exits>
+                <label kind="LABEL" name="102"/>
+                <phi kind="PHI" dst="10202" temp_type="int">
+                    <args>
+                        <arg temp="t10203" label="L107"/>
+                        <arg temp="t10201" label="L108"/>
+                    </args>
+                    <def>
+                        <temp id="10202"/>
+                    </def>
+                    <use>
+                        <temp id="10201"/>
+                        <temp id="10203"/>
+                    </use>
+                </phi>
+                <phi kind="PHI" dst="13002" temp_type="int">
+                    <args>
+                        <arg temp="t13004" label="L107"/>
+                        <arg temp="t13003" label="L108"/>
+                    </args>
+                    <def>
+                        <temp id="13002"/>
+                    </def>
+                    <use>
+                        <temp id="13003"/>
+                        <temp id="13004"/>
+                    </use>
+                </phi>
+                <cjump kind="CJUMP" relop="&gt;=" true="103" false="104">
+                    <left kind="TEMP" id="13002" type="int"/>
+                    <right kind="CONST" value="0"/>
+                    <use>
+                        <temp id="10202"/>
+                    </use>
+                </cjump>
+            </block>
+            <block kind="BLOCK" entry="103">
+                <exits>
+                    <exit label="106"/>
+                    <exit label="105"/>
+                </exits>
+                <label kind="LABEL" name="103"/>
+                <movebinop kind="MOVE_BINOP" dst="10203" temp_type="int" op="-">
+                    <left kind="TEMP" id="10202" type="int"/>
+                    <right kind="CONST" value="1"/>
+                    <def>
+                        <temp id="10203"/>
+                    </def>
+                    <use>
+                        <temp id="10202"/>
+                    </use>
+                </movebinop>
+                <load kind="LOAD" dst="10701" temp_type="int">
+                    <src kind="TEMP" id="10001" type="ptr"/>
+                    <def>
+                        <temp id="10701"/>
+                    </def>
+                    <use>
+                        <temp id="10001"/>
+                    </use>
+                </load>
+                <cjump kind="CJUMP" relop="&gt;=" true="106" false="105">
+                    <left kind="TEMP" id="10203" type="int"/>
+                    <right kind="CONST" value="0"/>
+                    <use>
+                        <temp id="10203"/>
+                    </use>
+                </cjump>
+            </block>
+            <block kind="BLOCK" entry="106">
+                <exits>
+                    <exit label="105"/>
+                    <exit label="107"/>
+                </exits>
+                <label kind="LABEL" name="106"/>
+                <cjump kind="CJUMP" relop="&gt;=" true="105" false="107">
+                    <left kind="TEMP" id="10203" type="int"/>
+                    <right kind="TEMP" id="10701" type="int"/>
+                    <use>
+                        <temp id="10203"/>
+                        <temp id="10701"/>
+                    </use>
+                </cjump>
+            </block>
+            <block kind="BLOCK" entry="105">
+                <label kind="LABEL" name="105"/>
+                <extcall kind="EXTCALL" name="exit">
+                    <args>
+                        <arg index="0">
+                            <value kind="CONST" value="-1"/>
+                        </arg>
+                    </args>
+                </extcall>
+            </block>
+            <block kind="BLOCK" entry="107">
+                <exits>
+                    <exit label="102"/>
+                </exits>
+                <label kind="LABEL" name="107"/>
+                <ptrcalc kind="PTR_CALC">
+                    <dst kind="TEMP" id="13101" type="ptr"/>
+                    <ptr kind="TEMP" id="11301" type="ptr"/>
+                    <offset kind="TEMP" id="13002" type="int"/>
+                    <def>
+                        <temp id="13101"/>
+                    </def>
+                    <use>
+                        <temp id="11301"/>
+                        <temp id="13001"/>
+                    </use>
+                </ptrcalc>
+                <load kind="LOAD" dst="11401" temp_type="int">
+                    <src kind="TEMP" id="13101" type="ptr"/>
+                    <def>
+                        <temp id="11401"/>
+                    </def>
+                    <use>
+                        <temp id="13101"/>
+                    </use>
+                </load>
+                <extcall kind="EXTCALL" name="putint">
+                    <args>
+                        <arg index="0">
+                            <value kind="TEMP" id="11401" type="int"/>
+                        </arg>
+                    </args>
+                    <use>
+                        <temp id="11401"/>
+                    </use>
+                </extcall>
+                <extcall kind="EXTCALL" name="putch">
+                    <args>
+                        <arg index="0">
+                            <value kind="CONST" value="32"/>
+                        </arg>
+                    </args>
+                </extcall>
+                <movebinop kind="MOVE_BINOP" dst="13004" temp_type="int" op="-">
+                    <left kind="TEMP" id="13002" type="int"/>
+                    <right kind="CONST" value="4"/>
+                    <def>
+                        <temp id="13004"/>
+                    </def>
+                    <use>
+                        <temp id="13002"/>
+                    </use>
+                </movebinop>
+                <jump kind="JUMP" target="102"/>
+            </block>
+            <block kind="BLOCK" entry="104">
+                <label kind="LABEL" name="104"/>
+                <extcall kind="EXTCALL" name="putch">
+                    <args>
+                        <arg index="0">
+                            <value kind="CONST" value="10"/>
+                        </arg>
+                    </args>
+                </extcall>
+                <return kind="RETURN">
+                    <value kind="CONST" value="2"/>
+                </return>
+            </block>
+        </funcdecl>
+        <funcdecl kind="FUNCDECL" name="C^m" last_label_num="103" last_temp_num="103">
+            <params>
+                <param temp="100"/>
+            </params>
+            <block kind="BLOCK" entry="100">
+                <label kind="LABEL" name="100"/>
+                <ptrcalc kind="PTR_CALC">
+                    <dst kind="TEMP" id="10201" type="ptr"/>
+                    <ptr kind="TEMP" id="100" type="ptr"/>
+                    <offset kind="CONST" value="0"/>
+                    <def>
+                        <temp id="10201"/>
+                    </def>
+                    <use>
+                        <temp id="100"/>
+                    </use>
+                </ptrcalc>
+                <load kind="LOAD" dst="10301" temp_type="ptr">
+                    <src kind="TEMP" id="10201" type="ptr"/>
+                    <def>
+                        <temp id="10301"/>
+                    </def>
+                    <use>
+                        <temp id="10201"/>
+                    </use>
+                </load>
+                <return kind="RETURN">
+                    <value kind="TEMP" id="10301" type="ptr"/>
+                    <use>
+                        <temp id="10301"/>
+                    </use>
+                </return>
+            </block>
+        </funcdecl>
+    </Program>
+    <Function name="__$main__^main">
+        <ControlFlow>
+            <Predecessors>
+                <Block id="102">
+                    <Item id="107"/>
+                    <Item id="108"/>
+                </Block>
+                <Block id="103">
+                    <Item id="102"/>
+                </Block>
+                <Block id="104">
+                    <Item id="102"/>
+                </Block>
+                <Block id="105">
+                    <Item id="103"/>
+                    <Item id="106"/>
+                </Block>
+                <Block id="106">
+                    <Item id="103"/>
+                </Block>
+                <Block id="107">
+                    <Item id="106"/>
+                </Block>
+                <Block id="108"/>
+            </Predecessors>
+            <Successors>
+                <Block id="102">
+                    <Item id="103"/>
+                    <Item id="104"/>
+                </Block>
+                <Block id="103">
+                    <Item id="105"/>
+                    <Item id="106"/>
+                </Block>
+                <Block id="104"/>
+                <Block id="105"/>
+                <Block id="106">
+                    <Item id="105"/>
+                    <Item id="107"/>
+                </Block>
+                <Block id="107">
+                    <Item id="102"/>
+                </Block>
+                <Block id="108">
+                    <Item id="102"/>
+                </Block>
+            </Successors>
+            <Dominators>
+                <Block id="102">
+                    <Item id="102"/>
+                    <Item id="108"/>
+                </Block>
+                <Block id="103">
+                    <Item id="102"/>
+                    <Item id="103"/>
+                    <Item id="108"/>
+                </Block>
+                <Block id="104">
+                    <Item id="102"/>
+                    <Item id="104"/>
+                    <Item id="108"/>
+                </Block>
+                <Block id="105">
+                    <Item id="102"/>
+                    <Item id="103"/>
+                    <Item id="105"/>
+                    <Item id="108"/>
+                </Block>
+                <Block id="106">
+                    <Item id="102"/>
+                    <Item id="103"/>
+                    <Item id="106"/>
+                    <Item id="108"/>
+                </Block>
+                <Block id="107">
+                    <Item id="102"/>
+                    <Item id="103"/>
+                    <Item id="106"/>
+                    <Item id="107"/>
+                    <Item id="108"/>
+                </Block>
+                <Block id="108">
+                    <Item id="108"/>
+                </Block>
+            </Dominators>
+            <ImmediateDominators>
+                <Block id="102" idom="108"/>
+                <Block id="103" idom="102"/>
+                <Block id="104" idom="102"/>
+                <Block id="105" idom="103"/>
+                <Block id="106" idom="103"/>
+                <Block id="107" idom="106"/>
+                <Block id="108" idom="-1"/>
+            </ImmediateDominators>
+            <DominanceFrontier>
+                <Block id="102">
+                    <Item id="102"/>
+                </Block>
+                <Block id="103">
+                    <Item id="102"/>
+                </Block>
+                <Block id="104"/>
+                <Block id="105"/>
+                <Block id="106">
+                    <Item id="102"/>
+                    <Item id="105"/>
+                </Block>
+                <Block id="107">
+                    <Item id="102"/>
+                </Block>
+                <Block id="108"/>
+            </DominanceFrontier>
+            <DominatorTree>
+                <Block id="102">
+                    <Item id="103"/>
+                    <Item id="104"/>
+                </Block>
+                <Block id="103">
+                    <Item id="105"/>
+                    <Item id="106"/>
+                </Block>
+                <Block id="104"/>
+                <Block id="105"/>
+                <Block id="106">
+                    <Item id="107"/>
+                </Block>
+                <Block id="107"/>
+                <Block id="108">
+                    <Item id="102"/>
+                </Block>
+            </DominatorTree>
+        </ControlFlow>
+        <Liveness>
+            <Block id="108">
+                <Statement kind="LABEL">
+                    <LiveIn>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="13001"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="MOVE_EXTCALL">
+                    <LiveIn>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10401"/>
+                        <Var id="13001"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="MOVE_EXTCALL">
+                    <LiveIn>
+                        <Var id="10401"/>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10401"/>
+                        <Var id="10501"/>
+                        <Var id="13001"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="STORE">
+                    <LiveIn>
+                        <Var id="10401"/>
+                        <Var id="10501"/>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10401"/>
+                        <Var id="10501"/>
+                        <Var id="13001"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="PTR_CALC">
+                    <LiveIn>
+                        <Var id="10401"/>
+                        <Var id="10501"/>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10401"/>
+                        <Var id="10501"/>
+                        <Var id="12001"/>
+                        <Var id="13001"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="STORE">
+                    <LiveIn>
+                        <Var id="10401"/>
+                        <Var id="10501"/>
+                        <Var id="12001"/>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10401"/>
+                        <Var id="10501"/>
+                        <Var id="13001"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="PTR_CALC">
+                    <LiveIn>
+                        <Var id="10401"/>
+                        <Var id="10501"/>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10401"/>
+                        <Var id="10501"/>
+                        <Var id="12101"/>
+                        <Var id="13001"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="STORE">
+                    <LiveIn>
+                        <Var id="10401"/>
+                        <Var id="10501"/>
+                        <Var id="12101"/>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10401"/>
+                        <Var id="10501"/>
+                        <Var id="13001"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="PTR_CALC">
+                    <LiveIn>
+                        <Var id="10401"/>
+                        <Var id="10501"/>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10401"/>
+                        <Var id="10501"/>
+                        <Var id="12201"/>
+                        <Var id="13001"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="STORE">
+                    <LiveIn>
+                        <Var id="10401"/>
+                        <Var id="10501"/>
+                        <Var id="12201"/>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10401"/>
+                        <Var id="10501"/>
+                        <Var id="13001"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="PTR_CALC">
+                    <LiveIn>
+                        <Var id="10401"/>
+                        <Var id="10501"/>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10401"/>
+                        <Var id="10501"/>
+                        <Var id="12301"/>
+                        <Var id="13001"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="STORE">
+                    <LiveIn>
+                        <Var id="10401"/>
+                        <Var id="10501"/>
+                        <Var id="12301"/>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10401"/>
+                        <Var id="10501"/>
+                        <Var id="13001"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="PTR_CALC">
+                    <LiveIn>
+                        <Var id="10401"/>
+                        <Var id="10501"/>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10401"/>
+                        <Var id="10501"/>
+                        <Var id="12401"/>
+                        <Var id="13001"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="STORE">
+                    <LiveIn>
+                        <Var id="10401"/>
+                        <Var id="10501"/>
+                        <Var id="12401"/>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10401"/>
+                        <Var id="13001"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="PTR_CALC">
+                    <LiveIn>
+                        <Var id="10401"/>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10401"/>
+                        <Var id="12501"/>
+                        <Var id="13001"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="STORE">
+                    <LiveIn>
+                        <Var id="10401"/>
+                        <Var id="12501"/>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10401"/>
+                        <Var id="13001"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="MOVE">
+                    <LiveIn>
+                        <Var id="10401"/>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10601"/>
+                        <Var id="13001"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="PTR_CALC">
+                    <LiveIn>
+                        <Var id="10601"/>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10601"/>
+                        <Var id="12601"/>
+                        <Var id="13001"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="LOAD">
+                    <LiveIn>
+                        <Var id="10601"/>
+                        <Var id="12601"/>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10601"/>
+                        <Var id="11001"/>
+                        <Var id="13001"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="MOVE_CALL">
+                    <LiveIn>
+                        <Var id="10601"/>
+                        <Var id="11001"/>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="11101"/>
+                        <Var id="13001"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="MOVE">
+                    <LiveIn>
+                        <Var id="11101"/>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="13001"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="MOVE">
+                    <LiveIn>
+                        <Var id="10001"/>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="10201"/>
+                        <Var id="13001"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="MOVE">
+                    <LiveIn>
+                        <Var id="10001"/>
+                        <Var id="10201"/>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="10201"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="MOVE_BINOP">
+                    <LiveIn>
+                        <Var id="10001"/>
+                        <Var id="10201"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="10201"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13005"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="MOVE_BINOP">
+                    <LiveIn>
+                        <Var id="10001"/>
+                        <Var id="10201"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13005"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="10201"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13006"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="MOVE_BINOP">
+                    <LiveIn>
+                        <Var id="10001"/>
+                        <Var id="10201"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13006"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="10201"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13003"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="JUMP">
+                    <LiveIn>
+                        <Var id="10001"/>
+                        <Var id="10201"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13003"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="10201"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13003"/>
+                    </LiveOut>
+                </Statement>
+            </Block>
+            <Block id="102">
+                <Statement kind="LABEL">
+                    <LiveIn>
+                        <Var id="10001"/>
+                        <Var id="10201"/>
+                        <Var id="10203"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13003"/>
+                        <Var id="13004"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="10201"/>
+                        <Var id="10203"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13003"/>
+                        <Var id="13004"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="PHI">
+                    <LiveIn>
+                        <Var id="10001"/>
+                        <Var id="10201"/>
+                        <Var id="10203"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13003"/>
+                        <Var id="13004"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="10202"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13003"/>
+                        <Var id="13004"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="PHI">
+                    <LiveIn>
+                        <Var id="10001"/>
+                        <Var id="10202"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13003"/>
+                        <Var id="13004"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="10202"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="CJUMP">
+                    <LiveIn>
+                        <Var id="10001"/>
+                        <Var id="10202"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="10202"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveOut>
+                </Statement>
+            </Block>
+            <Block id="103">
+                <Statement kind="LABEL">
+                    <LiveIn>
+                        <Var id="10001"/>
+                        <Var id="10202"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="10202"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="MOVE_BINOP">
+                    <LiveIn>
+                        <Var id="10001"/>
+                        <Var id="10202"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="10203"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="LOAD">
+                    <LiveIn>
+                        <Var id="10001"/>
+                        <Var id="10203"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="10203"/>
+                        <Var id="10701"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="CJUMP">
+                    <LiveIn>
+                        <Var id="10001"/>
+                        <Var id="10203"/>
+                        <Var id="10701"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="10203"/>
+                        <Var id="10701"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveOut>
+                </Statement>
+            </Block>
+            <Block id="106">
+                <Statement kind="LABEL">
+                    <LiveIn>
+                        <Var id="10001"/>
+                        <Var id="10203"/>
+                        <Var id="10701"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="10203"/>
+                        <Var id="10701"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="CJUMP">
+                    <LiveIn>
+                        <Var id="10001"/>
+                        <Var id="10203"/>
+                        <Var id="10701"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="10203"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveOut>
+                </Statement>
+            </Block>
+            <Block id="105">
+                <Statement kind="LABEL">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+                <Statement kind="EXTCALL">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+            </Block>
+            <Block id="107">
+                <Statement kind="LABEL">
+                    <LiveIn>
+                        <Var id="10001"/>
+                        <Var id="10203"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="10203"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="PTR_CALC">
+                    <LiveIn>
+                        <Var id="10001"/>
+                        <Var id="10203"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="10203"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                        <Var id="13101"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="LOAD">
+                    <LiveIn>
+                        <Var id="10001"/>
+                        <Var id="10203"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                        <Var id="13101"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="10203"/>
+                        <Var id="11301"/>
+                        <Var id="11401"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="EXTCALL">
+                    <LiveIn>
+                        <Var id="10001"/>
+                        <Var id="10203"/>
+                        <Var id="11301"/>
+                        <Var id="11401"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="10203"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="EXTCALL">
+                    <LiveIn>
+                        <Var id="10001"/>
+                        <Var id="10203"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="10203"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="MOVE_BINOP">
+                    <LiveIn>
+                        <Var id="10001"/>
+                        <Var id="10203"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13002"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="10203"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13004"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="JUMP">
+                    <LiveIn>
+                        <Var id="10001"/>
+                        <Var id="10203"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13004"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10001"/>
+                        <Var id="10203"/>
+                        <Var id="11301"/>
+                        <Var id="13001"/>
+                        <Var id="13004"/>
+                    </LiveOut>
+                </Statement>
+            </Block>
+            <Block id="104">
+                <Statement kind="LABEL">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+                <Statement kind="EXTCALL">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+                <Statement kind="RETURN">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+            </Block>
+        </Liveness>
+    </Function>
+    <Function name="C^m">
+        <ControlFlow>
+            <Predecessors>
+                <Block id="100"/>
+            </Predecessors>
+            <Successors>
+                <Block id="100"/>
+            </Successors>
+            <Dominators>
+                <Block id="100">
+                    <Item id="100"/>
+                </Block>
+            </Dominators>
+            <ImmediateDominators>
+                <Block id="100" idom="-1"/>
+            </ImmediateDominators>
+            <DominanceFrontier>
+                <Block id="100"/>
+            </DominanceFrontier>
+            <DominatorTree>
+                <Block id="100"/>
+            </DominatorTree>
+        </ControlFlow>
+        <Liveness>
+            <Block id="100">
+                <Statement kind="LABEL">
+                    <LiveIn>
+                        <Var id="100"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="100"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="PTR_CALC">
+                    <LiveIn>
+                        <Var id="100"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10201"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="LOAD">
+                    <LiveIn>
+                        <Var id="10201"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="10301"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="RETURN">
+                    <LiveIn>
+                        <Var id="10301"/>
+                    </LiveIn>
+                    <LiveOut/>
+                </Statement>
+            </Block>
+        </Liveness>
+    </Function>
+</QuadWithFlowProgram>

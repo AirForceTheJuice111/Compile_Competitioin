@@ -1311,7 +1311,7 @@ NewArray *create_newArray(XMLElement *element) {
         return nullptr;
     }
     AST_Semant *se = get_semant(element); // read the semant info of the node
-    XMLElement *size_element = element->FirstChildElement("IntExp");
+    XMLElement *size_element = element->FirstChildElement();
     if (size_element == nullptr) {
         cerr << "Error: NewArray has no size expression" << endl;
         return nullptr;

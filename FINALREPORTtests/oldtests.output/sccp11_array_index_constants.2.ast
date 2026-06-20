@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program bline="1" bpos="1" eline="7" epos="1">
+    <MainMethod bline="1" bpos="1" eline="7" epos="1">
+        <VarDeclList>
+            <VarDecl bline="2" bpos="5" eline="2" epos="27">
+                <Type typeKind="ARRAY" bline="2" bpos="5" eline="2" epos="9">
+                    <Arity val="0" bline="2" bpos="8" eline="2" epos="8"/>
+                </Type>
+                <IdExp id="a" bline="2" bpos="11" eline="2" epos="11"/>
+                <IntInitList>
+                    <IntExp val="1" bline="2" bpos="16" eline="2" epos="16"/>
+                    <IntExp val="2" bline="2" bpos="19" eline="2" epos="19"/>
+                    <IntExp val="3" bline="2" bpos="22" eline="2" epos="22"/>
+                    <IntExp val="4" bline="2" bpos="25" eline="2" epos="25"/>
+                </IntInitList>
+            </VarDecl>
+            <VarDecl bline="3" bpos="5" eline="3" epos="10">
+                <Type typeKind="INT" bline="3" bpos="5" eline="3" epos="7"/>
+                <IdExp id="i" bline="3" bpos="9" eline="3" epos="9"/>
+            </VarDecl>
+        </VarDeclList>
+        <StmList>
+            <Assign bline="4" bpos="5" eline="4" epos="14">
+                <IdExp bline="4" bpos="5" eline="4" epos="5" id="i"/>
+                <BinaryOp bline="4" bpos="9" eline="4" epos="13">
+                    <IntExp bline="4" bpos="9" eline="4" epos="9" val="1"/>
+                    <OpExp op="+" bline="4" bpos="11" eline="4" epos="11"/>
+                    <IntExp bline="4" bpos="13" eline="4" epos="13" val="1"/>
+                </BinaryOp>
+            </Assign>
+            <Assign bline="5" bpos="5" eline="5" epos="13">
+                <ArrayExp bline="5" bpos="5" eline="5" epos="8">
+                    <IdExp bline="5" bpos="5" eline="5" epos="5" id="a"/>
+                    <IdExp bline="5" bpos="7" eline="5" epos="7" id="i"/>
+                </ArrayExp>
+                <IntExp bline="5" bpos="12" eline="5" epos="12" val="7"/>
+            </Assign>
+            <Return bline="6" bpos="5" eline="6" epos="16">
+                <ArrayExp bline="6" bpos="12" eline="6" epos="15">
+                    <IdExp bline="6" bpos="12" eline="6" epos="12" id="a"/>
+                    <IntExp bline="6" bpos="14" eline="6" epos="14" val="2"/>
+                </ArrayExp>
+            </Return>
+        </StmList>
+    </MainMethod>
+    <ClassDeclList/>
+</Program>

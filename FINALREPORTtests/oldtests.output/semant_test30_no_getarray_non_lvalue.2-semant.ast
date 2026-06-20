@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDMJAST>
+    <NameMaps>
+        <Class name="__$main__">
+            <Method name="main">
+                <Formal id="_^return^_main">
+                    <Formal bline="3" bpos="1" eline="6" epos="1">
+                        <Type typeKind="INT" bline="3" bpos="1" eline="6" epos="1"/>
+                        <IdExp bline="3" bpos="1" eline="6" epos="1" id="_^return^_main"/>
+                    </Formal>
+                </Formal>
+                <Var id="a">
+                    <VarDecl bline="4" bpos="5" eline="4" epos="13">
+                        <Type typeKind="ARRAY" bline="4" bpos="5" eline="4" epos="10">
+                            <Arity val="0" bline="4" bpos="9" eline="4" epos="9"/>
+                        </Type>
+                        <IdExp id="a" bline="4" bpos="12" eline="4" epos="12"/>
+                    </VarDecl>
+                </Var>
+            </Method>
+        </Class>
+    </NameMaps>
+    <Program bline="3" bpos="1" eline="6" epos="1">
+        <MainMethod bline="3" bpos="1" eline="6" epos="1">
+            <VarDeclList>
+                <VarDecl bline="4" bpos="5" eline="4" epos="13">
+                    <Type typeKind="ARRAY" bline="4" bpos="5" eline="4" epos="10">
+                        <Arity val="0" bline="4" bpos="9" eline="4" epos="9"/>
+                    </Type>
+                    <IdExp id="a" bline="4" bpos="12" eline="4" epos="12"/>
+                </VarDecl>
+            </VarDeclList>
+            <StmList>
+                <Return bline="5" bpos="5" eline="5" epos="23" s_kind="Value" typeKind="INT" lvalue="false">
+                    <GetArray bline="5" bpos="12" eline="5" epos="22" s_kind="Value" typeKind="INT" lvalue="false">
+                        <IdExp bline="5" bpos="21" eline="5" epos="21" s_kind="Value" typeKind="ARRAY" lvalue="true" type_par="0" id="a"/>
+                    </GetArray>
+                </Return>
+            </StmList>
+        </MainMethod>
+        <ClassDeclList/>
+    </Program>
+</FDMJAST>

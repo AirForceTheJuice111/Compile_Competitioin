@@ -31,7 +31,10 @@ make compile
 ```
 
 By default this recursively compiles every `.fmj` file under `test/` in all
-required optimization modes and writes results under `output/<mode>/`.
+required optimization modes and writes results under `output/<mode>/`. The
+canonical deduplicated course corpus is `test/all/`; it is rebuilt by
+`make collect-tests` from HW, PARSING, and `FINALREPORTtests` sources, keeping
+one file per bare `.fmj` filename.
 
 The default modes are:
 
@@ -144,8 +147,17 @@ make interpreter-regression
 make runtime-regression
 make fuzz-regression
 make all-mode-regression
+make opt-benchmark
 ```
 
 `test/` is the default final-project corpus for `compile` and `run*`. It
 contains the collected HW/PARSING tests, submit examples, regression cases, and
-programs that are expected to be rejected by the compiler.
+programs that are expected to be rejected by the compiler. Tests with leading
+`// EXPECT: PASS` or `// EXPECT: FAIL` comments are checked against that
+expectation by the regression scripts; unmarked tests are still checked by the
+compiler and interpreter oracle.
+
+`make opt-benchmark` compiles and runs selected long `FINALREPORTtests`
+programs in all six optimization modes, compares their return code and output
+hashes, and prints qemu wall-clock time plus assembly line counts for each
+mode.

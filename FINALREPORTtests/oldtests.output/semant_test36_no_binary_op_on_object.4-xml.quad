@@ -1,0 +1,117 @@
+<Program kind="PROGRAM" last_label_num="105" last_temp_num="113">
+    <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="105" last_temp_num="113">
+        <block kind="BLOCK" entry="105">
+            <label kind="LABEL" name="105"/>
+            <moveextcall kind="MOVE_EXTCALL" dst="103" temp_type="ptr">
+                <extcall kind="EXTCALL" name="malloc">
+                    <args>
+                        <arg index="0">
+                            <value kind="CONST" value="4"/>
+                        </arg>
+                    </args>
+                </extcall>
+                <def>
+                    <temp id="103"/>
+                </def>
+            </moveextcall>
+            <move kind="MOVE" dst="100" temp_type="ptr">
+                <src kind="TEMP" id="103" type="ptr"/>
+                <def>
+                    <temp id="100"/>
+                </def>
+                <use>
+                    <temp id="103"/>
+                </use>
+            </move>
+            <moveextcall kind="MOVE_EXTCALL" dst="104" temp_type="ptr">
+                <extcall kind="EXTCALL" name="malloc">
+                    <args>
+                        <arg index="0">
+                            <value kind="CONST" value="4"/>
+                        </arg>
+                    </args>
+                </extcall>
+                <def>
+                    <temp id="104"/>
+                </def>
+            </moveextcall>
+            <move kind="MOVE" dst="101" temp_type="ptr">
+                <src kind="TEMP" id="104" type="ptr"/>
+                <def>
+                    <temp id="101"/>
+                </def>
+                <use>
+                    <temp id="104"/>
+                </use>
+            </move>
+            <move kind="MOVE" dst="105" temp_type="int">
+                <src kind="CONST" value="0"/>
+                <def>
+                    <temp id="105"/>
+                </def>
+            </move>
+            <ptrcalc kind="PTR_CALC">
+                <dst kind="TEMP" id="110" type="ptr"/>
+                <ptr kind="TEMP" id="100" type="ptr"/>
+                <offset kind="CONST" value="0"/>
+                <def>
+                    <temp id="110"/>
+                </def>
+                <use>
+                    <temp id="100"/>
+                </use>
+            </ptrcalc>
+            <load kind="LOAD" dst="111" temp_type="int">
+                <src kind="TEMP" id="110" type="ptr"/>
+                <def>
+                    <temp id="111"/>
+                </def>
+                <use>
+                    <temp id="110"/>
+                </use>
+            </load>
+            <ptrcalc kind="PTR_CALC">
+                <dst kind="TEMP" id="112" type="ptr"/>
+                <ptr kind="TEMP" id="101" type="ptr"/>
+                <offset kind="CONST" value="0"/>
+                <def>
+                    <temp id="112"/>
+                </def>
+                <use>
+                    <temp id="101"/>
+                </use>
+            </ptrcalc>
+            <load kind="LOAD" dst="113" temp_type="int">
+                <src kind="TEMP" id="112" type="ptr"/>
+                <def>
+                    <temp id="113"/>
+                </def>
+                <use>
+                    <temp id="112"/>
+                </use>
+            </load>
+            <cjump kind="CJUMP" relop="==" true="102" false="103">
+                <left kind="TEMP" id="111" type="int"/>
+                <right kind="TEMP" id="113" type="int"/>
+                <use>
+                    <temp id="111"/>
+                    <temp id="113"/>
+                </use>
+            </cjump>
+            <label kind="LABEL" name="102"/>
+            <move kind="MOVE" dst="105" temp_type="int">
+                <src kind="CONST" value="1"/>
+                <def>
+                    <temp id="105"/>
+                </def>
+            </move>
+            <label kind="LABEL" name="103"/>
+            <return kind="RETURN">
+                <value kind="TEMP" id="105" type="int"/>
+                <use>
+                    <temp id="105"/>
+                </use>
+            </return>
+        </block>
+    </funcdecl>
+</Program>

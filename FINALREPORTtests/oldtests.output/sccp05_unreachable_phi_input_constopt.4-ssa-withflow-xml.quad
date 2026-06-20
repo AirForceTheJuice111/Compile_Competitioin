@@ -1,0 +1,182 @@
+<QuadWithFlowProgram program_last_label_num="112" program_last_temp_num="106">
+    <Program kind="PROGRAM" last_label_num="112" last_temp_num="106">
+        <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="112" last_temp_num="106">
+            <block kind="BLOCK" entry="110">
+                <exits>
+                    <exit label="102"/>
+                </exits>
+                <label kind="LABEL" name="110"/>
+                <jump kind="JUMP" target="102"/>
+            </block>
+            <block kind="BLOCK" entry="102">
+                <exits>
+                    <exit label="104"/>
+                </exits>
+                <label kind="LABEL" name="102"/>
+                <jump kind="JUMP" target="104"/>
+            </block>
+            <block kind="BLOCK" entry="104">
+                <exits>
+                    <exit label="107"/>
+                </exits>
+                <label kind="LABEL" name="104"/>
+                <jump kind="JUMP" target="107"/>
+            </block>
+            <block kind="BLOCK" entry="107">
+                <exits>
+                    <exit label="109"/>
+                </exits>
+                <label kind="LABEL" name="107"/>
+                <jump kind="JUMP" target="109"/>
+            </block>
+            <block kind="BLOCK" entry="109">
+                <label kind="LABEL" name="109"/>
+                <return kind="RETURN">
+                    <value kind="CONST" value="4"/>
+                </return>
+            </block>
+        </funcdecl>
+    </Program>
+    <Function name="__$main__^main">
+        <ControlFlow>
+            <Predecessors>
+                <Block id="102">
+                    <Item id="110"/>
+                </Block>
+                <Block id="104">
+                    <Item id="102"/>
+                </Block>
+                <Block id="107">
+                    <Item id="104"/>
+                </Block>
+                <Block id="109">
+                    <Item id="107"/>
+                </Block>
+                <Block id="110"/>
+            </Predecessors>
+            <Successors>
+                <Block id="102">
+                    <Item id="104"/>
+                </Block>
+                <Block id="104">
+                    <Item id="107"/>
+                </Block>
+                <Block id="107">
+                    <Item id="109"/>
+                </Block>
+                <Block id="109"/>
+                <Block id="110">
+                    <Item id="102"/>
+                </Block>
+            </Successors>
+            <Dominators>
+                <Block id="102">
+                    <Item id="102"/>
+                    <Item id="110"/>
+                </Block>
+                <Block id="104">
+                    <Item id="102"/>
+                    <Item id="104"/>
+                    <Item id="110"/>
+                </Block>
+                <Block id="107">
+                    <Item id="102"/>
+                    <Item id="104"/>
+                    <Item id="107"/>
+                    <Item id="110"/>
+                </Block>
+                <Block id="109">
+                    <Item id="102"/>
+                    <Item id="104"/>
+                    <Item id="107"/>
+                    <Item id="109"/>
+                    <Item id="110"/>
+                </Block>
+                <Block id="110">
+                    <Item id="110"/>
+                </Block>
+            </Dominators>
+            <ImmediateDominators>
+                <Block id="102" idom="110"/>
+                <Block id="104" idom="102"/>
+                <Block id="107" idom="104"/>
+                <Block id="109" idom="107"/>
+                <Block id="110" idom="-1"/>
+            </ImmediateDominators>
+            <DominanceFrontier>
+                <Block id="102"/>
+                <Block id="104"/>
+                <Block id="107"/>
+                <Block id="109"/>
+                <Block id="110"/>
+            </DominanceFrontier>
+            <DominatorTree>
+                <Block id="102">
+                    <Item id="104"/>
+                </Block>
+                <Block id="104">
+                    <Item id="107"/>
+                </Block>
+                <Block id="107">
+                    <Item id="109"/>
+                </Block>
+                <Block id="109"/>
+                <Block id="110">
+                    <Item id="102"/>
+                </Block>
+            </DominatorTree>
+        </ControlFlow>
+        <Liveness>
+            <Block id="110">
+                <Statement kind="LABEL">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+                <Statement kind="JUMP">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+            </Block>
+            <Block id="102">
+                <Statement kind="LABEL">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+                <Statement kind="JUMP">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+            </Block>
+            <Block id="104">
+                <Statement kind="LABEL">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+                <Statement kind="JUMP">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+            </Block>
+            <Block id="107">
+                <Statement kind="LABEL">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+                <Statement kind="JUMP">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+            </Block>
+            <Block id="109">
+                <Statement kind="LABEL">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+                <Statement kind="RETURN">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+            </Block>
+        </Liveness>
+    </Function>
+</QuadWithFlowProgram>

@@ -1,0 +1,72 @@
+<Program kind="PROGRAM" last_label_num="102" last_temp_num="109">
+    <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="102" last_temp_num="109">
+        <block kind="BLOCK" entry="100">
+            <label kind="LABEL" name="100"/>
+            <moveextcall kind="MOVE_EXTCALL" dst="1020101" temp_type="ptr">
+                <extcall kind="EXTCALL" name="malloc">
+                    <args>
+                        <arg index="0">
+                            <value kind="CONST" value="8"/>
+                        </arg>
+                    </args>
+                </extcall>
+                <def>
+                    <temp id="1020101"/>
+                </def>
+            </moveextcall>
+            <move kind="MOVE" dst="1000101" temp_type="ptr">
+                <src kind="TEMP" id="1020101" type="ptr"/>
+                <def>
+                    <temp id="1000101"/>
+                </def>
+                <use>
+                    <temp id="1020101"/>
+                </use>
+            </move>
+            <ptrcalc kind="PTR_CALC">
+                <dst kind="TEMP" id="1050101" type="ptr"/>
+                <ptr kind="TEMP" id="1000101" type="ptr"/>
+                <offset kind="CONST" value="4"/>
+                <def>
+                    <temp id="1050101"/>
+                </def>
+                <use>
+                    <temp id="1000101"/>
+                </use>
+            </ptrcalc>
+            <store kind="STORE">
+                <src kind="CONST" value="1"/>
+                <dst kind="TEMP" id="1050101" type="ptr"/>
+                <use>
+                    <temp id="1050101"/>
+                </use>
+            </store>
+            <ptrcalc kind="PTR_CALC">
+                <dst kind="TEMP" id="1060101" type="ptr"/>
+                <ptr kind="TEMP" id="1000101" type="ptr"/>
+                <offset kind="CONST" value="4"/>
+                <def>
+                    <temp id="1060101"/>
+                </def>
+                <use>
+                    <temp id="1000101"/>
+                </use>
+            </ptrcalc>
+            <load kind="LOAD" dst="1070101" temp_type="int">
+                <src kind="TEMP" id="1060101" type="ptr"/>
+                <def>
+                    <temp id="1070101"/>
+                </def>
+                <use>
+                    <temp id="1060101"/>
+                </use>
+            </load>
+            <return kind="RETURN">
+                <value kind="TEMP" id="1070101" type="int"/>
+                <use>
+                    <temp id="1070101"/>
+                </use>
+            </return>
+        </block>
+    </funcdecl>
+</Program>

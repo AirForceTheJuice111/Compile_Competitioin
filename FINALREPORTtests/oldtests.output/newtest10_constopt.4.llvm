@@ -1,0 +1,98 @@
+; Generated LLVM IR from Quad representation
+
+declare i8* @malloc(i32)
+declare void @free(i8*)
+
+declare i32 @printf(i8*, ...)
+declare i32 @__isoc99_scanf(i8*, ...)
+
+declare void @exit(i64)
+
+declare i64 @getint()
+declare i64 @getch()
+declare i64 @getarray(i64*)
+declare void @putint(i64)
+declare void @putch(i64)
+declare void @putarray(i64, i64*)
+
+define i32 @main() {
+entry:
+  br label %label_116
+
+label_116:
+  %t0 = mul i64 404, 2
+  %t1 = trunc i64 %t0 to i32
+  %t2 = call i8* @malloc(i32 %t1)
+  %t1040101 = ptrtoint i8* %t2 to i64
+  %t3 = inttoptr i64 %t1040101 to i64*
+  store i64 100, i64* %t3
+  %t1010101 = add i64 %t1040101, 0
+  br label %label_102
+
+label_102:
+  %t4 = inttoptr i64 %t1010101 to i64*
+  %t1050101 = load i64, i64* %t4
+  %t5 = icmp slt i64 0, %t1050101
+  br i1 %t5, label %label_103, label %label_104
+
+label_103:
+  %t1130101 = add i64 %t1010101, 0
+  %t6 = inttoptr i64 %t1010101 to i64*
+  %t1060101 = load i64, i64* %t6
+  br label %label_106
+
+label_106:
+  %t7 = icmp sge i64 0, %t1060101
+  br i1 %t7, label %label_105, label %label_107
+
+label_105:
+  call void @exit(i64 -1)
+  unreachable
+
+label_107:
+  %t8 = mul i64 4, 2
+  %t1240101 = add i64 %t1130101, %t8
+  %t9 = inttoptr i64 %t1240101 to i64*
+  store i64 0, i64* %t9
+  br label %label_102
+
+label_104:
+  %t10 = inttoptr i64 %t1010101 to i64*
+  %t1070101 = load i64, i64* %t10
+  %t11 = icmp sgt i64 %t1070101, 99
+  br i1 %t11, label %label_113, label %label_114
+
+label_113:
+  %t1150101 = add i64 %t1010101, 0
+  %t12 = inttoptr i64 %t1010101 to i64*
+  %t1080101 = load i64, i64* %t12
+  br label %label_111
+
+label_111:
+  %t13 = icmp sge i64 99, %t1080101
+  br i1 %t13, label %label_110, label %label_112
+
+label_110:
+  call void @exit(i64 -1)
+  unreachable
+
+label_112:
+  %t14 = mul i64 400, 2
+  %t1290101 = add i64 %t1150101, %t14
+  %t15 = inttoptr i64 %t1290101 to i64*
+  %t1160101 = load i64, i64* %t15
+  call void @putint(i64 %t1160101)
+  br label %label_115
+
+label_114:
+  br label %label_115
+
+label_115:
+  call void @putch(i64 10)
+  %t16 = trunc i64 1 to i32
+  ret i32 %t16
+
+  ; Default return
+  ret i32 0
+}
+

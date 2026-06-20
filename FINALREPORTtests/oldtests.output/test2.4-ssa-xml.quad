@@ -1,0 +1,77 @@
+<Program kind="PROGRAM" last_label_num="106" last_temp_num="104">
+    <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="106" last_temp_num="104">
+        <block kind="BLOCK" entry="105">
+            <exits>
+                <exit label="102"/>
+                <exit label="103"/>
+            </exits>
+            <label kind="LABEL" name="105"/>
+            <move kind="MOVE" dst="10101" temp_type="int">
+                <src kind="CONST" value="1"/>
+                <def>
+                    <temp id="10101"/>
+                </def>
+            </move>
+            <move kind="MOVE" dst="10201" temp_type="int">
+                <src kind="CONST" value="2"/>
+                <def>
+                    <temp id="10201"/>
+                </def>
+            </move>
+            <movebinop kind="MOVE_BINOP" dst="10301" temp_type="int" op="+">
+                <left kind="TEMP" id="10101" type="int"/>
+                <right kind="TEMP" id="10201" type="int"/>
+                <def>
+                    <temp id="10301"/>
+                </def>
+                <use>
+                    <temp id="10201"/>
+                    <temp id="10101"/>
+                </use>
+            </movebinop>
+            <move kind="MOVE" dst="10001" temp_type="int">
+                <src kind="CONST" value="100"/>
+                <def>
+                    <temp id="10001"/>
+                </def>
+            </move>
+            <move kind="MOVE" dst="10002" temp_type="int">
+                <src kind="CONST" value="0"/>
+                <def>
+                    <temp id="10002"/>
+                </def>
+            </move>
+            <cjump kind="CJUMP" relop="==" true="102" false="103">
+                <left kind="CONST" value="1"/>
+                <right kind="CONST" value="0"/>
+            </cjump>
+        </block>
+        <block kind="BLOCK" entry="102">
+            <exits>
+                <exit label="104"/>
+            </exits>
+            <label kind="LABEL" name="102"/>
+            <jump kind="JUMP" target="104"/>
+        </block>
+        <block kind="BLOCK" entry="103">
+            <exits>
+                <exit label="104"/>
+            </exits>
+            <label kind="LABEL" name="103"/>
+            <jump kind="JUMP" target="104"/>
+        </block>
+        <block kind="BLOCK" entry="104">
+            <exits>
+                <exit label="106"/>
+            </exits>
+            <label kind="LABEL" name="104"/>
+            <jump kind="JUMP" target="106"/>
+        </block>
+        <block kind="BLOCK" entry="106">
+            <label kind="LABEL" name="106"/>
+            <return kind="RETURN">
+                <value kind="CONST" value="0"/>
+            </return>
+        </block>
+    </funcdecl>
+</Program>

@@ -1,0 +1,106 @@
+<QuadWithFlowProgram program_last_label_num="102" program_last_temp_num="103">
+    <Program kind="PROGRAM" last_label_num="102" last_temp_num="103">
+        <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="102" last_temp_num="100">
+            <block kind="BLOCK" entry="100">
+                <label kind="LABEL" name="100"/>
+                <return kind="RETURN">
+                    <value kind="CONST" value="0"/>
+                </return>
+            </block>
+        </funcdecl>
+        <funcdecl kind="FUNCDECL" name="A^f" last_label_num="102" last_temp_num="103">
+            <params>
+                <param temp="100"/>
+                <param temp="101"/>
+                <param temp="101"/>
+            </params>
+            <block kind="BLOCK" entry="100">
+                <label kind="LABEL" name="100"/>
+                <return kind="RETURN">
+                    <value kind="TEMP" id="101" type="int"/>
+                    <use>
+                        <temp id="101"/>
+                    </use>
+                </return>
+            </block>
+        </funcdecl>
+    </Program>
+    <Function name="__$main__^main">
+        <ControlFlow>
+            <Predecessors>
+                <Block id="100"/>
+            </Predecessors>
+            <Successors>
+                <Block id="100"/>
+            </Successors>
+            <Dominators>
+                <Block id="100">
+                    <Item id="100"/>
+                </Block>
+            </Dominators>
+            <ImmediateDominators>
+                <Block id="100" idom="-1"/>
+            </ImmediateDominators>
+            <DominanceFrontier>
+                <Block id="100"/>
+            </DominanceFrontier>
+            <DominatorTree>
+                <Block id="100"/>
+            </DominatorTree>
+        </ControlFlow>
+        <Liveness>
+            <Block id="100">
+                <Statement kind="LABEL">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+                <Statement kind="RETURN">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+            </Block>
+        </Liveness>
+    </Function>
+    <Function name="A^f">
+        <ControlFlow>
+            <Predecessors>
+                <Block id="100"/>
+            </Predecessors>
+            <Successors>
+                <Block id="100"/>
+            </Successors>
+            <Dominators>
+                <Block id="100">
+                    <Item id="100"/>
+                </Block>
+            </Dominators>
+            <ImmediateDominators>
+                <Block id="100" idom="-1"/>
+            </ImmediateDominators>
+            <DominanceFrontier>
+                <Block id="100"/>
+            </DominanceFrontier>
+            <DominatorTree>
+                <Block id="100"/>
+            </DominatorTree>
+        </ControlFlow>
+        <Liveness>
+            <Block id="100">
+                <Statement kind="LABEL">
+                    <LiveIn>
+                        <Var id="101"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="101"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="RETURN">
+                    <LiveIn>
+                        <Var id="101"/>
+                    </LiveIn>
+                    <LiveOut/>
+                </Statement>
+            </Block>
+        </Liveness>
+    </Function>
+</QuadWithFlowProgram>

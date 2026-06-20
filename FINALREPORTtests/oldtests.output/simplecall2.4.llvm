@@ -1,0 +1,100 @@
+; Generated LLVM IR from Quad representation
+
+declare i8* @malloc(i32)
+declare void @free(i8*)
+
+declare i32 @printf(i8*, ...)
+declare i32 @__isoc99_scanf(i8*, ...)
+
+declare void @exit(i64)
+
+declare i64 @getint()
+declare i64 @getch()
+declare i64 @getarray(i64*)
+declare void @putint(i64)
+declare void @putch(i64)
+declare void @putarray(i64, i64*)
+
+define i64 @C$m(i64 %t100, i64 %t101) {
+entry:
+  br label %label_103
+
+label_103:
+  %t10501 = add i64 %t101, 0
+  %t0 = inttoptr i64 %t101 to i64*
+  %t10301 = load i64, i64* %t0
+  %t1 = icmp sge i64 1, 0
+  br i1 %t1, label %label_101, label %label_100
+
+label_101:
+  %t2 = icmp sge i64 1, %t10301
+  br i1 %t2, label %label_100, label %label_102
+
+label_100:
+  call void @exit(i64 -1)
+  unreachable
+
+label_102:
+  %t10701 = add i64 1, 1
+  %t10801 = mul i64 %t10701, 4
+  %t3 = mul i64 %t10801, 2
+  %t10901 = add i64 %t10501, %t3
+  %t4 = inttoptr i64 %t10901 to i64*
+  %t11001 = load i64, i64* %t4
+  ret i64 %t11001
+
+  ; Default return
+  ret i64 0
+}
+
+define i32 @main() {
+entry:
+  br label %label_100
+
+label_100:
+  %t0 = mul i64 16, 2
+  %t1 = trunc i64 %t0 to i32
+  %t2 = call i8* @malloc(i32 %t1)
+  %t10001 = ptrtoint i8* %t2 to i64
+  %t3 = inttoptr i64 %t10001 to i64*
+  store i64 3, i64* %t3
+  %t4 = mul i64 4, 2
+  %t11101 = add i64 %t10001, %t4
+  %t5 = inttoptr i64 %t11101 to i64*
+  store i64 1, i64* %t5
+  %t6 = mul i64 8, 2
+  %t11201 = add i64 %t10001, %t6
+  %t7 = inttoptr i64 %t11201 to i64*
+  store i64 2, i64* %t7
+  %t8 = mul i64 12, 2
+  %t11301 = add i64 %t10001, %t8
+  %t9 = inttoptr i64 %t11301 to i64*
+  store i64 3, i64* %t9
+  %t10 = mul i64 4, 2
+  %t11 = trunc i64 %t10 to i32
+  %t12 = call i8* @malloc(i32 %t11)
+  %t10301 = ptrtoint i8* %t12 to i64
+  %t13 = mul i64 0, 2
+  %t11501 = add i64 %t10301, %t13
+  %t14 = ptrtoint i64 (i64, i64)* @C$m to i64
+  %t15 = inttoptr i64 %t11501 to i64*
+  store i64 %t14, i64* %t15
+  %t10101 = add i64 %t10301, 0
+  %t16 = mul i64 0, 2
+  %t11601 = add i64 %t10101, %t16
+  %t17 = inttoptr i64 %t11601 to i64*
+  %t10601 = load i64, i64* %t17
+  %t18 = inttoptr i64 %t10601 to i64(i64, i64)*
+  %t10701 = call i64 %t18(i64 %t10101, i64 %t10001)
+  call void @putint(i64 %t10701)
+  call void @putch(i64 10)
+  br label %label_101
+
+label_101:
+  %t19 = trunc i64 0 to i32
+  ret i32 %t19
+
+  ; Default return
+  ret i32 0
+}
+

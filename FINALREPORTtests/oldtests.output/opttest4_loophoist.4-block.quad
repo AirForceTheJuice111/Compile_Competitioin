@@ -1,0 +1,46 @@
+Function __$main__^main() last_label=112 last_temp=106:
+  Block: Entry Label: L110
+    Exit labels: L102 
+    LABEL L110; def: use: 
+    MOVE_EXTCALL t10101:int <- getint(); def: t10101 use: 
+    MOVE t10301:int <- Const:10; def: t10301 use: 
+    MOVE t10001:int <- Const:0; def: t10001 use: 
+    JUMP L102; def: use: 
+  Block: Entry Label: L102
+    Exit labels: L103 L104 
+    LABEL L102; def: use: 
+    PHI t10302:int <- Phi([t10303, L109], [t10301, L110]); def: t10302 use: t10301 t10303 
+    PHI t10201:int <- Phi([t10202, L109], [t102, L110]); def: t10201 use: t10202 t102 
+    PHI t10102:int <- Phi([t10103, L109], [t10101, L110]); def: t10102 use: t10101 t10103 
+    PHI t10002:int <- Phi([t10003, L109], [t10001, L110]); def: t10002 use: t10001 t10003 
+    CJUMP > t10302:int Const:0? L103 : L104; def: use: t10302 
+  Block: Entry Label: L103
+    Exit labels: L107 
+    LABEL L103; def: use: 
+    MOVE_BINOP t10003:int <- (+, t10002:int, Const:1); def: t10003 use: t10002 
+    MOVE_BINOP t10203:int <- (*, Const:3, t10003:int); def: t10203 use: t10003 
+    JUMP L107; def: use: 
+  Block: Entry Label: L107
+    Exit labels: L108 L109 
+    LABEL L107; def: use: 
+    PHI t10202:int <- Phi([t10201, L103], [t10203, L108]); def: t10202 use: t10201 t10203 
+    PHI t10103:int <- Phi([t10102, L103], [t10104, L108]); def: t10103 use: t10102 t10104 
+    CJUMP > t10103:int Const:0? L108 : L109; def: use: t10103 
+  Block: Entry Label: L108
+    Exit labels: L107 
+    LABEL L108; def: use: 
+    MOVE_BINOP t10104:int <- (-, t10103:int, Const:1); def: t10104 use: t10103 
+    JUMP L107; def: use: 
+  Block: Entry Label: L109
+    Exit labels: L102 
+    LABEL L109; def: use: 
+    MOVE_BINOP t10303:int <- (-, t10302:int, Const:1); def: t10303 use: t10302 
+    JUMP L102; def: use: 
+  Block: Entry Label: L104
+    Exit labels: 
+    LABEL L104; def: use: 
+    RETURN t10201:int; def: use: t10201 
+  Block: Entry Label: L112
+    Exit labels: 
+    LABEL L112; def: use: 
+    RETURN Const:0; def: use: 

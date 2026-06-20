@@ -1,0 +1,35 @@
+Function __$main__^main() last_label=105 last_temp=114:
+  Block: Entry Label: L105
+    Exit labels: 
+    LABEL L105; def: use: 
+    MOVE_EXTCALL t103:ptr <- malloc(Const:8); def: t103 use: 
+    PTR_CALC t108:ptr <- t103:ptr + Const:4; def: t108 use: t103 
+    STORE Name:Child^value -> Mem(t108:ptr); def: use: t108 
+    MOVE t100:ptr <- t103:ptr; def: t100 use: t103 
+    PTR_CALC t109:ptr <- t100:ptr + Const:4; def: t109 use: t100 
+    LOAD t105:ptr <- Mem(t109:ptr); def: t105 use: t109 
+    MOVE_CALL t101:int <- value[t105:ptr] (t100:ptr, Const:10); def: t101 use: t100 t105 
+    CJUMP != Const:1 Const:0? L102 : L103; def: use: 
+    LABEL L102; def: use: 
+    PTR_CALC t111:ptr <- t100:ptr + Const:0; def: t111 use: t100 
+    STORE t101:int -> Mem(t111:ptr); def: use: t101 t111 
+    JUMP L104; def: use: 
+    LABEL L103; def: use: 
+    PTR_CALC t112:ptr <- t100:ptr + Const:0; def: t112 use: t100 
+    STORE Const:0 -> Mem(t112:ptr); def: use: t112 
+    LABEL L104; def: use: 
+    PTR_CALC t113:ptr <- t100:ptr + Const:0; def: t113 use: t100 
+    LOAD t114:int <- Mem(t113:ptr); def: t114 use: t113 
+    RETURN t114:int; def: use: t114 
+Function Base^value(t100, t101) last_label=100 last_temp=103:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    MOVE_BINOP t103:int <- (+, t101:int, Const:1); def: t103 use: t101 
+    RETURN t103:int; def: use: t103 
+Function Child^value(t100, t101) last_label=100 last_temp=103:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    MOVE_BINOP t103:int <- (+, t101:int, Const:2); def: t103 use: t101 
+    RETURN t103:int; def: use: t103 

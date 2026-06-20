@@ -1,0 +1,23 @@
+Function C^m(t100) last_label=103 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    RETURN Const:100; def: use: 
+Function __$main__^main() last_label=103 last_temp=113:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; def: use: 
+    MOVE_EXTCALL t102010101:ptr <- malloc(Const:4); def: t102010101 use: 
+    PTR_CALC t109010101:ptr <- t102010101:ptr + Const:0; def: t109010101 use: t102010101 
+    STORE Name:C^m -> Mem(t109010101:ptr); def: use: t109010101 
+    MOVE t100010101:ptr <- t102010101:ptr; def: t100010101 use: t102010101 
+    PTR_CALC t110010101:ptr <- t100010101:ptr + Const:0; def: t110010101 use: t100010101 
+    LOAD t104010101:ptr <- Mem(t110010101:ptr); def: t104010101 use: t110010101 
+    MOVE_CALL t105010101:int <- m[t104010101:ptr] (t100010101:ptr); def: t105010101 use: t104010101 t100010101 
+    EXTCALL putint(t105010101:int); def: use: t105010101 
+    EXTCALL putch(Const:10); def: use: 
+    JUMP L101; def: use: 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; def: use: 
+    RETURN Const:0; def: use: 

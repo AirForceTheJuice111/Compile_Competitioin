@@ -1,0 +1,10 @@
+<Program kind="PROGRAM" last_label_num="102" last_temp_num="106">
+    <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="102" last_temp_num="106">
+        <block kind="BLOCK" entry="100">
+            <label kind="LABEL" name="100"/>
+            <return kind="RETURN">
+                <value kind="CONST" value="15"/>
+            </return>
+        </block>
+    </funcdecl>
+</Program>
