@@ -1,0 +1,25 @@
+<Program kind="PROGRAM" last_label_num="108" last_temp_num="102">
+    <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="108" last_temp_num="102">
+        <block kind="BLOCK" entry="105">
+            <exits>
+                <exit label="102"/>
+            </exits>
+            <label kind="LABEL" name="105"/>
+            <jump kind="JUMP" target="102"/>
+        </block>
+        <block kind="BLOCK" entry="102">
+            <exits>
+                <exit label="103"/>
+            </exits>
+            <label kind="LABEL" name="102"/>
+            <jump kind="JUMP" target="103"/>
+        </block>
+        <block kind="BLOCK" entry="103">
+            <exits>
+                <exit label="102"/>
+            </exits>
+            <label kind="LABEL" name="103"/>
+            <jump kind="JUMP" target="102"/>
+        </block>
+    </funcdecl>
+</Program>

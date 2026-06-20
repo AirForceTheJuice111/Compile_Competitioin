@@ -1,0 +1,13 @@
+// EXPECT: PASS
+// Target: normal method call 
+public int main() {
+    class A a;
+    a = new A();
+    return a.f(a, a);
+}
+
+public class A {
+    public int f(class A x, class A y) {
+        return 0;
+    }
+}

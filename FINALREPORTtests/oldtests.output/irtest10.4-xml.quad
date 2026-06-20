@@ -1,0 +1,80 @@
+<Program kind="PROGRAM" last_label_num="100" last_temp_num="106">
+    <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="100" last_temp_num="106">
+        <block kind="BLOCK" entry="100">
+            <label kind="LABEL" name="100"/>
+            <moveextcall kind="MOVE_EXTCALL" dst="100" temp_type="ptr">
+                <extcall kind="EXTCALL" name="malloc">
+                    <args>
+                        <arg index="0">
+                            <value kind="CONST" value="16"/>
+                        </arg>
+                    </args>
+                </extcall>
+                <def>
+                    <temp id="100"/>
+                </def>
+            </moveextcall>
+            <store kind="STORE">
+                <src kind="CONST" value="3"/>
+                <dst kind="TEMP" id="100" type="ptr"/>
+                <use>
+                    <temp id="100"/>
+                </use>
+            </store>
+            <ptrcalc kind="PTR_CALC">
+                <dst kind="TEMP" id="104" type="ptr"/>
+                <ptr kind="TEMP" id="100" type="ptr"/>
+                <offset kind="CONST" value="4"/>
+                <def>
+                    <temp id="104"/>
+                </def>
+                <use>
+                    <temp id="100"/>
+                </use>
+            </ptrcalc>
+            <store kind="STORE">
+                <src kind="CONST" value="1"/>
+                <dst kind="TEMP" id="104" type="ptr"/>
+                <use>
+                    <temp id="104"/>
+                </use>
+            </store>
+            <ptrcalc kind="PTR_CALC">
+                <dst kind="TEMP" id="105" type="ptr"/>
+                <ptr kind="TEMP" id="100" type="ptr"/>
+                <offset kind="CONST" value="8"/>
+                <def>
+                    <temp id="105"/>
+                </def>
+                <use>
+                    <temp id="100"/>
+                </use>
+            </ptrcalc>
+            <store kind="STORE">
+                <src kind="CONST" value="2"/>
+                <dst kind="TEMP" id="105" type="ptr"/>
+                <use>
+                    <temp id="105"/>
+                </use>
+            </store>
+            <ptrcalc kind="PTR_CALC">
+                <dst kind="TEMP" id="106" type="ptr"/>
+                <ptr kind="TEMP" id="100" type="ptr"/>
+                <offset kind="CONST" value="12"/>
+                <def>
+                    <temp id="106"/>
+                </def>
+                <use>
+                    <temp id="100"/>
+                </use>
+            </ptrcalc>
+            <store kind="STORE">
+                <src kind="CONST" value="3"/>
+                <dst kind="TEMP" id="106" type="ptr"/>
+                <use>
+                    <temp id="106"/>
+                </use>
+            </store>
+        </block>
+    </funcdecl>
+</Program>

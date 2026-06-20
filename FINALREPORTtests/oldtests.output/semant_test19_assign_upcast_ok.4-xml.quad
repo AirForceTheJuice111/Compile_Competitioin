@@ -1,0 +1,40 @@
+<Program kind="PROGRAM" last_label_num="100" last_temp_num="105">
+    <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="100" last_temp_num="105">
+        <block kind="BLOCK" entry="100">
+            <label kind="LABEL" name="100"/>
+            <moveextcall kind="MOVE_EXTCALL" dst="103" temp_type="ptr">
+                <extcall kind="EXTCALL" name="malloc">
+                    <args>
+                        <arg index="0">
+                            <value kind="CONST" value="0"/>
+                        </arg>
+                    </args>
+                </extcall>
+                <def>
+                    <temp id="103"/>
+                </def>
+            </moveextcall>
+            <move kind="MOVE" dst="101" temp_type="ptr">
+                <src kind="TEMP" id="103" type="ptr"/>
+                <def>
+                    <temp id="101"/>
+                </def>
+                <use>
+                    <temp id="103"/>
+                </use>
+            </move>
+            <move kind="MOVE" dst="100" temp_type="ptr">
+                <src kind="TEMP" id="101" type="ptr"/>
+                <def>
+                    <temp id="100"/>
+                </def>
+                <use>
+                    <temp id="101"/>
+                </use>
+            </move>
+            <return kind="RETURN">
+                <value kind="CONST" value="0"/>
+            </return>
+        </block>
+    </funcdecl>
+</Program>

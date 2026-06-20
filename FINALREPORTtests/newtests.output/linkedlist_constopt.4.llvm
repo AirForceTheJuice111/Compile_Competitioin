@@ -1,0 +1,253 @@
+; Generated LLVM IR from Quad representation
+
+declare i8* @malloc(i32)
+declare void @free(i8*)
+
+declare i32 @printf(i8*, ...)
+declare i32 @__isoc99_scanf(i8*, ...)
+
+declare void @exit(i64)
+
+declare i64 @getint()
+declare i64 @getch()
+declare i64 @getarray(i64*)
+declare void @putint(i64)
+declare void @putch(i64)
+declare void @putarray(i64, i64*)
+
+define i64 @List$add(i64 %t100, i64 %t101) {
+entry:
+  br label %label_105
+
+label_105:
+  %t0 = mul i64 4, 2
+  %t11101 = add i64 %t100, %t0
+  %t1 = inttoptr i64 %t11101 to i64*
+  %t11201 = load i64, i64* %t1
+  %t2 = icmp ne i64 %t11201, 0
+  br i1 %t2, label %label_102, label %label_103
+
+label_102:
+  %t3 = mul i64 0, 2
+  %t11301 = add i64 %t100, %t3
+  %t4 = inttoptr i64 %t11301 to i64*
+  store i64 %t101, i64* %t4
+  %t5 = mul i64 4, 2
+  %t11401 = add i64 %t100, %t5
+  %t6 = inttoptr i64 %t11401 to i64*
+  store i64 0, i64* %t6
+  %t7 = mul i64 24, 2
+  %t8 = trunc i64 %t7 to i32
+  %t9 = call i8* @malloc(i32 %t8)
+  %t10301 = ptrtoint i8* %t9 to i64
+  %t10 = mul i64 12, 2
+  %t11601 = add i64 %t10301, %t10
+  %t11 = ptrtoint i64 (i64, i64)* @List$add to i64
+  %t12 = inttoptr i64 %t11601 to i64*
+  store i64 %t11, i64* %t12
+  %t13 = mul i64 16, 2
+  %t11701 = add i64 %t10301, %t13
+  %t14 = ptrtoint i64 (i64)* @List$init to i64
+  %t15 = inttoptr i64 %t11701 to i64*
+  store i64 %t14, i64* %t15
+  %t16 = mul i64 20, 2
+  %t11801 = add i64 %t10301, %t16
+  %t17 = ptrtoint i64 (i64)* @List$next to i64
+  %t18 = inttoptr i64 %t11801 to i64*
+  store i64 %t17, i64* %t18
+  %t10401 = add i64 %t10301, 0
+  %t19 = mul i64 16, 2
+  %t11901 = add i64 %t10401, %t19
+  %t20 = inttoptr i64 %t11901 to i64*
+  %t10701 = load i64, i64* %t20
+  %t21 = inttoptr i64 %t10701 to i64(i64)*
+  %t10801 = call i64 %t21(i64 %t10401)
+  %t22 = mul i64 8, 2
+  %t12101 = add i64 %t100, %t22
+  %t23 = inttoptr i64 %t12101 to i64*
+  store i64 %t10801, i64* %t23
+  %t24 = mul i64 8, 2
+  %t12201 = add i64 %t100, %t24
+  %t25 = inttoptr i64 %t12201 to i64*
+  %t12301 = load i64, i64* %t25
+  ret i64 %t12301
+
+label_103:
+  %t26 = mul i64 8, 2
+  %t12401 = add i64 %t100, %t26
+  %t27 = inttoptr i64 %t12401 to i64*
+  %t10501 = load i64, i64* %t27
+  %t28 = mul i64 12, 2
+  %t12501 = add i64 %t10501, %t28
+  %t29 = inttoptr i64 %t12501 to i64*
+  %t10901 = load i64, i64* %t29
+  %t30 = inttoptr i64 %t10901 to i64(i64, i64)*
+  %t11001 = call i64 %t30(i64 %t10501, i64 %t101)
+  ret i64 %t11001
+
+  ; Default return
+  ret i64 0
+}
+
+define i64 @List$next(i64 %t100) {
+entry:
+  br label %label_105
+
+label_105:
+  %t0 = mul i64 4, 2
+  %t10201 = add i64 %t100, %t0
+  %t1 = inttoptr i64 %t10201 to i64*
+  %t10301 = load i64, i64* %t1
+  %t2 = icmp eq i64 %t10301, 0
+  br i1 %t2, label %label_102, label %label_103
+
+label_102:
+  %t3 = mul i64 8, 2
+  %t10401 = add i64 %t100, %t3
+  %t4 = inttoptr i64 %t10401 to i64*
+  %t10501 = load i64, i64* %t4
+  ret i64 %t10501
+
+label_103:
+  br label %label_104
+
+label_104:
+  ret i64 %t100
+
+  ; Default return
+  ret i64 0
+}
+
+define i32 @main() {
+entry:
+  br label %label_120
+
+label_120:
+  %t0 = mul i64 24, 2
+  %t1 = trunc i64 %t0 to i32
+  %t2 = call i8* @malloc(i32 %t1)
+  %t10601 = ptrtoint i8* %t2 to i64
+  %t3 = mul i64 12, 2
+  %t12001 = add i64 %t10601, %t3
+  %t4 = ptrtoint i64 (i64, i64)* @List$add to i64
+  %t5 = inttoptr i64 %t12001 to i64*
+  store i64 %t4, i64* %t5
+  %t6 = mul i64 16, 2
+  %t12101 = add i64 %t10601, %t6
+  %t7 = ptrtoint i64 (i64)* @List$init to i64
+  %t8 = inttoptr i64 %t12101 to i64*
+  store i64 %t7, i64* %t8
+  %t9 = mul i64 20, 2
+  %t12201 = add i64 %t10601, %t9
+  %t10 = ptrtoint i64 (i64)* @List$next to i64
+  %t11 = inttoptr i64 %t12201 to i64*
+  store i64 %t10, i64* %t11
+  %t10701 = add i64 %t10601, 0
+  %t12 = mul i64 16, 2
+  %t12301 = add i64 %t10701, %t12
+  %t13 = inttoptr i64 %t12301 to i64*
+  %t10901 = load i64, i64* %t13
+  %t14 = inttoptr i64 %t10901 to i64(i64)*
+  %t11001 = call i64 %t14(i64 %t10701)
+  %t10201 = add i64 %t11001, 0
+  %t10001 = add i64 %t10201, 0
+  %t137 = add i64 0, 0
+  br label %label_102
+
+label_102:
+  %t10302 = phi i64 [ %t10303, %label_103 ], [ %t137, %label_120 ]
+  %t10002 = phi i64 [ %t10003, %label_103 ], [ %t10001, %label_120 ]
+  %t15 = icmp slt i64 %t10302, 30000000
+  br i1 %t15, label %label_103, label %label_104
+
+label_103:
+  %t10303 = add i64 %t10302, 1
+  %t16 = mul i64 12, 2
+  %t12501 = add i64 %t10002, %t16
+  %t17 = inttoptr i64 %t12501 to i64*
+  %t11101 = load i64, i64* %t17
+  %t18 = inttoptr i64 %t11101 to i64(i64, i64)*
+  %t10003 = call i64 %t18(i64 %t10002, i64 %t10303)
+  br label %label_102
+
+label_104:
+  %t10004 = add i64 %t10201, 0
+  br label %label_107
+
+label_107:
+  %t10005 = phi i64 [ %t10004, %label_104 ], [ %t10006, %label_119 ]
+  br label %label_108
+
+label_108:
+  %t19 = mul i64 4, 2
+  %t12701 = add i64 %t10005, %t19
+  %t20 = inttoptr i64 %t12701 to i64*
+  %t12801 = load i64, i64* %t20
+  %t21 = icmp ne i64 %t12801, 0
+  br i1 %t21, label %label_112, label %label_113
+
+label_112:
+  br label %label_109
+
+label_113:
+  br label %label_114
+
+label_114:
+  %t22 = mul i64 0, 2
+  %t12901 = add i64 %t10005, %t22
+  %t23 = inttoptr i64 %t12901 to i64*
+  %t10101 = load i64, i64* %t23
+  %t13001 = sdiv i64 %t10101, 100000
+  %t13101 = mul i64 %t13001, 100000
+  %t24 = icmp eq i64 %t13101, %t10101
+  br i1 %t24, label %label_117, label %label_118
+
+label_117:
+  %t11301 = sdiv i64 %t10101, 100000
+  call void @putint(i64 %t11301)
+  call void @putch(i64 32)
+  br label %label_119
+
+label_118:
+  br label %label_119
+
+label_119:
+  %t25 = mul i64 20, 2
+  %t13401 = add i64 %t10005, %t25
+  %t26 = inttoptr i64 %t13401 to i64*
+  %t11601 = load i64, i64* %t26
+  %t27 = inttoptr i64 %t11601 to i64(i64)*
+  %t10006 = call i64 %t27(i64 %t10005)
+  br label %label_107
+
+label_109:
+  call void @putch(i64 10)
+  br label %label_122
+
+label_122:
+  %t28 = trunc i64 0 to i32
+  ret i32 %t28
+
+  ; Default return
+  ret i32 0
+}
+
+define i64 @List$init(i64 %t100) {
+entry:
+  br label %label_100
+
+label_100:
+  %t0 = mul i64 4, 2
+  %t10201 = add i64 %t100, %t0
+  %t1 = inttoptr i64 %t10201 to i64*
+  store i64 1, i64* %t1
+  %t2 = mul i64 0, 2
+  %t10301 = add i64 %t100, %t2
+  %t3 = inttoptr i64 %t10301 to i64*
+  store i64 0, i64* %t3
+  ret i64 %t100
+
+  ; Default return
+  ret i64 0
+}
+

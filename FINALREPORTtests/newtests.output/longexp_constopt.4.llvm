@@ -1,0 +1,543 @@
+; Generated LLVM IR from Quad representation
+
+declare i8* @malloc(i32)
+declare void @free(i8*)
+
+declare i32 @printf(i8*, ...)
+declare i32 @__isoc99_scanf(i8*, ...)
+
+declare void @exit(i64)
+
+declare i64 @getint()
+declare i64 @getch()
+declare i64 @getarray(i64*)
+declare void @putint(i64)
+declare void @putch(i64)
+declare void @putarray(i64, i64*)
+
+define i32 @main() {
+entry:
+  br label %label_402
+
+label_402:
+  br label %label_104
+
+label_104:
+  br label %label_107
+
+label_107:
+  br label %label_110
+
+label_110:
+  br label %label_113
+
+label_113:
+  br label %label_116
+
+label_116:
+  br label %label_119
+
+label_119:
+  br label %label_122
+
+label_122:
+  br label %label_125
+
+label_125:
+  br label %label_128
+
+label_128:
+  br label %label_131
+
+label_131:
+  br label %label_134
+
+label_134:
+  br label %label_137
+
+label_137:
+  br label %label_140
+
+label_140:
+  br label %label_143
+
+label_143:
+  br label %label_146
+
+label_146:
+  br label %label_149
+
+label_149:
+  br label %label_152
+
+label_152:
+  br label %label_155
+
+label_155:
+  br label %label_158
+
+label_158:
+  br label %label_161
+
+label_161:
+  br label %label_164
+
+label_164:
+  br label %label_165
+
+label_165:
+  %t10301 = call i64 @getint()
+  %t516 = add i64 0, 0
+  %t0 = icmp ne i64 %t10301, 0
+  br i1 %t0, label %label_170, label %label_400
+
+label_170:
+  br label %label_173
+
+label_173:
+  br label %label_176
+
+label_176:
+  br label %label_179
+
+label_179:
+  br label %label_182
+
+label_182:
+  br label %label_185
+
+label_185:
+  br label %label_188
+
+label_188:
+  br label %label_191
+
+label_191:
+  br label %label_194
+
+label_194:
+  br label %label_197
+
+label_197:
+  br label %label_200
+
+label_200:
+  br label %label_203
+
+label_203:
+  br label %label_206
+
+label_206:
+  br label %label_209
+
+label_209:
+  br label %label_212
+
+label_212:
+  br label %label_215
+
+label_215:
+  br label %label_218
+
+label_218:
+  br label %label_221
+
+label_221:
+  br label %label_224
+
+label_224:
+  br label %label_227
+
+label_227:
+  br label %label_230
+
+label_230:
+  br label %label_233
+
+label_233:
+  br label %label_236
+
+label_236:
+  br label %label_239
+
+label_239:
+  br label %label_242
+
+label_242:
+  br label %label_245
+
+label_245:
+  br label %label_248
+
+label_248:
+  br label %label_251
+
+label_251:
+  br label %label_254
+
+label_254:
+  br label %label_257
+
+label_257:
+  br label %label_260
+
+label_260:
+  br label %label_263
+
+label_263:
+  br label %label_266
+
+label_266:
+  br label %label_269
+
+label_269:
+  br label %label_272
+
+label_272:
+  br label %label_275
+
+label_275:
+  br label %label_278
+
+label_278:
+  br label %label_281
+
+label_281:
+  br label %label_284
+
+label_284:
+  br label %label_287
+
+label_287:
+  br label %label_290
+
+label_290:
+  br label %label_293
+
+label_293:
+  br label %label_296
+
+label_296:
+  br label %label_299
+
+label_299:
+  br label %label_302
+
+label_302:
+  br label %label_305
+
+label_305:
+  br label %label_308
+
+label_308:
+  br label %label_311
+
+label_311:
+  br label %label_314
+
+label_314:
+  br label %label_317
+
+label_317:
+  br label %label_320
+
+label_320:
+  br label %label_323
+
+label_323:
+  br label %label_326
+
+label_326:
+  br label %label_329
+
+label_329:
+  br label %label_332
+
+label_332:
+  br label %label_335
+
+label_335:
+  br label %label_338
+
+label_338:
+  br label %label_341
+
+label_341:
+  br label %label_344
+
+label_344:
+  br label %label_347
+
+label_347:
+  br label %label_350
+
+label_350:
+  br label %label_353
+
+label_353:
+  br label %label_356
+
+label_356:
+  br label %label_359
+
+label_359:
+  br label %label_362
+
+label_362:
+  br label %label_365
+
+label_365:
+  br label %label_368
+
+label_368:
+  br label %label_371
+
+label_371:
+  br label %label_374
+
+label_374:
+  br label %label_377
+
+label_377:
+  br label %label_380
+
+label_380:
+  br label %label_383
+
+label_383:
+  br label %label_386
+
+label_386:
+  br label %label_389
+
+label_389:
+  br label %label_392
+
+label_392:
+  br label %label_395
+
+label_395:
+  br label %label_398
+
+label_398:
+  br label %label_399
+
+label_399:
+  %t517 = add i64 1, 0
+  br label %label_400
+
+label_400:
+  %t10203 = phi i64 [ %t516, %label_165 ], [ %t517, %label_399 ]
+  %t10901 = add i64 %t10203, 100
+  %t11001 = sub i64 %t10901, 100
+  %t11301 = add i64 %t11001, 100
+  %t11401 = sub i64 %t11301, 100
+  %t11701 = add i64 %t11401, 100
+  %t11801 = sub i64 %t11701, 100
+  %t12101 = add i64 %t11801, 100
+  %t12201 = sub i64 %t12101, 100
+  %t12501 = add i64 %t12201, 100
+  %t12601 = sub i64 %t12501, 100
+  %t12901 = add i64 %t12601, 100
+  %t13001 = sub i64 %t12901, 100
+  %t13301 = add i64 %t13001, 100
+  %t13401 = sub i64 %t13301, 100
+  %t13701 = add i64 %t13401, 100
+  %t13801 = sub i64 %t13701, 100
+  %t14101 = add i64 %t13801, 100
+  %t14201 = sub i64 %t14101, 100
+  %t14501 = add i64 %t14201, 100
+  %t14601 = sub i64 %t14501, 100
+  %t14901 = add i64 %t14601, 100
+  %t15001 = sub i64 %t14901, 100
+  %t15301 = add i64 %t15001, 100
+  %t15401 = sub i64 %t15301, 100
+  %t15701 = add i64 %t15401, 100
+  %t15801 = sub i64 %t15701, 100
+  %t16101 = add i64 %t15801, 100
+  %t16201 = sub i64 %t16101, 100
+  %t16501 = add i64 %t16201, 100
+  %t16601 = sub i64 %t16501, 100
+  %t16901 = add i64 %t16601, 100
+  %t17001 = sub i64 %t16901, 100
+  %t17301 = add i64 %t17001, 100
+  %t17401 = sub i64 %t17301, 100
+  %t17701 = add i64 %t17401, 100
+  %t17801 = sub i64 %t17701, 100
+  %t18101 = add i64 %t17801, 100
+  %t18201 = sub i64 %t18101, 100
+  %t18501 = add i64 %t18201, 100
+  %t18601 = sub i64 %t18501, 100
+  %t18901 = add i64 %t18601, 100
+  %t19001 = sub i64 %t18901, 100
+  %t19301 = add i64 %t19001, 100
+  %t19401 = sub i64 %t19301, 100
+  %t19701 = add i64 %t19401, 100
+  %t19801 = sub i64 %t19701, 100
+  %t20101 = add i64 %t19801, 100
+  %t20201 = sub i64 %t20101, 100
+  %t20501 = add i64 %t20201, 100
+  %t20601 = sub i64 %t20501, 100
+  %t20901 = add i64 %t20601, 100
+  %t21001 = sub i64 %t20901, 100
+  %t21301 = add i64 %t21001, 100
+  %t21401 = sub i64 %t21301, 100
+  %t21701 = add i64 %t21401, 100
+  %t21801 = sub i64 %t21701, 100
+  %t22101 = add i64 %t21801, 100
+  %t22201 = sub i64 %t22101, 100
+  %t22501 = add i64 %t22201, 100
+  %t22601 = sub i64 %t22501, 100
+  %t22901 = add i64 %t22601, 100
+  %t23001 = sub i64 %t22901, 100
+  %t23301 = add i64 %t23001, 100
+  %t23401 = sub i64 %t23301, 100
+  %t23701 = add i64 %t23401, 100
+  %t23801 = sub i64 %t23701, 100
+  %t24101 = add i64 %t23801, 100
+  %t24201 = sub i64 %t24101, 100
+  %t24501 = add i64 %t24201, 100
+  %t24601 = sub i64 %t24501, 100
+  %t24901 = add i64 %t24601, 100
+  %t25001 = sub i64 %t24901, 100
+  %t25301 = add i64 %t25001, 100
+  %t25401 = sub i64 %t25301, 100
+  %t25701 = add i64 %t25401, 100
+  %t25801 = sub i64 %t25701, 100
+  %t26101 = add i64 %t25801, 100
+  %t26201 = sub i64 %t26101, 100
+  %t26501 = add i64 %t26201, 100
+  %t26601 = sub i64 %t26501, 100
+  %t26901 = add i64 %t26601, 100
+  %t27001 = sub i64 %t26901, 100
+  %t27301 = add i64 %t27001, 100
+  %t27401 = sub i64 %t27301, 100
+  %t27701 = add i64 %t27401, 100
+  %t27801 = sub i64 %t27701, 100
+  %t28101 = add i64 %t27801, 100
+  %t28201 = sub i64 %t28101, 100
+  %t28501 = add i64 %t28201, 100
+  %t28601 = sub i64 %t28501, 100
+  %t28901 = add i64 %t28601, 100
+  %t29001 = sub i64 %t28901, 100
+  %t29301 = add i64 %t29001, 100
+  %t29401 = sub i64 %t29301, 100
+  %t29701 = add i64 %t29401, 100
+  %t29801 = sub i64 %t29701, 100
+  %t30101 = add i64 %t29801, 100
+  %t30201 = sub i64 %t30101, 100
+  %t30501 = add i64 %t30201, 100
+  %t30601 = sub i64 %t30501, 100
+  %t30901 = add i64 %t30601, 100
+  %t31001 = sub i64 %t30901, 100
+  %t31301 = add i64 %t31001, 100
+  %t31401 = sub i64 %t31301, 100
+  %t31701 = add i64 %t31401, 100
+  %t31801 = sub i64 %t31701, 100
+  %t32101 = add i64 %t31801, 100
+  %t32201 = sub i64 %t32101, 100
+  %t32501 = add i64 %t32201, 100
+  %t32601 = sub i64 %t32501, 100
+  %t32901 = add i64 %t32601, 100
+  %t33001 = sub i64 %t32901, 100
+  %t33301 = add i64 %t33001, 100
+  %t33401 = sub i64 %t33301, 100
+  %t33701 = add i64 %t33401, 100
+  %t33801 = sub i64 %t33701, 100
+  %t34101 = add i64 %t33801, 100
+  %t34201 = sub i64 %t34101, 100
+  %t34501 = add i64 %t34201, 100
+  %t34601 = sub i64 %t34501, 100
+  %t34901 = add i64 %t34601, 100
+  %t35001 = sub i64 %t34901, 100
+  %t35301 = add i64 %t35001, 100
+  %t35401 = sub i64 %t35301, 100
+  %t35701 = add i64 %t35401, 100
+  %t35801 = sub i64 %t35701, 100
+  %t36101 = add i64 %t35801, 100
+  %t36201 = sub i64 %t36101, 100
+  %t36501 = add i64 %t36201, 100
+  %t36601 = sub i64 %t36501, 100
+  %t36901 = add i64 %t36601, 100
+  %t37001 = sub i64 %t36901, 100
+  %t37301 = add i64 %t37001, 100
+  %t37401 = sub i64 %t37301, 100
+  %t37701 = add i64 %t37401, 100
+  %t37801 = sub i64 %t37701, 100
+  %t38101 = add i64 %t37801, 100
+  %t38201 = sub i64 %t38101, 100
+  %t38501 = add i64 %t38201, 100
+  %t38601 = sub i64 %t38501, 100
+  %t38901 = add i64 %t38601, 100
+  %t39001 = sub i64 %t38901, 100
+  %t39301 = add i64 %t39001, 100
+  %t39401 = sub i64 %t39301, 100
+  %t39701 = add i64 %t39401, 100
+  %t39801 = sub i64 %t39701, 100
+  %t40101 = add i64 %t39801, 100
+  %t40201 = sub i64 %t40101, 100
+  %t40501 = add i64 %t40201, 100
+  %t40601 = sub i64 %t40501, 100
+  %t40901 = add i64 %t40601, 100
+  %t41001 = sub i64 %t40901, 100
+  %t41301 = add i64 %t41001, 100
+  %t41401 = sub i64 %t41301, 100
+  %t41701 = add i64 %t41401, 100
+  %t41801 = sub i64 %t41701, 100
+  %t42101 = add i64 %t41801, 100
+  %t42201 = sub i64 %t42101, 100
+  %t42501 = add i64 %t42201, 100
+  %t42601 = sub i64 %t42501, 100
+  %t42901 = add i64 %t42601, 100
+  %t43001 = sub i64 %t42901, 100
+  %t43301 = add i64 %t43001, 100
+  %t43401 = sub i64 %t43301, 100
+  %t43701 = add i64 %t43401, 100
+  %t43801 = sub i64 %t43701, 100
+  %t44101 = add i64 %t43801, 100
+  %t44201 = sub i64 %t44101, 100
+  %t44501 = add i64 %t44201, 100
+  %t44601 = sub i64 %t44501, 100
+  %t44901 = add i64 %t44601, 100
+  %t45001 = sub i64 %t44901, 100
+  %t45301 = add i64 %t45001, 100
+  %t45401 = sub i64 %t45301, 100
+  %t45701 = add i64 %t45401, 100
+  %t45801 = sub i64 %t45701, 100
+  %t46101 = add i64 %t45801, 100
+  %t46201 = sub i64 %t46101, 100
+  %t46501 = add i64 %t46201, 100
+  %t46601 = sub i64 %t46501, 100
+  %t46901 = add i64 %t46601, 100
+  %t47001 = sub i64 %t46901, 100
+  %t47301 = add i64 %t47001, 100
+  %t47401 = sub i64 %t47301, 100
+  %t47701 = add i64 %t47401, 100
+  %t47801 = sub i64 %t47701, 100
+  %t48101 = add i64 %t47801, 100
+  %t48201 = sub i64 %t48101, 100
+  %t48501 = add i64 %t48201, 100
+  %t48601 = sub i64 %t48501, 100
+  %t48901 = add i64 %t48601, 100
+  %t49001 = sub i64 %t48901, 100
+  %t49301 = add i64 %t49001, 100
+  %t49401 = sub i64 %t49301, 100
+  %t49701 = add i64 %t49401, 100
+  %t49801 = sub i64 %t49701, 100
+  %t50101 = add i64 %t49801, 100
+  %t50201 = sub i64 %t50101, 100
+  %t50501 = add i64 %t50201, 100
+  %t50601 = sub i64 %t50501, 100
+  %t50901 = add i64 %t50601, 100
+  %t51001 = sub i64 %t50901, 100
+  %t51301 = add i64 %t51001, 100
+  %t10001 = sub i64 %t51301, 100
+  call void @putint(i64 %t10001)
+  call void @putch(i64 10)
+  %t1 = trunc i64 0 to i32
+  ret i32 %t1
+
+  ; Default return
+  ret i32 0
+}
+

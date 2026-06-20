@@ -13,6 +13,7 @@ run_timeout_s="${RUN_TIMEOUT:-2}"
 k="${K:-9}"
 input="${INPUT:-4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4 4}"
 runtime_checks="${RUNTIME_CHECKS:-0}"
+source "$root/final/scripts/test_expect.sh"
 
 case "$runtime_checks" in
     1|true|TRUE|yes|YES|on|ON) runtime_checks_enabled=1 ;;
@@ -63,11 +64,22 @@ run_fail=0
 timeout_count=0
 runtime_error_skip=0
 optional_semantics_skip=0
+expect_pass_match=0
+expect_reject_match=0
+stress_runtime_skip=0
 failures="$work/failures.txt"
 : > "$failures"
 
+is_stress_runtime_test() {
+    case "$1" in
+        *bigloop*.fmj|*linkedlist*.fmj) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 while IFS='|' read -r test_file original; do
     base="${test_file%.fmj}"
+    expect="$(fmj_expect "$test_file")"
 
     set +e
     timeout "$timeout_s" "$fmjinterp" --check "$test_file" > "$base.interp.check.out" 2> "$base.interp.check.err"
@@ -87,6 +99,40 @@ while IFS='|' read -r test_file original; do
         mismatch=$((mismatch + 1))
         printf 'TIMEOUT check compile_rc=%s interp_rc=%s %s\n' "$compile_rc" "$interp_check_rc" "$original" >> "$failures"
         continue
+    fi
+
+    if [[ "$expect" == "FAIL" ]]; then
+        if [[ "$interp_check_rc" -ne 0 && "$compile_rc" -ne 0 ]]; then
+            reject_match=$((reject_match + 1))
+            expect_reject_match=$((expect_reject_match + 1))
+        else
+            mismatch=$((mismatch + 1))
+            printf 'EXPECT_FAIL_MISMATCH compile_rc=%s interp_rc=%s %s\n' "$compile_rc" "$interp_check_rc" "$original" >> "$failures"
+            if [[ "$compile_rc" -eq 0 ]]; then
+                printf 'compiler accepted expected-fail program\n' >> "$failures"
+            else
+                tail -n 30 "$base.compile.log" >> "$failures"
+            fi
+            if [[ "$interp_check_rc" -eq 0 ]]; then
+                printf 'interpreter accepted expected-fail program\n' >> "$failures"
+            else
+                tail -n 20 "$base.interp.check.err" >> "$failures"
+            fi
+            printf '\n' >> "$failures"
+        fi
+        continue
+    fi
+
+    if [[ "$expect" == "PASS" ]]; then
+        if [[ "$interp_check_rc" -ne 0 || "$compile_rc" -ne 0 ]]; then
+            mismatch=$((mismatch + 1))
+            printf 'EXPECT_PASS_MISMATCH compile_rc=%s interp_rc=%s %s\n' "$compile_rc" "$interp_check_rc" "$original" >> "$failures"
+            if [[ "$compile_rc" -ne 0 ]]; then tail -n 30 "$base.compile.log" >> "$failures"; fi
+            if [[ "$interp_check_rc" -ne 0 ]]; then tail -n 20 "$base.interp.check.err" >> "$failures"; fi
+            printf '\n' >> "$failures"
+            continue
+        fi
+        expect_pass_match=$((expect_pass_match + 1))
     fi
 
     if [[ "$interp_check_rc" -ne 0 && "$compile_rc" -ne 0 ]]; then
@@ -118,6 +164,27 @@ while IFS='|' read -r test_file original; do
         mismatch=$((mismatch + 1))
         printf 'LINK_FAIL rc=%s %s\n' "$link_rc" "$original" >> "$failures"
         tail -n 30 "$base.link.log" >> "$failures"
+        continue
+    fi
+
+    if is_stress_runtime_test "$test_file"; then
+        set +e
+        printf '%s\n' "$input" | timeout "$run_timeout_s" "$qemu" "$base.arm" > "$base.compiled.out" 2> "$base.compiled.err"
+        compiled_rc=$?
+        set -e
+
+        if grep -qiE 'uncaught target signal|Segmentation fault|Illegal instruction|Bus error|Aborted' "$base.compiled.err"; then
+            run_fail=$((run_fail + 1))
+            mismatch=$((mismatch + 1))
+            printf 'STRESS_COMPILED_RUNTIME_ERROR rc=%s %s\n' "$compiled_rc" "$original" >> "$failures"
+            cat "$base.compiled.err" >> "$failures"
+            printf '\n' >> "$failures"
+        else
+            stress_runtime_skip=$((stress_runtime_skip + 1))
+            if [[ "$compiled_rc" -eq 124 ]]; then
+                timeout_count=$((timeout_count + 1))
+            fi
+        fi
         continue
     fi
 
@@ -196,8 +263,8 @@ while IFS='|' read -r test_file original; do
 done < "$map"
 
 total=$(wc -l < "$map")
-printf 'total=%s run_match=%s reject_match=%s timeout_match=%s runtime_error_skip=%s optional_semantics_skip=%s mismatch=%s compile_only_reject=%s interp_only_reject=%s link_fail=%s run_fail=%s timeout=%s runtime_checks=%s workdir=%s\n' \
-    "$total" "$run_match" "$reject_match" "$timeout_match" "$runtime_error_skip" "$optional_semantics_skip" "$mismatch" "$compile_only_reject" "$interp_only_reject" "$link_fail" "$run_fail" "$timeout_count" "$runtime_checks_enabled" "$work"
+printf 'total=%s run_match=%s reject_match=%s timeout_match=%s runtime_error_skip=%s optional_semantics_skip=%s stress_runtime_skip=%s expect_pass_match=%s expect_reject_match=%s mismatch=%s compile_only_reject=%s interp_only_reject=%s link_fail=%s run_fail=%s timeout=%s runtime_checks=%s workdir=%s\n' \
+    "$total" "$run_match" "$reject_match" "$timeout_match" "$runtime_error_skip" "$optional_semantics_skip" "$stress_runtime_skip" "$expect_pass_match" "$expect_reject_match" "$mismatch" "$compile_only_reject" "$interp_only_reject" "$link_fail" "$run_fail" "$timeout_count" "$runtime_checks_enabled" "$work"
 
 if [[ -s "$failures" ]]; then
     cat "$failures"

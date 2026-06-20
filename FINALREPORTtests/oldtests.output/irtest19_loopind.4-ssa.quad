@@ -1,0 +1,60 @@
+Function D^f(t100) last_label=102 last_temp=112:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    PTR_CALC t1040101:ptr <- t100:ptr + Const:16; def: t1040101 use: t100 
+    LOAD t1050101:int <- Mem(t1040101:ptr); def: t1050101 use: t1040101 
+    PTR_CALC t1060101:ptr <- t100:ptr + Const:24; def: t1060101 use: t100 
+    LOAD t1070101:ptr <- Mem(t1060101:ptr); def: t1070101 use: t1060101 
+    PTR_CALC t1080101:ptr <- t1070101:ptr + Const:16; def: t1080101 use: t1070101 
+    LOAD t1090101:int <- Mem(t1080101:ptr); def: t1090101 use: t1080101 
+    MOVE_BINOP t1020101:int <- (+, t1050101:int, t1090101:int); def: t1020101 use: t1050101 t1090101 
+    EXTCALL putint(t1020101:int); def: use: t1020101 
+    PTR_CALC t1110101:ptr <- t100:ptr + Const:28; def: t1110101 use: t100 
+    LOAD t1120101:ptr <- Mem(t1110101:ptr); def: t1120101 use: t1110101 
+    RETURN t1120101:ptr; def: use: t1120101 
+Function B^g(t100) last_label=102 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; def: use: 
+    JUMP L101; def: use: 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; def: use: 
+    RETURN Const:0; def: use: 
+Function B^f(t100) last_label=102 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; def: use: 
+    JUMP L101; def: use: 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; def: use: 
+    RETURN Const:0; def: use: 
+Function A^f(t100) last_label=102 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; def: use: 
+    JUMP L101; def: use: 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; def: use: 
+    RETURN Const:0; def: use: 
+Function C^f(t100) last_label=102 last_temp=101:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; def: use: 
+    JUMP L101; def: use: 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; def: use: 
+    RETURN Const:0; def: use: 
+Function __$main__^main() last_label=102 last_temp=100:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; def: use: 
+    JUMP L101; def: use: 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; def: use: 
+    RETURN Const:0; def: use: 

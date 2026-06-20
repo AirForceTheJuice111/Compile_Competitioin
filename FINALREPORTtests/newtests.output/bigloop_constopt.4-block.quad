@@ -1,0 +1,50 @@
+Function __$main__^main() last_label=112 last_temp=119:
+  Block: Entry Label: L110
+    Exit labels: L102 
+    LABEL L110; def: use: 
+    MOVE t115:int <- Const:0; def: t115 use: 
+    MOVE t116:int <- Const:0; def: t116 use: 
+    JUMP L102; def: use: 
+  Block: Entry Label: L102
+    Exit labels: L103 L104 
+    LABEL L102; def: use: 
+    PHI t10202:int <- Phi([t10203, L109], [t115, L110]); def: t10202 use: t115 t10203 
+    PHI t10002:int <- Phi([t10003, L109], [t116, L110]); def: t10002 use: t116 t10003 
+    CJUMP < t10202:int Const:6000? L103 : L104; def: use: t10202 
+  Block: Entry Label: L103
+    Exit labels: L107 
+    LABEL L103; def: use: 
+    MOVE_BINOP t10203:int <- (+, t10202:int, Const:1); def: t10203 use: t10202 
+    MOVE t117:int <- Const:0; def: t117 use: 
+    JUMP L107; def: use: 
+  Block: Entry Label: L107
+    Exit labels: L108 L109 
+    LABEL L107; def: use: 
+    PHI t10302:int <- Phi([t117, L103], [t10303, L108]); def: t10302 use: t117 t10303 
+    PHI t10003:int <- Phi([t10002, L103], [t10004, L108]); def: t10003 use: t10002 t10004 
+    MOVE_BINOP t10901:int <- (*, t10203:int, Const:2000); def: t10901 use: t10203 
+    CJUMP < t10302:int t10901:int? L108 : L109; def: use: t10302 t10901 
+  Block: Entry Label: L108
+    Exit labels: L107 
+    LABEL L108; def: use: 
+    MOVE_BINOP t10303:int <- (+, t10302:int, Const:1); def: t10303 use: t10302 
+    MOVE_BINOP t10101:int <- (*, t10203:int, Const:3); def: t10101 use: t10203 
+    MOVE_BINOP t11001:int <- (*, t10303:int, t10101:int); def: t11001 use: t10303 t10101 
+    MOVE_BINOP t11101:int <- (+, t10003:int, t11001:int); def: t11101 use: t10003 t11001 
+    MOVE_BINOP t11201:int <- (/, t10303:int, Const:17); def: t11201 use: t10303 
+    MOVE_BINOP t10004:int <- (+, t11101:int, t11201:int); def: t10004 use: t11101 t11201 
+    JUMP L107; def: use: 
+  Block: Entry Label: L109
+    Exit labels: L102 
+    LABEL L109; def: use: 
+    JUMP L102; def: use: 
+  Block: Entry Label: L104
+    Exit labels: 
+    LABEL L104; def: use: 
+    EXTCALL putint(t10002:int); def: use: t10002 
+    EXTCALL putch(Const:10); def: use: 
+    RETURN Const:0; def: use: 
+  Block: Entry Label: L112
+    Exit labels: 
+    LABEL L112; def: use: 
+    RETURN Const:0; def: use: 

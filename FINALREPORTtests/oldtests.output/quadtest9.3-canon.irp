@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program>
+    <FunctionDeclaration name="__$main__^main" return_type="INT" last_temp="116" last_label="99">
+        <Sequence>
+            <Move>
+                <Temp type="PTR" temp="103"/>
+                <ExtCall type="PTR" extfun="malloc">
+                    <Arguments>
+                        <Const value="20"/>
+                    </Arguments>
+                </ExtCall>
+            </Move>
+            <Move>
+                <Memory type="PTR">
+                    <BinOp type="PTR" op="+">
+                        <Temp type="PTR" temp="103"/>
+                        <Const value="16"/>
+                    </BinOp>
+                </Memory>
+                <Name type="PTR" sname="A^f"/>
+            </Move>
+            <Move>
+                <Temp type="PTR" temp="100"/>
+                <Temp type="PTR" temp="103"/>
+            </Move>
+            <Move>
+                <Temp type="PTR" temp="104"/>
+                <ExtCall type="PTR" extfun="malloc">
+                    <Arguments>
+                        <Const value="20"/>
+                    </Arguments>
+                </ExtCall>
+            </Move>
+            <Move>
+                <Memory type="PTR">
+                    <BinOp type="PTR" op="+">
+                        <Temp type="PTR" temp="104"/>
+                        <Const value="16"/>
+                    </BinOp>
+                </Memory>
+                <Name type="PTR" sname="B^f"/>
+            </Move>
+            <Move>
+                <Temp type="PTR" temp="101"/>
+                <Temp type="PTR" temp="104"/>
+            </Move>
+            <Move>
+                <Temp type="PTR" temp="107"/>
+                <Memory type="PTR">
+                    <BinOp type="PTR" op="+">
+                        <Temp type="PTR" temp="100"/>
+                        <Const value="16"/>
+                    </BinOp>
+                </Memory>
+            </Move>
+            <ExpressionStatement>
+                <Call type="INT" id="f">
+                    <Temp type="PTR" temp="107"/>
+                    <Arguments>
+                        <Temp type="PTR" temp="100"/>
+                    </Arguments>
+                </Call>
+            </ExpressionStatement>
+            <Move>
+                <Temp type="PTR" temp="109"/>
+                <Memory type="PTR">
+                    <BinOp type="PTR" op="+">
+                        <Temp type="PTR" temp="101"/>
+                        <Const value="16"/>
+                    </BinOp>
+                </Memory>
+            </Move>
+            <ExpressionStatement>
+                <Call type="INT" id="f">
+                    <Temp type="PTR" temp="109"/>
+                    <Arguments>
+                        <Temp type="PTR" temp="101"/>
+                    </Arguments>
+                </Call>
+            </ExpressionStatement>
+            <Move>
+                <Temp type="INT" temp="111"/>
+                <BinOp type="INT" op="+">
+                    <BinOp type="INT" op="+">
+                        <BinOp type="INT" op="+">
+                            <BinOp type="INT" op="+">
+                                <Memory type="INT">
+                                    <BinOp type="PTR" op="+">
+                                        <Temp type="PTR" temp="100"/>
+                                        <Const value="0"/>
+                                    </BinOp>
+                                </Memory>
+                                <Memory type="INT">
+                                    <BinOp type="PTR" op="+">
+                                        <Temp type="PTR" temp="100"/>
+                                        <Const value="4"/>
+                                    </BinOp>
+                                </Memory>
+                            </BinOp>
+                            <Memory type="INT">
+                                <BinOp type="PTR" op="+">
+                                    <Temp type="PTR" temp="101"/>
+                                    <Const value="0"/>
+                                </BinOp>
+                            </Memory>
+                        </BinOp>
+                        <Memory type="INT">
+                            <BinOp type="PTR" op="+">
+                                <Temp type="PTR" temp="101"/>
+                                <Const value="8"/>
+                            </BinOp>
+                        </Memory>
+                    </BinOp>
+                    <Memory type="INT">
+                        <BinOp type="PTR" op="+">
+                            <Temp type="PTR" temp="101"/>
+                            <Const value="12"/>
+                        </BinOp>
+                    </Memory>
+                </BinOp>
+            </Move>
+            <ExpressionStatement>
+                <ExtCall type="INT" extfun="putint">
+                    <Arguments>
+                        <Temp type="INT" temp="111"/>
+                    </Arguments>
+                </ExtCall>
+            </ExpressionStatement>
+            <ExpressionStatement>
+                <ExtCall type="INT" extfun="putch">
+                    <Arguments>
+                        <Const value="10"/>
+                    </Arguments>
+                </ExtCall>
+            </ExpressionStatement>
+            <Move>
+                <Temp type="PTR" temp="100"/>
+                <Temp type="PTR" temp="101"/>
+            </Move>
+            <Move>
+                <Temp type="INT" temp="114"/>
+                <BinOp type="INT" op="+">
+                    <BinOp type="INT" op="+">
+                        <BinOp type="INT" op="+">
+                            <Memory type="INT">
+                                <BinOp type="PTR" op="+">
+                                    <Temp type="PTR" temp="100"/>
+                                    <Const value="0"/>
+                                </BinOp>
+                            </Memory>
+                            <Memory type="INT">
+                                <BinOp type="PTR" op="+">
+                                    <Temp type="PTR" temp="101"/>
+                                    <Const value="0"/>
+                                </BinOp>
+                            </Memory>
+                        </BinOp>
+                        <Memory type="INT">
+                            <BinOp type="PTR" op="+">
+                                <Temp type="PTR" temp="101"/>
+                                <Const value="8"/>
+                            </BinOp>
+                        </Memory>
+                    </BinOp>
+                    <Memory type="INT">
+                        <BinOp type="PTR" op="+">
+                            <Temp type="PTR" temp="101"/>
+                            <Const value="12"/>
+                        </BinOp>
+                    </Memory>
+                </BinOp>
+            </Move>
+            <ExpressionStatement>
+                <ExtCall type="INT" extfun="putint">
+                    <Arguments>
+                        <Temp type="INT" temp="114"/>
+                    </Arguments>
+                </ExtCall>
+            </ExpressionStatement>
+            <ExpressionStatement>
+                <ExtCall type="INT" extfun="putch">
+                    <Arguments>
+                        <Const value="10"/>
+                    </Arguments>
+                </ExtCall>
+            </ExpressionStatement>
+            <Return>
+                <Const value="1"/>
+            </Return>
+        </Sequence>
+    </FunctionDeclaration>
+    <FunctionDeclaration name="A^f" return_type="INT" last_temp="101" last_label="99" arg_temp_0="100">
+        <Sequence>
+            <Move>
+                <Memory type="INT">
+                    <BinOp type="PTR" op="+">
+                        <Temp type="PTR" temp="100"/>
+                        <Const value="0"/>
+                    </BinOp>
+                </Memory>
+                <Const value="1"/>
+            </Move>
+            <Move>
+                <Memory type="INT">
+                    <BinOp type="PTR" op="+">
+                        <Temp type="PTR" temp="100"/>
+                        <Const value="4"/>
+                    </BinOp>
+                </Memory>
+                <Const value="2"/>
+            </Move>
+            <Return>
+                <Const value="0"/>
+            </Return>
+        </Sequence>
+    </FunctionDeclaration>
+    <FunctionDeclaration name="B^f" return_type="INT" last_temp="101" last_label="99" arg_temp_0="100">
+        <Sequence>
+            <Move>
+                <Memory type="INT">
+                    <BinOp type="PTR" op="+">
+                        <Temp type="PTR" temp="100"/>
+                        <Const value="0"/>
+                    </BinOp>
+                </Memory>
+                <Const value="4"/>
+            </Move>
+            <Move>
+                <Memory type="INT">
+                    <BinOp type="PTR" op="+">
+                        <Temp type="PTR" temp="100"/>
+                        <Const value="8"/>
+                    </BinOp>
+                </Memory>
+                <Const value="30"/>
+            </Move>
+            <Move>
+                <Memory type="INT">
+                    <BinOp type="PTR" op="+">
+                        <Temp type="PTR" temp="100"/>
+                        <Const value="12"/>
+                    </BinOp>
+                </Memory>
+                <Const value="100"/>
+            </Move>
+            <Return>
+                <BinOp type="INT" op="+">
+                    <BinOp type="INT" op="+">
+                        <Memory type="INT">
+                            <BinOp type="PTR" op="+">
+                                <Temp type="PTR" temp="100"/>
+                                <Const value="0"/>
+                            </BinOp>
+                        </Memory>
+                        <Memory type="INT">
+                            <BinOp type="PTR" op="+">
+                                <Temp type="PTR" temp="100"/>
+                                <Const value="8"/>
+                            </BinOp>
+                        </Memory>
+                    </BinOp>
+                    <Memory type="INT">
+                        <BinOp type="PTR" op="+">
+                            <Temp type="PTR" temp="100"/>
+                            <Const value="12"/>
+                        </BinOp>
+                    </Memory>
+                </BinOp>
+            </Return>
+        </Sequence>
+    </FunctionDeclaration>
+</Program>

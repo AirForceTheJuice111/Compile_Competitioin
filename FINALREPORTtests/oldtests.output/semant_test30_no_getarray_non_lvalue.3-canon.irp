@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program>
+    <FunctionDeclaration name="__$main__^main" return_type="INT" last_temp="102" last_label="99">
+        <Sequence>
+            <Move>
+                <Temp type="INT" temp="102"/>
+                <ExtCall type="INT" extfun="getarray">
+                    <Arguments>
+                        <Temp type="PTR" temp="100"/>
+                    </Arguments>
+                </ExtCall>
+            </Move>
+            <Return>
+                <Temp type="INT" temp="102"/>
+            </Return>
+        </Sequence>
+    </FunctionDeclaration>
+</Program>

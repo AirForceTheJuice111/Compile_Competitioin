@@ -1,0 +1,113 @@
+<QuadWithFlowProgram program_last_label_num="110" program_last_temp_num="105">
+    <Program kind="PROGRAM" last_label_num="110" last_temp_num="105">
+        <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="110" last_temp_num="105">
+            <block kind="BLOCK" entry="108">
+                <exits>
+                    <exit label="106"/>
+                </exits>
+                <label kind="LABEL" name="108"/>
+                <jump kind="JUMP" target="106"/>
+            </block>
+            <block kind="BLOCK" entry="106">
+                <exits>
+                    <exit label="107"/>
+                </exits>
+                <label kind="LABEL" name="106"/>
+                <jump kind="JUMP" target="107"/>
+            </block>
+            <block kind="BLOCK" entry="107">
+                <label kind="LABEL" name="107"/>
+                <return kind="RETURN">
+                    <value kind="CONST" value="2"/>
+                </return>
+            </block>
+        </funcdecl>
+    </Program>
+    <Function name="__$main__^main">
+        <ControlFlow>
+            <Predecessors>
+                <Block id="106">
+                    <Item id="108"/>
+                </Block>
+                <Block id="107">
+                    <Item id="106"/>
+                </Block>
+                <Block id="108"/>
+            </Predecessors>
+            <Successors>
+                <Block id="106">
+                    <Item id="107"/>
+                </Block>
+                <Block id="107"/>
+                <Block id="108">
+                    <Item id="106"/>
+                </Block>
+            </Successors>
+            <Dominators>
+                <Block id="106">
+                    <Item id="106"/>
+                    <Item id="108"/>
+                </Block>
+                <Block id="107">
+                    <Item id="106"/>
+                    <Item id="107"/>
+                    <Item id="108"/>
+                </Block>
+                <Block id="108">
+                    <Item id="108"/>
+                </Block>
+            </Dominators>
+            <ImmediateDominators>
+                <Block id="106" idom="108"/>
+                <Block id="107" idom="106"/>
+                <Block id="108" idom="-1"/>
+            </ImmediateDominators>
+            <DominanceFrontier>
+                <Block id="106"/>
+                <Block id="107"/>
+                <Block id="108"/>
+            </DominanceFrontier>
+            <DominatorTree>
+                <Block id="106">
+                    <Item id="107"/>
+                </Block>
+                <Block id="107"/>
+                <Block id="108">
+                    <Item id="106"/>
+                </Block>
+            </DominatorTree>
+        </ControlFlow>
+        <Liveness>
+            <Block id="108">
+                <Statement kind="LABEL">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+                <Statement kind="JUMP">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+            </Block>
+            <Block id="106">
+                <Statement kind="LABEL">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+                <Statement kind="JUMP">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+            </Block>
+            <Block id="107">
+                <Statement kind="LABEL">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+                <Statement kind="RETURN">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+            </Block>
+        </Liveness>
+    </Function>
+</QuadWithFlowProgram>

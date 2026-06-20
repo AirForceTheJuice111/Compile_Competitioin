@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDMJAST>
+    <NameMaps>
+        <Class name="__$main__">
+            <Method name="main">
+                <Formal id="_^return^_main">
+                    <Formal bline="1" bpos="1" eline="2" epos="1">
+                        <Type typeKind="INT" bline="1" bpos="1" eline="2" epos="1"/>
+                        <IdExp bline="1" bpos="1" eline="2" epos="1" id="_^return^_main"/>
+                    </Formal>
+                </Formal>
+            </Method>
+        </Class>
+    </NameMaps>
+    <Program bline="1" bpos="1" eline="2" epos="1">
+        <MainMethod bline="1" bpos="1" eline="2" epos="1">
+            <VarDeclList/>
+            <StmList/>
+        </MainMethod>
+        <ClassDeclList/>
+    </Program>
+</FDMJAST>

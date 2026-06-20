@@ -1,0 +1,16 @@
+// EXPECT: PASS
+// Target: FDMJ2026 allows parent class to be declared after child in source order.
+public int main() {
+    class Child c;
+    c = new Child();
+    return 0;
+}
+
+public class Child extends Parent {
+    public int f() {
+        return 0;
+    }
+}
+
+public class Parent {
+}

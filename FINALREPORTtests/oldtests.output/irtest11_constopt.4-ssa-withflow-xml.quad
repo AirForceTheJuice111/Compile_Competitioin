@@ -1,0 +1,120 @@
+<QuadWithFlowProgram program_last_label_num="105" program_last_temp_num="111">
+    <Program kind="PROGRAM" last_label_num="105" last_temp_num="111">
+        <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="105" last_temp_num="111">
+            <block kind="BLOCK" entry="103">
+                <exits>
+                    <exit label="100"/>
+                </exits>
+                <label kind="LABEL" name="103"/>
+                <move kind="MOVE" dst="1050101" temp_type="ptr">
+                    <src kind="TEMP" id="100" type="ptr"/>
+                    <def>
+                        <temp id="1050101"/>
+                    </def>
+                    <use>
+                        <temp id="100"/>
+                    </use>
+                </move>
+                <load kind="LOAD" dst="1030101" temp_type="int">
+                    <src kind="TEMP" id="100" type="ptr"/>
+                    <def>
+                        <temp id="1030101"/>
+                    </def>
+                    <use>
+                        <temp id="100"/>
+                    </use>
+                </load>
+                <jump kind="JUMP" target="100"/>
+            </block>
+            <block kind="BLOCK" entry="100">
+                <label kind="LABEL" name="100"/>
+                <extcall kind="EXTCALL" name="exit">
+                    <args>
+                        <arg index="0">
+                            <value kind="CONST" value="-1"/>
+                        </arg>
+                    </args>
+                </extcall>
+            </block>
+        </funcdecl>
+    </Program>
+    <Function name="__$main__^main">
+        <ControlFlow>
+            <Predecessors>
+                <Block id="100">
+                    <Item id="103"/>
+                </Block>
+                <Block id="103"/>
+            </Predecessors>
+            <Successors>
+                <Block id="100"/>
+                <Block id="103">
+                    <Item id="100"/>
+                </Block>
+            </Successors>
+            <Dominators>
+                <Block id="100">
+                    <Item id="100"/>
+                    <Item id="103"/>
+                </Block>
+                <Block id="103">
+                    <Item id="103"/>
+                </Block>
+            </Dominators>
+            <ImmediateDominators>
+                <Block id="100" idom="103"/>
+                <Block id="103" idom="-1"/>
+            </ImmediateDominators>
+            <DominanceFrontier>
+                <Block id="100"/>
+                <Block id="103"/>
+            </DominanceFrontier>
+            <DominatorTree>
+                <Block id="100"/>
+                <Block id="103">
+                    <Item id="100"/>
+                </Block>
+            </DominatorTree>
+        </ControlFlow>
+        <Liveness>
+            <Block id="103">
+                <Statement kind="LABEL">
+                    <LiveIn>
+                        <Var id="100"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="100"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="MOVE">
+                    <LiveIn>
+                        <Var id="100"/>
+                    </LiveIn>
+                    <LiveOut>
+                        <Var id="100"/>
+                    </LiveOut>
+                </Statement>
+                <Statement kind="LOAD">
+                    <LiveIn>
+                        <Var id="100"/>
+                    </LiveIn>
+                    <LiveOut/>
+                </Statement>
+                <Statement kind="JUMP">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+            </Block>
+            <Block id="100">
+                <Statement kind="LABEL">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+                <Statement kind="EXTCALL">
+                    <LiveIn/>
+                    <LiveOut/>
+                </Statement>
+            </Block>
+        </Liveness>
+    </Function>
+</QuadWithFlowProgram>

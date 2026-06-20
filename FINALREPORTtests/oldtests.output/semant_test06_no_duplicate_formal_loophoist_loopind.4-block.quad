@@ -1,0 +1,18 @@
+Function __$main__^main() last_label=103 last_temp=100:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    RETURN Const:0; def: use: 
+  Block: Entry Label: L103
+    Exit labels: 
+    LABEL L103; def: use: 
+    RETURN Const:0; def: use: 
+Function A^f(t101, t100) last_label=103 last_temp=103:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 
+    RETURN t100:int; def: use: t100 
+  Block: Entry Label: L103
+    Exit labels: 
+    LABEL L103; def: use: 
+    RETURN Const:0; def: use: 

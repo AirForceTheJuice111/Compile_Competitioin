@@ -1,0 +1,144 @@
+<Program kind="PROGRAM" last_label_num="106" last_temp_num="113">
+    <funcdecl kind="FUNCDECL" name="__$main__^main" last_label_num="106" last_temp_num="113">
+        <block kind="BLOCK" entry="105">
+            <exits>
+                <exit label="102"/>
+            </exits>
+            <label kind="LABEL" name="105"/>
+            <moveextcall kind="MOVE_EXTCALL" dst="10001" temp_type="int">
+                <extcall kind="EXTCALL" name="getint"/>
+                <def>
+                    <temp id="10001"/>
+                </def>
+            </moveextcall>
+            <movebinop kind="MOVE_BINOP" dst="10305" temp_type="int" op="*">
+                <left kind="TEMP" id="10001" type="int"/>
+                <right kind="CONST" value="4"/>
+                <def>
+                    <temp id="10305"/>
+                </def>
+                <use>
+                    <temp id="10001"/>
+                </use>
+            </movebinop>
+            <movebinop kind="MOVE_BINOP" dst="10303" temp_type="int" op="+">
+                <left kind="TEMP" id="10305" type="int"/>
+                <right kind="CONST" value="2"/>
+                <def>
+                    <temp id="10303"/>
+                </def>
+                <use>
+                    <temp id="10305"/>
+                </use>
+            </movebinop>
+            <jump kind="JUMP" target="102"/>
+        </block>
+        <block kind="BLOCK" entry="102">
+            <exits>
+                <exit label="103"/>
+                <exit label="104"/>
+            </exits>
+            <label kind="LABEL" name="102"/>
+            <phi kind="PHI" dst="10002" temp_type="int">
+                <args>
+                    <arg temp="t10003" label="L103"/>
+                    <arg temp="t10001" label="L105"/>
+                </args>
+                <def>
+                    <temp id="10002"/>
+                </def>
+                <use>
+                    <temp id="10001"/>
+                    <temp id="10003"/>
+                </use>
+            </phi>
+            <phi kind="PHI" dst="10302" temp_type="int">
+                <args>
+                    <arg temp="t10304" label="L103"/>
+                    <arg temp="t10303" label="L105"/>
+                </args>
+                <def>
+                    <temp id="10302"/>
+                </def>
+                <use>
+                    <temp id="10304"/>
+                    <temp id="10303"/>
+                </use>
+            </phi>
+            <cjump kind="CJUMP" relop="&gt;" true="103" false="104">
+                <left kind="TEMP" id="10302" type="int"/>
+                <right kind="CONST" value="2"/>
+                <use>
+                    <temp id="10002"/>
+                </use>
+            </cjump>
+        </block>
+        <block kind="BLOCK" entry="103">
+            <exits>
+                <exit label="102"/>
+            </exits>
+            <label kind="LABEL" name="103"/>
+            <extcall kind="EXTCALL" name="putint">
+                <args>
+                    <arg index="0">
+                        <value kind="TEMP" id="10302" type="int"/>
+                    </arg>
+                </args>
+                <use>
+                    <temp id="10301"/>
+                </use>
+            </extcall>
+            <extcall kind="EXTCALL" name="putch">
+                <args>
+                    <arg index="0">
+                        <value kind="CONST" value="32"/>
+                    </arg>
+                </args>
+            </extcall>
+            <movebinop kind="MOVE_BINOP" dst="10003" temp_type="int" op="-">
+                <left kind="TEMP" id="10002" type="int"/>
+                <right kind="CONST" value="2"/>
+                <def>
+                    <temp id="10003"/>
+                </def>
+                <use>
+                    <temp id="10002"/>
+                </use>
+            </movebinop>
+            <movebinop kind="MOVE_BINOP" dst="10304" temp_type="int" op="-">
+                <left kind="TEMP" id="10302" type="int"/>
+                <right kind="CONST" value="8"/>
+                <def>
+                    <temp id="10304"/>
+                </def>
+                <use>
+                    <temp id="10302"/>
+                </use>
+            </movebinop>
+            <jump kind="JUMP" target="102"/>
+        </block>
+        <block kind="BLOCK" entry="104">
+            <label kind="LABEL" name="104"/>
+            <extcall kind="EXTCALL" name="putint">
+                <args>
+                    <arg index="0">
+                        <value kind="TEMP" id="10002" type="int"/>
+                    </arg>
+                </args>
+                <use>
+                    <temp id="10002"/>
+                </use>
+            </extcall>
+            <extcall kind="EXTCALL" name="putch">
+                <args>
+                    <arg index="0">
+                        <value kind="CONST" value="10"/>
+                    </arg>
+                </args>
+            </extcall>
+            <return kind="RETURN">
+                <value kind="CONST" value="2"/>
+            </return>
+        </block>
+    </funcdecl>
+</Program>

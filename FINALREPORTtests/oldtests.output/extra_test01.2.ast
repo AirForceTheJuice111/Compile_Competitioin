@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program bline="1" bpos="1" eline="3" epos="1">
+    <MainMethod bline="1" bpos="1" eline="3" epos="1">
+        <VarDeclList/>
+        <StmList>
+            <Return bline="2" bpos="2" eline="2" epos="11">
+                <IntExp bline="2" bpos="9" eline="2" epos="10" val="42"/>
+            </Return>
+        </StmList>
+    </MainMethod>
+    <ClassDeclList/>
+</Program>

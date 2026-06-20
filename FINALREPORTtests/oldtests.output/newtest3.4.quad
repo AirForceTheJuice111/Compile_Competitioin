@@ -1,0 +1,36 @@
+Function __$main__^main() last_label=103 last_temp=122:
+  Block: Entry Label: L103
+    Exit labels: 
+    LABEL L103; def: use: 
+    MOVE_EXTCALL t100:ptr <- malloc(Const:16); def: t100 use: 
+    STORE Const:3 -> Mem(t100:ptr); def: use: t100 
+    PTR_CALC t112:ptr <- t100:ptr + Const:4; def: t112 use: t100 
+    STORE Const:1 -> Mem(t112:ptr); def: use: t112 
+    PTR_CALC t113:ptr <- t100:ptr + Const:8; def: t113 use: t100 
+    STORE Const:2 -> Mem(t113:ptr); def: use: t113 
+    PTR_CALC t114:ptr <- t100:ptr + Const:12; def: t114 use: t100 
+    STORE Const:3 -> Mem(t114:ptr); def: use: t114 
+    MOVE t103:int <- Const:10; def: t103 use: 
+    MOVE_BINOP t115:int <- (+, t103:int, Const:1); def: t115 use: t103 
+    MOVE_BINOP t107:int <- (*, t115:int, Const:4); def: t107 use: t115 
+    MOVE_EXTCALL t104:ptr <- malloc(t107:int); def: t104 use: t107 
+    STORE t103:int -> Mem(t104:ptr); def: use: t103 t104 
+    PTR_CALC t117:ptr <- t101:ptr + Const:0; def: t117 use: t101 
+    STORE t104:ptr -> Mem(t117:ptr); def: use: t104 t117 
+    MOVE t110:ptr <- t100:ptr; def: t110 use: t100 
+    LOAD t105:int <- Mem(t100:ptr); def: t105 use: t100 
+    CJUMP >= Const:1000000 Const:0? L101 : L100; def: use: 
+    LABEL L101; def: use: 
+    CJUMP >= Const:1000000 t105:int? L100 : L102; def: use: t105 
+    LABEL L100; def: use: 
+    EXTCALL exit(Const:-1); def: use: 
+    LABEL L102; def: use: 
+    MOVE_BINOP t119:int <- (+, Const:1000000, Const:1); def: t119 use: 
+    MOVE_BINOP t120:int <- (*, t119:int, Const:4); def: t120 use: t119 
+    PTR_CALC t121:ptr <- t110:ptr + t120:int; def: t121 use: t110 t120 
+    LOAD t122:int <- Mem(t121:ptr); def: t122 use: t121 
+    RETURN t122:int; def: use: t122 
+Function TestClass^test1(t101, t100) last_label=100 last_temp=103:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; def: use: 

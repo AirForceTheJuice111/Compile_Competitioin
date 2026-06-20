@@ -1,0 +1,26 @@
+public int main() {
+  class p o;
+  int i;
+  int p;
+  o = new p();
+  i = 1;
+  while (i<=100) {
+    p = 0;
+    if ( (i/3)*3 == i && o.p(102) && o.p(105) && o.p(122) && o.p(122) ) 
+      p = 1;
+    if ( (i/5)*5 == i && o.p(98) && o.p(117) && o.p(122) && o.p(122)) 
+      p = 1; 
+    if (!p) 
+      putint(i); 
+    putch(32);
+    i = i + 1;
+  } 
+  putch(10);
+}
+
+public class p {
+  public int p(int c) {
+    putch(c);
+    return 1;
+  }
+}

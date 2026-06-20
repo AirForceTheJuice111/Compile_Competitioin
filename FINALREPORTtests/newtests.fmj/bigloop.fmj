@@ -1,0 +1,18 @@
+public int main() {
+  int i; int k; int n; int acc; int c1;
+  i = 0; n = 3000; acc = 0;
+
+  while (i < n*2) {
+    i = i + 1;
+    k = 0;
+    while (k < i * 2000) {
+      k = k + 1;
+      c1 = i * 3;
+      acc = acc + k * c1 + (k / 17);
+    }
+  }
+
+  putint(acc);
+  putch(10);
+  return 0;
+}

@@ -1,0 +1,11 @@
+Function __$main__^main() last_label=101 last_temp=100:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; 
+    RETURN Const:0; 
+Function Maker^f(t100) last_label=101 last_temp=104:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; 
+    MOVE_EXTCALL t10201:ptr <- malloc(Const:4); 
+    RETURN t10201:ptr; 

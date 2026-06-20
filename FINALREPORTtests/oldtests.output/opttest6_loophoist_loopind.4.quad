@@ -1,0 +1,88 @@
+Function C^m(t101, t102) last_label=107 last_temp=103:
+  Block: Entry Label: L105
+    Exit labels: L102 
+    LABEL L105; def: use: 
+    MOVE t10001:int <- Const:0; def: t10001 use: 
+    MOVE t10003:int <- Const:3; def: t10003 use: 
+    JUMP L102; def: use: 
+  Block: Entry Label: L102
+    Exit labels: L103 L104 
+    LABEL L102; def: use: 
+    PHI t10201:int <- Phi([t10202, L103], [t102, L105]); def: t10201 use: t102 t10202 
+    PHI t10002:int <- Phi([t10003, L103], [t10001, L105]); def: t10002 use: t10003 t10001 
+    CJUMP != t10201:int Const:0? L103 : L104; def: use: t10201 
+  Block: Entry Label: L103
+    Exit labels: L102 
+    LABEL L103; def: use: 
+    MOVE_BINOP t10202:int <- (-, t10201:int, Const:1); def: t10202 use: t10201 
+    JUMP L102; def: use: 
+  Block: Entry Label: L104
+    Exit labels: 
+    LABEL L104; def: use: 
+    RETURN t10002:int; def: use: t10002 
+Function __$main__^main() last_label=117 last_temp=115:
+  Block: Entry Label: L115
+    Exit labels: L102 
+    LABEL L115; def: use: 
+    MOVE_EXTCALL t10101:int <- getint(); def: t10101 use: 
+    MOVE t10301:int <- Const:10; def: t10301 use: 
+    MOVE t10001:int <- Const:0; def: t10001 use: 
+    MOVE_BINOP t10209:int <- (+, t10001:int, Const:1); def: t10209 use: t10001 
+    MOVE_BINOP t10207:int <- (*, t10209:int, Const:3); def: t10207 use: t10209 
+    JUMP L102; def: use: 
+  Block: Entry Label: L102
+    Exit labels: L103 L104 
+    LABEL L102; def: use: 
+    PHI t10302:int <- Phi([t10303, L109], [t10301, L115]); def: t10302 use: t10301 t10303 
+    PHI t10201:int <- Phi([t10202, L109], [t102, L115]); def: t10201 use: t102 t10202 
+    PHI t10102:int <- Phi([t10103, L109], [t10101, L115]); def: t10102 use: t10101 t10103 
+    PHI t10002:int <- Phi([t10003, L109], [t10001, L115]); def: t10002 use: t10003 t10001 
+    PHI t10206:int <- Phi([t10208, L109], [t10207, L115]); def: t10206 use: t10207 t10208 
+    CJUMP > t10302:int Const:0? L103 : L104; def: use: t10302 
+  Block: Entry Label: L103
+    Exit labels: L107 
+    LABEL L103; def: use: 
+    MOVE_BINOP t10003:int <- (+, t10002:int, Const:1); def: t10003 use: t10002 
+    JUMP L107; def: use: 
+  Block: Entry Label: L107
+    Exit labels: L108 L109 
+    LABEL L107; def: use: 
+    PHI t10202:int <- Phi([t10201, L103], [t10205, L114]); def: t10202 use: t10201 t10205 
+    PHI t10103:int <- Phi([t10102, L103], [t10104, L114]); def: t10103 use: t10102 t10104 
+    CJUMP > t10103:int Const:0? L108 : L109; def: use: t10103 
+  Block: Entry Label: L108
+    Exit labels: L112 L113 
+    LABEL L108; def: use: 
+    CJUMP > t10003:int Const:3? L112 : L113; def: use: t10003 
+  Block: Entry Label: L112
+    Exit labels: L114 
+    LABEL L112; def: use: 
+    JUMP L114; def: use: 
+  Block: Entry Label: L113
+    Exit labels: L114 
+    LABEL L113; def: use: 
+    MOVE_EXTCALL t10501:ptr <- malloc(Const:4); def: t10501 use: 
+    PTR_CALC t11301:ptr <- t10501:ptr + Const:0; def: t11301 use: t10501 
+    STORE Name:C^m -> Mem(t11301:ptr); def: use: t11301 
+    MOVE t10601:ptr <- t10501:ptr; def: t10601 use: t10501 
+    PTR_CALC t11401:ptr <- t10601:ptr + Const:0; def: t11401 use: t10601 
+    LOAD t10901:ptr <- Mem(t11401:ptr); def: t10901 use: t11401 
+    MOVE_CALL t11001:int <- m[t10901:ptr] (t10601:ptr, Const:3); def: t11001 use: t10601 t10901 
+    MOVE t10204:int <- t11001:int; def: t10204 use: t11001 
+    JUMP L114; def: use: 
+  Block: Entry Label: L114
+    Exit labels: L107 
+    LABEL L114; def: use: 
+    PHI t10205:int <- Phi([t10206, L112], [t10204, L113]); def: t10205 use: t10204 t10203 
+    MOVE_BINOP t10104:int <- (-, t10103:int, Const:1); def: t10104 use: t10103 
+    JUMP L107; def: use: 
+  Block: Entry Label: L109
+    Exit labels: L102 
+    LABEL L109; def: use: 
+    MOVE_BINOP t10303:int <- (-, t10302:int, Const:1); def: t10303 use: t10302 
+    MOVE_BINOP t10208:int <- (+, t10206:int, Const:3); def: t10208 use: t10206 
+    JUMP L102; def: use: 
+  Block: Entry Label: L104
+    Exit labels: 
+    LABEL L104; def: use: 
+    RETURN t10201:int; def: use: t10201 

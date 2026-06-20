@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Program bline="1" bpos="1" eline="3" epos="1">
+    <MainMethod bline="1" bpos="1" eline="3" epos="1">
+        <VarDeclList>
+            <VarDecl bline="2" bpos="5" eline="2" epos="24">
+                <Type typeKind="ARRAY" bline="2" bpos="5" eline="2" epos="9">
+                    <Arity val="0" bline="2" bpos="8" eline="2" epos="8"/>
+                </Type>
+                <IdExp id="a" bline="2" bpos="11" eline="2" epos="11"/>
+                <IntInitList>
+                    <IntExp val="1" bline="2" bpos="16" eline="2" epos="16"/>
+                    <IntExp val="2" bline="2" bpos="19" eline="2" epos="19"/>
+                    <IntExp val="3" bline="2" bpos="22" eline="2" epos="22"/>
+                </IntInitList>
+            </VarDecl>
+        </VarDeclList>
+        <StmList/>
+    </MainMethod>
+    <ClassDeclList/>
+</Program>

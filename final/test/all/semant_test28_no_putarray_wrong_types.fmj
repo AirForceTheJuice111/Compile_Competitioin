@@ -1,0 +1,8 @@
+// EXPECT: PASS
+// Target: putarray needs (int, array).
+public int main() {
+    int[] a;
+    a = new int[2];
+    putarray(1, a);
+    return 0;
+}

@@ -33,7 +33,7 @@ FMJ source
 
 从理论上看，编译器通常被拆成前端、中端和后端。前端负责把文本程序变成有类型的结构化程序表示，并拒绝不符合语言定义的输入；中端把语言相关结构逐步降低到更适合分析和优化的中间表示；后端再把中间表示映射到目标机器的寄存器、指令和调用约定。这样分层的意义是让每一层维护较小的抽象边界：parser 不需要知道 ARM，寄存器分配也不需要知道 FMJ 语法，只需要消费前一阶段保证好的不变量。
 
-代码包根目录为 `final/`。默认的 `make compile` 和 `make run*` 会递归扫描 `test/` 下所有 `.fmj`，其中既包括 `test/submit` 中的提交示例，也包括从 HW、PARSING 和回归测试中收集到的合法与非法输入。
+代码包根目录为 `final/`。默认的 `make compile` 和 `make run*` 会递归扫描 `test/` 下所有 `.fmj`。其中 `test/all` 是从 HW、PARSING 和老师发布的 `FINALREPORTtests` 中按裸文件名去重得到的主测试集；`test/submit/report_example.fmj` 是本报告使用的贯穿示例。
 
 本报告使用 `final/test/submit/report_example.fmj` 作为贯穿例子：
 
@@ -87,13 +87,16 @@ public class Acc {
 - `final/lib/instr/` 与 `final/include/instr/`：ARM 指令选择、advDFG、pre-schedule、schedule、汇编程序表示。
 - `final/lib/reg/` 与 `final/include/reg/`：干涉图、图着色寄存器分配、spill 改写。
 - `final/lib/util/`：XML 读写、AST/IR/Quad 打印、source printer。
-- `final/scripts/collect_tests.sh`：从各 HW 和 `PARSING/test` 收集 `.fmj` 测试。
+- `final/scripts/collect_tests.sh`：从各 HW、`PARSING/test` 和 `FINALREPORTtests` 收集 `.fmj` 测试，并按裸文件名去重。
+- `final/scripts/test_expect.sh`：读取测试文件开头的 `EXPECT: PASS/FAIL` 标记，供回归脚本判断编译期失败是否符合预期。
 - `final/scripts/compile_submit.sh`：实现 `make compile` 的批量编译和多优化模式输出。
 - `final/scripts/run_submit.sh`：实现 `make run*` 的链接和 qemu 执行。
 - `final/scripts/compile_regression.sh`：检查编译器接受/拒绝输入，以及是否出现空 label/block。
 - `final/scripts/interpreter_regression.sh`：用解释器对照编译运行结果。
 - `final/scripts/runtime_regression.sh`：快速检查 HW10/HW12 中运行端到端样例。
 - `final/scripts/fuzz_regression.sh`：对含输入程序做解释器 oracle fuzz。
+- `final/scripts/all_mode_regression.sh`：对所有测试比较六种优化模式的返回码和输出是否一致。
+- `final/scripts/opt_benchmark.sh`：对老师新增的长运行样例测量六种优化模式下的 qemu 运行时间。
 
 这样组织代码，每个阶段仍能对应到原作业模块，报告中提到的阶段可以直接回到相应 `lib/` 或 `include/` 目录查看代码。`fmjcc/main.cc` 则只承担流水线胶水层职责，不把各阶段算法混在入口文件里。
 
@@ -479,7 +482,7 @@ make run-allopt   # 全部优化
 make run-allopt INPUT="1 2 3 4"
 ```
 
-**在不提供输入时，默认输入无数个1。(`yes 1`)**
+如果既没有设置 `INPUT`，也没有从 pipe/文件重定向 stdin，脚本不会自动生成输入，而是让 qemu 从当前终端读取；在非交互回归中，空 stdin 会被缓存为空文件，从而避免批量测试卡在等待输入上。
 
 批量运行和回归测试中的 qemu timeout 默认是 2 秒，可通过 `RUN_TIMEOUT` 调整：
 
@@ -536,7 +539,7 @@ fuzz 时解释器还提供 hash 模式，和 ARM harness 使用相同的随机�
 
 ### 回归测试
 
-`final/scripts/collect_tests.sh` 从 HW 和 PARSING 收集 `.fmj` 文件到 `test/all`。除老师要求的 Make targets 外，项目还保留：
+`final/scripts/collect_tests.sh` 从 HW、PARSING 和 `FINALREPORTtests` 收集 `.fmj` 文件到 `test/all`。除老师要求的 Make targets 外，项目还保留：
 
 ```sh
 make compile-regression
@@ -544,37 +547,41 @@ make interpreter-regression
 make runtime-regression
 make fuzz-regression
 make all-mode-regression
+make opt-benchmark
 ```
 
-`collect_tests.sh` 会遍历整个仓库，排除 `final/` 自身，收集各 HW 和 `PARSING/test` 中的 `.fmj` 文件到 `final/test/all`。当前一共收集到 280 个测试。
+`collect_tests.sh` 会遍历整个仓库，排除 `final/` 自身，收集各 HW、`PARSING/test` 和老师新增测试中的 `.fmj` 文件到 `final/test/all`。去重规则按裸文件名执行：例如不同来源的 `bubblesort.fmj` 只保留一份，而不是保留 `HW12__...` 和 `PARSING__...` 两份。保留优先级为 `FINALREPORTtests/newtests.fmj`、`FINALREPORTtests/oldtests.fmj`、其他 `FINALREPORTtests`、HW12 到 HW1、PARSING、其他来源。当前一共收集到 215 个唯一文件，其中 20 个带 `EXPECT: PASS`，33 个带 `EXPECT: FAIL`。
 
-`compile-regression` 只检查编译器是否稳定接受或拒绝输入，并扫描中间结果里是否出现空 label/block。对这 280 个输入，结果是：
+`EXPECT` 标记只影响测试 oracle，不影响编译器本身。`EXPECT: PASS` 表示 parser 和 semantic checker 必须接受该文件；`EXPECT: FAIL` 表示编译器必须拒绝，并且日志中要出现语法/语义诊断。没有标记的文件仍然通过解释器 `--check` 判断接受/拒绝是否一致。
+
+`compile-regression` 只检查编译器是否稳定接受或拒绝输入，并扫描中间结果里是否出现空 label/block。对这 215 个输入，结果是：
 
 ```text
-total=280 pass=171 reject=109 crash=0 timeout=0 empty_label_hits=0 workdir=/tmp/final_compile_regression
+total=215 pass=129 reject=86 expect_pass=20 expect_reject=33 unmarked_pass=109 unmarked_reject=53 expect_mismatch=0 crash=0 timeout=0 empty_label_hits=0 workdir=/tmp/final_compile_regression
 ```
 
-这里 `reject=109` 再用解释器的 `--check` 模式确认。`interpreter-regression` 会分别运行解释器检查和编译器检查：
+这里 `reject=86` 再用解释器的 `--check` 模式确认。`interpreter-regression` 会分别运行解释器检查和编译器检查：
 
 - 两者都拒绝，记为 `reject_match`。
 - 只有编译器拒绝，记为 `compile_only_reject`。
 - 只有解释器拒绝，记为 `interp_only_reject`。
+- 两者都接受后，再比较解释器执行和 qemu 执行的 stdout 与退出状态。
 
 最近一次完整验证结果如下：
 
 ```text
 make compile-regression
-total=280 pass=171 reject=109 crash=0 timeout=0 empty_label_hits=0
+total=215 pass=129 reject=86 expect_pass=20 expect_reject=33 unmarked_pass=109 unmarked_reject=53 expect_mismatch=0 crash=0 timeout=0 empty_label_hits=0
 ```
 
 ```text
 make interpreter-regression
-total=280 run_match=143 reject_match=109 timeout_match=4 runtime_error_skip=21 optional_semantics_skip=24 mismatch=0 compile_only_reject=0 interp_only_reject=0
+total=215 run_match=110 reject_match=86 timeout_match=2 runtime_error_skip=13 optional_semantics_skip=15 stress_runtime_skip=2 expect_pass_match=20 expect_reject_match=33 mismatch=0 compile_only_reject=0 interp_only_reject=0 link_fail=0 run_fail=0 timeout=2 runtime_checks=0
 ```
 
 ```text
 RUNTIME_CHECKS=1 make interpreter-regression
-total=280 run_match=167 reject_match=109 timeout_match=4 runtime_error_skip=0 optional_semantics_skip=0 mismatch=0 compile_only_reject=0 interp_only_reject=0
+total=215 run_match=125 reject_match=86 timeout_match=2 runtime_error_skip=0 optional_semantics_skip=0 stress_runtime_skip=2 expect_pass_match=20 expect_reject_match=33 mismatch=0 compile_only_reject=0 interp_only_reject=0 link_fail=0 run_fail=0 timeout=2 runtime_checks=1
 ```
 
 ```text
@@ -584,27 +591,24 @@ total=24 pass=24 compile_fail=0 link_fail=0 run_fail=0
 
 ```text
 make fuzz-regression
-fuzz_pass=41 fuzz_fail=0 fuzz_skip=3 iterations=10000
+fuzz_pass=46 fuzz_fail=0 fuzz_skip=3 iterations=10000
 ```
 
 ```text
 make all-mode-regression
-total=285 run_consistent=148 reject_consistent=109 timeout_consistent=4 optional_semantics_skip=24 mismatch=0
+total=220 run_consistent=117 reject_consistent=86 timeout_consistent=2 optional_semantics_skip=15 expect_pass_consistent=20 expect_reject_consistent=33 mismatch=0 interp_timeout=0 unexpected_compile_reject=0 compiler_accept_invalid=0 runtime_checks=0
 ```
 
 ```text
 RUNTIME_CHECKS=1 make all-mode-regression
-total=285 run_consistent=172 reject_consistent=109 timeout_consistent=4 optional_semantics_skip=0 mismatch=0
+total=220 run_consistent=132 reject_consistent=86 timeout_consistent=2 optional_semantics_skip=0 expect_pass_consistent=20 expect_reject_consistent=33 mismatch=0 interp_timeout=0 unexpected_compile_reject=0 compiler_accept_invalid=0 runtime_checks=1
 ```
 
-默认无额外运行期语义的 `interpreter-regression` 中，`optional_semantics_skip=24` 是解释器确认依赖局部默认值、空引用、负长度数组或除零等可选语义的样例。默认 unchecked 编译器不承诺这些行为，因此不把它们纳入输出等价比较；数组越界和函数末尾隐式 `return 0` 不在这个集合内，默认仍要和解释器对齐。开启额外运行期语义后结果如下：
+默认无额外运行期语义的 `interpreter-regression` 中，`optional_semantics_skip=15` 是解释器确认依赖局部默认值、空引用、负长度数组或除零等可选语义的样例。默认 unchecked 编译器不承诺这些行为，因此不把它们纳入输出等价比较；数组越界和函数末尾隐式 `return 0` 不在这个集合内，默认仍要和解释器对齐。开启 `RUNTIME_CHECKS=1` 后，局部默认初始化、空引用检查、负长度数组检查和除零检查等额外语义也全部与解释器一致。
 
-```text
-RUNTIME_CHECKS=1 make interpreter-regression
-total=280 run_match=167 reject_match=109 timeout_match=4 runtime_error_skip=0 optional_semantics_skip=0 mismatch=0 compile_only_reject=0 interp_only_reject=0 link_fail=0 run_fail=0 timeout=4 runtime_checks=1
-```
+`stress_runtime_skip=2` 对应老师新增的 `bigloop.fmj` 和 `linkedlist.fmj`。这两个程序仍然经过 parser、semantic checker、编译、链接和 qemu smoke run；只是 AST 解释器逐语句执行过慢，不把完整解释器输出比较放进常规回归。它们仍由 `all-mode-regression` 检查六种优化模式的一致性，并由 `opt-benchmark` 用于性能测量。
 
-因此 109 个 reject 均由解释器语义/语法检查确认。4 个 timeout 是解释器和编译产物都超时的非终止程序，作为行为一致处理。对定义良好的程序，默认编译器与解释器完全一致；对依赖可选运行期语义的程序，开启选项后也与解释器一致。`all-mode-regression` 还会把每个文件在六种优化模式下的 process return code、stdout、stderr 和 FMJ return value 逐项比较，确认优化不会改变可观察行为。
+因此 86 个 reject 均由解释器语义/语法检查确认，33 个带 `EXPECT: FAIL` 的文件也都被编译器正确拒绝。2 个 timeout 是解释器和编译产物都超时的非终止程序，作为行为一致处理。对定义良好的程序，默认编译器与解释器完全一致；对依赖可选运行期语义的程序，开启选项后也与解释器一致。`all-mode-regression` 还会把每个文件在六种优化模式下的 process return code、stdout、stderr 和 FMJ return value 逐项比较，确认优化不会改变可观察行为。
 
 ### Fuzz 测试
 
@@ -620,7 +624,7 @@ total=280 run_match=167 reject_match=109 timeout_match=4 runtime_error_skip=0 op
 fuzz 结果如下：
 
 ```text
-fuzz_pass=41 fuzz_fail=0 fuzz_skip=3 iterations=10000 kset="9" workdir=/tmp/final_fuzz_regression
+fuzz_pass=46 fuzz_fail=0 fuzz_skip=3 iterations=10000 kset="9" workdir=/tmp/final_fuzz_regression
 ```
 
 其中 `fuzz_skip=3` 是三个 spec-invalid 的 HW2 原始测试：
@@ -631,21 +635,39 @@ HW2/test/test_comprehensive.fmj
 HW2/test/test_io.fmj
 ```
 
-这些文件包含 `int i = 0;` 或类似声明初始化，因此 parser 按 FDMJ2026 specification 拒绝。输入类测试的分类结果为：
+这些文件包含 `int i = 0;` 或类似声明初始化，因此 parser 按 FDMJ2026 specification 拒绝。fuzz 脚本会先经过 parser/semantic check，只有被编译器接受的输入程序才进入 ARM harness 和解释器 hash 对照。
 
-```text
-input_total=46 accepted=42 rejected=4
-```
-
-除上述三个语法无效文件外，还有一个语义无效用例 `semant_test30_getarray_non_lvalue` 被正确拒绝。可执行输入测试在 10000 组随机输入下没有发现解释器和编译产物输出不一致。
-
-实际进入 ARM harness 和解释器 hash 对照的 41 个输入程序全部通过；被跳过的程序都是前置 parser/semantic check 已确认应当拒绝的程序。部分 fuzz 输出如下：
+实际进入 ARM harness 和解释器 hash 对照的 46 个输入程序全部通过；被跳过的程序都是前置 parser/semantic check 已确认应当拒绝的程序。部分 fuzz 输出如下：
 
 ```text
 OK interpreter k=9 HW10/test/optloopivextra2.fmj 5bdac9544df208ea 10000
 OK interpreter k=9 HW11/test/fibonacci.fmj a8d38cf26e53b73d 10000
 OK interpreter k=9 HW9/test/opttest9.fmj 4110fa6c1bf841a3 10000
 ```
+
+### 优化性能测试
+
+老师新增的 `FINALREPORTtests/newtests.fmj` 中包含几个运行时间更长的程序。`make opt-benchmark` 会选择 `bigarray.fmj`、`bigloop.fmj`、`deepnestedloops.fmj` 和 `bubblesort.fmj`，分别用六种优化模式编译、链接、运行，并比较每个模式的 process return code、FMJ return value、stdout hash 和 stderr hash。四个样例的 `bench_consistent` 均为 1，说明性能测量没有以改变可观察结果为代价。
+
+实测环境同本次回归环境，qemu 单次运行，默认不开启额外运行期语义检查。耗时单位为毫秒：
+
+| 文件 | none | const | loop1 | loop2 | allloop | allopt |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `bigarray.fmj` | 39.209 | 41.906 | 40.283 | 44.849 | 43.452 | 45.691 |
+| `bigloop.fmj` | 70402.172 | 69552.142 | 67680.770 | 67881.041 | 67191.812 | 66977.106 |
+| `deepnestedloops.fmj` | 10.889 | 10.003 | 10.298 | 10.521 | 10.274 | 10.530 |
+| `bubblesort.fmj` | 10.114 | 10.523 | 9.721 | 9.648 | 9.756 | 9.670 |
+
+同一批编译产物的 ARM 汇编行数如下：
+
+| 文件 | none | const | loop1 | loop2 | allloop | allopt |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `bigarray.fmj` | 131 | 122 | 144 | 149 | 159 | 171 |
+| `bigloop.fmj` | 70 | 67 | 68 | 74 | 72 | 70 |
+| `deepnestedloops.fmj` | 825 | 330 | 825 | 825 | 825 | 330 |
+| `bubblesort.fmj` | 315 | 314 | 330 | 423 | 423 | 423 |
+
+这些数字体现了两个现象。第一，优化不是单调减少汇编行数：LICM 会增加 preheader 计算，归纳变量强度削弱会增加循环内维护的派生变量，因此 `bubblesort.fmj` 在 loop2/allloop/allopt 下行数明显增加，但输出 hash 仍完全一致。第二，优化收益取决于样例结构：`bigloop.fmj` 的 allopt 从约 70.4 秒降到约 67.0 秒，而 `deepnestedloops.fmj` 主要受常量传播影响，汇编行数从 825 降到 330，但 qemu 运行时间本身太短，单次计时只适合说明趋势，不能作为精确微基准。
 
 ### 运行时回归测试
 
@@ -655,7 +677,7 @@ OK interpreter k=9 HW9/test/opttest9.fmj 4110fa6c1bf841a3 10000
 total=24 pass=24 compile_fail=0 link_fail=0 run_fail=0 workdir=/tmp/final_runtime_regression
 ```
 
-这些结果说明：所有 280 个收集到的 FMJ 文件都被编译器和解释器一致地接受或拒绝；默认模式下，不依赖可选运行期语义的程序 stdout 和退出码完全一致，数组越界也与解释器的 `exit(-1)` 行为一致；开启运行期语义选项后，可选运行期错误和默认值语义也与解释器一致；含外部输入程序在 10000 组随机输入下与解释器 oracle 一致；所有不合法输入均被正确拒绝，没有编译器 crash。
+这些结果说明：`final/test/all` 中 215 个去重后的 FMJ 文件都被编译器和解释器一致地接受或拒绝；`all-mode-regression` 覆盖 215 个主测试加 5 个 submit 示例，六种优化模式下可观察结果一致；默认模式下，不依赖可选运行期语义的程序 stdout 和退出码完全一致，数组越界也与解释器的 `exit(-1)` 行为一致；开启运行期语义选项后，可选运行期错误和默认值语义也与解释器一致；含外部输入程序在 10000 组随机输入下与解释器 oracle 一致；所有不合法输入均被正确拒绝，没有编译器 crash。
 
 ## 实现中遇到的问题
 

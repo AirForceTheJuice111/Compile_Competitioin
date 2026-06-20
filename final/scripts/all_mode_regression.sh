@@ -14,6 +14,7 @@ run_timeout_s="${RUN_TIMEOUT:-2}"
 k="${K:-9}"
 runtime_checks="${RUNTIME_CHECKS:-0}"
 input="${INPUT:-4 4 4 4 4 4 4 4 4 4 4 4}"
+source "$final_dir/scripts/test_expect.sh"
 
 case "$runtime_checks" in
     1|true|TRUE|yes|YES|on|ON) runtime_checks_enabled=1 ;;
@@ -61,6 +62,8 @@ run_consistent=0
 reject_consistent=0
 timeout_consistent=0
 optional_semantics_skip=0
+expect_pass_consistent=0
+expect_reject_consistent=0
 mismatch=0
 interp_timeout=0
 unexpected_compile_reject=0
@@ -104,6 +107,31 @@ uses_optional_runtime_semantics() {
     [[ "$optional" == "1" ]]
 }
 
+is_stress_runtime_test() {
+    case "$(basename "$1")" in
+        bigloop.fmj|linkedlist.fmj) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+is_nonterminating_test() {
+    case "$(basename "$1")" in
+        newtest10.fmj|semant_test26_no_continue_outside_loop.fmj) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+run_timeout_for() {
+    case "$(basename "$1")" in
+        newtest10.fmj|semant_test26_no_continue_outside_loop.fmj)
+            printf '%s\n' "${NONTERMINATING_RUN_TIMEOUT:-5}"
+            ;;
+        *)
+            printf '%s\n' "$run_timeout_s"
+            ;;
+    esac
+}
+
 while IFS='|' read -r src original; do
     [[ -n "$src" ]] || continue
     total=$((total + 1))
@@ -114,11 +142,13 @@ while IFS='|' read -r src original; do
     status_out="$work/logs/$safe.interp.out"
     status_err="$work/logs/$safe.interp.err"
     run_log="$work/logs/$safe.allmodes.log"
+    expect="$(fmj_expect "$src")"
+    case_run_timeout="$(run_timeout_for "$src")"
 
     set +e
     timeout "$timeout_s" "$fmjinterp" --check "$src" > "$check_out" 2> "$check_err"
     interp_check_rc=$?
-    RUN_ALL_MODES=1 RUN_WORK="$work/runs" RUN_TIMEOUT="$run_timeout_s" INPUT="$input" \
+    RUN_ALL_MODES=1 RUN_WORK="$work/runs" RUN_TIMEOUT="$case_run_timeout" INPUT="$input" \
         FMJCC="$fmjcc" ARM_CC="$cc" QEMU_ARM="$qemu" LIBSYSY32="$libsysy" \
         K="$k" RUNTIME_CHECKS="$runtime_checks" \
         bash "$final_dir/scripts/run_one.sh" "$src" > "$run_log" 2>&1
@@ -158,6 +188,39 @@ while IFS='|' read -r src original; do
     stage="$(extract_field stage "$summary")"
     rc="$(extract_field rc "$summary")"
 
+    if [[ "$expect" == "FAIL" ]]; then
+        if [[ "$stage" == "compile" ]]; then
+            reject_consistent=$((reject_consistent + 1))
+            expect_reject_consistent=$((expect_reject_consistent + 1))
+        else
+            compiler_accept_invalid=$((compiler_accept_invalid + 1))
+            mismatch=$((mismatch + 1))
+            printf 'EXPECT_FAIL_ACCEPTED stage=%s rc=%s %s\n' "$stage" "$rc" "$original" >> "$failures"
+            cat "$run_log" >> "$failures"
+            printf '\n' >> "$failures"
+        fi
+        continue
+    fi
+
+    if [[ "$expect" == "PASS" ]]; then
+        if [[ "$interp_check_rc" -ne 0 ]]; then
+            mismatch=$((mismatch + 1))
+            printf 'EXPECT_PASS_INTERP_REJECT interp_rc=%s stage=%s rc=%s %s\n' "$interp_check_rc" "$stage" "$rc" "$original" >> "$failures"
+            cat "$check_err" >> "$failures"
+            printf '\n' >> "$failures"
+            continue
+        fi
+        if [[ "$stage" != "run" ]]; then
+            unexpected_compile_reject=$((unexpected_compile_reject + 1))
+            mismatch=$((mismatch + 1))
+            printf 'EXPECT_PASS_NOT_RUN stage=%s rc=%s %s\n' "$stage" "$rc" "$original" >> "$failures"
+            cat "$run_log" >> "$failures"
+            printf '\n' >> "$failures"
+            continue
+        fi
+        expect_pass_consistent=$((expect_pass_consistent + 1))
+    fi
+
     if [[ "$interp_check_rc" -ne 0 ]]; then
         if [[ "$stage" == "compile" ]]; then
             reject_consistent=$((reject_consistent + 1))
@@ -180,7 +243,9 @@ while IFS='|' read -r src original; do
         continue
     fi
 
-    if uses_optional_runtime_semantics "$src" "$status_file" "$status_out" "$status_err"; then
+    if ! is_stress_runtime_test "$src" &&
+       ! is_nonterminating_test "$src" &&
+       uses_optional_runtime_semantics "$src" "$status_file" "$status_out" "$status_err"; then
         optional_semantics_skip=$((optional_semantics_skip + 1))
         continue
     fi
@@ -192,8 +257,8 @@ while IFS='|' read -r src original; do
     fi
 done < "$map"
 
-printf 'total=%s run_consistent=%s reject_consistent=%s timeout_consistent=%s optional_semantics_skip=%s mismatch=%s interp_timeout=%s unexpected_compile_reject=%s compiler_accept_invalid=%s runtime_checks=%s workdir=%s\n' \
-    "$total" "$run_consistent" "$reject_consistent" "$timeout_consistent" "$optional_semantics_skip" "$mismatch" "$interp_timeout" "$unexpected_compile_reject" "$compiler_accept_invalid" "$runtime_checks_enabled" "$work"
+printf 'total=%s run_consistent=%s reject_consistent=%s timeout_consistent=%s optional_semantics_skip=%s expect_pass_consistent=%s expect_reject_consistent=%s mismatch=%s interp_timeout=%s unexpected_compile_reject=%s compiler_accept_invalid=%s runtime_checks=%s workdir=%s\n' \
+    "$total" "$run_consistent" "$reject_consistent" "$timeout_consistent" "$optional_semantics_skip" "$expect_pass_consistent" "$expect_reject_consistent" "$mismatch" "$interp_timeout" "$unexpected_compile_reject" "$compiler_accept_invalid" "$runtime_checks_enabled" "$work"
 
 if [[ -s "$failures" ]]; then
     cat "$failures"

@@ -117,9 +117,9 @@ while IFS='|' read -r base asm src <&3; do
         fi
     else
         if [[ "$timeout_set" -eq 1 ]]; then
-            yes 1 | timeout "$timeout_s" "$qemu" "$arm" > "$base.run.out" 2> "$base.run.err"
+            timeout "$timeout_s" "$qemu" "$arm" > "$base.run.out" 2> "$base.run.err"
         else
-            yes 1 | "$qemu" "$arm" > "$base.run.out" 2> "$base.run.err"
+            "$qemu" "$arm" > "$base.run.out" 2> "$base.run.err"
         fi
     fi
     run_rc=$?

@@ -1,0 +1,42 @@
+Function __$main__^main() last_label=104 last_temp=124:
+  Block: Entry Label: L103
+    Exit labels: L101 
+    LABEL L103; 
+    MOVE_EXTCALL t10001:ptr <- malloc(Const:16); 
+    STORE Const:3 -> Mem(t10001:ptr); 
+    PTR_CALC t11201:ptr <- t10001:ptr + Const:4; 
+    STORE Const:1 -> Mem(t11201:ptr); 
+    PTR_CALC t11301:ptr <- t10001:ptr + Const:8; 
+    STORE Const:2 -> Mem(t11301:ptr); 
+    PTR_CALC t11401:ptr <- t10001:ptr + Const:12; 
+    STORE Const:3 -> Mem(t11401:ptr); 
+    MOVE_EXTCALL t10401:ptr <- malloc(Const:44); 
+    STORE Const:10 -> Mem(t10401:ptr); 
+    PTR_CALC t11701:ptr <- t101:ptr + Const:0; 
+    STORE t10401:ptr -> Mem(t11701:ptr); 
+    MOVE t11001:ptr <- t10001:ptr; 
+    LOAD t10501:int <- Mem(t10001:ptr); 
+    JUMP L101; 
+  Block: Entry Label: L101
+    Exit labels: L100 L102 
+    LABEL L101; 
+    CJUMP >= Const:1000000 t10501:int? L100 : L102; 
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; 
+    EXTCALL exit(Const:-1); 
+  Block: Entry Label: L102
+    Exit labels: 
+    LABEL L102; 
+    PTR_CALC t12101:ptr <- t11001:ptr + Const:4000004; 
+    LOAD t12201:int <- Mem(t12101:ptr); 
+    RETURN t12201:int; 
+Function TestClass^test1(t101, t100) last_label=101 last_temp=105:
+  Block: Entry Label: L100
+    Exit labels: L101 
+    LABEL L100; 
+    JUMP L101; 
+  Block: Entry Label: L101
+    Exit labels: 
+    LABEL L101; 
+    RETURN Const:0; 

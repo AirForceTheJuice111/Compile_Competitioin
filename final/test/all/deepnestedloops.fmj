@@ -1,0 +1,302 @@
+public int main() {
+while (2>1) {
+while (3>2) {
+while (4>3) {
+while (5>4) {
+while (6>5) {
+while (7>6) {
+while (8>7) {
+while (9>8) {
+while (10>9) {
+while (11>10) {
+while (12>11) {
+while (13>12) {
+while (14>13) {
+while (15>14) {
+while (16>15) {
+while (17>16) {
+while (18>17) {
+while (19>18) {
+while (20>19) {
+while (21>20) {
+while (22>21) {
+while (23>22) {
+while (24>23) { 
+while (25>24) {
+while (26>25) {
+while (27>26) {
+while (28>27) {
+while (29>28) {
+while (30>29) {
+while (31>30) {
+while (32>31) {
+while (33>32) {
+while (34>33) {
+while (35>34) {
+while (36>35) {
+while (37>36) {
+while (38>37) {
+while (39>38) {
+while (40>39) {
+while (41>40) {
+while (42>41) {
+while (43>42) {
+while (44>43) {
+while (45>44) {
+while (46>45) {
+while (47>46) {
+while (48>47) {
+while (49>48) {
+while (50>49) {
+while (51>50) {
+while (52>51) {
+while (53>52) {
+while (54>53) {
+while (55>54) {
+while (56>55) {
+while (57>56) {
+while (58>57) {
+while (59>58) {
+while (60>59) {
+while (61>60) {
+while (62>61) {
+while (63>62) {
+while (64>63) {
+while (65>64) {
+while (66>65) {
+while (67>66) {
+while (68>67) {
+while (69>68) {
+while (70>69) {
+while (71>70) {
+while (72>71) {
+while (73>72) {
+while (74>73) {
+while (75>74) {
+while (76>75) {
+while (77>76) {
+while (78>77) {
+while (79>78) {
+while (80>79) {
+while (81>80) {
+while (82>81) {
+while (83>82) {
+while (84>83) {
+while (85>84) {
+while (86>85) {
+while (87>86) {
+while (88>87) {
+while (89>88) {
+while (90>89) {
+while (91>90) {
+while (92>91) {
+while (93>92) {
+while (94>93) {
+while (95>94) {
+while (96>95) {
+while (97>96) {
+while (98>97) {
+while (99>98) {
+while (100>99) {
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+    break;
+}
+  putint(100);
+  putch(10);
+  return 0;
+}

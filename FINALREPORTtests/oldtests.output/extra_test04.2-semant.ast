@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FDMJAST>
+    <NameMaps>
+        <Class name="__$main__">
+            <Method name="main">
+                <Formal id="_^return^_main">
+                    <Formal bline="1" bpos="1" eline="3" epos="1">
+                        <Type typeKind="INT" bline="1" bpos="1" eline="3" epos="1"/>
+                        <IdExp bline="1" bpos="1" eline="3" epos="1" id="_^return^_main"/>
+                    </Formal>
+                </Formal>
+            </Method>
+        </Class>
+    </NameMaps>
+    <Program bline="1" bpos="1" eline="3" epos="1">
+        <MainMethod bline="1" bpos="1" eline="3" epos="1">
+            <VarDeclList/>
+            <StmList>
+                <Return bline="2" bpos="2" eline="2" epos="26" s_kind="Value" typeKind="INT" lvalue="false">
+                    <BinaryOp bline="2" bpos="10" eline="2" epos="24" s_kind="Value" typeKind="INT" lvalue="false">
+                        <BinaryOp bline="2" bpos="11" eline="2" epos="21" s_kind="Value" typeKind="INT" lvalue="false">
+                            <BinaryOp bline="2" bpos="12" eline="2" epos="18" s_kind="Value" typeKind="INT" lvalue="false">
+                                <BinaryOp bline="2" bpos="13" eline="2" epos="15" s_kind="Value" typeKind="INT" lvalue="false">
+                                    <IntExp bline="2" bpos="13" eline="2" epos="13" s_kind="Value" typeKind="INT" lvalue="false" val="1"/>
+                                    <OpExp op="+" bline="2" bpos="14" eline="2" epos="14"/>
+                                    <IntExp bline="2" bpos="15" eline="2" epos="15" s_kind="Value" typeKind="INT" lvalue="false" val="2"/>
+                                </BinaryOp>
+                                <OpExp op="+" bline="2" bpos="17" eline="2" epos="17"/>
+                                <IntExp bline="2" bpos="18" eline="2" epos="18" s_kind="Value" typeKind="INT" lvalue="false" val="3"/>
+                            </BinaryOp>
+                            <OpExp op="+" bline="2" bpos="20" eline="2" epos="20"/>
+                            <IntExp bline="2" bpos="21" eline="2" epos="21" s_kind="Value" typeKind="INT" lvalue="false" val="4"/>
+                        </BinaryOp>
+                        <OpExp op="+" bline="2" bpos="23" eline="2" epos="23"/>
+                        <IntExp bline="2" bpos="24" eline="2" epos="24" s_kind="Value" typeKind="INT" lvalue="false" val="5"/>
+                    </BinaryOp>
+                </Return>
+            </StmList>
+        </MainMethod>
+        <ClassDeclList/>
+    </Program>
+</FDMJAST>

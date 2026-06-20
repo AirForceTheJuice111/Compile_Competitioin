@@ -12,7 +12,7 @@ TEST_DIR ?= $(CURDIR)/test
 OUT_DIR ?= $(CURDIR)/output
 RUN_TIMEOUT ?= 2
 
-.PHONY: build clean rebuild compile run run-const run-loop1 run-loop2 run-allloop run-allopt test-one run-one run-one-all-mode collect-tests compile-regression runtime-regression interpreter-regression fuzz-regression all-mode-regression
+.PHONY: build clean rebuild compile run run-const run-loop1 run-loop2 run-allloop run-allopt test-one run-one run-one-all-mode collect-tests opt-benchmark compile-regression runtime-regression interpreter-regression fuzz-regression all-mode-regression
 
 RUN_ONE_ARG := $(word 2,$(MAKECMDGOALS))
 
@@ -103,6 +103,10 @@ run-one-all-mode: build $(LIBSYSY32)
 
 collect-tests:
 	@bash scripts/collect_tests.sh
+
+opt-benchmark: build $(LIBSYSY32)
+	@FMJCC="$(FMJCC)" ARM_CC="$(ARM_CC)" QEMU_ARM="$(QEMU_ARM)" LIBSYSY32="$(LIBSYSY32)" \
+		K="$(K)" RUNTIME_CHECKS="$(RUNTIME_CHECKS)" bash scripts/opt_benchmark.sh
 
 compile-regression: build
 	@bash scripts/compile_regression.sh

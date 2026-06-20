@@ -1,0 +1,138 @@
+Function __$main__^main() last_label=145 last_temp=155:
+  Block: Entry Label: L144
+    Exit labels: L102 
+    LABEL L144; 
+    MOVE_EXTCALL t10401:ptr <- malloc(Const:4); 
+    PTR_CALC t12601:ptr <- t10401:ptr + Const:0; 
+    STORE Name:p^p -> Mem(t12601:ptr); 
+    MOVE t10101:ptr <- t10401:ptr; 
+    MOVE t150:int <- Const:1; 
+    JUMP L102; 
+  Block: Entry Label: L102
+    Exit labels: L103 L104 
+    LABEL L102; 
+    PHI t10002:int <- Phi([t10003, L143], [t150, L144]); 
+    CJUMP <= t10002:int Const:100? L103 : L104; 
+  Block: Entry Label: L103
+    Exit labels: L107 L120 
+    LABEL L103; 
+    MOVE_BINOP t12701:int <- (/, t10002:int, Const:3); 
+    MOVE_BINOP t12801:int <- (*, t12701:int, Const:3); 
+    CJUMP == t12801:int t10002:int? L107 : L120; 
+  Block: Entry Label: L107
+    Exit labels: L110 L120 
+    LABEL L107; 
+    PTR_CALC t12901:ptr <- t10101:ptr + Const:0; 
+    LOAD t10601:ptr <- Mem(t12901:ptr); 
+    MOVE_CALL t10701:int <- p[t10601:ptr] (t10101:ptr, Const:102); 
+    CJUMP != t10701:int Const:0? L110 : L120; 
+  Block: Entry Label: L110
+    Exit labels: L113 L120 
+    LABEL L110; 
+    PTR_CALC t13101:ptr <- t10101:ptr + Const:0; 
+    LOAD t10801:ptr <- Mem(t13101:ptr); 
+    MOVE_CALL t10901:int <- p[t10801:ptr] (t10101:ptr, Const:105); 
+    CJUMP != t10901:int Const:0? L113 : L120; 
+  Block: Entry Label: L113
+    Exit labels: L116 L120 
+    LABEL L113; 
+    PTR_CALC t13301:ptr <- t10101:ptr + Const:0; 
+    LOAD t11001:ptr <- Mem(t13301:ptr); 
+    MOVE_CALL t11101:int <- p[t11001:ptr] (t10101:ptr, Const:122); 
+    CJUMP != t11101:int Const:0? L116 : L120; 
+  Block: Entry Label: L116
+    Exit labels: L119 L120 
+    LABEL L116; 
+    PTR_CALC t13501:ptr <- t10101:ptr + Const:0; 
+    LOAD t11201:ptr <- Mem(t13501:ptr); 
+    MOVE_CALL t11301:int <- p[t11201:ptr] (t10101:ptr, Const:122); 
+    CJUMP != t11301:int Const:0? L119 : L120; 
+  Block: Entry Label: L119
+    Exit labels: L121 
+    LABEL L119; 
+    MOVE t151:int <- Const:1; 
+    JUMP L121; 
+  Block: Entry Label: L120
+    Exit labels: L121 
+    LABEL L120; 
+    MOVE t152:int <- Const:0; 
+    JUMP L121; 
+  Block: Entry Label: L121
+    Exit labels: L124 L137 
+    LABEL L121; 
+    PHI t10203:int <- Phi([t151, L119], [t152, L120]); 
+    MOVE_BINOP t13701:int <- (/, t10002:int, Const:5); 
+    MOVE_BINOP t13801:int <- (*, t13701:int, Const:5); 
+    CJUMP == t13801:int t10002:int? L124 : L137; 
+  Block: Entry Label: L124
+    Exit labels: L127 L137 
+    LABEL L124; 
+    PTR_CALC t13901:ptr <- t10101:ptr + Const:0; 
+    LOAD t11401:ptr <- Mem(t13901:ptr); 
+    MOVE_CALL t11501:int <- p[t11401:ptr] (t10101:ptr, Const:98); 
+    CJUMP != t11501:int Const:0? L127 : L137; 
+  Block: Entry Label: L127
+    Exit labels: L130 L137 
+    LABEL L127; 
+    PTR_CALC t14101:ptr <- t10101:ptr + Const:0; 
+    LOAD t11601:ptr <- Mem(t14101:ptr); 
+    MOVE_CALL t11701:int <- p[t11601:ptr] (t10101:ptr, Const:117); 
+    CJUMP != t11701:int Const:0? L130 : L137; 
+  Block: Entry Label: L130
+    Exit labels: L133 L137 
+    LABEL L130; 
+    PTR_CALC t14301:ptr <- t10101:ptr + Const:0; 
+    LOAD t11801:ptr <- Mem(t14301:ptr); 
+    MOVE_CALL t11901:int <- p[t11801:ptr] (t10101:ptr, Const:122); 
+    CJUMP != t11901:int Const:0? L133 : L137; 
+  Block: Entry Label: L133
+    Exit labels: L136 L137 
+    LABEL L133; 
+    PTR_CALC t14501:ptr <- t10101:ptr + Const:0; 
+    LOAD t12001:ptr <- Mem(t14501:ptr); 
+    MOVE_CALL t12101:int <- p[t12001:ptr] (t10101:ptr, Const:122); 
+    CJUMP != t12101:int Const:0? L136 : L137; 
+  Block: Entry Label: L136
+    Exit labels: L138 
+    LABEL L136; 
+    MOVE t153:int <- Const:1; 
+    JUMP L138; 
+  Block: Entry Label: L137
+    Exit labels: L138 
+    LABEL L137; 
+    JUMP L138; 
+  Block: Entry Label: L138
+    Exit labels: L141 L142 
+    LABEL L138; 
+    PHI t10205:int <- Phi([t153, L136], [t10203, L137]); 
+    CJUMP == t10205:int Const:0? L141 : L142; 
+  Block: Entry Label: L141
+    Exit labels: L143 
+    LABEL L141; 
+    EXTCALL putint(t10002:int); 
+    JUMP L143; 
+  Block: Entry Label: L142
+    Exit labels: L143 
+    LABEL L142; 
+    JUMP L143; 
+  Block: Entry Label: L143
+    Exit labels: L102 
+    LABEL L143; 
+    EXTCALL putch(Const:32); 
+    MOVE_BINOP t10003:int <- (+, t10002:int, Const:1); 
+    JUMP L102; 
+  Block: Entry Label: L104
+    Exit labels: L145 
+    LABEL L104; 
+    EXTCALL putch(Const:10); 
+    JUMP L145; 
+  Block: Entry Label: L145
+    Exit labels: 
+    LABEL L145; 
+    RETURN Const:0; 
+Function p^p(t100, t101) last_label=101 last_temp=106:
+  Block: Entry Label: L100
+    Exit labels: 
+    LABEL L100; 
+    EXTCALL putch(t101:int); 
+    RETURN Const:1; 

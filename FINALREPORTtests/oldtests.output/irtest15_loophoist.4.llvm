@@ -1,0 +1,88 @@
+; Generated LLVM IR from Quad representation
+
+declare i8* @malloc(i32)
+declare void @free(i8*)
+
+declare i32 @printf(i8*, ...)
+declare i32 @__isoc99_scanf(i8*, ...)
+
+declare void @exit(i64)
+
+declare i64 @getint()
+declare i64 @getch()
+declare i64 @getarray(i64*)
+declare void @putint(i64)
+declare void @putch(i64)
+declare void @putarray(i64, i64*)
+
+define i32 @main() {
+entry:
+  br label %label_100
+
+label_100:
+  %t0 = mul i64 12, 2
+  %t1 = trunc i64 %t0 to i32
+  %t2 = call i8* @malloc(i32 %t1)
+  %t1030101 = ptrtoint i8* %t2 to i64
+  %t3 = mul i64 8, 2
+  %t1080101 = add i64 %t1030101, %t3
+  %t4 = ptrtoint i64 (i64)* @A$f to i64
+  %t5 = inttoptr i64 %t1080101 to i64*
+  store i64 %t4, i64* %t5
+  %t1000101 = add i64 %t1030101, 0
+  %t6 = mul i64 0, 2
+  %t1090101 = add i64 %t1000101, %t6
+  %t7 = inttoptr i64 %t1090101 to i64*
+  store i64 1, i64* %t7
+  %t8 = mul i64 12, 2
+  %t9 = trunc i64 %t8 to i32
+  %t10 = call i8* @malloc(i32 %t9)
+  %t1040101 = ptrtoint i8* %t10 to i64
+  %t11 = mul i64 8, 2
+  %t1110101 = add i64 %t1040101, %t11
+  %t12 = ptrtoint i64 (i64)* @B$f to i64
+  %t13 = inttoptr i64 %t1110101 to i64*
+  store i64 %t12, i64* %t13
+  %t1010101 = add i64 %t1040101, 0
+  %t14 = mul i64 4, 2
+  %t1120101 = add i64 %t1010101, %t14
+  %t15 = inttoptr i64 %t1120101 to i64*
+  store i64 1, i64* %t15
+  br label %label_101
+
+label_101:
+  %t16 = trunc i64 0 to i32
+  ret i32 %t16
+
+  ; Default return
+  ret i32 0
+}
+
+define i64 @B$f(i64 %t100) {
+entry:
+  br label %label_100
+
+label_100:
+  br label %label_101
+
+label_101:
+  ret i64 0
+
+  ; Default return
+  ret i64 0
+}
+
+define i64 @A$f(i64 %t100) {
+entry:
+  br label %label_100
+
+label_100:
+  br label %label_101
+
+label_101:
+  ret i64 0
+
+  ; Default return
+  ret i64 0
+}
+
