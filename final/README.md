@@ -79,10 +79,13 @@ make run-allloop  # both loop optimizations
 make run-allopt   # all optimizations
 ```
 
-By default, batch `run*` targets use their own stdin for qemu. If stdin is a
-pipe or redirected file, the script buffers it once and replays the same input
-to every program, avoiding pipe read-ahead between qemu processes. For
-non-interactive repeated input, the same input can also be supplied with:
+By default, batch `run*` targets run qemu on the current terminal, so programs
+that call `getint`, `getch`, or `getarray` can read input typed by the user, and
+stdout/stderr appear immediately while the program is running. When
+`RUN_TIMEOUT` is enabled, the runner uses `timeout --foreground` so terminal
+input still works. For non-interactive runs, pass `INPUT=...`; the same input
+string is supplied to every program and output is captured into the usual
+stdout/stderr blocks:
 
 ```sh
 make run-allopt INPUT="4 4 4 4"
@@ -125,9 +128,11 @@ stdout, stderr, and the printed FMJ return value:
 make run-one-all-mode path/to/program.fmj
 ```
 
-`run-one` and `run-one-all-mode` do not provide default stdin. Piped or
-redirected stdin is also buffered and replayed to every optimization mode. For
-input programs, pass input explicitly:
+`run-one` and `run-one-all-mode` use the same rule: without `INPUT=...`, qemu
+runs directly on the current terminal and stderr is still captured so the
+printed FMJ return value can be reported; with `INPUT=...`, that string is
+supplied automatically and output is captured for comparison. This is the
+recommended way to compare input programs across optimization modes:
 
 ```sh
 make run-one path/to/program.fmj INPUT="1 2 3"

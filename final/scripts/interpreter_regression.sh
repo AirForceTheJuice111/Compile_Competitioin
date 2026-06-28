@@ -77,9 +77,25 @@ is_stress_runtime_test() {
     esac
 }
 
+is_nonterminating_test() {
+    case "$(basename "$1")" in
+        *newtest10*.fmj|*semant_test26_no_continue_outside_loop*.fmj) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+run_timeout_for() {
+    if is_nonterminating_test "$1"; then
+        printf '%s\n' "${NONTERMINATING_RUN_TIMEOUT:-5}"
+    else
+        printf '%s\n' "$run_timeout_s"
+    fi
+}
+
 while IFS='|' read -r test_file original; do
     base="${test_file%.fmj}"
     expect="$(fmj_expect "$test_file")"
+    case_run_timeout="$(run_timeout_for "$test_file")"
 
     set +e
     timeout "$timeout_s" "$fmjinterp" --check "$test_file" > "$base.interp.check.out" 2> "$base.interp.check.err"
@@ -169,7 +185,7 @@ while IFS='|' read -r test_file original; do
 
     if is_stress_runtime_test "$test_file"; then
         set +e
-        printf '%s\n' "$input" | timeout "$run_timeout_s" "$qemu" "$base.arm" > "$base.compiled.out" 2> "$base.compiled.err"
+        printf '%s\n' "$input" | timeout "$case_run_timeout" "$qemu" "$base.arm" > "$base.compiled.out" 2> "$base.compiled.err"
         compiled_rc=$?
         set -e
 
@@ -189,7 +205,7 @@ while IFS='|' read -r test_file original; do
     fi
 
     set +e
-    printf '%s\n' "$input" | timeout "$run_timeout_s" "$fmjinterp" \
+    printf '%s\n' "$input" | timeout "$case_run_timeout" "$fmjinterp" \
         --runtime-status "$base.interp.status" "$test_file" > "$base.interp.out" 2> "$base.interp.err"
     interp_rc=$?
     set -e
@@ -218,7 +234,7 @@ while IFS='|' read -r test_file original; do
     fi
 
     set +e
-    printf '%s\n' "$input" | timeout "$run_timeout_s" "$qemu" "$base.arm" > "$base.compiled.out" 2> "$base.compiled.err"
+    printf '%s\n' "$input" | timeout "$case_run_timeout" "$qemu" "$base.arm" > "$base.compiled.out" 2> "$base.compiled.err"
     compiled_rc=$?
     set -e
 

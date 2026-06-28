@@ -28,12 +28,6 @@ if [[ -v INPUT ]]; then
     input_set=1
     input="$INPUT"
 fi
-stdin_file=""
-if [[ "$input_set" -eq 0 && ! -t 0 ]]; then
-    stdin_file="$(mktemp "${TMPDIR:-/tmp}/fmj-run-stdin.XXXXXX")"
-    cat > "$stdin_file"
-    trap 'rm -f "$stdin_file"' EXIT
-fi
 
 case "$mode" in
     none|const|loop1|loop2|allloop|allopt) ;;
@@ -53,6 +47,12 @@ fi
 
 if [[ ! -f "$map" ]]; then
     MODE="$mode" "$final_dir/scripts/compile_submit.sh"
+fi
+
+if [[ "$timeout_set" -eq 1 ]]; then
+    printf 'RUN_TIMEOUT=%s seconds\n' "$timeout_s"
+else
+    printf 'RUN_TIMEOUT=disabled\n'
 fi
 
 print_stream() {
@@ -87,6 +87,7 @@ fi
 
 while IFS='|' read -r base asm src <&3; do
     [[ -n "$base" ]] || continue
+    printf '\nRunning %s\n' "$src"
     arm="$base.$mode.arm"
     set +e
     "$cc" -mcpu=cortex-a72 -Wall -Wextra -Wl,-z,noexecstack --static \
@@ -103,23 +104,19 @@ while IFS='|' read -r base asm src <&3; do
     fi
 
     set +e
+    : > "$base.run.out"
+    : > "$base.run.err"
     if [[ "$input_set" -eq 1 ]]; then
         if [[ "$timeout_set" -eq 1 ]]; then
             printf '%s\n' "$input" | timeout "$timeout_s" "$qemu" "$arm" > "$base.run.out" 2> "$base.run.err"
         else
             printf '%s\n' "$input" | "$qemu" "$arm" > "$base.run.out" 2> "$base.run.err"
         fi
-    elif [[ -n "$stdin_file" ]]; then
-        if [[ "$timeout_set" -eq 1 ]]; then
-            timeout "$timeout_s" "$qemu" "$arm" < "$stdin_file" > "$base.run.out" 2> "$base.run.err"
-        else
-            "$qemu" "$arm" < "$stdin_file" > "$base.run.out" 2> "$base.run.err"
-        fi
     else
         if [[ "$timeout_set" -eq 1 ]]; then
-            timeout "$timeout_s" "$qemu" "$arm" > "$base.run.out" 2> "$base.run.err"
+            timeout --foreground "$timeout_s" "$qemu" "$arm" 2> >(tee "$base.run.err" >&2)
         else
-            "$qemu" "$arm" > "$base.run.out" 2> "$base.run.err"
+            "$qemu" "$arm" 2> >(tee "$base.run.err" >&2)
         fi
     fi
     run_rc=$?

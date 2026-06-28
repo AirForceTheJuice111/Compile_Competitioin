@@ -10,7 +10,11 @@ LIBSYSY32 ?= $(CURDIR)/../HW12/vendor/libsysy/libsysy32.s
 RUN_WORK ?= /tmp/final_run_one
 TEST_DIR ?= $(CURDIR)/test
 OUT_DIR ?= $(CURDIR)/output
-RUN_TIMEOUT ?= 2
+RUN_TIMEOUT ?= 120
+
+ifneq ($(origin INPUT),undefined)
+RUN_INPUT_ENV := INPUT="$(INPUT)"
+endif
 
 .PHONY: build clean rebuild compile run run-const run-loop1 run-loop2 run-allloop run-allopt test-one run-one run-one-all-mode collect-tests opt-benchmark compile-regression runtime-regression interpreter-regression fuzz-regression all-mode-regression
 
@@ -47,42 +51,42 @@ run: build $(LIBSYSY32)
 		LIBSYSY32="$(LIBSYSY32)" K="$(K)" RUNTIME_CHECKS="$(RUNTIME_CHECKS)" MODE=none \
 		bash scripts/compile_submit.sh
 	@OUT_DIR="$(OUT_DIR)" ARM_CC="$(ARM_CC)" QEMU_ARM="$(QEMU_ARM)" LIBSYSY32="$(LIBSYSY32)" \
-		RUN_TIMEOUT="$(RUN_TIMEOUT)" bash scripts/run_submit.sh none
+		RUN_TIMEOUT="$(RUN_TIMEOUT)" $(RUN_INPUT_ENV) bash scripts/run_submit.sh none
 
 run-const: build $(LIBSYSY32)
 	@TEST_DIR="$(TEST_DIR)" OUT_DIR="$(OUT_DIR)" FMJCC="$(FMJCC)" ARM_CC="$(ARM_CC)" QEMU_ARM="$(QEMU_ARM)" \
 		LIBSYSY32="$(LIBSYSY32)" K="$(K)" RUNTIME_CHECKS="$(RUNTIME_CHECKS)" MODE=const \
 		bash scripts/compile_submit.sh
 	@OUT_DIR="$(OUT_DIR)" ARM_CC="$(ARM_CC)" QEMU_ARM="$(QEMU_ARM)" LIBSYSY32="$(LIBSYSY32)" \
-		RUN_TIMEOUT="$(RUN_TIMEOUT)" bash scripts/run_submit.sh const
+		RUN_TIMEOUT="$(RUN_TIMEOUT)" $(RUN_INPUT_ENV) bash scripts/run_submit.sh const
 
 run-loop1: build $(LIBSYSY32)
 	@TEST_DIR="$(TEST_DIR)" OUT_DIR="$(OUT_DIR)" FMJCC="$(FMJCC)" ARM_CC="$(ARM_CC)" QEMU_ARM="$(QEMU_ARM)" \
 		LIBSYSY32="$(LIBSYSY32)" K="$(K)" RUNTIME_CHECKS="$(RUNTIME_CHECKS)" MODE=loop1 \
 		bash scripts/compile_submit.sh
 	@OUT_DIR="$(OUT_DIR)" ARM_CC="$(ARM_CC)" QEMU_ARM="$(QEMU_ARM)" LIBSYSY32="$(LIBSYSY32)" \
-		RUN_TIMEOUT="$(RUN_TIMEOUT)" bash scripts/run_submit.sh loop1
+		RUN_TIMEOUT="$(RUN_TIMEOUT)" $(RUN_INPUT_ENV) bash scripts/run_submit.sh loop1
 
 run-loop2: build $(LIBSYSY32)
 	@TEST_DIR="$(TEST_DIR)" OUT_DIR="$(OUT_DIR)" FMJCC="$(FMJCC)" ARM_CC="$(ARM_CC)" QEMU_ARM="$(QEMU_ARM)" \
 		LIBSYSY32="$(LIBSYSY32)" K="$(K)" RUNTIME_CHECKS="$(RUNTIME_CHECKS)" MODE=loop2 \
 		bash scripts/compile_submit.sh
 	@OUT_DIR="$(OUT_DIR)" ARM_CC="$(ARM_CC)" QEMU_ARM="$(QEMU_ARM)" LIBSYSY32="$(LIBSYSY32)" \
-		RUN_TIMEOUT="$(RUN_TIMEOUT)" bash scripts/run_submit.sh loop2
+		RUN_TIMEOUT="$(RUN_TIMEOUT)" $(RUN_INPUT_ENV) bash scripts/run_submit.sh loop2
 
 run-allloop: build $(LIBSYSY32)
 	@TEST_DIR="$(TEST_DIR)" OUT_DIR="$(OUT_DIR)" FMJCC="$(FMJCC)" ARM_CC="$(ARM_CC)" QEMU_ARM="$(QEMU_ARM)" \
 		LIBSYSY32="$(LIBSYSY32)" K="$(K)" RUNTIME_CHECKS="$(RUNTIME_CHECKS)" MODE=allloop \
 		bash scripts/compile_submit.sh
 	@OUT_DIR="$(OUT_DIR)" ARM_CC="$(ARM_CC)" QEMU_ARM="$(QEMU_ARM)" LIBSYSY32="$(LIBSYSY32)" \
-		RUN_TIMEOUT="$(RUN_TIMEOUT)" bash scripts/run_submit.sh allloop
+		RUN_TIMEOUT="$(RUN_TIMEOUT)" $(RUN_INPUT_ENV) bash scripts/run_submit.sh allloop
 
 run-allopt: build $(LIBSYSY32)
 	@TEST_DIR="$(TEST_DIR)" OUT_DIR="$(OUT_DIR)" FMJCC="$(FMJCC)" ARM_CC="$(ARM_CC)" QEMU_ARM="$(QEMU_ARM)" \
 		LIBSYSY32="$(LIBSYSY32)" K="$(K)" RUNTIME_CHECKS="$(RUNTIME_CHECKS)" MODE=allopt \
 		bash scripts/compile_submit.sh
 	@OUT_DIR="$(OUT_DIR)" ARM_CC="$(ARM_CC)" QEMU_ARM="$(QEMU_ARM)" LIBSYSY32="$(LIBSYSY32)" \
-		RUN_TIMEOUT="$(RUN_TIMEOUT)" bash scripts/run_submit.sh allopt
+		RUN_TIMEOUT="$(RUN_TIMEOUT)" $(RUN_INPUT_ENV) bash scripts/run_submit.sh allopt
 
 test-one: build
 	@$(FMJCC) --k $(K) $(FILE).fmj
@@ -94,12 +98,12 @@ $(LIBSYSY32):
 run-one: build $(LIBSYSY32)
 	@K="$(K)" FMJCC="$(FMJCC)" ARM_CC="$(ARM_CC)" QEMU_ARM="$(QEMU_ARM)" \
 		LIBSYSY32="$(LIBSYSY32)" RUN_WORK="$(RUN_WORK)" RUNTIME_CHECKS="$(RUNTIME_CHECKS)" OPT_MODE="$(OPT_MODE)" \
-		bash scripts/run_one.sh "$(RUN_ONE_ARG)"
+		$(RUN_INPUT_ENV) bash scripts/run_one.sh "$(RUN_ONE_ARG)"
 
 run-one-all-mode: build $(LIBSYSY32)
 	@K="$(K)" FMJCC="$(FMJCC)" ARM_CC="$(ARM_CC)" QEMU_ARM="$(QEMU_ARM)" \
 		LIBSYSY32="$(LIBSYSY32)" RUN_WORK="$(RUN_WORK)" RUNTIME_CHECKS="$(RUNTIME_CHECKS)" RUN_ALL_MODES=1 \
-		bash scripts/run_one.sh "$(RUN_ONE_ARG)"
+		$(RUN_INPUT_ENV) bash scripts/run_one.sh "$(RUN_ONE_ARG)"
 
 collect-tests:
 	@bash scripts/collect_tests.sh
