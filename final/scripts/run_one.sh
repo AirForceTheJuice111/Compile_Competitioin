@@ -24,12 +24,6 @@ if [[ -v INPUT ]]; then
     input_set=1
     input="$INPUT"
 fi
-stdin_file=""
-if [[ "$input_set" -eq 0 && ! -t 0 ]]; then
-    stdin_file="$(mktemp "${TMPDIR:-/tmp}/fmj-run-one-stdin.XXXXXX")"
-    cat > "$stdin_file"
-    trap 'rm -f "$stdin_file"' EXIT
-fi
 modes=(none const loop1 loop2 allloop allopt)
 
 usage() {
@@ -186,25 +180,21 @@ run_mode() {
         return 0
     fi
 
-    [[ "$quiet" -eq 1 ]] || echo "Running [$mode] $src"
+    echo "Running [$mode] $src"
     set +e
+    : > "$stdout_file"
+    : > "$stderr_file"
     if [[ "$input_set" -eq 1 ]]; then
         if [[ "$timeout_set" -eq 1 ]]; then
             printf '%s\n' "$input" | timeout "$timeout_s" "$qemu" "$arm" > "$stdout_file" 2> "$stderr_file"
         else
             printf '%s\n' "$input" | "$qemu" "$arm" > "$stdout_file" 2> "$stderr_file"
         fi
-    elif [[ -n "$stdin_file" ]]; then
-        if [[ "$timeout_set" -eq 1 ]]; then
-            timeout "$timeout_s" "$qemu" "$arm" < "$stdin_file" > "$stdout_file" 2> "$stderr_file"
-        else
-            "$qemu" "$arm" < "$stdin_file" > "$stdout_file" 2> "$stderr_file"
-        fi
     else
         if [[ "$timeout_set" -eq 1 ]]; then
-            timeout "$timeout_s" "$qemu" "$arm" > "$stdout_file" 2> "$stderr_file"
+            timeout --foreground "$timeout_s" "$qemu" "$arm" 2> >(tee "$stderr_file" >&2)
         else
-            "$qemu" "$arm" > "$stdout_file" 2> "$stderr_file"
+            "$qemu" "$arm" 2> >(tee "$stderr_file" >&2)
         fi
     fi
     local run_rc=$?
@@ -285,6 +275,12 @@ mkdir -p "$work_root"
 base="$(basename "$src" .fmj | tr -c 'A-Za-z0-9_' '_')"
 work="$(mktemp -d "$work_root/$base.XXXXXX")"
 cp "$src" "$work/$base.fmj"
+
+if [[ "$timeout_set" -eq 1 ]]; then
+    printf 'RUN_TIMEOUT=%s seconds\n' "$timeout_s"
+else
+    printf 'RUN_TIMEOUT=disabled\n'
+fi
 
 if is_truthy "$run_all_modes"; then
     echo "Running all optimization modes for $src"

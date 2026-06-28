@@ -240,15 +240,36 @@ int materializeInvariantTempInPreheader(
     return cloned == nullptr ? tempNum : newDef;
 }
 
-void replaceTempInTerm(QuadTerm*& term, int oldTemp, int newTemp) {
-    if (term == nullptr || term->kind != QuadTermKind::TEMP) return;
+bool replaceTempInTerm(QuadTerm*& term, int oldTemp, int newTemp) {
+    if (term == nullptr || term->kind != QuadTermKind::TEMP) return false;
     auto quadTemp = term->get_temp();
-    if (quadTemp != nullptr && quadTemp->temp != nullptr && quadTemp->temp->num == oldTemp) term = tempTerm(newTemp);
+    if (quadTemp != nullptr && quadTemp->temp != nullptr && quadTemp->temp->num == oldTemp) {
+        term = tempTerm(newTemp);
+        return true;
+    }
+    return false;
 }
 
-void replaceTempInArgs(vector<QuadTerm*>* args, int oldTemp, int newTemp) {
-    if (args == nullptr) return;
-    for (auto& arg : *args) replaceTempInTerm(arg, oldTemp, newTemp);
+bool replaceTempInArgs(vector<QuadTerm*>* args, int oldTemp, int newTemp) {
+    if (args == nullptr) return false;
+    bool changed = false;
+    for (auto& arg : *args) changed = replaceTempInTerm(arg, oldTemp, newTemp) || changed;
+    return changed;
+}
+
+void replaceTempInUseSet(set<Temp*>* useSet, int oldTemp, int newTemp) {
+    if (useSet == nullptr) return;
+    bool found = false;
+    for (auto it = useSet->begin(); it != useSet->end();) {
+        Temp* used = *it;
+        if (used != nullptr && used->num == oldTemp) {
+            it = useSet->erase(it);
+            found = true;
+        } else {
+            ++it;
+        }
+    }
+    if (found) useSet->insert(temp(newTemp));
 }
 
 void replaceTempInStmt(QuadStm* stm, int oldTemp, int newTemp) {
@@ -256,75 +277,79 @@ void replaceTempInStmt(QuadStm* stm, int oldTemp, int newTemp) {
     // temp. This has to handle all statement shapes that may contain QuadTerms,
     // plus PHI arguments which store raw Temp* values instead of QuadTerm*.
     if (stm == nullptr) return;
+    bool changed = false;
     switch (stm->kind) {
         case QuadKind::MOVE: {
             auto q = dynamic_cast<QuadMove*>(stm);
-            replaceTempInTerm(q->src, oldTemp, newTemp);
+            changed = replaceTempInTerm(q->src, oldTemp, newTemp) || changed;
             break;
         }
         case QuadKind::LOAD: {
             auto q = dynamic_cast<QuadLoad*>(stm);
-            replaceTempInTerm(q->src, oldTemp, newTemp);
+            changed = replaceTempInTerm(q->src, oldTemp, newTemp) || changed;
             break;
         }
         case QuadKind::STORE: {
             auto q = dynamic_cast<QuadStore*>(stm);
-            replaceTempInTerm(q->src, oldTemp, newTemp);
-            replaceTempInTerm(q->dst, oldTemp, newTemp);
+            changed = replaceTempInTerm(q->src, oldTemp, newTemp) || changed;
+            changed = replaceTempInTerm(q->dst, oldTemp, newTemp) || changed;
             break;
         }
         case QuadKind::MOVE_BINOP: {
             auto q = dynamic_cast<QuadMoveBinop*>(stm);
-            replaceTempInTerm(q->left, oldTemp, newTemp);
-            replaceTempInTerm(q->right, oldTemp, newTemp);
+            changed = replaceTempInTerm(q->left, oldTemp, newTemp) || changed;
+            changed = replaceTempInTerm(q->right, oldTemp, newTemp) || changed;
             break;
         }
         case QuadKind::PTR_CALC: {
             auto q = dynamic_cast<QuadPtrCalc*>(stm);
-            replaceTempInTerm(q->ptr, oldTemp, newTemp);
-            replaceTempInTerm(q->offset, oldTemp, newTemp);
+            changed = replaceTempInTerm(q->ptr, oldTemp, newTemp) || changed;
+            changed = replaceTempInTerm(q->offset, oldTemp, newTemp) || changed;
             break;
         }
         case QuadKind::EXTCALL: {
             auto q = dynamic_cast<QuadExtCall*>(stm);
-            replaceTempInArgs(q->args, oldTemp, newTemp);
+            changed = replaceTempInArgs(q->args, oldTemp, newTemp) || changed;
             break;
         }
         case QuadKind::MOVE_EXTCALL: {
             auto q = dynamic_cast<QuadMoveExtCall*>(stm);
-            if (q->extcall != nullptr) replaceTempInArgs(q->extcall->args, oldTemp, newTemp);
+            if (q->extcall != nullptr) changed = replaceTempInArgs(q->extcall->args, oldTemp, newTemp) || changed;
             break;
         }
         case QuadKind::CALL: {
             auto q = dynamic_cast<QuadCall*>(stm);
-            replaceTempInTerm(q->obj_term, oldTemp, newTemp);
-            replaceTempInArgs(q->args, oldTemp, newTemp);
+            changed = replaceTempInTerm(q->obj_term, oldTemp, newTemp) || changed;
+            changed = replaceTempInArgs(q->args, oldTemp, newTemp) || changed;
             break;
         }
         case QuadKind::MOVE_CALL: {
             auto q = dynamic_cast<QuadMoveCall*>(stm);
             if (q->call != nullptr) {
-                replaceTempInTerm(q->call->obj_term, oldTemp, newTemp);
-                replaceTempInArgs(q->call->args, oldTemp, newTemp);
+                changed = replaceTempInTerm(q->call->obj_term, oldTemp, newTemp) || changed;
+                changed = replaceTempInArgs(q->call->args, oldTemp, newTemp) || changed;
             }
             break;
         }
         case QuadKind::CJUMP: {
             auto q = dynamic_cast<QuadCJump*>(stm);
-            replaceTempInTerm(q->left, oldTemp, newTemp);
-            replaceTempInTerm(q->right, oldTemp, newTemp);
+            changed = replaceTempInTerm(q->left, oldTemp, newTemp) || changed;
+            changed = replaceTempInTerm(q->right, oldTemp, newTemp) || changed;
             break;
         }
         case QuadKind::RETURN: {
             auto q = dynamic_cast<QuadReturn*>(stm);
-            replaceTempInTerm(q->exp, oldTemp, newTemp);
+            changed = replaceTempInTerm(q->exp, oldTemp, newTemp) || changed;
             break;
         }
         case QuadKind::PHI: {
             auto q = dynamic_cast<QuadPhi*>(stm);
             if (q != nullptr && q->args != nullptr) {
                 for (auto& arg : *q->args) {
-                    if (arg.first != nullptr && arg.first->num == oldTemp) arg.first = temp(newTemp);
+                    if (arg.first != nullptr && arg.first->num == oldTemp) {
+                        arg.first = temp(newTemp);
+                        changed = true;
+                    }
                 }
             }
             break;
@@ -332,6 +357,7 @@ void replaceTempInStmt(QuadStm* stm, int oldTemp, int newTemp) {
         default:
             break;
     }
+    if (changed) replaceTempInUseSet(stm->use, oldTemp, newTemp);
 }
 
 void rewriteCJumpLimit(QuadStm* stm, const StrengthReductionPlan::ReplacementIV& repl) {
@@ -340,7 +366,23 @@ void rewriteCJumpLimit(QuadStm* stm, const StrengthReductionPlan::ReplacementIV&
     // When the loop condition uses the basic IV and the derived IV is monotonic
     // with a constant affine relation, rewrite the limit into the derived IV's
     // coordinate system. Example: k > 0 and j = 4*k + 2 becomes j > 2.
+    //
+    // If the derived IV is computed from the post-update basic IV and the basic
+    // step is a temp, the transformed bound would be a*(limit + step) + b. That
+    // is not a constant QuadTerm, so keep the original basic-IV guard.
+    if (repl.initExpr.sourceAfterBasicUpdate && repl.initExpr.basicStepTempNum != -1) return;
+
+    auto flipRelop = [] (const string& relop) {
+        if (relop == ">") return string("<");
+        if (relop == ">=") return string("<=");
+        if (relop == "<") return string(">");
+        if (relop == "<=") return string(">=");
+        return relop;
+    };
+
+    bool rewritten = false;
     auto rewriteSide = [&] (QuadTerm*& term, QuadTerm*& other) {
+        if (rewritten) return;
         if (term == nullptr || term->kind != QuadTermKind::TEMP) return;
         auto quadTemp = term->get_temp();
         if (quadTemp == nullptr || quadTemp->temp == nullptr || quadTemp->temp->num != repl.map.basicTempNum) return;
@@ -351,6 +393,8 @@ void rewriteCJumpLimit(QuadStm* stm, const StrengthReductionPlan::ReplacementIV&
             : limit;
         term = tempTerm(repl.map.newPhiTemp);
         other = constTerm(repl.initExpr.basicCoeff * adjusted + repl.initExpr.constant);
+        if (repl.initExpr.basicCoeff < 0) cjump->relop = flipRelop(cjump->relop);
+        rewritten = true;
     };
     rewriteSide(cjump->left, cjump->right);
     rewriteSide(cjump->right, cjump->left);
@@ -483,13 +527,6 @@ StrengthReductionPlan generateStrengthReductionPlan(
             repl.initExpr.sourceAfterBasicUpdate = div.sourceTempNum == biv.backedgeTempNum || static_cast<int>(div.sourceOrder) > biv.updateOrder; // If the derived IV source is updated in the backedge or after the basic IV update, the init value must be based on the basic IV after its first update, not directly on the basic IV init value.
             repl.initExpr.basicStepTempNum = biv.stepTempNum;
             repl.initExpr.basicStepValue = biv.step;
-            if (repl.initExpr.sourceAfterBasicUpdate && biv.stepTempNum != -1) {
-                // Rewriting the loop guard for an after-update derived IV with
-                // a variable step needs a variable bound adjustment. The current
-                // strength-reduction form only supports a constant guard limit,
-                // so keep the original IV for correctness.
-                continue;
-            }
             repl.placement.initLabel = blockLabel(preheader);
             repl.placement.backedgeLabel = backedge;
 
@@ -504,7 +541,7 @@ StrengthReductionPlan generateStrengthReductionPlan(
                 // Temp basic step keeps the temp identity and sign. The scale
                 // factor abs(a) is materialized in the preheader when needed.
                 repl.stepExpr.stepIncrementTempNum = abs(biv.stepTempNum);
-                repl.stepExpr.stepIncrementNegative = biv.stepTempNum < 0;
+                repl.stepExpr.stepIncrementNegative = (biv.stepTempNum < 0) != (div.expr.basicCoeff < 0);
                 repl.stepExpr.stepTempScaleFactor = abs(div.expr.basicCoeff);
                 if (repl.stepExpr.stepTempScaleFactor != 1) {
                     repl.stepExpr.newStepTemp = nextFreeTemp(usedTemps, nextTemp++);

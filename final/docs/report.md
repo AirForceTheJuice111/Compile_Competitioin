@@ -4,7 +4,6 @@ author: "王思宇"
 date: \today
 using_title: true
 using_table_of_content: true
-CJKmainfont: "Droid Sans Fallback"
 ---
 
 # Final Project 实验报告
@@ -476,13 +475,13 @@ make run-allopt   # 全部优化
 
 `make run*` 会先递归编译 `test/` 下所有 `.fmj`，再逐个链接并运行成功编译的程序。每个程序都会打印一行 `mode=... result=... rc=... src=...`，非空 stdout/stderr 会跟随输出；被前端拒绝的程序会以 `COMPILE_FAIL` 行列出，如果程序运行超时（含有死循环），则会出现 `RUN_FAIL`，rc=124（即qemu对应退出码）。
 
-如果程序需要输入，默认会从 `make run*` 自身的 stdin 传给 qemu。这里需要注意一个工程细节：如果直接把同一个 pipe 交给多个 qemu 进程，第一个进程中的 C 标准库可能会预读超过本程序实际需要的字节，导致后续程序拿不到输入。因此 `run_submit.sh` 在发现 stdin 是 pipe 或重定向文件时，会先把 stdin 缓存到临时文件，再把同一份输入文件分别重放给每个 qemu 进程；如果 stdin 是终端，则保持逐程序交互输入。非交互场景也可以通过 `INPUT` 变量给每个程序提供同一份输入：
+如果程序需要输入，默认不自动填充 stdin，而是让 qemu 直接连接当前终端；因此从终端运行 `make run*` 时，含有 `getint`、`getch` 或 `getarray` 的程序仍会在运行到对应语句时等待用户输入，程序运行过程中的 stdout/stderr 也会即时显示。批量运行默认启用 `RUN_TIMEOUT`，脚本使用 `timeout --foreground` 保证 timeout 包裹下 qemu 仍可从终端读取输入。非交互场景可以通过 `INPUT` 变量给每个程序提供同一份输入：
 
 ```sh
 make run-allopt INPUT="1 2 3 4"
 ```
 
-如果既没有设置 `INPUT`，也没有从 pipe/文件重定向 stdin，脚本不会自动生成输入，而是让 qemu 从当前终端读取；在非交互回归中，空 stdin 会被缓存为空文件，从而避免批量测试卡在等待输入上。
+如果设置了 `INPUT`，Makefile 会把它传给 `run_submit.sh`，脚本用 `printf '%s\n' "$INPUT"` 喂给每次 qemu 运行，并把 stdout/stderr 捕获到文件后按块打印；如果没有设置，则脚本不重定向 qemu 的 stdin/stdout/stderr，输入和即时输出完全由正在运行的程序自己处理。
 
 批量运行和回归测试中的 qemu timeout 默认是 2 秒，可通过 `RUN_TIMEOUT` 调整：
 
@@ -504,7 +503,7 @@ make run-one-all-mode path/to/file.fmj
 
 `make run-one` 默认使用 `OPT_MODE=allopt`，也可以设置为 `none`、`const`、`loop1`、`loop2`、`allloop` 或 `allopt`。`make run-one-all-mode` 会对同一个文件依次运行六种优化模式，打印每个模式的 process return code、stdout、stderr 和 harness 打印出的 FMJ return value，并比较这些可观察结果是否完全一致。
 
-`make run-one` 和 `make run-one-all-mode` 默认不自动提供 stdin。若 stdin 来自 pipe 或重定向文件，脚本同样会缓存并重放给每个优化模式，保证六种 mode 比较时看到同一份输入。需要外部输入的程序可以显式设置 `INPUT` 或从 shell 重定向标准输入，例如：
+`make run-one` 和 `make run-one-all-mode` 默认同样不自动提供 stdin，而是让 qemu 直连当前终端；脚本仍会捕获 stderr，因此 harness 打印的 `[fmj return]` 可以被解析并显示为 `fmj_return=...`。需要外部输入且希望自动比较多模式输出时，可以显式设置 `INPUT`；这样每个优化模式都会收到同一份输入，例如：
 
 ```sh
 make run-one path/to/file.fmj INPUT="1 2 3"
@@ -596,12 +595,12 @@ fuzz_pass=46 fuzz_fail=0 fuzz_skip=3 iterations=10000
 
 ```text
 make all-mode-regression
-total=220 run_consistent=117 reject_consistent=86 timeout_consistent=2 optional_semantics_skip=15 expect_pass_consistent=20 expect_reject_consistent=33 mismatch=0 interp_timeout=0 unexpected_compile_reject=0 compiler_accept_invalid=0 runtime_checks=0
+total=221 run_consistent=118 reject_consistent=86 timeout_consistent=2 optional_semantics_skip=15 expect_pass_consistent=20 expect_reject_consistent=33 mismatch=0 interp_timeout=0 unexpected_compile_reject=0 compiler_accept_invalid=0 runtime_checks=0
 ```
 
 ```text
 RUNTIME_CHECKS=1 make all-mode-regression
-total=220 run_consistent=132 reject_consistent=86 timeout_consistent=2 optional_semantics_skip=0 expect_pass_consistent=20 expect_reject_consistent=33 mismatch=0 interp_timeout=0 unexpected_compile_reject=0 compiler_accept_invalid=0 runtime_checks=1
+total=221 run_consistent=133 reject_consistent=86 timeout_consistent=2 optional_semantics_skip=0 expect_pass_consistent=20 expect_reject_consistent=33 mismatch=0 interp_timeout=0 unexpected_compile_reject=0 compiler_accept_invalid=0 runtime_checks=1
 ```
 
 默认无额外运行期语义的 `interpreter-regression` 中，`optional_semantics_skip=15` 是解释器确认依赖局部默认值、空引用、负长度数组或除零等可选语义的样例。默认 unchecked 编译器不承诺这些行为，因此不把它们纳入输出等价比较；数组越界和函数末尾隐式 `return 0` 不在这个集合内，默认仍要和解释器对齐。开启 `RUNTIME_CHECKS=1` 后，局部默认初始化、空引用检查、负长度数组检查和除零检查等额外语义也全部与解释器一致。
@@ -667,7 +666,7 @@ OK interpreter k=9 HW9/test/opttest9.fmj 4110fa6c1bf841a3 10000
 | `deepnestedloops.fmj` | 825 | 330 | 825 | 825 | 825 | 330 |
 | `bubblesort.fmj` | 315 | 314 | 330 | 423 | 423 | 423 |
 
-这些数字体现了两个现象。第一，优化不是单调减少汇编行数：LICM 会增加 preheader 计算，归纳变量强度削弱会增加循环内维护的派生变量，因此 `bubblesort.fmj` 在 loop2/allloop/allopt 下行数明显增加。第二，优化收益取决于样例结构：`bigloop.fmj` 的 allopt 从约 70.4 秒降到约 67.0 秒，而 `deepnestedloops.fmj` 主要受常量传播影响，汇编行数从 825 降到 330，但 qemu 运行时间本身太短，单次计时只适合说明趋势，不能作为精确微基准。
+这些数字体现了两个现象。第一，优化不是单调减少汇编行数：LICM 会增加 preheader 计算，归纳变量强度削弱会增加循环内维护的派生变量，因此 `bubblesort.fmj` 在 loop2/allloop/allopt 下行数明显增加。第二，优化收益取决于样例结构：`bigloop.fmj` 的 loop1/loop2/allloop 比 none 快约 2% 到 3%，但 allopt 在这次单次 qemu 测量中接近 const；`deepnestedloops.fmj` 主要受常量传播影响，汇编行数从 825 降到 330，但 qemu 运行时间本身太短，单次计时只适合说明趋势，不能作为精确微基准。
 
 ### 运行时回归测试
 
@@ -677,7 +676,7 @@ OK interpreter k=9 HW9/test/opttest9.fmj 4110fa6c1bf841a3 10000
 total=24 pass=24 compile_fail=0 link_fail=0 run_fail=0 workdir=/tmp/final_runtime_regression
 ```
 
-这些结果说明：`final/test/all` 中 215 个去重后的 FMJ 文件都被编译器和解释器一致地接受或拒绝；`all-mode-regression` 覆盖 215 个主测试加 5 个 submit 示例，六种优化模式下可观察结果一致；默认模式下，不依赖可选运行期语义的程序 stdout 和退出码完全一致，数组越界也与解释器的 `exit(-1)` 行为一致；开启运行期语义选项后，可选运行期错误和默认值语义也与解释器一致；含外部输入程序在 10000 组随机输入下与解释器 oracle 一致；所有不合法输入均被正确拒绝，没有编译器 crash。
+这些结果说明：`final/test/all` 中的 FMJ 文件都被编译器和解释器一致地接受或拒绝；`all-mode-regression` 覆盖的测试用例在六种优化模式下可观察结果一致；默认模式下，不依赖可选运行期语义的程序 stdout 和退出码完全一致，数组越界也与解释器的 `exit(-1)` 行为一致；开启运行期语义选项后，可选运行期错误和默认值语义也与解释器一致；含外部输入程序在 10000 组随机输入下与解释器 oracle 一致；所有不合法输入均被正确拒绝，没有编译器 crash。
 
 ## 实现中遇到的问题
 

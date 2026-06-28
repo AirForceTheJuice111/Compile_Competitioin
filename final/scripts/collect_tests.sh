@@ -3,6 +3,10 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 out="$root/final/test/all"
+lock="${TMPDIR:-/tmp}/final_collect_tests.lock"
+
+exec 9>"$lock"
+flock 9
 
 rm -rf "$out"
 mkdir -p "$out"
