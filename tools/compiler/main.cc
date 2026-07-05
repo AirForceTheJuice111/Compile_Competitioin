@@ -11,7 +11,9 @@
 #include <unistd.h>
 #include <vector>
 
+#include "backend_driver.hh"
 #include "lexer.hh"
+#include "lower_tree.hh"
 #include "parser.hh"
 #include "semantics.hh"
 
@@ -23,6 +25,7 @@ struct Options {
     bool dumpTokens = false;
     bool dumpAst = false;
     bool checkSysY = false;
+    bool nativeBackend = false;
     std::string output;
     std::string input;
     std::string optLevel = "-O0";
@@ -39,7 +42,8 @@ void printUsage(std::ostream &os) {
        << "Debugging:\n"
        << "  compiler --dump-tokens <input.sy>\n"
        << "  compiler --dump-ast <input.sy>\n"
-       << "  compiler --check-sysy <input.sy>\n";
+       << "  compiler --check-sysy <input.sy>\n"
+       << "  compiler --native-backend -S -o <output.s> <input.sy>\n";
 }
 
 bool isIdentifierStart(char c) {
@@ -416,6 +420,21 @@ void runNativeFrontendChecks(const std::string &source) {
     sysy::checkSemantics(*root);
 }
 
+int compileWithNativeBackend(const Options &opt, const std::string &source) {
+    sysy::NodePtr root = sysy::parseSource(source);
+    sysy::checkSemantics(*root);
+    tree::Program *ir = sysy::lowerToTree(*root);
+
+    backend::BackendOptions backendOptions;
+    backendOptions.optMode = backend::optModeFromCompilerFlag(opt.optLevel);
+    backend::BackendResult result = backend::compileTreeToArm(ir, backendOptions);
+    if (!result.ok) {
+        throw std::runtime_error("native backend failed: " + result.error);
+    }
+    writeFile(opt.output, result.assembly);
+    return 0;
+}
+
 Options parseArgs(int argc, char **argv) {
     Options opt;
     for (int i = 1; i < argc; ++i) {
@@ -428,6 +447,8 @@ Options parseArgs(int argc, char **argv) {
             opt.dumpAst = true;
         } else if (arg == "--check-sysy") {
             opt.checkSysY = true;
+        } else if (arg == "--native-backend") {
+            opt.nativeBackend = true;
         } else if (arg == "-S") {
             opt.emitAssembly = true;
         } else if (arg == "-o") {
@@ -514,6 +535,9 @@ int main(int argc, char **argv) {
         if (opt.checkSysY) {
             return checkSysY(source);
         }
+        if (opt.nativeBackend) {
+            return compileWithNativeBackend(opt, source);
+        }
         runNativeFrontendChecks(source);
         std::string lowered = injectSysYPrelude(source);
 
@@ -541,6 +565,10 @@ int main(int argc, char **argv) {
                   << ex.what() << "\n";
         return 1;
     } catch (const sysy::SemanticError &ex) {
+        std::cerr << "compiler: " << ex.loc().line << ":" << ex.loc().column << ": "
+                  << ex.what() << "\n";
+        return 1;
+    } catch (const sysy::LoweringError &ex) {
         std::cerr << "compiler: " << ex.loc().line << ":" << ex.loc().column << ": "
                   << ex.what() << "\n";
         return 1;

@@ -30,8 +30,8 @@ make build
 This builds:
 
 - `build/compiler`: SysY2022 contest entry, accepting `-S -o out.s in.sy`.
-- `build/fmjcc` and `build/fmjinterp`: legacy FMJ tools kept only as migration
-  scaffolding.
+- `build/fmjcc` and `build/fmjinterp` only when `BUILD_LEGACY_FMJ=ON`; these
+  legacy FMJ tools are kept as migration scaffolding.
 
 The current SysY entry is a functional migration bridge: it normalizes SysY2022
 source where C99 differs from the SysY language model, injects the official
@@ -41,7 +41,8 @@ macros, SysY scalar `const int` values used in array dimensions, and SysY's
 single-precision floating literal semantics.
 
 The native SysY frontend is being built in parallel under `include/sysy` and
-`lib/sysy`. Current debug hooks:
+`lib/sysy`. It now includes a lexer, parser, semantic checker, and an
+experimental Tree/Quad/backend path. Current debug hooks:
 
 ```sh
 build/compiler --dump-tokens test/functional/95_float.sy
@@ -50,6 +51,22 @@ build/compiler --check-sysy test/functional/95_float.sy
 make sysy-parse-regression
 make sysy-semantic-regression
 ```
+
+The native ARM backend can be exercised explicitly:
+
+```sh
+build/compiler --native-backend -S -O0 -o /tmp/native.s test/functional/00_main.sy
+```
+
+This path lowers SysY AST directly into the migrated Tree/Quad/SSA/optimizer/
+instruction-selection/register-allocation backend. It currently covers an
+integer scalar subset: local scalar declarations, functions, calls, arithmetic,
+comparisons, short-circuit conditions, `if`, `while`, `break`, `continue`,
+`return`, and integer runtime calls such as `getint`, `putint`, and `putch`.
+Unsupported features such as globals, arrays, strings/`putf`, and floats are
+rejected explicitly by the lowering stage. The default contest invocation does
+not use this incomplete native path yet; it keeps the bridge so the full official
+functional suite continues to pass.
 
 ## Compile SysY Tests
 
@@ -155,10 +172,13 @@ make run
 summary: total=140 pass=140 compile_fail=0 link_fail=0 run_fail=0 wrong=0
 
 make sysy-parse-regression
-summary: total=146 pass=146 parse_fail=0
+summary: total=151 pass=151 parse_fail=0
 
 make sysy-semantic-regression
-summary: total=146 pass=140 expected_fail=6 semantic_fail=0
+summary: total=151 pass=140 expected_fail=11 semantic_fail=0
+
+native backend smoke subset
+summary: total=12 pass=10 expected_native_unsupported=2 fail=0
 
 MAX_CASES=3 make sysy-performance-regression
 summary: total=3 pass=3 compile_fail=0 link_fail=0 run_fail=0 wrong=0
@@ -169,7 +189,9 @@ summary: total=3 pass=3 compile_fail=0 link_fail=0 run_fail=0 wrong=0
 This branch has not yet completed the full native rewrite described in
 `contest-docs/SysY2022-vs-FDMJ2026-migration-plan.md`. The native FMJ parser,
 AST, IR, optimizer, and backend files remain in the tree and still need to be
-reworked into a self-contained SysY compiler. The current `compiler` executable
-uses native SysY lexing/parsing for debug validation, but code generation still
-uses the functional bridge while the full semantic/type analysis, IR lowering,
-and native backend migration are implemented.
+reworked into a self-contained SysY compiler. The current default `compiler`
+executable uses native SysY lexing/parsing/semantic validation, but default code
+generation still uses the functional bridge. A reusable backend driver and an
+experimental `--native-backend` lowering path are present for the integer scalar
+subset, and are the base for finishing native globals, arrays, float/VFP ABI,
+and full SysY runtime support.
