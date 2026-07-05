@@ -7,7 +7,8 @@ add_compile_options(-w)
 
 option(BUILD_LEGACY_FMJ "Build legacy FMJ compiler tools kept for migration debugging" OFF)
 
-add_executable(compiler tools/compiler/main.cc)
+add_executable(compiler tools/compiler/main.cc lib/sysy/lexer.cc)
+target_include_directories(compiler PRIVATE include/sysy)
 
 if(NOT BUILD_LEGACY_FMJ)
     return()

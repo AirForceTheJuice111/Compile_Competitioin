@@ -11,11 +11,14 @@
 #include <unistd.h>
 #include <vector>
 
+#include "lexer.hh"
+
 namespace {
 
 struct Options {
     bool emitAssembly = false;
     bool showHelp = false;
+    bool dumpTokens = false;
     std::string output;
     std::string input;
     std::string optLevel = "-O0";
@@ -27,7 +30,10 @@ void printUsage(std::ostream &os) {
        << "\n"
        << "Contest-compatible SysY entry. The current contest branch lowers\n"
        << "SysY2022 source through the system ARM GCC frontend while the native\n"
-       << "FMJ pipeline is being migrated.\n";
+       << "SysY frontend, IR, and backend are being migrated.\n"
+       << "\n"
+       << "Debugging:\n"
+       << "  compiler --dump-tokens <input.sy>\n";
 }
 
 bool isIdentifierStart(char c) {
@@ -363,12 +369,35 @@ std::string injectSysYPrelude(const std::string &src) {
     return out.str();
 }
 
+int dumpTokens(const std::string &path, const std::string &source) {
+    sysy::Lexer lexer(source);
+    bool ok = true;
+    for (;;) {
+        sysy::Token tok = lexer.next();
+        std::cout << path << ":" << tok.loc.line << ":" << tok.loc.column << " "
+                  << sysy::tokenKindName(tok.kind);
+        if (!tok.text.empty()) {
+            std::cout << " " << tok.text;
+        }
+        std::cout << "\n";
+        if (tok.kind == sysy::TokenKind::Invalid) {
+            ok = false;
+        }
+        if (tok.kind == sysy::TokenKind::End) {
+            break;
+        }
+    }
+    return ok ? 0 : 1;
+}
+
 Options parseArgs(int argc, char **argv) {
     Options opt;
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--help" || arg == "-h") {
             opt.showHelp = true;
+        } else if (arg == "--dump-tokens") {
+            opt.dumpTokens = true;
         } else if (arg == "-S") {
             opt.emitAssembly = true;
         } else if (arg == "-o") {
@@ -399,7 +428,7 @@ Options parseArgs(int argc, char **argv) {
     if (opt.showHelp) {
         return opt;
     }
-    if (!opt.emitAssembly) {
+    if (!opt.dumpTokens && !opt.emitAssembly) {
         throw std::runtime_error("contest invocation must include -S");
     }
     if (opt.input.empty()) {
@@ -446,6 +475,9 @@ int main(int argc, char **argv) {
         }
 
         std::string source = readFile(opt.input);
+        if (opt.dumpTokens) {
+            return dumpTokens(opt.input, source);
+        }
         std::string lowered = injectSysYPrelude(source);
 
         std::string tempPath = "/tmp/sysycc_" + std::to_string(static_cast<long long>(getpid())) + ".c";
