@@ -17,6 +17,7 @@ enum class NodeKind {
     VarDef,
     FuncDef,
     FuncParam,
+    ArrayDim,
     Block,
     AssignStmt,
     ExprStmt,

@@ -1,0 +1,5 @@
+// EXPECT: FAIL
+int main() {
+  float x = 3.0;
+  return x % 2;
+}

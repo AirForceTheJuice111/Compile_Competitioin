@@ -10,6 +10,14 @@ NodePtr makeNode(NodeKind kind, const Token &tok, std::string text = {}) {
     return std::make_unique<Node>(kind, tok.loc, text.empty() ? tok.text : std::move(text));
 }
 
+NodePtr makeArrayDim(const Token &tok, NodePtr expr = {}) {
+    auto node = makeNode(NodeKind::ArrayDim, tok, "[]");
+    if (expr != nullptr) {
+        node->add(std::move(expr));
+    }
+    return node;
+}
+
 std::string tokenTextForError(const Token &tok) {
     if (tok.kind == TokenKind::End) {
         return "end of file";
@@ -132,7 +140,8 @@ NodePtr Parser::parseConstDef() {
     Token ident = expect(TokenKind::Identifier, "expected const name");
     auto node = makeNode(NodeKind::ConstDef, ident);
     while (match(TokenKind::LBracket)) {
-        node->add(parseExp());
+        Token bracket = tokens_[pos_ - 1];
+        node->add(makeArrayDim(bracket, parseExp()));
         expect(TokenKind::RBracket, "expected ']'");
     }
     expect(TokenKind::Assign, "expected '=' in const definition");
@@ -144,7 +153,8 @@ NodePtr Parser::parseVarDef() {
     Token ident = expect(TokenKind::Identifier, "expected variable name");
     auto node = makeNode(NodeKind::VarDef, ident);
     while (match(TokenKind::LBracket)) {
-        node->add(parseExp());
+        Token bracket = tokens_[pos_ - 1];
+        node->add(makeArrayDim(bracket, parseExp()));
         expect(TokenKind::RBracket, "expected ']'");
     }
     if (match(TokenKind::Assign)) {
@@ -196,9 +206,12 @@ NodePtr Parser::parseFuncParam() {
     Token ident = expect(TokenKind::Identifier, "expected parameter name");
     auto node = makeNode(NodeKind::FuncParam, type, type.text + " " + ident.text);
     if (match(TokenKind::LBracket)) {
+        Token bracket = tokens_[pos_ - 1];
+        node->add(makeArrayDim(bracket));
         expect(TokenKind::RBracket, "expected ']' after omitted first dimension");
         while (match(TokenKind::LBracket)) {
-            node->add(parseExp());
+            bracket = tokens_[pos_ - 1];
+            node->add(makeArrayDim(bracket, parseExp()));
             expect(TokenKind::RBracket, "expected ']'");
         }
     }
@@ -421,6 +434,7 @@ std::string nodeKindName(NodeKind kind) {
     case NodeKind::VarDef: return "VarDef";
     case NodeKind::FuncDef: return "FuncDef";
     case NodeKind::FuncParam: return "FuncParam";
+    case NodeKind::ArrayDim: return "ArrayDim";
     case NodeKind::Block: return "Block";
     case NodeKind::AssignStmt: return "AssignStmt";
     case NodeKind::ExprStmt: return "ExprStmt";
