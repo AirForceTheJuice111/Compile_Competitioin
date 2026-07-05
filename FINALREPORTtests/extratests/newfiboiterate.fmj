@@ -1,0 +1,76 @@
+public
+int main() {
+
+  int f0;
+  int f1;
+  int f2;
+  int f3;
+  int f4;
+  int f5;
+  int f6;
+  int f7;
+  int f8;
+  int f9;
+  int f10;
+  int f11;
+  int f12;
+  int f13;
+  int f14;
+  int f15;
+  int f16;
+  int f17;
+  int f18;
+  int f19;
+
+  int flag;
+
+  f0 = 0;
+  f1 = 1;
+  f2 = 1;
+  f3 = 2;
+  f4 = 3;
+  f5 = 5;
+  f6 = 8;
+  f7 = 13;
+  f8 = 21;
+  f9 = 34;
+  f10 = 55;
+  f11 = 89;
+  f12 = 144;
+  f13 = 231; //This is a wrong one!! Should be 233
+  f14 = 377;
+  f15 = 610;
+  f16 = 987;
+  f17 = 1597;
+  f18 = 2584;
+  f19 = 4181;
+
+  flag = 0;
+
+  if (f0+f1 != f2) {}
+    else if (f1+f2 != f3) {}
+    else if (f2+f3 != f4) {}
+    else if (f3+f4 != f5) {}
+    else if (f4+f5 != f6) {}
+    else if (f5+f6 != f7) {}
+    else if (f6+f7 != f8) {}
+    else if (f7+f8 != f9) {}
+    else if (f8+f9 != f10) {}
+    else if (f9+f10 != f11) {}
+    else if (f10+f11 != f12) {}
+    else if (f11+f12 != f13) {}
+    else if (f12+f13 != f14) {}
+    else if (f13+f14 != f15) {}
+    else if (f14+f15 != f16) {}
+    else if (f15+f16 != f17) {}
+    else if (f16+f17 != f18) {}
+    else if (f17+f18 != f19) {}
+    else flag=1;
+
+  if (flag) 
+    putch(89);
+  else
+    putch(88);
+  putch(10);
+  return 0;
+}
