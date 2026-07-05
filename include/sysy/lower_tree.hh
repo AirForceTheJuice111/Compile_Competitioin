@@ -18,5 +18,6 @@ private:
 };
 
 tree::Program *lowerToTree(const Node &root);
+std::string emitGlobalDataSection(const Node &root);
 
 } // namespace sysy

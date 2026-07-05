@@ -46,6 +46,32 @@ int parseIntLiteral(const std::string &text) {
     return static_cast<int>(value);
 }
 
+int constIntValue(const Node &node) {
+    switch (node.kind) {
+    case NodeKind::Number:
+        if (isFloatText(node.text)) {
+            throw LoweringError(node.loc, "native backend does not support float constants yet");
+        }
+        return parseIntLiteral(node.text);
+    case NodeKind::UnaryExpr: {
+        int value = constIntValue(*node.children.at(0));
+        if (node.text == "-") {
+            return -value;
+        }
+        if (node.text == "+") {
+            return value;
+        }
+        if (node.text == "!") {
+            return value == 0 ? 1 : 0;
+        }
+        break;
+    }
+    default:
+        break;
+    }
+    throw LoweringError(node.loc, "native backend only supports constant scalar initializers for globals");
+}
+
 bool isRuntimeFunction(const std::string &name) {
     static const std::set<std::string> runtime = {
         "getint", "getch", "getarray", "putint", "putch", "putarray",
@@ -57,7 +83,12 @@ bool isRuntimeFunction(const std::string &name) {
 struct Symbol {
     tree::Temp *temp = nullptr;
     bool global = false;
+    std::string label;
 };
+
+std::string globalLabel(const std::string &name) {
+    return "__sysy_global_" + name;
+}
 
 class Lowerer {
 public:
@@ -69,9 +100,6 @@ public:
         collectGlobals(root);
 
         auto *funcs = new std::vector<tree::FuncDecl *>();
-        if (!globalSymbols_.empty()) {
-            funcs->push_back(buildGlobalInitFunction());
-        }
         for (const auto &child : root.children) {
             if (child->kind == NodeKind::FuncDef) {
                 funcs->push_back(lowerFunction(*child));
@@ -95,10 +123,6 @@ private:
         return new tree::TempExp(tree::Type::INT, new tree::Temp(temp->num));
     }
 
-    tree::Exp *addrExp(tree::Temp *temp) {
-        return new tree::TempExp(tree::Type::PTR, new tree::Temp(temp->num));
-    }
-
     tree::Exp *zero() { return new tree::Const(0); }
 
     void pushScope() { scopes_.push_back({}); }
@@ -109,7 +133,7 @@ private:
         if (scopes_.empty()) {
             throw LoweringError(loc, "internal lowering scope error");
         }
-        scopes_.back()[name] = Symbol{temp, false};
+        scopes_.back()[name] = Symbol{temp, false, {}};
     }
 
     Symbol lookup(const std::string &name, SourceLocation loc) const {
@@ -131,17 +155,15 @@ private:
             if (child->kind != NodeKind::ConstDecl && child->kind != NodeKind::VarDecl) {
                 continue;
             }
-            throw LoweringError(child->loc, "native backend does not support global variables yet");
             if (child->text != "int") {
                 throw LoweringError(child->loc, "native backend does not support float globals yet");
             }
             for (const auto &def : child->children) {
                 rejectArrayDef(*def);
-                auto *temp = newTemp();
-                globalSymbols_[def->text] = Symbol{temp, true};
+                globalSymbols_[def->text] = Symbol{nullptr, true, globalLabel(def->text)};
                 int init = 0;
                 if (!def->children.empty()) {
-                    init = constInt(*def->children.back());
+                    init = constIntValue(*def->children.back());
                 }
                 globalInitializers_[def->text] = init;
             }
@@ -156,49 +178,6 @@ private:
         }
     }
 
-    int constInt(const Node &node) {
-        switch (node.kind) {
-        case NodeKind::Number:
-            if (isFloatText(node.text)) {
-                throw LoweringError(node.loc, "native backend does not support float constants yet");
-            }
-            return parseIntLiteral(node.text);
-        case NodeKind::UnaryExpr: {
-            int value = constInt(*node.children.at(0));
-            if (node.text == "-") {
-                return -value;
-            }
-            if (node.text == "+") {
-                return value;
-            }
-            if (node.text == "!") {
-                return value == 0 ? 1 : 0;
-            }
-            break;
-        }
-        default:
-            break;
-        }
-        throw LoweringError(node.loc, "native backend only supports constant scalar initializers for globals");
-    }
-
-    tree::FuncDecl *buildGlobalInitFunction() {
-        auto *stms = new std::vector<tree::Stm *>();
-        stms->push_back(new tree::LabelStm(newLabel()));
-        for (const auto &entry : globalSymbols_) {
-            int value = 0;
-            auto init = globalInitializers_.find(entry.first);
-            if (init != globalInitializers_.end()) {
-                value = init->second;
-            }
-            stms->push_back(new tree::Move(tempExp(entry.second.temp), new tree::Const(value)));
-        }
-        stms->push_back(new tree::Return(zero()));
-        return new tree::FuncDecl("__sysy_global_init", new std::vector<tree::Temp *>(),
-                                  new tree::Seq(stms), tree::Type::INT,
-                                  temps_.next_temp - 1, temps_.next_label - 1);
-    }
-
     tree::FuncDecl *lowerFunction(const Node &node) {
         std::string ret = firstWord(node.text);
         std::string name = secondWord(node.text);
@@ -210,11 +189,6 @@ private:
         auto *params = new std::vector<tree::Temp *>();
         auto *stms = new std::vector<tree::Stm *>();
         stms->push_back(new tree::LabelStm(newLabel()));
-
-        if (name == "main" && !globalSymbols_.empty()) {
-            stms->push_back(new tree::ExpStm(new tree::ExtCall(tree::Type::INT, "__sysy_global_init",
-                                                               new std::vector<tree::Exp *>())));
-        }
 
         for (const auto &child : node.children) {
             if (child->kind != NodeKind::FuncParam) {
@@ -384,7 +358,10 @@ private:
             throw LoweringError(node.loc, "native backend does not support array indexing yet");
         }
         Symbol sym = lookup(node.text, node.loc);
-        return sym.global ? tempExp(sym.temp) : tempExp(sym.temp);
+        if (sym.global) {
+            return new tree::Mem(tree::Type::INT, new tree::Name(new tree::String_Label(sym.label)));
+        }
+        return tempExp(sym.temp);
     }
 
     tree::Exp *lowerExpr(const Node &node) {
@@ -556,6 +533,37 @@ LoweringError::LoweringError(SourceLocation loc, const std::string &message)
 tree::Program *lowerToTree(const Node &root) {
     Lowerer lowerer;
     return lowerer.lower(root);
+}
+
+std::string emitGlobalDataSection(const Node &root) {
+    Lowerer lowerer;
+    std::string out;
+    for (const auto &child : root.children) {
+        if (child->kind != NodeKind::ConstDecl && child->kind != NodeKind::VarDecl) {
+            continue;
+        }
+        if (child->text != "int") {
+            throw LoweringError(child->loc, "native backend does not support float globals yet");
+        }
+        if (out.empty()) {
+            out += "\n.section .data\n.balign 4\n";
+        }
+        for (const auto &def : child->children) {
+            for (const auto &defChild : def->children) {
+                if (defChild->kind == NodeKind::ArrayDim || defChild->kind == NodeKind::InitList) {
+                    throw LoweringError(defChild->loc, "native backend does not support arrays yet");
+                }
+            }
+            int init = 0;
+            if (!def->children.empty()) {
+                init = constIntValue(*def->children.back());
+            }
+            out += ".global " + globalLabel(def->text) + "\n";
+            out += globalLabel(def->text) + ":\n";
+            out += "    .word " + std::to_string(init) + "\n";
+        }
+    }
+    return out;
 }
 
 } // namespace sysy

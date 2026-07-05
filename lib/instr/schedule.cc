@@ -66,7 +66,7 @@ static tree::Temp *materializeTerm(
         emitLoadConst(func, tmp, termConst(term));
     } else if (term->kind == quad::QuadTermKind::NAME) {
         func.addLinearizedInstruction(AssemInstr::Oper(
-            "adr `d0, " + const_cast<quad::QuadTerm*>(term)->get_name(),
+            "ldr `d0, =" + const_cast<quad::QuadTerm*>(term)->get_name(),
             {tmp},
             {},
             AssemTargets()
