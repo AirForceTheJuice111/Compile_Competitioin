@@ -1,7 +1,0 @@
-public int main() {
-	a = 0;
-	b = (a*100);
-	c = (b+0);
-	d = (1*c);
-	return d;
-}

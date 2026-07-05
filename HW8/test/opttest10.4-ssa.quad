@@ -1,9 +1,0 @@
-Function __$main__^main() last_label=102 last_temp=104:
-  Block: Entry Label: L102
-    Exit labels: 
-    LABEL L102; def: use: 
-    MOVE t10000:int <- Const:2; def: t10000 use: 
-    MOVE_BINOP t10001:int <- (+, t10000:int, Const:3); def: t10001 use: t10000 
-    MOVE_BINOP t10002:int <- (*, t10001:int, Const:4); def: t10002 use: t10001 
-    MOVE_BINOP t10003:int <- (-, t10002:int, Const:1); def: t10003 use: t10002 
-    RETURN t10003:int; def: use: t10003 

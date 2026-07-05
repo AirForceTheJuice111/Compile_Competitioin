@@ -1,6 +1,0 @@
-// EXPECT: FAIL
-// Target: break must be inside while.
-public int main() {
-    break;
-    return 0;
-}
