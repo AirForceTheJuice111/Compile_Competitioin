@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "lexer.hh"
+#include "parser.hh"
 
 namespace {
 
@@ -19,6 +20,7 @@ struct Options {
     bool emitAssembly = false;
     bool showHelp = false;
     bool dumpTokens = false;
+    bool dumpAst = false;
     std::string output;
     std::string input;
     std::string optLevel = "-O0";
@@ -33,7 +35,8 @@ void printUsage(std::ostream &os) {
        << "SysY frontend, IR, and backend are being migrated.\n"
        << "\n"
        << "Debugging:\n"
-       << "  compiler --dump-tokens <input.sy>\n";
+       << "  compiler --dump-tokens <input.sy>\n"
+       << "  compiler --dump-ast <input.sy>\n";
 }
 
 bool isIdentifierStart(char c) {
@@ -390,6 +393,14 @@ int dumpTokens(const std::string &path, const std::string &source) {
     return ok ? 0 : 1;
 }
 
+int dumpAst(const std::string &source) {
+    sysy::NodePtr root = sysy::parseSource(source);
+    std::string out;
+    sysy::dumpAst(*root, out);
+    std::cout << out;
+    return 0;
+}
+
 Options parseArgs(int argc, char **argv) {
     Options opt;
     for (int i = 1; i < argc; ++i) {
@@ -398,6 +409,8 @@ Options parseArgs(int argc, char **argv) {
             opt.showHelp = true;
         } else if (arg == "--dump-tokens") {
             opt.dumpTokens = true;
+        } else if (arg == "--dump-ast") {
+            opt.dumpAst = true;
         } else if (arg == "-S") {
             opt.emitAssembly = true;
         } else if (arg == "-o") {
@@ -428,7 +441,7 @@ Options parseArgs(int argc, char **argv) {
     if (opt.showHelp) {
         return opt;
     }
-    if (!opt.dumpTokens && !opt.emitAssembly) {
+    if (!opt.dumpTokens && !opt.dumpAst && !opt.emitAssembly) {
         throw std::runtime_error("contest invocation must include -S");
     }
     if (opt.input.empty()) {
@@ -477,6 +490,9 @@ int main(int argc, char **argv) {
         std::string source = readFile(opt.input);
         if (opt.dumpTokens) {
             return dumpTokens(opt.input, source);
+        }
+        if (opt.dumpAst) {
+            return dumpAst(source);
         }
         std::string lowered = injectSysYPrelude(source);
 

@@ -14,7 +14,7 @@ SYSY_OPT ?= -O0
 OUT_DIR ?= $(CURDIR)/output
 RUN_WORK ?= /tmp/sysy_run_one
 
-.PHONY: build clean rebuild compile run run-one sysy-functional-regression sysy-performance-regression \
+.PHONY: build clean rebuild compile run run-one sysy-parse-regression sysy-functional-regression sysy-performance-regression \
 	legacy-build legacy-compile legacy-run legacy-run-one legacy-all-mode-regression
 
 RUN_ONE_ARG := $(word 2,$(MAKECMDGOALS))
@@ -49,6 +49,9 @@ run: sysy-functional-regression
 run-one: build $(LIBSYSY_ARM)
 	@COMPILER="$(COMPILER)" ARM_CC="$(ARM_CC)" QEMU_ARM="$(QEMU_ARM)" LIBSYSY_ARM="$(LIBSYSY_ARM)" \
 		RUN_WORK="$(RUN_WORK)" SYSY_OPT="$(SYSY_OPT)" bash scripts/sysy_run_one.sh "$(RUN_ONE_ARG)"
+
+sysy-parse-regression: build
+	@COMPILER="$(COMPILER)" SYSY_TEST_ROOT="$(SYSY_TEST_ROOT)" bash scripts/sysy_parse_regression.sh
 
 sysy-functional-regression: build $(LIBSYSY_ARM)
 	@COMPILER="$(COMPILER)" ARM_CC="$(ARM_CC)" QEMU_ARM="$(QEMU_ARM)" LIBSYSY_ARM="$(LIBSYSY_ARM)" \

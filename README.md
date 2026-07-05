@@ -40,6 +40,15 @@ particular it handles the contest runtime functions, `starttime`/`stoptime`
 macros, SysY scalar `const int` values used in array dimensions, and SysY's
 single-precision floating literal semantics.
 
+The native SysY frontend is being built in parallel under `include/sysy` and
+`lib/sysy`. Current debug hooks:
+
+```sh
+build/compiler --dump-tokens test/functional/95_float.sy
+build/compiler --dump-ast test/functional/95_float.sy
+make sysy-parse-regression
+```
+
 ## Compile SysY Tests
 
 ```sh
@@ -143,6 +152,9 @@ expect: PASS
 make run
 summary: total=140 pass=140 compile_fail=0 link_fail=0 run_fail=0 wrong=0
 
+make sysy-parse-regression
+summary: total=140 pass=140 parse_fail=0
+
 MAX_CASES=3 make sysy-performance-regression
 summary: total=3 pass=3 compile_fail=0 link_fail=0 run_fail=0 wrong=0
 ```
@@ -153,5 +165,6 @@ This branch has not yet completed the full native rewrite described in
 `contest-docs/SysY2022-vs-FDMJ2026-migration-plan.md`. The native FMJ parser,
 AST, IR, optimizer, and backend files remain in the tree and still need to be
 reworked into a self-contained SysY compiler. The current `compiler` executable
-is the functional bridge used to establish a correct SysY2022 baseline before
-that deeper rewrite.
+uses native SysY lexing/parsing for debug validation, but code generation still
+uses the functional bridge while the semantic analysis, IR lowering, and native
+backend migration are implemented.
