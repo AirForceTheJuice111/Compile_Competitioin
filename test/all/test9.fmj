@@ -1,6 +1,0 @@
-public int main() {
-	x = 10;
-	x = (x+1);
-	x = (x*2);
-	return x;
-}

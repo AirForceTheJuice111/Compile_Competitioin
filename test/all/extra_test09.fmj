@@ -1,4 +1,0 @@
-public int main() {
-	result = (((-3)*(-4))+(10/(-2)));
-	return result;
-}

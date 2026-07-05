@@ -1,18 +1,25 @@
-# FMJ Compiler Contest Branch
+# SysY2022 Contest Compiler Branch
 
-This repository root is the contest-branch package root. It contains the
-integrated FMJ compiler, tests, build scripts, converted contest documents, and
-the original final-project report.
+This repository root is the 2026 compiler-contest migration branch. The public
+contest entry is:
+
+```sh
+build/compiler -S -o output.s input.sy
+```
+
+The repository still contains the old FMJ implementation files during the
+migration, but the default contest-facing executable, tests, runtime library,
+and regression targets are now SysY2022-oriented.
 
 ## Environment
 
-The expected environment is a 64-bit Ubuntu 20.04 or newer Linux system on x86,
-with the course toolchain installed:
+Expected tools on x86_64 Linux:
 
 - `make`, `cmake`, `ninja`
 - `flex`, `bison`
 - `arm-linux-gnueabihf-gcc`
 - `qemu-arm`
+- `unzip` for performance archive regression
 
 ## Build
 
@@ -22,147 +29,129 @@ make build
 
 This builds:
 
-- `build/fmjcc`: FMJ compiler
-- `build/fmjinterp`: interpreter used by regression tests
+- `build/compiler`: SysY2022 contest entry, accepting `-S -o out.s in.sy`.
+- `build/fmjcc` and `build/fmjinterp`: legacy FMJ tools kept only as migration
+  scaffolding.
 
-## Compile Tests
+The current SysY entry is a functional migration bridge: it normalizes SysY2022
+source where C99 differs from the SysY language model, injects the official
+runtime declarations, and asks the ARM GCC toolchain to emit ARM assembly. In
+particular it handles the contest runtime functions, `starttime`/`stoptime`
+macros, SysY scalar `const int` values used in array dimensions, and SysY's
+single-precision floating literal semantics.
+
+## Compile SysY Tests
 
 ```sh
 make compile
 ```
 
-By default this recursively compiles every `.fmj` file under `test/` in all
-required optimization modes and writes results under `output/<mode>/`. The
-canonical deduplicated course corpus is already vendored as `test/all/`; it was
-assembled before the contest-layout migration from the course HW, parser, and
-final-report test sources, keeping one file per bare `.fmj` filename.
-
-The default modes are:
-
-- `none`: no optimization
-- `const`: Constant Propagation
-- `loop1`: Loop Invariant Hoisting
-- `loop2`: Induction Variable & Strength Reduction
-- `allloop`: Loop Invariant Hoisting plus Induction Variable & Strength Reduction
-- `allopt`: all optimizations
-
-Useful variables:
+This recursively compiles every `.sy` file under `test/` and writes ARM
+assembly under `output/`. The default optimization flag passed to the bridge is
+`SYSY_OPT=-O0`; it can be changed for toolchain-level experiments:
 
 ```sh
-make compile TEST_DIR=test OUT_DIR=output K=9
+make compile SYSY_OPT=-O2
 ```
 
-Each compiled source produces, at minimum:
-
-- `.1.fmj`: source print with comments removed
-- `.2-semant.ast`: AST with semantic information
-- `.3.irp`: IR+ tree
-- `.4.quad`: Quad program
-- `.4-ssa.quad`: SSA Quad program
-- `.4-ssa-final-<mode>.quad`: final Quad after the requested optimization mode
-- `.<mode>.s`: final ARM assembly for that mode
-
-Additional XML and diagnostic files are also emitted.
-
-## Run Tests
-
-The following targets recursively compile every `.fmj` file under `TEST_DIR`
-and run each successfully compiled program using qemu. Each target prints a
-per-program result line, followed by non-empty stdout/stderr blocks. Programs
-rejected by the compiler are reported as `COMPILE_FAIL`.
+## Compile One SysY Program
 
 ```sh
-make run          # no optimization
-make run-const    # Constant Propagation
-make run-loop1    # Loop Invariant Hoisting
-make run-loop2    # Induction Variable & Strength Reduction
-make run-allloop  # both loop optimizations
-make run-allopt   # all optimizations
+make build
+build/compiler -S -o /tmp/program.s test/functional/00_main.sy
+arm-linux-gnueabihf-gcc -static -mcpu=cortex-a72 \
+  -o /tmp/program.arm /tmp/program.s vendor/libsysy/libsysy_arm.a -lm
+qemu-arm /tmp/program.arm
 ```
 
-By default, batch `run*` targets run qemu on the current terminal, so programs
-that call `getint`, `getch`, or `getarray` can read input typed by the user, and
-stdout/stderr appear immediately while the program is running. When
-`RUN_TIMEOUT` is enabled, the runner uses `timeout --foreground` so terminal
-input still works. For non-interactive runs, pass `INPUT=...`; the same input
-string is supplied to every program and output is captured into the usual
-stdout/stderr blocks:
+The Makefile wrapper can compile, link, run, and compare one test case:
 
 ```sh
-make run-allopt INPUT="4 4 4 4"
+make run-one test/functional/95_float.sy
 ```
 
-Directory run and regression qemu timeout defaults to 2 seconds and can be
-overridden with:
+If a sibling `.in` file exists, it is fed to qemu. If a sibling `.out` file
+exists, the script compares stdout plus the process return-code line against
+that expectation.
+
+The vendored runtime files are copied from the official `compiler2025`
+repository:
+
+- `vendor/libsysy/libsysy_arm.a`
+- `vendor/libsysy/sylib.c`
+- `vendor/libsysy/sylib.h`
+
+## SysY Tests
+
+`test/` contains the official functional SysY2022 tests extracted from
+`functional.zip`:
+
+- `test/functional`: 100 normal functional cases.
+- `test/h_functional`: 40 hidden-style functional cases.
+
+The old FMJ `.fmj` corpus has been removed from `test/` on this branch.
+
+Run all vendored functional tests. `make run` is an alias for the same
+regression:
 
 ```sh
-make run-allopt RUN_TIMEOUT=5
-make run-allopt RUN_TIMEOUT=   # disable timeout
+make run
+make sysy-functional-regression
 ```
 
-## Compile One Program
+The regression script compiles each `.sy`, links with `libsysy_arm.a`, runs the
+ARM binary under qemu, appends the process return code as the official harness
+does, and compares exact output with the corresponding `.out` file.
+
+To run only part of the set while debugging:
 
 ```sh
-build/fmjcc --k 9 --opt-mode allopt path/to/program.fmj
-build/fmjcc --k 9 --opt-mode none path/to/program.fmj
+MAX_CASES=10 make sysy-functional-regression
 ```
 
-Supported `--opt-mode` values are `none`, `const`, `loop1`, `loop2`, `allloop`,
-and `allopt`. `--no-opt` is an alias for `--opt-mode none`.
+## Performance Archives
 
-To run one FMJ file through the compiler, linker, and qemu:
+Large performance inputs from the official repository are not expanded into
+`test/`, because the ARM/RISC-V archives contain hundreds of MB of input/output
+data. The regression target consumes an official archive on demand:
 
 ```sh
-make run-one path/to/program.fmj
-make run-one path/to/program.fmj OPT_MODE=none
-make run-one path/to/program.fmj OPT_MODE=const
-make run-one path/to/program.fmj OPT_MODE=loop1
-make run-one path/to/program.fmj OPT_MODE=loop2
-make run-one path/to/program.fmj OPT_MODE=allloop
-make run-one path/to/program.fmj OPT_MODE=allopt
+make sysy-performance-regression SYSY_PERF_ARCHIVE=/tmp/compiler2025/ARM-性能.zip
 ```
 
-To run one FMJ file in all optimization modes and compare process return code,
-stdout, stderr, and the printed FMJ return value:
+Use `MAX_CASES=N` for smoke testing:
 
 ```sh
-make run-one-all-mode path/to/program.fmj
+MAX_CASES=3 make sysy-performance-regression
 ```
 
-`run-one` and `run-one-all-mode` use the same rule: without `INPUT=...`, qemu
-runs directly on the current terminal and stderr is still captured so the
-printed FMJ return value can be reported; with `INPUT=...`, that string is
-supplied automatically and output is captured for comparison. This is the
-recommended way to compare input programs across optimization modes:
+## Current Verification
 
-```sh
-make run-one path/to/program.fmj INPUT="1 2 3"
-make run-one-all-mode path/to/program.fmj INPUT="1 2 3"
+Current checked result on this branch:
+
+```text
+make build
+build/ contains compiler only by default.
+
+make compile
+summary: total=140 pass=140 compile_fail=0 out_dir=.../output
+
+make run-one test/functional/00_main.sy
+return_code: 3
+expect: PASS
+
+make run
+summary: total=140 pass=140 compile_fail=0 link_fail=0 run_fail=0 wrong=0
+
+MAX_CASES=3 make sysy-performance-regression
+summary: total=3 pass=3 compile_fail=0 link_fail=0 run_fail=0 wrong=0
 ```
 
-`run-one` and `run-one-all-mode` also do not wrap qemu in `timeout` by default.
+## Migration Status
 
-## Regression Tests
-
-The following targets are not required by the final-project Makefile contract,
-but are kept for validation:
-
-```sh
-make compile-regression
-make interpreter-regression
-make runtime-regression
-make fuzz-regression
-make all-mode-regression
-make opt-benchmark
-```
-
-`test/` is the default corpus for `compile` and `run*`. It contains the
-deduplicated course tests, submit examples, regression cases, and programs that
-are expected to be rejected by the compiler. Tests with leading `// EXPECT:
-PASS` or `// EXPECT: FAIL` comments are checked against that expectation by the
-regression scripts; unmarked tests are still checked by the compiler and
-interpreter oracle.
-
-`make opt-benchmark` compiles and runs selected long benchmark programs in all
-six optimization modes, compares their return code and output hashes, and
-prints qemu wall-clock time plus assembly line counts for each mode.
+This branch has not yet completed the full native rewrite described in
+`contest-docs/SysY2022-vs-FDMJ2026-migration-plan.md`. The native FMJ parser,
+AST, IR, optimizer, and backend files remain in the tree and still need to be
+reworked into a self-contained SysY compiler. The current `compiler` executable
+is the functional bridge used to establish a correct SysY2022 baseline before
+that deeper rewrite.

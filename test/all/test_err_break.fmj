@@ -1,6 +1,0 @@
-public int main() {
-    int x;
-    x = 5;
-    break;
-    return 0;
-}

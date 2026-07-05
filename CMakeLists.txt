@@ -1,9 +1,17 @@
 cmake_minimum_required(VERSION 3.20)
-project(FDMJFinal VERSION 1.0)
+project(SysY2022ContestCompiler VERSION 1.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
 add_compile_options(-w)
+
+option(BUILD_LEGACY_FMJ "Build legacy FMJ compiler tools kept for migration debugging" OFF)
+
+add_executable(compiler tools/compiler/main.cc)
+
+if(NOT BUILD_LEGACY_FMJ)
+    return()
+endif()
 
 find_package(FLEX 2.6 REQUIRED)
 find_package(BISON 3.8 REQUIRED)
