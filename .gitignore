@@ -30,6 +30,7 @@
 *.la
 *.a
 *.lib
+!vendor/libsysy/libsysy_arm.a
 
 # Executables
 *.exe
@@ -39,6 +40,7 @@
 **/build
 HW11/build/
 final/output/
+output/
 **/*.pdf
 **/*.zip
 

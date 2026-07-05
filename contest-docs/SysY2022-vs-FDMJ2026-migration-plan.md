@@ -12,6 +12,20 @@
 
 迁移不是改扩展名这么简单。FDMJ 是教学用的类 Java 语言；SysY2022 是接近 C 子集的过程式语言，并增加 `float`、多维数组、全局对象和运行时库 ABI。
 
+## 0. 当前迁移状态
+
+本分支当前已经完成一层可运行的 SysY2022 功能基线：
+
+- 新增 `tools/compiler/main.cc`，构建产物为 `build/compiler`，支持竞赛常见调用 `compiler -S -o out.s in.sy`。
+- `CMakeLists.txt` 的项目名已经改为 `SysY2022ContestCompiler`，并构建 `compiler` 入口。
+- `vendor/libsysy/` 中加入官方 ARM 运行时 `libsysy_arm.a`、`sylib.c` 和 `sylib.h`。
+- `test/` 已替换为官方 `functional.zip` 中的 SysY2022 测试，旧 `.fmj` 测试已从该目录移除。
+- `make sysy-functional-regression` 会递归扫描 `test/` 中的 `.sy` 文件，编译、链接、qemu 运行，并与 `.out` 精确比较。
+- 已验证 `make sysy-functional-regression` 结果为 `total=140 pass=140 compile_fail=0 link_fail=0 run_fail=0 wrong=0`。
+- 新增 `make sysy-performance-regression`，可对官方性能 zip 按需解压并复用同一套编译运行比较流程；已用 `MAX_CASES=3` 对 `ARM-性能.zip` 做 smoke test，结果为 3/3 通过。
+
+这层功能基线目前通过 ARM GCC 生成汇编，不是最终形态的自研 SysY 前端/IR/后端。它的作用是先固定 SysY2022 语义、运行库 ABI 和官方测试期望，再逐步把下文列出的 FMJ 原生组件替换为 SysY 原生实现。完整迁移仍要求重写或大幅改造 `lib/frontend`、`lib/ast`、`lib/ir`、`lib/quad`、`lib/opt`、`lib/instr` 和 `lib/reg` 中仍然面向 FMJ 的部分。
+
 ## 1. 输入、输出和提交接口
 
 | 项目 | FDMJ2026 | SysY2022 | 需要修改 |

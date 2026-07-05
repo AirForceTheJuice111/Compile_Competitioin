@@ -1,9 +1,0 @@
-------Parsing fmj source file: final/test/regression/HW9__test__opttest1.fmj------------
-Convert AST  to XML...
-Writing AST to file: final/test/regression/HW9__test__opttest1.2.ast
-======Class Table:
-======End of Class Table
-SSA_DIAG_BEGIN func=__$main__^main
-SSA_TEMP_DIAG temp=t101 candidate_phi=[L102] actual_phi=[L102] created=[v1@{L103}]
-SSA_TEMP_DIAG temp=t102 candidate_phi=[L102] actual_phi=[L102] created=[v1@{L102},v2@{L103}]
-SSA_DIAG_END func=__$main__^main

@@ -1,8 +1,0 @@
-public int main() {
-    int x;
-    x = 6;
-    while (0) {
-        x = getint();
-    }
-    return x;
-}

@@ -1,2 +1,0 @@
-/usr/lib/gcc-cross/arm-linux-gnueabihf/13/../../../../arm-linux-gnueabihf/bin/ld: warning: /tmp/cc6Vm4yB.o: missing .note.GNU-stack section implies executable stack
-/usr/lib/gcc-cross/arm-linux-gnueabihf/13/../../../../arm-linux-gnueabihf/bin/ld: NOTE: This behaviour is deprecated and will be removed in a future version of the linker

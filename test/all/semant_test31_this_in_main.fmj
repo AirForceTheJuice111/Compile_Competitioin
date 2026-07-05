@@ -1,5 +1,0 @@
-// EXPECT: FAIL
-// Target: this is forbidden in main.
-public int main() {
-    return this;
-}
