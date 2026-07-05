@@ -1,0 +1,9 @@
+// EXPECT: FAIL
+int f(int a) {
+  return a;
+}
+
+int main() {
+  int a[2] = {1, 2};
+  return f(a);
+}

@@ -15,9 +15,24 @@ enum class SymbolKind {
     Func
 };
 
+enum class BaseType {
+    Int,
+    Float,
+    Void,
+    Unknown
+};
+
+struct ValueType {
+    BaseType base = BaseType::Unknown;
+    int arrayDims = 0;
+
+    bool isNumericScalar() const { return arrayDims == 0 && (base == BaseType::Int || base == BaseType::Float); }
+};
+
 struct Symbol {
     SymbolKind kind = SymbolKind::Var;
-    std::string type;
+    ValueType type;
+    std::vector<ValueType> params;
     SourceLocation loc;
 };
 
@@ -48,7 +63,11 @@ private:
     void analyzeFunc(const Node &node);
     void analyzeBlock(const Node &node, bool createScope);
     void analyzeStmt(const Node &node);
-    void analyzeExpr(const Node &node);
+    ValueType analyzeExpr(const Node &node);
+    ValueType makeType(const std::string &base, int arrayDims = 0) const;
+    ValueType nodeDeclaredType(const Node &decl, const Node &def) const;
+    static bool assignmentCompatible(ValueType lhs, ValueType rhs);
+    static std::string typeName(ValueType type);
 
     static std::string firstWord(const std::string &text);
     static std::string secondWord(const std::string &text);

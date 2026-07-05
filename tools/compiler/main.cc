@@ -411,6 +411,11 @@ int checkSysY(const std::string &source) {
     return 0;
 }
 
+void runNativeFrontendChecks(const std::string &source) {
+    sysy::NodePtr root = sysy::parseSource(source);
+    sysy::checkSemantics(*root);
+}
+
 Options parseArgs(int argc, char **argv) {
     Options opt;
     for (int i = 1; i < argc; ++i) {
@@ -509,6 +514,7 @@ int main(int argc, char **argv) {
         if (opt.checkSysY) {
             return checkSysY(source);
         }
+        runNativeFrontendChecks(source);
         std::string lowered = injectSysYPrelude(source);
 
         std::string tempPath = "/tmp/sysycc_" + std::to_string(static_cast<long long>(getpid())) + ".c";
