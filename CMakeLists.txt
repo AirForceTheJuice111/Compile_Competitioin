@@ -7,8 +7,68 @@ add_compile_options(-w)
 
 option(BUILD_LEGACY_FMJ "Build legacy FMJ compiler tools kept for migration debugging" OFF)
 
-add_executable(compiler tools/compiler/main.cc lib/sysy/lexer.cc lib/sysy/parser.cc lib/sysy/semantics.cc)
-target_include_directories(compiler PRIVATE include/sysy)
+set(BACKEND_SOURCES
+    lib/backend/backend_driver.cc
+    lib/ir/canon.cc
+    lib/ir/treep.cc
+    lib/quad/blocking.cc
+    lib/quad/quad.cc
+    lib/quad/quadssa.cc
+    lib/quad/quadssa_diag.cc
+    lib/quad/tree2quad.cc
+    lib/quadflow/controlflowinfo.cc
+    lib/quadflow/dataflowinfo.cc
+    lib/quadflow/flowinfo.cc
+    lib/opt/defusechain.cc
+    lib/opt/loopheaderwithflow.cc
+    lib/opt/loophoistfunc.cc
+    lib/opt/loopinductionbasic.cc
+    lib/opt/loopinductionderived.cc
+    lib/opt/loopinductionelimination.cc
+    lib/opt/loopinductionopt.cc
+    lib/opt/loopoptanalysis.cc
+    lib/opt/loopoptreport.cc
+    lib/opt/loopstrengthreduction.cc
+    lib/opt/opt.cc
+    lib/instr/advDFG.cc
+    lib/instr/asmdataflow.cc
+    lib/instr/asmprog.cc
+    lib/instr/asmprog2colored.cc
+    lib/instr/buildAdvDFG.cc
+    lib/instr/buildPreSchedule.cc
+    lib/instr/fileSchedule.cc
+    lib/instr/preSchedule.cc
+    lib/instr/predataflowpass.cc
+    lib/instr/schedule.cc
+    lib/instr/selectInstr.cc
+    lib/reg/buildIg.cc
+    lib/reg/coloring.cc
+    lib/reg/ig.cc
+    lib/reg/simcoafrespisel.cc
+)
+
+add_executable(compiler
+    tools/compiler/main.cc
+    lib/sysy/lexer.cc
+    lib/sysy/lower_tree.cc
+    lib/sysy/parser.cc
+    lib/sysy/semantics.cc
+    vendor/tinyxml2/tinyxml2.cc
+    ${BACKEND_SOURCES}
+)
+target_include_directories(compiler PRIVATE
+    include/backend
+    include/sysy
+    include/ast
+    include/ir
+    include/quad
+    include/quadflow
+    include/opt
+    include/util
+    include/instr
+    include/reg
+    vendor/tinyxml2
+)
 
 if(NOT BUILD_LEGACY_FMJ)
     return()
@@ -18,6 +78,7 @@ find_package(FLEX 2.6 REQUIRED)
 find_package(BISON 3.8 REQUIRED)
 
 include_directories(include/ast)
+include_directories(include/backend)
 include_directories(include/frontend)
 include_directories(include/ir)
 include_directories(include/quad)
@@ -44,28 +105,8 @@ set(FINAL_SOURCES
     lib/ast/setnamemaps.cc
     lib/ast/semantanlyzer.cc
     lib/ir/ast2tree.cc
-    lib/ir/canon.cc
     lib/ir/tr_exp.cc
-    lib/ir/treep.cc
-    lib/quad/blocking.cc
-    lib/quad/quad.cc
-    lib/quad/quadssa.cc
-    lib/quad/quadssa_diag.cc
-    lib/quad/tree2quad.cc
-    lib/quadflow/controlflowinfo.cc
-    lib/quadflow/dataflowinfo.cc
-    lib/quadflow/flowinfo.cc
-    lib/opt/defusechain.cc
-    lib/opt/loopheaderwithflow.cc
-    lib/opt/loophoistfunc.cc
-    lib/opt/loopinductionbasic.cc
-    lib/opt/loopinductionderived.cc
-    lib/opt/loopinductionelimination.cc
-    lib/opt/loopinductionopt.cc
-    lib/opt/loopoptanalysis.cc
-    lib/opt/loopoptreport.cc
-    lib/opt/loopstrengthreduction.cc
-    lib/opt/opt.cc
+    ${BACKEND_SOURCES}
     lib/util/ast2xml.cc
     lib/util/flow2xml.cc
     lib/util/print_config.cc
@@ -77,21 +118,6 @@ set(FINAL_SOURCES
     lib/util/xml2flow.cc
     lib/util/xml2quad.cc
     lib/util/xml2tree.cc
-    lib/instr/advDFG.cc
-    lib/instr/asmdataflow.cc
-    lib/instr/asmprog.cc
-    lib/instr/asmprog2colored.cc
-    lib/instr/buildAdvDFG.cc
-    lib/instr/buildPreSchedule.cc
-    lib/instr/fileSchedule.cc
-    lib/instr/preSchedule.cc
-    lib/instr/predataflowpass.cc
-    lib/instr/schedule.cc
-    lib/instr/selectInstr.cc
-    lib/reg/buildIg.cc
-    lib/reg/coloring.cc
-    lib/reg/ig.cc
-    lib/reg/simcoafrespisel.cc
 )
 
 add_executable(fmjcc tools/fmjcc/main.cc ${FINAL_SOURCES})

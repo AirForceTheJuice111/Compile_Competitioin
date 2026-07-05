@@ -1,6 +1,7 @@
 #include <iostream>
 #include <map>
 #include <set>
+#include <cstdlib>
 #include "quad.hh"
 #include "quadssa.hh"
 #include "quadssa_diag.hh"
@@ -68,6 +69,11 @@ static bool hasNonRootVersion(const map<int, set<int>>& versionBlocks) {
 }
 
 void printSsaDiagSummary(quad::QuadFuncDecl* func, SsaDiagState& diag) {
+    const char *enabled = std::getenv("SSA_DIAG");
+    if (enabled == nullptr || enabled[0] == '\0' || std::string(enabled) == "0") {
+        return;
+    }
+
     recordActualPhiBlocks(func, diag);
 
     cout << "SSA_DIAG_BEGIN func=" << diag.funcName << endl;
