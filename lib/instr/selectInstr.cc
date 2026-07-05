@@ -113,7 +113,7 @@ static tree::Temp *materializeTerm(
         }
     } else if (term->kind == quad::QuadTermKind::NAME) {
         schedBlock.addSelectedInstruction(AssemInstr::Oper(
-            "adr `d0, " + termName(term),
+            "ldr `d0, =" + termName(term),
             {tmp},
             {},
             AssemTargets()

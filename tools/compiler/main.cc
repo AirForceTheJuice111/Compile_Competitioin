@@ -431,7 +431,7 @@ int compileWithNativeBackend(const Options &opt, const std::string &source) {
     if (!result.ok) {
         throw std::runtime_error("native backend failed: " + result.error);
     }
-    writeFile(opt.output, result.assembly);
+    writeFile(opt.output, result.assembly + sysy::emitGlobalDataSection(*root));
     return 0;
 }
 
