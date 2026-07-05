@@ -23,6 +23,7 @@
 - `make sysy-functional-regression` 会递归扫描 `test/` 中的 `.sy` 文件，编译、链接、qemu 运行，并与 `.out` 精确比较。
 - 已验证 `make sysy-functional-regression` 结果为 `total=140 pass=140 compile_fail=0 link_fail=0 run_fail=0 wrong=0`。
 - 新增 `make sysy-performance-regression`，可对官方性能 zip 按需解压并复用同一套编译运行比较流程；已用 `MAX_CASES=3` 对 `ARM-性能.zip` 做 smoke test，结果为 3/3 通过。
+- 新增 `include/sysy/lexer.hh` 与 `lib/sysy/lexer.cc`，作为原生 SysY 前端的第一块基础设施；`compiler --dump-tokens file.sy` 可以用该 lexer 输出 token 流，并已验证官方 functional 140 个 `.sy` 文件均无 invalid token。
 
 这层功能基线目前通过 ARM GCC 生成汇编，不是最终形态的自研 SysY 前端/IR/后端。它的作用是先固定 SysY2022 语义、运行库 ABI 和官方测试期望，再逐步把下文列出的 FMJ 原生组件替换为 SysY 原生实现。完整迁移仍要求重写或大幅改造 `lib/frontend`、`lib/ast`、`lib/ir`、`lib/quad`、`lib/opt`、`lib/instr` 和 `lib/reg` 中仍然面向 FMJ 的部分。
 
