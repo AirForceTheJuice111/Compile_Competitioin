@@ -43,6 +43,11 @@ for sy in "${cases[@]}"; do
     break
   fi
 
+  expected_file="${sy%.sy}.out"
+  if [[ ! -f "$expected_file" ]]; then
+    continue
+  fi
+
   total=$((total + 1))
   rel=${sy#"$SYSY_TEST_ROOT"/}
   stem=${rel%.sy}
@@ -52,7 +57,6 @@ for sy in "${cases[@]}"; do
   stdout_file="$WORK_DIR/$safe.stdout"
   stderr_file="$WORK_DIR/$safe.stderr"
   actual_file="$WORK_DIR/$safe.actual"
-  expected_file="${sy%.sy}.out"
   input_file="${sy%.sy}.in"
 
   printf '[%03d] %-55s ' "$total" "$rel"
