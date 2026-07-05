@@ -6,6 +6,7 @@
 #include <cctype>
 #include <cstdlib>
 #include <map>
+#include <numeric>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -66,6 +67,24 @@ int constIntValue(const Node &node) {
         }
         break;
     }
+    case NodeKind::BinaryExpr: {
+        int lhs = constIntValue(*node.children.at(0));
+        int rhs = constIntValue(*node.children.at(1));
+        if (node.text == "+") return lhs + rhs;
+        if (node.text == "-") return lhs - rhs;
+        if (node.text == "*") return lhs * rhs;
+        if (node.text == "/") return rhs == 0 ? 0 : lhs / rhs;
+        if (node.text == "%") return rhs == 0 ? 0 : lhs % rhs;
+        if (node.text == "==") return lhs == rhs;
+        if (node.text == "!=") return lhs != rhs;
+        if (node.text == "<") return lhs < rhs;
+        if (node.text == ">") return lhs > rhs;
+        if (node.text == "<=") return lhs <= rhs;
+        if (node.text == ">=") return lhs >= rhs;
+        if (node.text == "&&") return (lhs != 0) && (rhs != 0);
+        if (node.text == "||") return (lhs != 0) || (rhs != 0);
+        break;
+    }
     default:
         break;
     }
@@ -84,10 +103,91 @@ struct Symbol {
     tree::Temp *temp = nullptr;
     bool global = false;
     std::string label;
+    std::vector<int> dims;
 };
 
 std::string globalLabel(const std::string &name) {
     return "__sysy_global_" + name;
+}
+
+int dimProduct(const std::vector<int> &dims) {
+    if (dims.empty()) {
+        return 1;
+    }
+    return std::accumulate(dims.begin(), dims.end(), 1, [](int acc, int dim) {
+        return acc * dim;
+    });
+}
+
+bool isArraySymbol(const Symbol &sym) {
+    return !sym.dims.empty();
+}
+
+std::size_t dimSpan(const std::vector<int> &dims, std::size_t level) {
+    std::size_t span = 1;
+    for (std::size_t i = level; i < dims.size(); ++i) {
+        span *= static_cast<std::size_t>(dims[i]);
+    }
+    return span;
+}
+
+std::size_t initListChildLevel(const std::vector<int> &dims,
+                               std::size_t currentLevel,
+                               std::size_t flatPos) {
+    std::size_t level = std::min(currentLevel + 1, dims.size());
+    while (level < dims.size()) {
+        std::size_t span = dimSpan(dims, level);
+        if (span == 0 || flatPos % span == 0) {
+            break;
+        }
+        ++level;
+    }
+    return level;
+}
+
+template <typename Value, typename MakeScalar>
+void fillArrayInitializerList(const Node &node, const std::vector<int> &dims,
+                              std::size_t level, std::size_t begin, std::size_t end,
+                              std::vector<Value> &values, MakeScalar makeScalar) {
+    if (node.kind != NodeKind::InitList) {
+        if (begin >= end) {
+            throw LoweringError(node.loc, "too many array initializer elements for native backend");
+        }
+        values[begin] = makeScalar(node);
+        return;
+    }
+
+    std::size_t pos = begin;
+    for (const auto &child : node.children) {
+        if (pos >= end) {
+            throw LoweringError(child->loc, "too many array initializer elements for native backend");
+        }
+        if (child->kind == NodeKind::InitList) {
+            std::size_t childLevel = initListChildLevel(dims, level, pos);
+            std::size_t childSpan = dimSpan(dims, childLevel);
+            if (pos + childSpan > end) {
+                throw LoweringError(child->loc, "too many array initializer elements for native backend");
+            }
+            fillArrayInitializerList(*child, dims, childLevel, pos, pos + childSpan, values, makeScalar);
+            pos += childSpan;
+        } else {
+            values[pos] = makeScalar(*child);
+            ++pos;
+        }
+    }
+}
+
+template <typename Value, typename MakeScalar>
+void fillArrayInitializer(const Node &node, const std::vector<int> &dims,
+                          std::vector<Value> &values, MakeScalar makeScalar) {
+    if (values.empty()) {
+        return;
+    }
+    if (node.kind == NodeKind::InitList) {
+        fillArrayInitializerList(node, dims, 0, 0, values.size(), values, makeScalar);
+    } else {
+        values[0] = makeScalar(node);
+    }
 }
 
 class Lowerer {
@@ -133,7 +233,15 @@ private:
         if (scopes_.empty()) {
             throw LoweringError(loc, "internal lowering scope error");
         }
-        scopes_.back()[name] = Symbol{temp, false, {}};
+        scopes_.back()[name] = Symbol{temp, false, {}, {}};
+    }
+
+    void declareLocalArray(const std::string &name, tree::Temp *temp,
+                           std::vector<int> dims, SourceLocation loc) {
+        if (scopes_.empty()) {
+            throw LoweringError(loc, "internal lowering scope error");
+        }
+        scopes_.back()[name] = Symbol{temp, false, {}, std::move(dims)};
     }
 
     Symbol lookup(const std::string &name, SourceLocation loc) const {
@@ -159,23 +267,64 @@ private:
                 throw LoweringError(child->loc, "native backend does not support float globals yet");
             }
             for (const auto &def : child->children) {
-                rejectArrayDef(*def);
-                globalSymbols_[def->text] = Symbol{nullptr, true, globalLabel(def->text)};
-                int init = 0;
-                if (!def->children.empty()) {
-                    init = constIntValue(*def->children.back());
+                std::vector<int> dims = arrayDims(*def);
+                globalSymbols_[def->text] = Symbol{nullptr, true, globalLabel(def->text), dims};
+                if (dims.empty()) {
+                    int init = 0;
+                    if (!def->children.empty()) {
+                        init = constIntValue(*def->children.back());
+                    }
+                    globalInitializers_[def->text] = init;
                 }
-                globalInitializers_[def->text] = init;
             }
         }
     }
 
-    void rejectArrayDef(const Node &def) {
+    std::vector<int> arrayDims(const Node &def) {
+        std::vector<int> dims;
         for (const auto &child : def.children) {
-            if (child->kind == NodeKind::ArrayDim || child->kind == NodeKind::InitList) {
-                throw LoweringError(child->loc, "native backend does not support arrays yet");
+            if (child->kind != NodeKind::ArrayDim) {
+                continue;
+            }
+            if (child->children.empty()) {
+                throw LoweringError(child->loc, "native backend does not support omitted array dimensions yet");
+            }
+            int dim = constIntValue(*child->children.at(0));
+            if (dim <= 0) {
+                throw LoweringError(child->loc, "array dimension must be positive for native backend");
+            }
+            dims.push_back(dim);
+        }
+        return dims;
+    }
+
+    const Node *initializerNode(const Node &def) const {
+        for (const auto &child : def.children) {
+            if (child->kind != NodeKind::ArrayDim) {
+                return child.get();
             }
         }
+        return nullptr;
+    }
+
+    std::vector<tree::Exp *> arrayInitializerExprs(const Node &def, const std::vector<int> &dims) {
+        std::vector<tree::Exp *> values(static_cast<std::size_t>(dimProduct(dims)), nullptr);
+        const Node *init = initializerNode(def);
+        if (init == nullptr) {
+            for (auto *&value : values) {
+                value = zero();
+            }
+            return values;
+        }
+        fillArrayInitializer(*init, dims, values, [this](const Node &scalar) {
+            return lowerExpr(scalar);
+        });
+        for (auto *&value : values) {
+            if (value == nullptr) {
+                value = zero();
+            }
+        }
+        return values;
     }
 
     tree::FuncDecl *lowerFunction(const Node &node) {
@@ -197,12 +346,22 @@ private:
             if (firstWord(child->text) != "int") {
                 throw LoweringError(child->loc, "native backend does not support float parameters yet");
             }
-            if (!child->children.empty()) {
-                throw LoweringError(child->loc, "native backend does not support array parameters yet");
-            }
             auto *param = newTemp();
             params->push_back(param);
-            declareLocal(secondWord(child->text), param, child->loc);
+            std::vector<int> dims;
+            if (!child->children.empty()) {
+                for (const auto &dim : child->children) {
+                    if (dim->kind != NodeKind::ArrayDim) {
+                        continue;
+                    }
+                    dims.push_back(dim->children.empty() ? -1 : constIntValue(*dim->children.at(0)));
+                }
+            }
+            if (dims.empty()) {
+                declareLocal(secondWord(child->text), param, child->loc);
+            } else {
+                declareLocalArray(secondWord(child->text), param, std::move(dims), child->loc);
+            }
         }
 
         for (const auto &child : node.children) {
@@ -259,8 +418,22 @@ private:
             throw LoweringError(node.loc, "native backend does not support float locals yet");
         }
         for (const auto &def : node.children) {
-            rejectArrayDef(*def);
+            std::vector<int> dims = arrayDims(*def);
             auto *temp = newTemp();
+            if (!dims.empty()) {
+                declareLocalArray(def->text, temp, dims, def->loc);
+                int totalBytes = dimProduct(dims) * 4;
+                auto *mallocArgs = new std::vector<tree::Exp *>({new tree::Const(totalBytes)});
+                stms->push_back(new tree::Move(new tree::TempExp(tree::Type::PTR, new tree::Temp(temp->num)),
+                                               new tree::ExtCall(tree::Type::PTR, "malloc", mallocArgs)));
+                std::vector<tree::Exp *> values = arrayInitializerExprs(*def, dims);
+                for (std::size_t i = 0; i < values.size(); ++i) {
+                    stms->push_back(new tree::Move(
+                        new tree::Mem(tree::Type::INT, arrayElementAddress(Symbol{temp, false, {}, dims}, i)),
+                        values[i]));
+                }
+                continue;
+            }
             declareLocal(def->text, temp, def->loc);
             tree::Exp *init = zero();
             if (!def->children.empty()) {
@@ -354,14 +527,60 @@ private:
     }
 
     tree::Exp *lowerLValue(const Node &node) {
-        if (!node.children.empty()) {
-            throw LoweringError(node.loc, "native backend does not support array indexing yet");
-        }
         Symbol sym = lookup(node.text, node.loc);
+        if (isArraySymbol(sym)) {
+            if (node.children.empty()) {
+                return arrayBase(sym);
+            }
+            if (node.children.size() > sym.dims.size()) {
+                throw LoweringError(node.loc, "too many array indices for native backend");
+            }
+            tree::Exp *offset = linearizedIndex(sym, node);
+            tree::Exp *addr = new tree::Binop(tree::Type::PTR, "+", arrayBase(sym),
+                                              new tree::Binop(tree::Type::INT, "*", offset, new tree::Const(4)));
+            if (node.children.size() == sym.dims.size()) {
+                return new tree::Mem(tree::Type::INT, addr);
+            }
+            return addr;
+        }
+        if (!node.children.empty()) {
+            throw LoweringError(node.loc, "cannot index scalar in native backend");
+        }
         if (sym.global) {
             return new tree::Mem(tree::Type::INT, new tree::Name(new tree::String_Label(sym.label)));
         }
         return tempExp(sym.temp);
+    }
+
+    tree::Exp *arrayBase(const Symbol &sym) {
+        if (sym.global) {
+            return new tree::Name(new tree::String_Label(sym.label));
+        }
+        return new tree::TempExp(tree::Type::PTR, new tree::Temp(sym.temp->num));
+    }
+
+    tree::Exp *arrayElementAddress(const Symbol &sym, std::size_t flatIndex) {
+        return new tree::Binop(tree::Type::PTR, "+", arrayBase(sym),
+                               new tree::Const(static_cast<int>(flatIndex) * 4));
+    }
+
+    tree::Exp *linearizedIndex(const Symbol &sym, const Node &lval) {
+        tree::Exp *result = zero();
+        for (std::size_t i = 0; i < lval.children.size(); ++i) {
+            int stride = 1;
+            for (std::size_t j = i + 1; j < sym.dims.size(); ++j) {
+                if (sym.dims[j] <= 0) {
+                    throw LoweringError(lval.loc, "native backend needs known non-first array dimensions");
+                }
+                stride *= sym.dims[j];
+            }
+            tree::Exp *term = lowerExpr(*lval.children.at(i));
+            if (stride != 1) {
+                term = new tree::Binop(tree::Type::INT, "*", term, new tree::Const(stride));
+            }
+            result = new tree::Binop(tree::Type::INT, "+", result, term);
+        }
+        return result;
     }
 
     tree::Exp *lowerExpr(const Node &node) {
@@ -549,18 +768,46 @@ std::string emitGlobalDataSection(const Node &root) {
             out += "\n.section .data\n.balign 4\n";
         }
         for (const auto &def : child->children) {
+            std::vector<int> dims;
             for (const auto &defChild : def->children) {
-                if (defChild->kind == NodeKind::ArrayDim || defChild->kind == NodeKind::InitList) {
-                    throw LoweringError(defChild->loc, "native backend does not support arrays yet");
+                if (defChild->kind != NodeKind::ArrayDim) {
+                    continue;
                 }
-            }
-            int init = 0;
-            if (!def->children.empty()) {
-                init = constIntValue(*def->children.back());
+                if (defChild->children.empty()) {
+                    throw LoweringError(defChild->loc, "native backend does not support omitted global dimensions yet");
+                }
+                int dim = constIntValue(*defChild->children.at(0));
+                if (dim <= 0) {
+                    throw LoweringError(defChild->loc, "array dimension must be positive for native backend");
+                }
+                dims.push_back(dim);
             }
             out += ".global " + globalLabel(def->text) + "\n";
             out += globalLabel(def->text) + ":\n";
-            out += "    .word " + std::to_string(init) + "\n";
+            if (dims.empty()) {
+                int init = 0;
+                if (!def->children.empty()) {
+                    init = constIntValue(*def->children.back());
+                }
+                out += "    .word " + std::to_string(init) + "\n";
+            } else {
+                std::vector<int> values(dimProduct(dims), 0);
+                const Node *init = nullptr;
+                for (const auto &defChild : def->children) {
+                    if (defChild->kind != NodeKind::ArrayDim) {
+                        init = defChild.get();
+                        break;
+                    }
+                }
+                if (init != nullptr) {
+                    fillArrayInitializer(*init, dims, values, [](const Node &scalar) {
+                        return constIntValue(scalar);
+                    });
+                }
+                for (int value : values) {
+                    out += "    .word " + std::to_string(value) + "\n";
+                }
+            }
         }
     }
     return out;
