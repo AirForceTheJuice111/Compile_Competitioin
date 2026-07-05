@@ -46,7 +46,9 @@ The native SysY frontend is being built in parallel under `include/sysy` and
 ```sh
 build/compiler --dump-tokens test/functional/95_float.sy
 build/compiler --dump-ast test/functional/95_float.sy
+build/compiler --check-sysy test/functional/95_float.sy
 make sysy-parse-regression
+make sysy-semantic-regression
 ```
 
 ## Compile SysY Tests
@@ -153,7 +155,10 @@ make run
 summary: total=140 pass=140 compile_fail=0 link_fail=0 run_fail=0 wrong=0
 
 make sysy-parse-regression
-summary: total=140 pass=140 parse_fail=0
+summary: total=146 pass=146 parse_fail=0
+
+make sysy-semantic-regression
+summary: total=146 pass=140 expected_fail=6 semantic_fail=0
 
 MAX_CASES=3 make sysy-performance-regression
 summary: total=3 pass=3 compile_fail=0 link_fail=0 run_fail=0 wrong=0
@@ -166,5 +171,5 @@ This branch has not yet completed the full native rewrite described in
 AST, IR, optimizer, and backend files remain in the tree and still need to be
 reworked into a self-contained SysY compiler. The current `compiler` executable
 uses native SysY lexing/parsing for debug validation, but code generation still
-uses the functional bridge while the semantic analysis, IR lowering, and native
-backend migration are implemented.
+uses the functional bridge while the full semantic/type analysis, IR lowering,
+and native backend migration are implemented.

@@ -1,0 +1,6 @@
+// EXPECT: FAIL
+int a;
+int a;
+int main() {
+  return 0;
+}

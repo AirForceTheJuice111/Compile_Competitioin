@@ -26,6 +26,9 @@ failed=0
 mapfile -t cases < <(find "$SYSY_TEST_ROOT" -type f -name '*.sy' | sort)
 
 for sy in "${cases[@]}"; do
+  if sed -n '1,5p' "$sy" | grep -q 'EXPECT:[[:space:]]*FAIL'; then
+    continue
+  fi
   total=$((total + 1))
   rel=${sy#"$SYSY_TEST_ROOT"/}
   stem=${rel%.sy}
