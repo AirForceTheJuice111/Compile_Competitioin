@@ -91,7 +91,7 @@ enum class QuadTermKind {
     TEMP, CONST, NAME
 };
 
-enum class QuadType {INT, PTR};
+enum class QuadType {INT, FLOAT, PTR};
 
 string quadTypeToString(QuadType type);
 

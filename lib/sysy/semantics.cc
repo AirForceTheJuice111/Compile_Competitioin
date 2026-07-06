@@ -77,6 +77,8 @@ void SemanticAnalyzer::analyze(const Node &root) {
         {"putfloat", {SymbolKind::Func, makeType("void"), {makeType("float")}, root.loc}},
         {"putfarray", {SymbolKind::Func, makeType("void"), {makeType("int"), makeType("float", 1)}, root.loc}},
         {"putf", {SymbolKind::Func, makeType("void"), {}, root.loc}},
+        {"starttime", {SymbolKind::Func, makeType("void"), {}, root.loc}},
+        {"stoptime", {SymbolKind::Func, makeType("void"), {}, root.loc}},
         {"_sysy_starttime", {SymbolKind::Func, makeType("void"), {makeType("int")}, root.loc}},
         {"_sysy_stoptime", {SymbolKind::Func, makeType("void"), {makeType("int")}, root.loc}},
     };

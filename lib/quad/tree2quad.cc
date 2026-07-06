@@ -21,6 +21,9 @@ using namespace quad;
 
 // Helper: convert tree::Type to quad::QuadType
 static QuadType toQuadType(tree::Type t) {
+    if (t == tree::Type::FLOAT) {
+        return QuadType::FLOAT;
+    }
     return (t == tree::Type::INT) ? QuadType::INT : QuadType::PTR;
 }
 

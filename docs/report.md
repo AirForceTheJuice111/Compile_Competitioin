@@ -8,6 +8,48 @@ using_table_of_content: true
 
 # Final Project 实验报告
 
+## Contest 分支迁移附录
+
+本仓库当前 `contest` 分支已经把原 `final/` 工程迁移到仓库根目录，并新增 SysY2022 比赛入口 `tools/compiler/main.cc`。默认构建产物为 `build/compiler`，调用接口为：
+
+```sh
+build/compiler -S -o output.s input.sy
+```
+
+该入口使用 `include/sysy` 与 `lib/sysy` 中的新 lexer、递归下降 parser 和语义检查器完成 SysY2022 前端检查，然后通过 ARM GCC 桥接生成 ARM 汇编。这样做的工程目的，是先把 SysY2022 的语法、语义、运行库 ABI、测试组织和提交接口固定下来，再继续把旧 FDMJ 的 Tree/Quad/SSA/ARM 后端逐步替换为完整 SysY 原生后端。
+
+当前分支的 SysY 验证结果如下：
+
+```text
+make compile
+summary: total=140 pass=140 compile_fail=0
+
+make run
+summary: total=140 pass=140 compile_fail=0 link_fail=0 run_fail=0 wrong=0
+
+make sysy-parse-regression
+summary: total=151 pass=151 parse_fail=0
+
+make sysy-semantic-regression
+summary: total=151 pass=140 expected_fail=11 semantic_fail=0
+
+MAX_CASES=3 make sysy-performance-regression SYSY_PERF_ARCHIVE=/tmp/compiler2025/ARM-性能.zip
+summary: total=3 pass=3 compile_fail=0 link_fail=0 run_fail=0 wrong=0
+```
+
+`test/` 目录现在只保留 SysY2022 `.sy` 测试和对应 `.in`/`.out`，旧 FMJ `.fmj` 测试已从该目录移除。`test/functional` 与 `test/h_functional` 来自官方 functional 测试；`test/reject` 是本地语义拒绝用例，用文件头的 `EXPECT: FAIL` 标记驱动 `sysy-semantic-regression`。
+
+原生后端迁移也已经开始：`build/compiler --native-backend -S -O0 -o out.s input.sy` 会把 SysY AST 直接 lowered 到旧 FDMJ 迁移来的 Tree/Quad/SSA/ARM 后端。目前该路径已经覆盖官方 functional/h_functional 的 `-O0` 功能用例：
+
+```text
+SYSY_OPT=--native-backend bash scripts/sysy_functional_regression.sh
+summary: total=140 pass=140 compile_fail=0 link_fail=0 run_fail=0 wrong=0
+```
+
+native 路径中的 `float` 采用保守的可验证设计：在 Tree 和 Quad 中增加 `FLOAT` 类型，但值仍以 32 位 IEEE-754 raw bits 存放在普通临时变量和内存槽中；`float` 常量、变量、数组、参数、返回值和隐式 int/float 转换都在 `lib/sysy/lower_tree.cc` 中降低。指令选择阶段把浮点加减乘除、比较和类型转换映射到 ARM EABI 的 `__aeabi_*` helper；对 `getfloat`、`putfloat`、`getfarray` 和 `putfarray` 这类 hard-float 运行库函数，则在通用寄存器与 VFP `s0/s1` 之间插入 `vmov` 桥接。为了满足 AAPCS，最终着色阶段还保证函数调用点的 `sp` 按 8 字节对齐。
+
+这条 native 路径说明旧 FDMJ 后端已经可以承载 SysY 的主要语言结构；不过默认比赛入口仍保留 ARM GCC bridge，因为 native lowering 尚未支持字符串 literal 和 `putf`，性能归档也只做了 smoke test，旧优化 pass 对 SysY float 和内存语义还需要继续审计。
+
 ## 引言
 
 本报告说明 FMJ 编译器的完整实现，旨在解释本项目代码如何把一个 `.fmj` 源程序一步步变成可在 qemu-arm 上运行的 ARM 汇编。报告最初为课程 Final Project 编写；在 contest 分支中，原 `final/` 内容已经迁移到仓库根目录。

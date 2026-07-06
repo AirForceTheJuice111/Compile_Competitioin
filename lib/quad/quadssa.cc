@@ -23,6 +23,26 @@ using namespace quad;
 static SsaDiagState diag;
 static int currentBlock = -1;
 
+struct SsaRenameContext {
+    int nextTempNum = 0;
+    map<pair<int, int>, int> versionedTemps;
+
+    explicit SsaRenameContext(int firstTempNum) : nextTempNum(firstTempNum) {}
+
+    int tempNumForVersion(int originalTempNum, int version) {
+        pair<int, int> key = {originalTempNum, version};
+        auto found = versionedTemps.find(key);
+        if (found != versionedTemps.end()) {
+            return found->second;
+        }
+
+        int newTempNum = nextTempNum++;
+        versionedTemps[key] = newTempNum;
+        VersionedTemp::registerVersionedTemp(newTempNum, originalTempNum, version);
+        return newTempNum;
+    }
+};
+
 
 
 
@@ -140,16 +160,18 @@ static void placePhi(QuadFuncDecl* func, ControlFlowInfo* domInfo, DataFlowInfo*
 
 // Create a new versioned Temp for a USE (read current version from stack)
 static Temp* versionUse(Temp* temp, set<int>& paramSet, set<int>& vars,
+                        SsaRenameContext& renameCtx,
                         map<int, stack<int>>& stacks) {
     if (!temp) return temp;
     int num = temp->num;
     if (paramSet.count(num) || !vars.count(num)) return temp;
     if (stacks[num].empty()) return temp;
-    return new Temp(VersionedTemp::versionedTempNum(num, stacks[num].top()));
+    return new Temp(renameCtx.tempNumForVersion(num, stacks[num].top()));
 }
 
 // Create a new versioned Temp for a DEF (assign next version, push onto stack)
 static Temp* versionDef(Temp* temp, set<int>& paramSet, set<int>& vars,
+                        SsaRenameContext& renameCtx,
                         map<int, int>& count, map<int, stack<int>>& stacks,
                         map<int, int>& pushCnt) {
     // Difference between paramSet and vars: paramSet are variables that are parameters, which should not be versioned; vars are all non-parameter variables that appear in the function. We only version variables that are in vars but not in paramSet (i.e. non-parameter variables).
@@ -165,82 +187,84 @@ static Temp* versionDef(Temp* temp, set<int>& paramSet, set<int>& vars,
     
     
     
-    return new Temp(VersionedTemp::versionedTempNum(num, ver));
+    return new Temp(renameCtx.tempNumForVersion(num, ver));
 }
 
 // Rename a QuadTerm's temp if it's a TEMP (for uses)
 static void renameTermUse(QuadTerm* term, set<int>& paramSet, set<int>& vars,
+                          SsaRenameContext& renameCtx,
                           map<int, stack<int>>& stacks) {
     if (!term || term->kind != QuadTermKind::TEMP) return;
-    term->get_temp()->temp = versionUse(term->get_temp()->temp, paramSet, vars, stacks);
+    term->get_temp()->temp = versionUse(term->get_temp()->temp, paramSet, vars, renameCtx, stacks);
 }
 
 // Rename all uses in a non-PHI statement
 static void renameUses(QuadStm* stm, set<int>& paramSet, set<int>& vars,
+                       SsaRenameContext& renameCtx,
                        map<int, stack<int>>& stacks) {
     switch (stm->kind) {
         case QuadKind::MOVE: {
             auto* s = static_cast<QuadMove*>(stm);
-            renameTermUse(s->src, paramSet, vars, stacks);
+            renameTermUse(s->src, paramSet, vars, renameCtx, stacks);
             break;
         }
         case QuadKind::LOAD: {
             auto* s = static_cast<QuadLoad*>(stm);
-            renameTermUse(s->src, paramSet, vars, stacks);
+            renameTermUse(s->src, paramSet, vars, renameCtx, stacks);
             break;
         }
         case QuadKind::STORE: {
             auto* s = static_cast<QuadStore*>(stm);
-            renameTermUse(s->src, paramSet, vars, stacks);
-            renameTermUse(s->dst, paramSet, vars, stacks);
+            renameTermUse(s->src, paramSet, vars, renameCtx, stacks);
+            renameTermUse(s->dst, paramSet, vars, renameCtx, stacks);
             break;
         }
         case QuadKind::MOVE_BINOP: {
             auto* s = static_cast<QuadMoveBinop*>(stm);
-            renameTermUse(s->left, paramSet, vars, stacks);
-            renameTermUse(s->right, paramSet, vars, stacks);
+            renameTermUse(s->left, paramSet, vars, renameCtx, stacks);
+            renameTermUse(s->right, paramSet, vars, renameCtx, stacks);
             break;
         }
         case QuadKind::CALL: {
             auto* s = static_cast<QuadCall*>(stm);
-            renameTermUse(s->obj_term, paramSet, vars, stacks);
-            if (s->args) for (auto* a : *s->args) renameTermUse(a, paramSet, vars, stacks);
+            renameTermUse(s->obj_term, paramSet, vars, renameCtx, stacks);
+            if (s->args) for (auto* a : *s->args) renameTermUse(a, paramSet, vars, renameCtx, stacks);
             break;
         }
         case QuadKind::MOVE_CALL: {
             auto* s = static_cast<QuadMoveCall*>(stm);
             if (s->call) {
-                renameTermUse(s->call->obj_term, paramSet, vars, stacks);
-                if (s->call->args) for (auto* a : *s->call->args) renameTermUse(a, paramSet, vars, stacks);
+                renameTermUse(s->call->obj_term, paramSet, vars, renameCtx, stacks);
+                if (s->call->args) for (auto* a : *s->call->args) renameTermUse(a, paramSet, vars, renameCtx, stacks);
             }
             break;
         }
         case QuadKind::EXTCALL: {
             auto* s = static_cast<QuadExtCall*>(stm);
-            if (s->args) for (auto* a : *s->args) renameTermUse(a, paramSet, vars, stacks);
+            if (s->args) for (auto* a : *s->args) renameTermUse(a, paramSet, vars, renameCtx, stacks);
             break;
         }
         case QuadKind::MOVE_EXTCALL: {
             auto* s = static_cast<QuadMoveExtCall*>(stm);
             if (s->extcall && s->extcall->args)
-                for (auto* a : *s->extcall->args) renameTermUse(a, paramSet, vars, stacks);
+                for (auto* a : *s->extcall->args) renameTermUse(a, paramSet, vars, renameCtx, stacks);
             break;
         }
         case QuadKind::CJUMP: {
             auto* s = static_cast<QuadCJump*>(stm);
-            renameTermUse(s->left, paramSet, vars, stacks);
-            renameTermUse(s->right, paramSet, vars, stacks);
+            renameTermUse(s->left, paramSet, vars, renameCtx, stacks);
+            renameTermUse(s->right, paramSet, vars, renameCtx, stacks);
             break;
         }
         case QuadKind::RETURN: {
             auto* s = static_cast<QuadReturn*>(stm);
-            renameTermUse(s->exp, paramSet, vars, stacks);
+            renameTermUse(s->exp, paramSet, vars, renameCtx, stacks);
             break;
         }
         case QuadKind::PTR_CALC: {
             auto* s = static_cast<QuadPtrCalc*>(stm);
-            renameTermUse(s->ptr, paramSet, vars, stacks);
-            renameTermUse(s->offset, paramSet, vars, stacks);
+            renameTermUse(s->ptr, paramSet, vars, renameCtx, stacks);
+            renameTermUse(s->offset, paramSet, vars, renameCtx, stacks);
             break;
         }
         default: break; // LABEL, JUMP, PHI - no uses to rename here
@@ -249,43 +273,44 @@ static void renameUses(QuadStm* stm, set<int>& paramSet, set<int>& vars,
 
 // Rename all defs in a statement (including PHI destinations)
 static void renameDefs(QuadStm* stm, set<int>& paramSet, set<int>& vars,
+                       SsaRenameContext& renameCtx,
                        map<int, int>& count, map<int, stack<int>>& stacks,
                        map<int, int>& pushCnt) {
     switch (stm->kind) {
         case QuadKind::MOVE: {
             auto* s = static_cast<QuadMove*>(stm);
-            s->dst->temp = versionDef(s->dst->temp, paramSet, vars, count, stacks, pushCnt);
+            s->dst->temp = versionDef(s->dst->temp, paramSet, vars, renameCtx, count, stacks, pushCnt);
             break;
         }
         case QuadKind::LOAD: {
             auto* s = static_cast<QuadLoad*>(stm);
-            s->dst->temp = versionDef(s->dst->temp, paramSet, vars, count, stacks, pushCnt);
+            s->dst->temp = versionDef(s->dst->temp, paramSet, vars, renameCtx, count, stacks, pushCnt);
             break;
         }
         case QuadKind::MOVE_BINOP: {
             auto* s = static_cast<QuadMoveBinop*>(stm);
-            s->dst->temp = versionDef(s->dst->temp, paramSet, vars, count, stacks, pushCnt);
+            s->dst->temp = versionDef(s->dst->temp, paramSet, vars, renameCtx, count, stacks, pushCnt);
             break;
         }
         case QuadKind::MOVE_CALL: {
             auto* s = static_cast<QuadMoveCall*>(stm);
-            s->dst->temp = versionDef(s->dst->temp, paramSet, vars, count, stacks, pushCnt);
+            s->dst->temp = versionDef(s->dst->temp, paramSet, vars, renameCtx, count, stacks, pushCnt);
             break;
         }
         case QuadKind::MOVE_EXTCALL: {
             auto* s = static_cast<QuadMoveExtCall*>(stm);
-            s->dst->temp = versionDef(s->dst->temp, paramSet, vars, count, stacks, pushCnt);
+            s->dst->temp = versionDef(s->dst->temp, paramSet, vars, renameCtx, count, stacks, pushCnt);
             break;
         }
         case QuadKind::PHI: {
             auto* s = static_cast<QuadPhi*>(stm);
-            s->temp_exp->temp = versionDef(s->temp_exp->temp, paramSet, vars, count, stacks, pushCnt);
+            s->temp_exp->temp = versionDef(s->temp_exp->temp, paramSet, vars, renameCtx, count, stacks, pushCnt);
             break;
         }
         case QuadKind::PTR_CALC: {
             auto* s = static_cast<QuadPtrCalc*>(stm);
             if (s->dst && s->dst->kind == QuadTermKind::TEMP)
-                s->dst->get_temp()->temp = versionDef(s->dst->get_temp()->temp, paramSet, vars, count, stacks, pushCnt);
+                s->dst->get_temp()->temp = versionDef(s->dst->get_temp()->temp, paramSet, vars, renameCtx, count, stacks, pushCnt);
             break;
         }
         default: break;
@@ -397,6 +422,7 @@ static void rebuildDefUseSets(QuadFuncDecl* func) {
 // Recursive dominator-tree walk for renaming
 static void renameBlock(int blockLabel, ControlFlowInfo* domInfo,
                         set<int>& paramSet, set<int>& vars,
+                        SsaRenameContext& renameCtx,
                         map<int, int>& count, map<int, stack<int>>& stacks) { // count: global re-def count for a temp, never decreases. stacks: the version that should be used in "use" now
     currentBlock = blockLabel;
     auto* block = domInfo->labelToBlock[blockLabel];
@@ -404,8 +430,8 @@ static void renameBlock(int blockLabel, ControlFlowInfo* domInfo,
 
     // Process each statement in the block
     for (auto* stm : *block->quadlist) {
-        if (stm->kind != QuadKind::PHI) renameUses(stm, paramSet, vars, stacks); // PHI uses are handled in successor blocks
-        renameDefs(stm, paramSet, vars, count, stacks, pushCnt);
+        if (stm->kind != QuadKind::PHI) renameUses(stm, paramSet, vars, renameCtx, stacks); // PHI uses are handled in successor blocks
+        renameDefs(stm, paramSet, vars, renameCtx, count, stacks, pushCnt);
     }
 
     // Update PHI args in CFG successor blocks
@@ -419,7 +445,7 @@ static void renameBlock(int blockLabel, ControlFlowInfo* domInfo,
                         if (arg.second->num != blockLabel) continue; // Not the arg from our current block. arg.second means the label of the predecessor block for this PHI arg
                         int origNum = arg.first->num;
                         if (vars.count(origNum) && !stacks[origNum].empty())
-                            arg.first = new Temp(VersionedTemp::versionedTempNum(origNum, stacks[origNum].top()));
+                            arg.first = new Temp(renameCtx.tempNumForVersion(origNum, stacks[origNum].top()));
                     }
                 } else if (stm->kind != QuadKind::LABEL) break;
             }
@@ -429,7 +455,7 @@ static void renameBlock(int blockLabel, ControlFlowInfo* domInfo,
     // Recurse into dominator tree children
     if (domInfo->domTree.count(blockLabel)) {
         for (int child : domInfo->domTree[blockLabel])
-            renameBlock(child, domInfo, paramSet, vars, count, stacks);
+            renameBlock(child, domInfo, paramSet, vars, renameCtx, count, stacks);
     }
 
     // Pop stacks back to previous state
@@ -459,14 +485,16 @@ static void renameVariables(QuadFuncDecl* func, ControlFlowInfo* domInfo) {
     // Initialize version counters and stacks
     map<int, int> count;
     map<int, stack<int>> stacks;
+    SsaRenameContext renameCtx(func->last_temp_num + 1);
     for (int v : vars) count[v] = 0;
 
     // Walk dominator tree starting from the entry block
     if (domInfo->entryBlock != -1)
-        renameBlock(domInfo->entryBlock, domInfo, paramSet, vars, count, stacks);
+        renameBlock(domInfo->entryBlock, domInfo, paramSet, vars, renameCtx, count, stacks);
 
     // Rebuild all def/use sets to reflect versioned temp numbers
     rebuildDefUseSets(func);
+    func->last_temp_num = std::max(func->last_temp_num, renameCtx.nextTempNum - 1);
 }
 
 static void cleanupUnusedPhi(QuadFuncDecl* func) {
@@ -499,7 +527,7 @@ static void cleanupUnusedPhi(QuadFuncDecl* func) {
                     if (!usedTemps.count(phi->temp_exp->temp->num)) {
                         int vnum = phi->temp_exp->temp->num;
                         int origVar = VersionedTemp::origTempNum(vnum);
-                        int ver = vnum - origVar * 100;
+                        int ver = VersionedTemp::versionNum(vnum);
                         diag.eliminatedVersionBlocksByVar[origVar][ver].insert(block->entry_label->num);
                         it = block->quadlist->erase(it);
                         changed = true;

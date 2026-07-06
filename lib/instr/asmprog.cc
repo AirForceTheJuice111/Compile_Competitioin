@@ -178,6 +178,7 @@ std::string AsmProg::to_string() const {
     
     // Add global declarations for external functions
     oss << "\n.global malloc\n";
+    oss << ".global memset\n";
     oss << ".global getint\n";
     oss << ".global getch\n";
     oss << ".global getarray\n";

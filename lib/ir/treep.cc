@@ -46,6 +46,8 @@ std::string typeToString(tree::Type type) {
     switch (type) {
     case Type::INT:
         return "INT";
+    case Type::FLOAT:
+        return "FLOAT";
     case Type::PTR:
         return "PTR";
     }

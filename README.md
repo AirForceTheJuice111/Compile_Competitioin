@@ -59,16 +59,16 @@ build/compiler --native-backend -S -O0 -o /tmp/native.s test/functional/00_main.
 ```
 
 This path lowers SysY AST directly into the migrated Tree/Quad/SSA/optimizer/
-instruction-selection/register-allocation backend. It currently covers the
-integer subset: scalar declarations, functions, calls, arithmetic, comparisons,
-short-circuit conditions, `if`, `while`, `break`, `continue`, `return`, scalar
-globals, local/global integer arrays, array indexing, array parameters with
-known non-first dimensions, and SysY aggregate array initialization. Integer
-runtime calls such as `getint`, `putint`, and `putch` are supported. Unsupported
-features such as strings/`putf`, float lowering, and runtime array I/O helpers
-are rejected explicitly by the lowering stage. The default contest invocation
-does not use this incomplete native path yet; it keeps the bridge so the full
-official functional suite continues to pass.
+instruction-selection/register-allocation backend. It now covers the official
+functional SysY subset at `-O0`, including scalar and array `int`/`float`,
+implicit int/float conversions, float arithmetic and comparisons, user function
+calls with float parameters/returns, and the runtime calls `getfloat`,
+`getfarray`, `putfloat`, and `putfarray`. Float values are represented inside
+Tree/Quad as 32-bit IEEE-754 bit patterns; instruction selection lowers float
+operations through the ARM EABI helpers and bridges hard-float runtime calls
+with VFP moves. Native lowering still rejects string literals and `putf`, so the
+default contest invocation keeps the bridge for the widest compatibility while
+the self-hosted backend is completed.
 
 ## Compile SysY Tests
 
@@ -179,9 +179,11 @@ summary: total=151 pass=151 parse_fail=0
 make sysy-semantic-regression
 summary: total=151 pass=140 expected_fail=11 semantic_fail=0
 
-native backend smoke subset
-public functional 00..59: total=60 pass=60 unsupported=0 fail=0
-array-focused smoke: total=6 pass=6 fail=0
+native backend path
+SYSY_TEST_ROOT=.../test SYSY_OPT=--native-backend bash scripts/sysy_functional_regression.sh
+summary: total=140 pass=140 compile_fail=0 link_fail=0 run_fail=0 wrong=0
+This run exercises the migrated Tree/Quad/SSA/ARM backend at `-O0`, including
+the official float functional cases.
 
 MAX_CASES=3 make sysy-performance-regression
 summary: total=3 pass=3 compile_fail=0 link_fail=0 run_fail=0 wrong=0
@@ -195,7 +197,8 @@ AST, IR, optimizer, and backend files remain in the tree and still need to be
 reworked into a self-contained SysY compiler. The current default `compiler`
 executable uses native SysY lexing/parsing/semantic validation, but default code
 generation still uses the functional bridge. A reusable backend driver and an
-experimental `--native-backend` lowering path are present for the integer subset
-including scalar globals and integer arrays, and are the base for finishing
-native float/VFP ABI support, string/`putf` handling, and full SysY runtime
-support.
+experimental `--native-backend` lowering path now pass the official functional
+suite at `-O0`, including float and runtime array I/O. Remaining native work is
+mainly string/`putf` lowering, broader performance-archive validation, and
+revalidating or extending the old FDMJ optimizations for SysY float and memory
+semantics.

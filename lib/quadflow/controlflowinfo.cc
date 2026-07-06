@@ -8,6 +8,7 @@
 #include <stack>
 #include <queue>
 #include <algorithm>
+#include <functional>
 #include "temp.hh"
 #include "quad.hh"
 #include "flowinfo.hh"
@@ -134,34 +135,94 @@ void ControlFlowInfo::computeDominators() {
 #ifdef DEBUG
     std::cout << "Computing dominators for: " << func->funcname << endl;
 #endif
-    // Iterative dominator algorithm:
-    //   dom(entry) = {entry}
-    //   dom(n) = {n} ∪ (∩ dom(p) for all immediate predecessors p of n)
     dominators.clear();
-    for (auto b : allBlocks) {
-        if (b == entryBlock) dominators[b] = {b};
-        else dominators[b] = allBlocks;
+    immediateDominator.clear();
+    if (allBlocks.empty() || allBlocks.count(entryBlock) == 0) {
+        return;
     }
+
+    // Cooper-Harvey-Kennedy iterative idom algorithm. It avoids repeatedly
+    // intersecting whole dominator sets, which is prohibitively slow for the
+    // long straight-line official SysY tests.
+    vector<int> postorder;
+    set<int> visited;
+    function<void(int)> dfs = [&](int block) {
+        if (visited.count(block) != 0) return;
+        visited.insert(block);
+        auto succIt = successors.find(block);
+        if (succIt != successors.end()) {
+            for (int succ : succIt->second) {
+                if (allBlocks.count(succ) != 0) {
+                    dfs(succ);
+                }
+            }
+        }
+        postorder.push_back(block);
+    };
+    dfs(entryBlock);
+
+    vector<int> rpo(postorder.rbegin(), postorder.rend());
+    map<int, int> rpoIndex;
+    for (int i = 0; i < static_cast<int>(rpo.size()); ++i) {
+        rpoIndex[rpo[i]] = i;
+    }
+
+    map<int, int> idom;
+    for (int block : allBlocks) {
+        idom[block] = -1;
+    }
+    idom[entryBlock] = entryBlock;
+
+    auto intersect = [&](int left, int right) {
+        int finger1 = left;
+        int finger2 = right;
+        while (finger1 != finger2) {
+            while (rpoIndex[finger1] > rpoIndex[finger2]) {
+                finger1 = idom[finger1];
+            }
+            while (rpoIndex[finger2] > rpoIndex[finger1]) {
+                finger2 = idom[finger2];
+            }
+        }
+        return finger1;
+    };
+
     bool changed = true;
     while (changed) {
         changed = false;
-        for (auto b : allBlocks) {
-            if (b == entryBlock) continue;
-            // Intersect dom sets of all predecessors
-            auto new_dom = allBlocks;
-            for (auto pred : predecessors[b]) {
-                set<int> intersection;
-                set_intersection(new_dom.begin(), new_dom.end(),
-                                 dominators[pred].begin(), dominators[pred].end(),
-                                 inserter(intersection, intersection.begin()));
-                new_dom = intersection;
+        for (int block : rpo) {
+            if (block == entryBlock) continue;
+
+            int newIdom = -1;
+            for (int pred : predecessors[block]) {
+                if (idom[pred] == -1) {
+                    continue;
+                }
+                newIdom = (newIdom == -1) ? pred : intersect(pred, newIdom);
             }
-            new_dom.insert(b); // n always dominates itself
-            if (new_dom != dominators[b]) {
-                dominators[b] = new_dom;
+            if (idom[block] != newIdom) {
+                idom[block] = newIdom;
                 changed = true;
             }
         }
+    }
+
+    immediateDominator[entryBlock] = -1;
+    for (int block : allBlocks) {
+        if (block == entryBlock) {
+            dominators[block] = {block};
+            continue;
+        }
+        immediateDominator[block] = idom[block];
+
+        set<int> domSet;
+        int runner = block;
+        while (runner != -1 && allBlocks.count(runner) != 0) {
+            domSet.insert(runner);
+            if (runner == entryBlock) break;
+            runner = immediateDominator[runner];
+        }
+        dominators[block] = domSet;
     }
 }
 
@@ -169,6 +230,10 @@ void ControlFlowInfo::computeImmediateDominator() {
 #ifdef DEBUG
     std::cout << "Start to find immediate dominators for: " << func->funcname << endl;
 #endif
+    if (immediateDominator.size() == allBlocks.size()) {
+        return;
+    }
+
     // idom(b) is the strict dominator d of b such that every other strict
     // dominator of b also dominates d (i.e., d is the closest to b). Obviously, idom is unique if it exists.
     immediateDominator.clear();

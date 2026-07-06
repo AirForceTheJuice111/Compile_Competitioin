@@ -20,7 +20,10 @@
 #include "tree2quad.hh"
 
 #include <algorithm>
+#include <chrono>
+#include <cstdlib>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 #include <vector>
 
@@ -232,7 +235,22 @@ void refreshQuadExtents(quad::QuadProgram *program) {
 }
 
 std::set<FuncFlowInfo *> *computeFlow(quad::QuadProgram *program) {
+    const char *detailEnv = std::getenv("BACKEND_PROFILE_DETAIL");
+    bool detailProfile = detailEnv != nullptr && detailEnv[0] != '\0' && std::string(detailEnv) != "0";
+    auto last = std::chrono::steady_clock::now();
+    auto mark = [&](const std::string &name) {
+        if (!detailProfile) {
+            return;
+        }
+        auto now = std::chrono::steady_clock::now();
+        auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count();
+        std::cerr << "BACKEND_PROFILE_DETAIL " << name << " " << millis << "ms\n";
+        std::cerr.flush();
+        last = now;
+    };
+
     auto *dataFlows = dataFLowProg(program);
+    mark("quad-dataflow");
     if (dataFlows == nullptr) {
         return nullptr;
     }
@@ -244,6 +262,7 @@ std::set<FuncFlowInfo *> *computeFlow(quad::QuadProgram *program) {
         }
         auto *cfi = new ControlFlowInfo(dfi->func);
         cfi->computeEverything();
+        mark("quad-controlflow-" + dfi->func->funcname);
         flows->insert(new FuncFlowInfo(cfi, dfi, program->last_label_num, program->last_temp_num));
     }
     return flows;
@@ -356,6 +375,120 @@ void maybeWriteQuad(const BackendOptions &options, const std::string &suffix, qu
     writeText(options.debugBase + suffix, text);
 }
 
+std::string tempListText(const std::vector<tree::Temp *> &temps) {
+    std::ostringstream out;
+    bool first = true;
+    for (auto *temp : temps) {
+        if (!first) {
+            out << ", ";
+        }
+        if (temp == nullptr) {
+            out << "null";
+        } else {
+            out << "t" << temp->num;
+        }
+        first = false;
+    }
+    return out.str();
+}
+
+std::string labelListText(const std::vector<tree::Label *> &labels) {
+    std::ostringstream out;
+    bool first = true;
+    for (auto *label : labels) {
+        if (!first) {
+            out << ", ";
+        }
+        if (label == nullptr) {
+            out << "null";
+        } else {
+            out << "L" << label->num;
+        }
+        first = false;
+    }
+    return out.str();
+}
+
+std::string asmKindText(instr::AssemInstr::Kind kind) {
+    switch (kind) {
+    case instr::AssemInstr::I_OPER:
+        return "OPER";
+    case instr::AssemInstr::I_LABEL:
+        return "LABEL";
+    case instr::AssemInstr::I_MOVE:
+        return "MOVE";
+    case instr::AssemInstr::I_CALL:
+        return "CALL";
+    case instr::AssemInstr::I_EXTCALL:
+        return "EXTCALL";
+    }
+    return "UNKNOWN";
+}
+
+void maybeWriteAsmDebug(const BackendOptions &options, const std::string &suffix, instr::AsmProg *program) {
+    if (!options.emitDebugFiles || options.debugBase.empty() || program == nullptr) {
+        return;
+    }
+    std::ostringstream out;
+    for (const auto &func : program->functions) {
+        out << "Function " << func.name << "\n";
+        for (std::size_t i = 0; i < func.instructions.size(); ++i) {
+            const auto &ins = func.instructions[i];
+            out << i << ": " << asmKindText(ins.kind) << " " << ins.assem
+                << " dst=[" << tempListText(ins.dst) << "]"
+                << " src=[" << tempListText(ins.src) << "]"
+                << " jumps=[" << labelListText(ins.jumps.labels) << "]";
+            if (ins.label != nullptr) {
+                out << " label=L" << ins.label->num;
+            }
+            out << "\n";
+        }
+    }
+    writeText(options.debugBase + suffix, out.str());
+}
+
+void maybeWriteColoringDebug(const BackendOptions &options, const std::string &suffix,
+                             const std::vector<Coloring *> &colorings) {
+    if (!options.emitDebugFiles || options.debugBase.empty()) {
+        return;
+    }
+    std::ostringstream out;
+    for (std::size_t i = 0; i < colorings.size(); ++i) {
+        out << "Coloring " << i << "\n";
+        if (colorings[i] == nullptr) {
+            out << "<null>\n";
+        } else {
+            out << colorings[i]->printColoring();
+        }
+    }
+    writeText(options.debugBase + suffix, out.str());
+}
+
+class ProfileTimer {
+public:
+    ProfileTimer() : enabled_(false) {
+        const char *env = std::getenv("BACKEND_PROFILE");
+        enabled_ = env != nullptr && env[0] != '\0' && std::string(env) != "0";
+        last_ = Clock::now();
+    }
+
+    void mark(const std::string &name) {
+        if (!enabled_) {
+            return;
+        }
+        auto now = Clock::now();
+        auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_).count();
+        std::cerr << "BACKEND_PROFILE " << name << " " << millis << "ms\n";
+        std::cerr.flush();
+        last_ = now;
+    }
+
+private:
+    using Clock = std::chrono::steady_clock;
+    bool enabled_;
+    Clock::time_point last_;
+};
+
 } // namespace
 
 OptMode optModeFromCompilerFlag(const std::string &flag) {
@@ -378,6 +511,7 @@ OptMode optModeFromCompilerFlag(const std::string &flag) {
 }
 
 BackendResult compileTreeToArm(tree::Program *program, const BackendOptions &options) {
+    ProfileTimer profile;
     BackendResult result;
     if (program == nullptr) {
         result.error = "missing Tree IR program";
@@ -385,11 +519,13 @@ BackendResult compileTreeToArm(tree::Program *program, const BackendOptions &opt
     }
 
     tree::Program *canonIr = canon(program);
+    profile.mark("canon");
     quad::QuadProgram *quadProgram = tree2quad(canonIr);
     if (quadProgram == nullptr) {
         result.error = "IR to Quad failed";
         return result;
     }
+    profile.mark("tree2quad");
     maybeWriteQuad(options, ".4.quad", quadProgram);
 
     quad::QuadProgram *blocked = blocking(quadProgram);
@@ -397,6 +533,7 @@ BackendResult compileTreeToArm(tree::Program *program, const BackendOptions &opt
         result.error = "Quad blocking failed";
         return result;
     }
+    profile.mark("blocking");
     maybeWriteQuad(options, ".4-block.quad", blocked);
 
     auto *blockedFlow = computeFlow(blocked);
@@ -404,17 +541,20 @@ BackendResult compileTreeToArm(tree::Program *program, const BackendOptions &opt
         result.error = "flow analysis failed";
         return result;
     }
+    profile.mark("flow");
 
     quad::QuadProgram *ssa = quad2ssa(blockedFlow);
     if (ssa == nullptr) {
         result.error = "Quad to SSA failed";
         return result;
     }
+    profile.mark("ssa");
     maybeWriteQuad(options, ".4-ssa.quad", ssa);
 
     quad::QuadProgram *optimizedSsa = ssa;
     if (options.optMode == OptMode::None) {
         refreshQuadExtents(optimizedSsa);
+        profile.mark("refresh");
     }
     if (optModeUsesSccp(options.optMode)) {
         optimizedSsa = optProg(optimizedSsa);
@@ -423,6 +563,7 @@ BackendResult compileTreeToArm(tree::Program *program, const BackendOptions &opt
             return result;
         }
         refreshQuadExtents(optimizedSsa);
+        profile.mark("sccp");
     }
     if (optModeUsesLicm(options.optMode)) {
         optimizedSsa = runLicmPass(optimizedSsa);
@@ -430,6 +571,7 @@ BackendResult compileTreeToArm(tree::Program *program, const BackendOptions &opt
             result.error = "LICM optimization failed";
             return result;
         }
+        profile.mark("licm");
     }
     if (optModeUsesIv(options.optMode)) {
         optimizedSsa = runIvPass(optimizedSsa);
@@ -437,31 +579,38 @@ BackendResult compileTreeToArm(tree::Program *program, const BackendOptions &opt
             result.error = "loop induction optimization failed";
             return result;
         }
+        profile.mark("iv");
     }
     maybeWriteQuad(options, ".4-ssa-final.quad", optimizedSsa);
 
-    auto *optimizedFlow = computeFlow(optimizedSsa);
-    if (optimizedFlow == nullptr) {
-        result.error = "optimized flow analysis failed";
-        return result;
-    }
+    quad::QuadProgram *ssaProgramForInstr = optimizedSsa;
+    if (options.optMode != OptMode::None) {
+        auto *optimizedFlow = computeFlow(optimizedSsa);
+        if (optimizedFlow == nullptr) {
+            result.error = "optimized flow analysis failed";
+            return result;
+        }
+        profile.mark("optimized-flow");
 
-    auto *funcList = new std::vector<quad::QuadFuncDecl *>();
-    int lastLabel = optimizedSsa->last_label_num;
-    int lastTemp = optimizedSsa->last_temp_num;
-    for (auto *ffi : *optimizedFlow) {
-        if (ffi == nullptr || ffi->cfi == nullptr || ffi->cfi->func == nullptr) {
-            continue;
+        auto *funcList = new std::vector<quad::QuadFuncDecl *>();
+        int lastLabel = optimizedSsa->last_label_num;
+        int lastTemp = optimizedSsa->last_temp_num;
+        for (auto *ffi : *optimizedFlow) {
+            if (ffi == nullptr || ffi->cfi == nullptr || ffi->cfi->func == nullptr) {
+                continue;
+            }
+            funcList->push_back(ffi->cfi->func);
+            if (ffi->programLastLabelNum >= 0) {
+                lastLabel = ffi->programLastLabelNum;
+            }
+            if (ffi->programLastTempNum >= 0) {
+                lastTemp = ffi->programLastTempNum;
+            }
         }
-        funcList->push_back(ffi->cfi->func);
-        if (ffi->programLastLabelNum >= 0) {
-            lastLabel = ffi->programLastLabelNum;
-        }
-        if (ffi->programLastTempNum >= 0) {
-            lastTemp = ffi->programLastTempNum;
-        }
+        ssaProgramForInstr = new quad::QuadProgram(funcList, lastLabel, lastTemp);
+    } else {
+        profile.mark("optimized-flow-skipped");
     }
-    auto *ssaProgramForInstr = new quad::QuadProgram(funcList, lastLabel, lastTemp);
 
     instr::advDFGprog *graphProgram = instr::buildAdvDFGprog(ssaProgramForInstr);
     instr::preScheduleProg *preScheduleProgram = instr::buildPreScheduleProg(ssaProgramForInstr);
@@ -469,30 +618,41 @@ BackendResult compileTreeToArm(tree::Program *program, const BackendOptions &opt
         result.error = "failed to build instruction-selection inputs";
         return result;
     }
+    profile.mark("build-instr-graphs");
 
     instr::runInstructionSelectionPass(*graphProgram, *preScheduleProgram);
+    profile.mark("instr-selection");
     instr::ScheduleProg *scheduleProgram = instr::scheduleProg(preScheduleProgram);
     if (scheduleProgram == nullptr) {
         result.error = "scheduling failed";
         return result;
     }
+    profile.mark("scheduling");
 
     instr::AsmProg *asmProgram = scheduleToAsmProg(scheduleProgram);
+    maybeWriteAsmDebug(options, ".5-schedule.asmdbg", asmProgram);
     instr::preDataFlowPass(asmProgram);
+    maybeWriteAsmDebug(options, ".5-predataflow.asmdbg", asmProgram);
+    profile.mark("asm-predataflow");
     std::vector<InterferenceGraph *> graphs = buildIgProg(asmProgram);
+    profile.mark("interference");
     std::vector<Coloring *> colorings;
     for (auto *graph : graphs) {
         colorings.push_back(coloring(graph, options.registerCount));
     }
+    profile.mark("coloring");
+    maybeWriteColoringDebug(options, ".5-colors.txt", colorings);
 
     instr::AsmProg *colored = instr::asmprog2colored(asmProgram, colorings);
     if (colored == nullptr) {
         result.error = "register allocation failed";
         return result;
     }
+    profile.mark("asm-coloring");
 
     result.ok = true;
     result.assembly = colored->to_string();
+    profile.mark("asm-string");
     return result;
 }
 

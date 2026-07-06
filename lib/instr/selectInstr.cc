@@ -85,6 +85,21 @@ static void emitLoadConst(preScheduleBlock &schedBlock, tree::Temp *dst, int val
     }
 }
 
+static void emitLoadName(preScheduleBlock &schedBlock, tree::Temp *dst, const std::string &name) {
+    schedBlock.addSelectedInstruction(AssemInstr::Oper(
+        "movw `d0, #:lower16:" + name,
+        {dst},
+        {},
+        AssemTargets()
+    ));
+    schedBlock.addSelectedInstruction(AssemInstr::Oper(
+        "movt `d0, #:upper16:" + name,
+        {dst},
+        {},
+        AssemTargets()
+    ));
+}
+
 static tree::Temp *materializeTerm(
     const quad::QuadTerm *term,
     preScheduleBlock &schedBlock,
@@ -112,12 +127,7 @@ static tree::Temp *materializeTerm(
             (*activeConstCache)[value] = tmp;
         }
     } else if (term->kind == quad::QuadTermKind::NAME) {
-        schedBlock.addSelectedInstruction(AssemInstr::Oper(
-            "ldr `d0, =" + termName(term),
-            {tmp},
-            {},
-            AssemTargets()
-        ));
+        emitLoadName(schedBlock, tmp, termName(term));
     }
     return tmp;
 }
@@ -165,27 +175,77 @@ static void emitMoveFromRegister(preScheduleBlock &schedBlock, tree::Temp *dst, 
     schedBlock.addSelectedInstruction(AssemInstr::Oper("mov `d0, " + reg, {dst}, {}, AssemTargets()));
 }
 
-static void emitArgs(
+static bool returnsFloatBits(const std::string &name) {
+    return name == "getfloat" || name == "__sysy_i2f_bits" || name == "__sysy_fadd_bits" ||
+           name == "__sysy_fsub_bits" || name == "__sysy_fmul_bits" || name == "__sysy_fdiv_bits" ||
+           name == "__sysy_fneg_bits";
+}
+
+static std::string aeabiName(const std::string &name) {
+    if (name == "__sysy_i2f_bits") return "__aeabi_i2f";
+    if (name == "__sysy_f2i_bits") return "__aeabi_f2iz";
+    if (name == "__sysy_fadd_bits") return "__aeabi_fadd";
+    if (name == "__sysy_fsub_bits") return "__aeabi_fsub";
+    if (name == "__sysy_fmul_bits") return "__aeabi_fmul";
+    if (name == "__sysy_fdiv_bits") return "__aeabi_fdiv";
+    if (name == "__sysy_fneg_bits") return "__aeabi_fneg";
+    if (name == "__sysy_fcmpeq_bits") return "__aeabi_fcmpeq";
+    if (name == "__sysy_fcmplt_bits") return "__aeabi_fcmplt";
+    if (name == "__sysy_fcmple_bits") return "__aeabi_fcmple";
+    if (name == "__sysy_fcmpge_bits") return "__aeabi_fcmpge";
+    if (name == "__sysy_fcmpgt_bits") return "__aeabi_fcmpgt";
+    return name;
+}
+
+static bool isNotEqualFloatCmp(const std::string &name) {
+    return name == "__sysy_fcmpne_bits";
+}
+
+static bool isSysyHardFloatRuntime(const std::string &name) {
+    return name == "getfloat" || name == "getfarray" || name == "putfloat" || name == "putfarray";
+}
+
+static int emitArgs(
     preScheduleBlock &schedBlock,
     const std::vector<quad::QuadTerm*> *args,
     int &nextTempNum,
     int firstReg
 ) {
     if (args == nullptr) {
-        return;
+        return 0;
     }
     std::vector<tree::Temp*> materializedArgs;
     for (auto *arg : *args) {
         materializedArgs.push_back(materializeTerm(arg, schedBlock, nextTempNum));
     }
 
-    for (auto *src : materializedArgs) {
+    int availableRegs = std::max(0, 4 - firstReg);
+    int regCount = std::min(static_cast<int>(materializedArgs.size()), availableRegs);
+    int stackCount = static_cast<int>(materializedArgs.size()) - regCount;
+    int stackBytes = stackCount * 4;
+
+    if (stackCount % 2 == 1) {
+        schedBlock.addSelectedInstruction(AssemInstr::Oper("sub sp, sp, #4", {}, {}, AssemTargets()));
+        stackBytes += 4;
+    }
+    for (int i = static_cast<int>(materializedArgs.size()) - 1; i >= regCount; --i) {
+        auto *src = materializedArgs[static_cast<std::size_t>(i)];
+        if (src == nullptr) {
+            schedBlock.addSelectedInstruction(AssemInstr::Oper("sub sp, sp, #4", {}, {}, AssemTargets()));
+        } else {
+            schedBlock.addSelectedInstruction(AssemInstr::Oper("push {`s0}", {}, {src}, AssemTargets()));
+        }
+    }
+
+    for (int i = 0; i < regCount; ++i) {
+        auto *src = materializedArgs[static_cast<std::size_t>(i)];
         if (src == nullptr) continue;
         schedBlock.addSelectedInstruction(AssemInstr::Oper("push {`s0}", {}, {src}, AssemTargets()));
     }
-    for (int i = static_cast<int>(materializedArgs.size()) - 1; i >= 0; --i) {
+    for (int i = regCount - 1; i >= 0; --i) {
         schedBlock.addSelectedInstruction(AssemInstr::Oper("pop {r" + std::to_string(firstReg + i) + "}", {}, {}, AssemTargets()));
     }
+    return stackBytes;
 }
 
 static void selectCall(
@@ -201,16 +261,21 @@ static void selectCall(
     if (call->obj_term != nullptr) {
         auto *target = materializeTerm(call->obj_term, schedBlock, nextTempNum);
         if (target != nullptr) {
-            schedBlock.addSelectedInstruction(AssemInstr::Oper("push {`s0}", {}, {target}, AssemTargets()));
+            schedBlock.addSelectedInstruction(AssemInstr::Oper("mov ip, `s0", {}, {target}, AssemTargets()));
         }
-        emitArgs(schedBlock, call->args, nextTempNum, 0);
+        int stackBytes = emitArgs(schedBlock, call->args, nextTempNum, 0);
         if (target != nullptr) {
-            schedBlock.addSelectedInstruction(AssemInstr::Oper("pop {ip}", {}, {}, AssemTargets()));
             schedBlock.addSelectedInstruction(AssemInstr::Oper("blx ip", {}, {}, AssemTargets()));
         }
+        if (stackBytes > 0) {
+            schedBlock.addSelectedInstruction(AssemInstr::Oper("add sp, sp, #" + std::to_string(stackBytes), {}, {}, AssemTargets()));
+        }
     } else {
-        emitArgs(schedBlock, call->args, nextTempNum, 0);
+        int stackBytes = emitArgs(schedBlock, call->args, nextTempNum, 0);
         schedBlock.addSelectedInstruction(AssemInstr::Call("bl " + call->name, {}, {}));
+        if (stackBytes > 0) {
+            schedBlock.addSelectedInstruction(AssemInstr::Oper("add sp, sp, #" + std::to_string(stackBytes), {}, {}, AssemTargets()));
+        }
     }
 
     if (dst != nullptr) {
@@ -227,8 +292,66 @@ static void selectExtCall(
     if (call == nullptr) {
         return;
     }
-    emitArgs(schedBlock, call->args, nextTempNum, 0);
-    schedBlock.addSelectedInstruction(AssemInstr::ExtCall("bl " + call->extfun, {}, {}));
+    if (isNotEqualFloatCmp(call->extfun)) {
+        int stackBytes = emitArgs(schedBlock, call->args, nextTempNum, 0);
+        schedBlock.addSelectedInstruction(AssemInstr::ExtCall("bl __aeabi_fcmpeq", {}, {}));
+        if (stackBytes > 0) {
+            schedBlock.addSelectedInstruction(AssemInstr::Oper("add sp, sp, #" + std::to_string(stackBytes), {}, {}, AssemTargets()));
+        }
+        schedBlock.addSelectedInstruction(AssemInstr::Oper("eor r0, r0, #1", {}, {}, AssemTargets()));
+        if (dst != nullptr) {
+            emitMoveFromRegister(schedBlock, dst, "r0");
+        }
+        return;
+    }
+
+    std::string targetName = aeabiName(call->extfun);
+    if (isSysyHardFloatRuntime(call->extfun)) {
+        std::vector<tree::Temp*> materializedArgs;
+        if (call->args != nullptr) {
+            for (auto *arg : *call->args) {
+                materializedArgs.push_back(materializeTerm(arg, schedBlock, nextTempNum));
+            }
+        }
+        if (call->extfun == "putfloat" && !materializedArgs.empty()) {
+            schedBlock.addSelectedInstruction(AssemInstr::Oper("vmov s0, `s0", {}, {materializedArgs[0]}, AssemTargets()));
+        } else if (call->extfun == "putfarray") {
+            int stackBytes = emitArgs(schedBlock, call->args, nextTempNum, 0);
+            schedBlock.addSelectedInstruction(AssemInstr::ExtCall("bl " + call->extfun, {}, {}));
+            if (stackBytes > 0) {
+                schedBlock.addSelectedInstruction(AssemInstr::Oper("add sp, sp, #" + std::to_string(stackBytes), {}, {}, AssemTargets()));
+            }
+            if (dst != nullptr) {
+                emitMoveFromRegister(schedBlock, dst, "r0");
+            }
+            return;
+        } else if (call->extfun == "getfarray") {
+            int stackBytes = emitArgs(schedBlock, call->args, nextTempNum, 0);
+            schedBlock.addSelectedInstruction(AssemInstr::ExtCall("bl " + call->extfun, {}, {}));
+            if (stackBytes > 0) {
+                schedBlock.addSelectedInstruction(AssemInstr::Oper("add sp, sp, #" + std::to_string(stackBytes), {}, {}, AssemTargets()));
+            }
+            if (dst != nullptr) {
+                emitMoveFromRegister(schedBlock, dst, "r0");
+            }
+            return;
+        }
+        schedBlock.addSelectedInstruction(AssemInstr::ExtCall("bl " + call->extfun, {}, {}));
+        if (dst != nullptr) {
+            if (call->extfun == "getfloat") {
+                schedBlock.addSelectedInstruction(AssemInstr::Oper("vmov `d0, s0", {dst}, {}, AssemTargets()));
+            } else {
+                emitMoveFromRegister(schedBlock, dst, "r0");
+            }
+        }
+        return;
+    }
+
+    int stackBytes = emitArgs(schedBlock, call->args, nextTempNum, 0);
+    schedBlock.addSelectedInstruction(AssemInstr::ExtCall("bl " + targetName, {}, {}));
+    if (stackBytes > 0) {
+        schedBlock.addSelectedInstruction(AssemInstr::Oper("add sp, sp, #" + std::to_string(stackBytes), {}, {}, AssemTargets()));
+    }
     if (dst != nullptr) {
         emitMoveFromRegister(schedBlock, dst, "r0");
     }

@@ -1,14 +1,12 @@
 # SysY2022 与 FDMJ2026 差异及编译器迁移清单
 
-本文用于把当前 FDMJ 编译器迁移到 2026 编译系统设计赛 SysY2022 实现赛道。contest 分支已经把原 `final/` 工程迁移到仓库根目录，核心结构为：
+本文用于把当前 FDMJ 编译器迁移到 2026 编译系统设计赛 SysY2022 实现赛道。contest 分支已经把原 `final/` 工程迁移到仓库根目录。当前仓库根目录的比赛入口和迁移保留结构为：
 
-- 前端：`lib/frontend/lexer.ll`、`lib/frontend/parser.yy`
-- AST 与语义：`include/ast/FDMJAST.hh`、`lib/ast/*`
-- IR：`lib/ir/ast2tree.cc`、`lib/ir/treep.cc`
-- Quad 与 SSA：`lib/quad/*`
-- 优化：`lib/opt/*`
-- ARM 后端：`lib/instr/*`、`lib/reg/*`
-- 驱动：`tools/fmjcc/main.cc`
+- SysY 比赛入口：`tools/compiler/main.cc`，构建产物为 `build/compiler`。
+- SysY 原生前端：`include/sysy/*`、`lib/sysy/lexer.cc`、`lib/sysy/parser.cc`、`lib/sysy/semantics.cc`。
+- SysY 原生 lowering：`lib/sysy/lower_tree.cc`，面向迁移后的 Tree IR。
+- 迁移复用的 IR/Quad/SSA/优化/ARM 后端：`include/ir`、`lib/ir`、`include/quad`、`lib/quad`、`lib/opt`、`lib/instr`、`lib/reg`。
+- 旧 FDMJ 源文件：`include/ast`、`lib/ast`、`include/frontend`、`lib/frontend`、`tools/fmjcc`、`tools/fmjinterp`，默认不构建，仅在 `BUILD_LEGACY_FMJ=ON` 时作为迁移调试工具。
 
 迁移不是改扩展名这么简单。FDMJ 是教学用的类 Java 语言；SysY2022 是接近 C 子集的过程式语言，并增加 `float`、多维数组、全局对象和运行时库 ABI。
 
@@ -22,12 +20,14 @@
 - `test/` 已替换为官方 `functional.zip` 中的 SysY2022 测试，旧 `.fmj` 测试已从该目录移除。
 - `make sysy-functional-regression` 会递归扫描 `test/` 中的 `.sy` 文件，编译、链接、qemu 运行，并与 `.out` 精确比较。
 - 已验证 `make sysy-functional-regression` 结果为 `total=140 pass=140 compile_fail=0 link_fail=0 run_fail=0 wrong=0`。
+- 已验证 `make compile` 结果为 `total=140 pass=140 compile_fail=0`。
 - 新增 `make sysy-performance-regression`，可对官方性能 zip 按需解压并复用同一套编译运行比较流程；已用 `MAX_CASES=3` 对 `ARM-性能.zip` 做 smoke test，结果为 3/3 通过。
-- 新增 `include/sysy/lexer.hh` 与 `lib/sysy/lexer.cc`，作为原生 SysY 前端的第一块基础设施；`compiler --dump-tokens file.sy` 可以用该 lexer 输出 token 流，并已验证官方 functional 140 个 `.sy` 文件均无 invalid token。
-- 新增 `include/sysy/ast.hh`、`include/sysy/parser.hh` 与 `lib/sysy/parser.cc`，实现 SysY2022 递归下降 parser 和通用 AST 骨架；`compiler --dump-ast file.sy` 可输出解析树，`make sysy-parse-regression` 已验证官方 functional 140 个 `.sy` 文件全部 parse 通过。
-- 新增 `include/sysy/semantics.hh` 与 `lib/sysy/semantics.cc`，实现基础语义检查骨架：全局/局部作用域、重定义、`main` 唯一性、未声明引用、const 赋值、`break`/`continue` 位置和 `return` 基础约束；`make sysy-semantic-regression` 已验证 140 个 functional 通过、6 个本地 reject 样例按预期失败。
+- 新增 `include/sysy/lexer.hh` 与 `lib/sysy/lexer.cc`，作为原生 SysY 前端的第一块基础设施；`compiler --dump-tokens file.sy` 可以用该 lexer 输出 token 流。
+- 新增 `include/sysy/ast.hh`、`include/sysy/parser.hh` 与 `lib/sysy/parser.cc`，实现 SysY2022 递归下降 parser 和通用 AST 骨架；`compiler --dump-ast file.sy` 可输出解析树，`make sysy-parse-regression` 已验证 `test/` 中 151 个 `.sy` 文件全部 parse 通过。
+- 新增 `include/sysy/semantics.hh` 与 `lib/sysy/semantics.cc`，实现基础语义检查骨架：全局/局部作用域、重定义、`main` 唯一性、未声明引用、const 赋值、`break`/`continue` 位置、`return` 基础约束、运行库函数签名和 `starttime`/`stoptime` 无参别名；`make sysy-semantic-regression` 已验证 140 个 functional 通过、11 个本地 reject 样例按预期失败。
+- 新增 `--native-backend` 调试入口，已将 SysY AST 接到迁移后的 Tree/Quad/SSA/ARM 后端；当前 `-O0` native 路径已通过官方 functional/h_functional 全部 140 个用例，包括 float、float 数组、float 参数/返回值和浮点运行时 I/O。
 
-这层功能基线目前通过 ARM GCC 生成汇编，不是最终形态的自研 SysY IR/后端。它的作用是先固定 SysY2022 语义、运行库 ABI 和官方测试期望，再逐步把下文列出的 FMJ 原生组件替换为 SysY 原生实现。完整迁移仍要求补齐完整类型系统、函数实参检查、数组维度与常量求值、IR lowering、Quad/SSA 类型扩展、ARM 后端 ABI 和优化合法性处理，并最终移除对 GCC 前端的依赖。
+这层功能基线目前默认通过 ARM GCC 生成汇编，以保证比赛入口对完整 SysY 源程序保持最大兼容性。并行推进的 native 路径已经能够在 `-O0` 下生成正确 ARM 汇编并通过官方 functional 测试：`tree::Type`/`QuadType` 增加了 `FLOAT`，`float` 常量以 IEEE-754 raw bits 在整数寄存器和内存中传递，浮点算术/比较/转换通过 `__aeabi_*` helper 降低，`getfloat`/`putfloat` 等 hard-float 运行库调用用 VFP `vmov` 连接。剩余 native 缺口主要是字符串 literal 与 `putf`、完整性能测试归档验证，以及旧 FDMJ 优化在 SysY float 和内存语义下的重新审计。
 
 ## 1. 输入、输出和提交接口
 
@@ -106,7 +106,7 @@ SysY 新增或不同点：
 | 类型能力 | FDMJ 当前 | SysY2022 要求 | 改动 |
 | --- | --- | --- | --- |
 | `int` | 支持 | 支持 32 位有符号 | 保留。 |
-| `float` | `config` 中有长度常量，但 AST/Quad 主体基本按 int/ptr | 完整支持 32 位单精度 | AST Type、IR Type、QuadType、寄存器分配和后端全部扩展 float。 |
+| `float` | `config` 中有长度常量，但 AST/Quad 主体基本按 int/ptr | 完整支持 32 位单精度 | 当前 contest 分支已在 SysY AST lowering、Tree Type、QuadType 和 ARM 指令选择中加入 float；后续优化 pass 仍需按浮点语义继续审计。 |
 | `void` | 方法主要返回 `Type`，main 固定 int | 函数可 `void` | 新增 void 类型和 return 检查。 |
 | 数组 | 一维 `int[]`，运行时布局含长度 word | 多维 `int`/`float` 数组，按行优先，无内建 length | 改为连续内存布局；删除 FDMJ `length(exp)` 语义。 |
 | 对象/类 | 核心特性 | 不存在 | 删除对象布局、vtable、动态派发和继承语义。 |
@@ -230,11 +230,11 @@ SysY2022 至少需要：
 - `%` 只适用于 int。
 - 比较结果仍为 int 0/1。
 
-短期迁移策略：
+迁移策略：
 
-1. 先实现整数 SysY 子集，跑通功能样例。
-2. 再接入 `float` AST/IR/后端和运行时库。
-3. 最后恢复/扩展优化，避免旧 FDMJ 优化错误处理浮点。
+1. 已实现整数 SysY 子集，跑通功能样例。
+2. 已接入 `float` AST/IR/native 后端和运行时库，`--native-backend -O0` 通过 140 个官方 functional/h_functional 用例。
+3. 下一步恢复/扩展优化，避免旧 FDMJ 优化错误处理浮点和 SysY 内存语义。
 
 ## 8. ARM/AArch64 后端与 ABI
 
@@ -244,7 +244,7 @@ SysY2022 至少需要：
 
 - 如果是 AArch64：需要重写或新增 AArch64 后端，整数参数在 `x0`/`w0` 起，浮点参数在 `s0`/`d0` 起。
 - 如果是 32 位 ARM hard-float：整数参数在 `r0` 起，float 参数通常走 VFP `s0` 起，需确认 ABI 与 libsysy 构建方式一致。
-- `float` 与 `int` 转换需调用 ABI helper 或使用 VFP 指令，如 `__aeabi_i2f`、`__aeabi_f2iz` 等。
+- `float` 与 `int` 转换需调用 ABI helper 或使用 VFP 指令，如 `__aeabi_i2f`、`__aeabi_f2iz` 等；当前 native 后端已经用这些 helper 处理转换和浮点算术/比较。
 - 全局数据、字符串、浮点常量需要生成 `.data` / `.rodata`。
 - 多维局部数组可能占用较大栈空间，需要处理栈帧对齐和大立即数偏移。
 
@@ -288,3 +288,5 @@ SysY2022 至少需要：
 8. 增加 `float` 类型、浮点常量、浮点运算、隐式类型转换。
 9. 恢复 SSA/常量传播/DCE/LICM/strength reduction，对不支持的 float 和内存场景先保守跳过。
 10. 增加性能优化：内联、GVN、MemSSA、循环展开、窥孔优化、寄存器分配改进。
+
+截至当前分支，1-8 已形成可验证实现；9-10 属于后续性能和优化正确性工作。
