@@ -50,6 +50,21 @@ static void emitLoadConst(ScheduleFunc &func, tree::Temp *dst, int value) {
     }
 }
 
+static void emitLoadName(ScheduleFunc &func, tree::Temp *dst, const std::string &name) {
+    func.addLinearizedInstruction(AssemInstr::Oper(
+        "movw `d0, #:lower16:" + name,
+        {dst},
+        {},
+        AssemTargets()
+    ));
+    func.addLinearizedInstruction(AssemInstr::Oper(
+        "movt `d0, #:upper16:" + name,
+        {dst},
+        {},
+        AssemTargets()
+    ));
+}
+
 static tree::Temp *materializeTerm(
     ScheduleFunc &func,
     const quad::QuadFuncDecl *quadFunc,
@@ -65,12 +80,7 @@ static tree::Temp *materializeTerm(
     if (term->kind == quad::QuadTermKind::CONST) {
         emitLoadConst(func, tmp, termConst(term));
     } else if (term->kind == quad::QuadTermKind::NAME) {
-        func.addLinearizedInstruction(AssemInstr::Oper(
-            "ldr `d0, =" + const_cast<quad::QuadTerm*>(term)->get_name(),
-            {tmp},
-            {},
-            AssemTargets()
-        ));
+        emitLoadName(func, tmp, const_cast<quad::QuadTerm*>(term)->get_name());
     }
     return tmp;
 }
@@ -217,11 +227,9 @@ ScheduleProg *scheduleProg(preScheduleProg *preScheduleProgram) {
 
                 if (preFunc->quadFunc->params != nullptr) {
                     std::vector<tree::Temp*> registerParams;
-                    for (auto *param : *preFunc->quadFunc->params) {
-                        if (registerParams.size() >= 4) {
-                            break;
-                        }
-                        registerParams.push_back(param);
+                    const auto &params = *preFunc->quadFunc->params;
+                    for (size_t i = 0; i < params.size() && i < 4; ++i) {
+                        registerParams.push_back(params[i]);
                     }
                     for (size_t i = 0; i < registerParams.size(); ++i) {
                         if (registerParams[i] != nullptr) {
@@ -238,6 +246,17 @@ ScheduleProg *scheduleProg(preScheduleProg *preScheduleProgram) {
                             func->addLinearizedInstruction(AssemInstr::Oper(
                                 "pop {`d0}",
                                 {registerParams[i]},
+                                {},
+                                AssemTargets()
+                            ));
+                        }
+                    }
+                    for (size_t i = 4; i < params.size(); ++i) {
+                        if (params[i] != nullptr) {
+                            int offset = 4 + static_cast<int>(i - 4) * 4;
+                            func->addLinearizedInstruction(AssemInstr::Oper(
+                                "ldr `d0, [fp, #" + std::to_string(offset) + "]",
+                                {params[i]},
                                 {},
                                 AssemTargets()
                             ));

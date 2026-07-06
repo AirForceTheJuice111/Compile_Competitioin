@@ -4,9 +4,14 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <cstdlib>
+#include <cstring>
+#include <functional>
 #include <map>
+#include <cmath>
 #include <numeric>
+#include <optional>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -47,42 +52,144 @@ int parseIntLiteral(const std::string &text) {
     return static_cast<int>(value);
 }
 
-int constIntValue(const Node &node) {
+float parseFloatLiteral(const std::string &text) {
+    char *end = nullptr;
+    return std::strtof(text.c_str(), &end);
+}
+
+int floatBits(float value) {
+    static_assert(sizeof(float) == sizeof(std::uint32_t), "float must be 32-bit");
+    std::uint32_t bits = 0;
+    std::memcpy(&bits, &value, sizeof(bits));
+    return static_cast<int>(bits);
+}
+
+float bitsFloat(int bits) {
+    std::uint32_t raw = static_cast<std::uint32_t>(bits);
+    float value = 0.0f;
+    std::memcpy(&value, &raw, sizeof(value));
+    return value;
+}
+
+enum class BaseType {
+    Int,
+    Float,
+    Void
+};
+
+tree::Type treeType(BaseType type) {
+    return type == BaseType::Float ? tree::Type::FLOAT : tree::Type::INT;
+}
+
+BaseType baseTypeFromText(const std::string &text) {
+    if (text == "float") {
+        return BaseType::Float;
+    }
+    if (text == "void") {
+        return BaseType::Void;
+    }
+    return BaseType::Int;
+}
+
+bool isFloatType(BaseType type) {
+    return type == BaseType::Float;
+}
+
+struct ConstScalar {
+    BaseType type = BaseType::Int;
+    int raw = 0;
+};
+
+int constAsInt(ConstScalar value) {
+    if (value.type == BaseType::Float) {
+        return static_cast<int>(bitsFloat(value.raw));
+    }
+    return value.raw;
+}
+
+float constAsFloat(ConstScalar value) {
+    if (value.type == BaseType::Float) {
+        return bitsFloat(value.raw);
+    }
+    return static_cast<float>(value.raw);
+}
+
+bool constAsBool(ConstScalar value) {
+    if (value.type == BaseType::Float) {
+        return bitsFloat(value.raw) != 0.0f;
+    }
+    return value.raw != 0;
+}
+
+ConstScalar constScalarValue(const Node &node,
+                             const std::function<std::optional<ConstScalar>(const std::string &)> &lookupConst = {}) {
     switch (node.kind) {
     case NodeKind::Number:
         if (isFloatText(node.text)) {
-            throw LoweringError(node.loc, "native backend does not support float constants yet");
+            return ConstScalar{BaseType::Float, floatBits(parseFloatLiteral(node.text))};
         }
-        return parseIntLiteral(node.text);
+        return ConstScalar{BaseType::Int, parseIntLiteral(node.text)};
+    case NodeKind::LVal:
+        if (!node.children.empty()) {
+            throw LoweringError(node.loc, "native backend only supports scalar constants in constant expressions");
+        }
+        if (lookupConst) {
+            std::optional<ConstScalar> value = lookupConst(node.text);
+            if (value.has_value()) {
+                return *value;
+            }
+        }
+        break;
     case NodeKind::UnaryExpr: {
-        int value = constIntValue(*node.children.at(0));
+        ConstScalar value = constScalarValue(*node.children.at(0), lookupConst);
         if (node.text == "-") {
-            return -value;
+            if (value.type == BaseType::Float) {
+                return ConstScalar{BaseType::Float, floatBits(-bitsFloat(value.raw))};
+            }
+            return ConstScalar{BaseType::Int, -value.raw};
         }
         if (node.text == "+") {
             return value;
         }
         if (node.text == "!") {
-            return value == 0 ? 1 : 0;
+            return ConstScalar{BaseType::Int, constAsBool(value) ? 0 : 1};
         }
         break;
     }
     case NodeKind::BinaryExpr: {
-        int lhs = constIntValue(*node.children.at(0));
-        int rhs = constIntValue(*node.children.at(1));
-        if (node.text == "+") return lhs + rhs;
-        if (node.text == "-") return lhs - rhs;
-        if (node.text == "*") return lhs * rhs;
-        if (node.text == "/") return rhs == 0 ? 0 : lhs / rhs;
-        if (node.text == "%") return rhs == 0 ? 0 : lhs % rhs;
-        if (node.text == "==") return lhs == rhs;
-        if (node.text == "!=") return lhs != rhs;
-        if (node.text == "<") return lhs < rhs;
-        if (node.text == ">") return lhs > rhs;
-        if (node.text == "<=") return lhs <= rhs;
-        if (node.text == ">=") return lhs >= rhs;
-        if (node.text == "&&") return (lhs != 0) && (rhs != 0);
-        if (node.text == "||") return (lhs != 0) || (rhs != 0);
+        ConstScalar lhs = constScalarValue(*node.children.at(0), lookupConst);
+        ConstScalar rhs = constScalarValue(*node.children.at(1), lookupConst);
+        bool useFloat = lhs.type == BaseType::Float || rhs.type == BaseType::Float;
+        if (node.text == "&&") return ConstScalar{BaseType::Int, constAsBool(lhs) && constAsBool(rhs)};
+        if (node.text == "||") return ConstScalar{BaseType::Int, constAsBool(lhs) || constAsBool(rhs)};
+        if (useFloat) {
+            float l = constAsFloat(lhs);
+            float r = constAsFloat(rhs);
+            if (node.text == "+") return ConstScalar{BaseType::Float, floatBits(l + r)};
+            if (node.text == "-") return ConstScalar{BaseType::Float, floatBits(l - r)};
+            if (node.text == "*") return ConstScalar{BaseType::Float, floatBits(l * r)};
+            if (node.text == "/") return ConstScalar{BaseType::Float, floatBits(l / r)};
+            if (node.text == "==") return ConstScalar{BaseType::Int, l == r};
+            if (node.text == "!=") return ConstScalar{BaseType::Int, l != r};
+            if (node.text == "<") return ConstScalar{BaseType::Int, l < r};
+            if (node.text == ">") return ConstScalar{BaseType::Int, l > r};
+            if (node.text == "<=") return ConstScalar{BaseType::Int, l <= r};
+            if (node.text == ">=") return ConstScalar{BaseType::Int, l >= r};
+        } else {
+            int l = lhs.raw;
+            int r = rhs.raw;
+            if (node.text == "+") return ConstScalar{BaseType::Int, l + r};
+            if (node.text == "-") return ConstScalar{BaseType::Int, l - r};
+            if (node.text == "*") return ConstScalar{BaseType::Int, l * r};
+            if (node.text == "/") return ConstScalar{BaseType::Int, r == 0 ? 0 : l / r};
+            if (node.text == "%") return ConstScalar{BaseType::Int, r == 0 ? 0 : l % r};
+            if (node.text == "==") return ConstScalar{BaseType::Int, l == r};
+            if (node.text == "!=") return ConstScalar{BaseType::Int, l != r};
+            if (node.text == "<") return ConstScalar{BaseType::Int, l < r};
+            if (node.text == ">") return ConstScalar{BaseType::Int, l > r};
+            if (node.text == "<=") return ConstScalar{BaseType::Int, l <= r};
+            if (node.text == ">=") return ConstScalar{BaseType::Int, l >= r};
+        }
         break;
     }
     default:
@@ -91,9 +198,15 @@ int constIntValue(const Node &node) {
     throw LoweringError(node.loc, "native backend only supports constant scalar initializers for globals");
 }
 
+int constIntValue(const Node &node,
+                  const std::function<std::optional<ConstScalar>(const std::string &)> &lookupConst = {}) {
+    return constAsInt(constScalarValue(node, lookupConst));
+}
+
 bool isRuntimeFunction(const std::string &name) {
     static const std::set<std::string> runtime = {
-        "getint", "getch", "getarray", "putint", "putch", "putarray",
+        "getint", "getch", "getarray", "getfloat", "getfarray",
+        "putint", "putch", "putarray", "putfloat", "putfarray",
         "starttime", "stoptime", "_sysy_starttime", "_sysy_stoptime"
     };
     return runtime.count(name) != 0;
@@ -104,6 +217,15 @@ struct Symbol {
     bool global = false;
     std::string label;
     std::vector<int> dims;
+    BaseType base = BaseType::Int;
+    bool constScalar = false;
+    ConstScalar constValue = {};
+};
+
+struct FunctionSignature {
+    BaseType ret = BaseType::Int;
+    std::vector<BaseType> params;
+    std::vector<int> paramDims;
 };
 
 std::string globalLabel(const std::string &name) {
@@ -190,6 +312,22 @@ void fillArrayInitializer(const Node &node, const std::vector<int> &dims,
     }
 }
 
+void appendCompressedWords(std::string &out, const std::vector<int> &values) {
+    std::size_t i = 0;
+    while (i < values.size()) {
+        if (values[i] != 0) {
+            out += "    .word " + std::to_string(values[i]) + "\n";
+            ++i;
+            continue;
+        }
+        std::size_t begin = i;
+        while (i < values.size() && values[i] == 0) {
+            ++i;
+        }
+        out += "    .zero " + std::to_string((i - begin) * 4) + "\n";
+    }
+}
+
 class Lowerer {
 public:
     tree::Program *lower(const Node &root) {
@@ -197,6 +335,7 @@ public:
             throw LoweringError(root.loc, "expected compilation unit");
         }
 
+        collectFunctions(root);
         collectGlobals(root);
 
         auto *funcs = new std::vector<tree::FuncDecl *>();
@@ -208,40 +347,100 @@ public:
         return new tree::Program(funcs);
     }
 
+    std::string emitGlobalData(const Node &root) {
+        if (root.kind != NodeKind::CompUnit) {
+            throw LoweringError(root.loc, "expected compilation unit");
+        }
+        collectFunctions(root);
+        collectGlobals(root);
+
+        std::string out;
+        for (const auto &child : root.children) {
+            if (child->kind != NodeKind::ConstDecl && child->kind != NodeKind::VarDecl) {
+                continue;
+            }
+            BaseType base = baseTypeFromText(child->text);
+            if (out.empty()) {
+                out += "\n.section .data\n.balign 4\n";
+            }
+            for (const auto &def : child->children) {
+                std::vector<int> dims = arrayDims(*def);
+                out += ".global " + globalLabel(def->text) + "\n";
+                out += globalLabel(def->text) + ":\n";
+                if (dims.empty()) {
+                    ConstScalar init{base, base == BaseType::Float ? floatBits(0.0f) : 0};
+                    const Node *initNode = initializerNode(*def);
+                    if (initNode != nullptr) {
+                        init = evalConstScalar(*initNode, base);
+                    }
+                    out += "    .word " + std::to_string(init.raw) + "\n";
+                } else {
+                    std::vector<int> values(dimProduct(dims), 0);
+                    const Node *init = initializerNode(*def);
+                    if (init != nullptr) {
+                        fillArrayInitializer(*init, dims, values, [this, base](const Node &scalar) {
+                            return evalConstScalar(scalar, base).raw;
+                        });
+                    }
+                    appendCompressedWords(out, values);
+                }
+            }
+        }
+        return out;
+    }
+
 private:
     std::map<std::string, Symbol> globalSymbols_;
-    std::map<std::string, int> globalInitializers_;
+    std::map<std::string, FunctionSignature> functions_;
     std::vector<std::unordered_map<std::string, Symbol>> scopes_;
     tree::Temp_map temps_;
     std::vector<tree::Label *> breakLabels_;
     std::vector<tree::Label *> continueLabels_;
+    BaseType currentReturnType_ = BaseType::Int;
 
     tree::Temp *newTemp() { return temps_.newtemp(); }
     tree::Label *newLabel() { return temps_.newlabel(); }
 
-    tree::Exp *tempExp(tree::Temp *temp) {
-        return new tree::TempExp(tree::Type::INT, new tree::Temp(temp->num));
+    tree::Exp *tempExp(tree::Temp *temp, BaseType type = BaseType::Int) {
+        return new tree::TempExp(treeType(type), new tree::Temp(temp->num));
     }
 
-    tree::Exp *zero() { return new tree::Const(0); }
+    tree::Exp *zero(BaseType type = BaseType::Int) {
+        if (type == BaseType::Float) {
+            return new tree::Const(floatBits(0.0f), tree::Type::FLOAT);
+        }
+        return new tree::Const(0);
+    }
 
     void pushScope() { scopes_.push_back({}); }
 
     void popScope() { scopes_.pop_back(); }
 
-    void declareLocal(const std::string &name, tree::Temp *temp, SourceLocation loc) {
+    void declareLocal(const std::string &name, tree::Temp *temp, BaseType base, SourceLocation loc) {
         if (scopes_.empty()) {
             throw LoweringError(loc, "internal lowering scope error");
         }
-        scopes_.back()[name] = Symbol{temp, false, {}, {}};
+        scopes_.back()[name] = Symbol{temp, false, {}, {}, base};
     }
 
     void declareLocalArray(const std::string &name, tree::Temp *temp,
-                           std::vector<int> dims, SourceLocation loc) {
+                           std::vector<int> dims, BaseType base, SourceLocation loc) {
         if (scopes_.empty()) {
             throw LoweringError(loc, "internal lowering scope error");
         }
-        scopes_.back()[name] = Symbol{temp, false, {}, std::move(dims)};
+        scopes_.back()[name] = Symbol{temp, false, {}, std::move(dims), base};
+    }
+
+    void declareLocalConstScalar(const std::string &name, BaseType base, ConstScalar value, SourceLocation loc) {
+        if (scopes_.empty()) {
+            throw LoweringError(loc, "internal lowering scope error");
+        }
+        if (base == BaseType::Int && value.type == BaseType::Float) {
+            value = ConstScalar{BaseType::Int, constAsInt(value)};
+        } else if (base == BaseType::Float && value.type == BaseType::Int) {
+            value = ConstScalar{BaseType::Float, floatBits(static_cast<float>(value.raw))};
+        }
+        scopes_.back()[name] = Symbol{nullptr, false, {}, {}, base, true, value};
     }
 
     Symbol lookup(const std::string &name, SourceLocation loc) const {
@@ -258,24 +457,103 @@ private:
         throw LoweringError(loc, "unknown lowered symbol '" + name + "'");
     }
 
+    std::optional<ConstScalar> lookupConstScalar(const std::string &name) const {
+        for (auto it = scopes_.rbegin(); it != scopes_.rend(); ++it) {
+            auto found = it->find(name);
+            if (found != it->end()) {
+                if (found->second.constScalar) {
+                    return found->second.constValue;
+                }
+                return std::nullopt;
+            }
+        }
+        auto global = globalSymbols_.find(name);
+        if (global != globalSymbols_.end() && global->second.constScalar) {
+            return global->second.constValue;
+        }
+        return std::nullopt;
+    }
+
+    int evalConstInt(const Node &node) const {
+        return constIntValue(node, [this](const std::string &name) {
+            return lookupConstScalar(name);
+        });
+    }
+
+    ConstScalar evalConstScalar(const Node &node, BaseType target = BaseType::Int) const {
+        ConstScalar value = constScalarValue(node, [this](const std::string &name) {
+            return lookupConstScalar(name);
+        });
+        if (target == BaseType::Float && value.type == BaseType::Int) {
+            return ConstScalar{BaseType::Float, floatBits(static_cast<float>(value.raw))};
+        }
+        if (target == BaseType::Int && value.type == BaseType::Float) {
+            return ConstScalar{BaseType::Int, constAsInt(value)};
+        }
+        return value;
+    }
+
+    void addRuntimeFunctions() {
+        functions_.clear();
+        functions_["getint"] = FunctionSignature{BaseType::Int, {}, {}};
+        functions_["getch"] = FunctionSignature{BaseType::Int, {}, {}};
+        functions_["getarray"] = FunctionSignature{BaseType::Int, {BaseType::Int}, {1}};
+        functions_["getfloat"] = FunctionSignature{BaseType::Float, {}, {}};
+        functions_["getfarray"] = FunctionSignature{BaseType::Int, {BaseType::Float}, {1}};
+        functions_["putint"] = FunctionSignature{BaseType::Void, {BaseType::Int}, {0}};
+        functions_["putch"] = FunctionSignature{BaseType::Void, {BaseType::Int}, {0}};
+        functions_["putarray"] = FunctionSignature{BaseType::Void, {BaseType::Int, BaseType::Int}, {0, 1}};
+        functions_["putfloat"] = FunctionSignature{BaseType::Void, {BaseType::Float}, {0}};
+        functions_["putfarray"] = FunctionSignature{BaseType::Void, {BaseType::Int, BaseType::Float}, {0, 1}};
+        functions_["starttime"] = FunctionSignature{BaseType::Void, {}, {}};
+        functions_["stoptime"] = FunctionSignature{BaseType::Void, {}, {}};
+        functions_["_sysy_starttime"] = FunctionSignature{BaseType::Void, {BaseType::Int}, {0}};
+        functions_["_sysy_stoptime"] = FunctionSignature{BaseType::Void, {BaseType::Int}, {0}};
+    }
+
+    void collectFunctions(const Node &root) {
+        addRuntimeFunctions();
+        for (const auto &child : root.children) {
+            if (child->kind != NodeKind::FuncDef) {
+                continue;
+            }
+            FunctionSignature sig;
+            sig.ret = baseTypeFromText(firstWord(child->text));
+            for (const auto &param : child->children) {
+                if (param->kind != NodeKind::FuncParam) {
+                    continue;
+                }
+                sig.params.push_back(baseTypeFromText(firstWord(param->text)));
+                int dims = static_cast<int>(std::count_if(param->children.begin(), param->children.end(),
+                                                          [](const auto &dim) {
+                                                              return dim->kind == NodeKind::ArrayDim;
+                                                          }));
+                sig.paramDims.push_back(dims);
+            }
+            functions_[secondWord(child->text)] = std::move(sig);
+        }
+    }
+
     void collectGlobals(const Node &root) {
+        globalSymbols_.clear();
         for (const auto &child : root.children) {
             if (child->kind != NodeKind::ConstDecl && child->kind != NodeKind::VarDecl) {
                 continue;
             }
-            if (child->text != "int") {
-                throw LoweringError(child->loc, "native backend does not support float globals yet");
-            }
+            BaseType base = baseTypeFromText(child->text);
+            bool isConstDecl = child->kind == NodeKind::ConstDecl;
             for (const auto &def : child->children) {
                 std::vector<int> dims = arrayDims(*def);
-                globalSymbols_[def->text] = Symbol{nullptr, true, globalLabel(def->text), dims};
+                ConstScalar init{base, base == BaseType::Float ? floatBits(0.0f) : 0};
+                const Node *initNode = initializerNode(*def);
                 if (dims.empty()) {
-                    int init = 0;
-                    if (!def->children.empty()) {
-                        init = constIntValue(*def->children.back());
+                    if (initNode != nullptr) {
+                        init = evalConstScalar(*initNode, base);
                     }
-                    globalInitializers_[def->text] = init;
                 }
+                bool isConstScalar = isConstDecl && dims.empty();
+                globalSymbols_[def->text] = Symbol{nullptr, true, globalLabel(def->text), dims,
+                                                   base, isConstScalar, init};
             }
         }
     }
@@ -289,7 +567,7 @@ private:
             if (child->children.empty()) {
                 throw LoweringError(child->loc, "native backend does not support omitted array dimensions yet");
             }
-            int dim = constIntValue(*child->children.at(0));
+            int dim = evalConstInt(*child->children.at(0));
             if (dim <= 0) {
                 throw LoweringError(child->loc, "array dimension must be positive for native backend");
             }
@@ -307,21 +585,88 @@ private:
         return nullptr;
     }
 
-    std::vector<tree::Exp *> arrayInitializerExprs(const Node &def, const std::vector<int> &dims) {
+    BaseType lvalueBaseType(const Node &node) const {
+        return lookup(node.text, node.loc).base;
+    }
+
+    BaseType callReturnType(const std::string &name) const {
+        auto found = functions_.find(name);
+        if (found == functions_.end()) {
+            return BaseType::Int;
+        }
+        return found->second.ret;
+    }
+
+    BaseType exprBaseType(const Node &node) const {
+        switch (node.kind) {
+        case NodeKind::Number:
+            return isFloatText(node.text) ? BaseType::Float : BaseType::Int;
+        case NodeKind::LVal:
+            return lvalueBaseType(node);
+        case NodeKind::UnaryExpr:
+            if (node.text == "!") {
+                return BaseType::Int;
+            }
+            return exprBaseType(*node.children.at(0));
+        case NodeKind::BinaryExpr:
+            if (node.text == "==" || node.text == "!=" || node.text == "<" || node.text == ">" ||
+                node.text == "<=" || node.text == ">=" || node.text == "&&" || node.text == "||" ||
+                node.text == "%") {
+                return BaseType::Int;
+            }
+            if (exprBaseType(*node.children.at(0)) == BaseType::Float ||
+                exprBaseType(*node.children.at(1)) == BaseType::Float) {
+                return BaseType::Float;
+            }
+            return BaseType::Int;
+        case NodeKind::CallExpr: {
+            std::string name = node.text;
+            if (name == "starttime") {
+                name = "_sysy_starttime";
+            } else if (name == "stoptime") {
+                name = "_sysy_stoptime";
+            }
+            return callReturnType(name);
+        }
+        default:
+            return BaseType::Int;
+        }
+    }
+
+    tree::Exp *convertExpr(tree::Exp *expr, BaseType target) {
+        if (expr == nullptr || target == BaseType::Void) {
+            return expr;
+        }
+        BaseType actual = expr->type == tree::Type::FLOAT ? BaseType::Float : BaseType::Int;
+        if (actual == target) {
+            return expr;
+        }
+        auto *args = new std::vector<tree::Exp *>({expr});
+        if (target == BaseType::Float) {
+            return new tree::ExtCall(tree::Type::FLOAT, "__sysy_i2f_bits", args);
+        }
+        return new tree::ExtCall(tree::Type::INT, "__sysy_f2i_bits", args);
+    }
+
+    tree::Exp *lowerExprAs(const Node &node, BaseType target) {
+        return convertExpr(lowerExpr(node), target);
+    }
+
+    std::vector<tree::Exp *> arrayInitializerExprs(const Node &def, const std::vector<int> &dims, BaseType base) {
         std::vector<tree::Exp *> values(static_cast<std::size_t>(dimProduct(dims)), nullptr);
         const Node *init = initializerNode(def);
         if (init == nullptr) {
             for (auto *&value : values) {
-                value = zero();
+                value = zero(base);
             }
             return values;
         }
-        fillArrayInitializer(*init, dims, values, [this](const Node &scalar) {
-            return lowerExpr(scalar);
+        fillArrayInitializer(*init, dims, values, [this, base](const Node &scalar) {
+            return convertExpr(lowerExpr(scalar), base);
         });
         for (auto *&value : values) {
             if (value == nullptr) {
-                value = zero();
+                value = zero(base);
             }
         }
         return values;
@@ -330,9 +675,7 @@ private:
     tree::FuncDecl *lowerFunction(const Node &node) {
         std::string ret = firstWord(node.text);
         std::string name = secondWord(node.text);
-        if (ret == "float") {
-            throw LoweringError(node.loc, "native backend does not support float functions yet");
-        }
+        currentReturnType_ = baseTypeFromText(ret);
 
         pushScope();
         auto *params = new std::vector<tree::Temp *>();
@@ -343,9 +686,7 @@ private:
             if (child->kind != NodeKind::FuncParam) {
                 continue;
             }
-            if (firstWord(child->text) != "int") {
-                throw LoweringError(child->loc, "native backend does not support float parameters yet");
-            }
+            BaseType paramBase = baseTypeFromText(firstWord(child->text));
             auto *param = newTemp();
             params->push_back(param);
             std::vector<int> dims;
@@ -354,13 +695,13 @@ private:
                     if (dim->kind != NodeKind::ArrayDim) {
                         continue;
                     }
-                    dims.push_back(dim->children.empty() ? -1 : constIntValue(*dim->children.at(0)));
+                    dims.push_back(dim->children.empty() ? -1 : evalConstInt(*dim->children.at(0)));
                 }
             }
             if (dims.empty()) {
-                declareLocal(secondWord(child->text), param, child->loc);
+                declareLocal(secondWord(child->text), param, paramBase, child->loc);
             } else {
-                declareLocalArray(secondWord(child->text), param, std::move(dims), child->loc);
+                declareLocalArray(secondWord(child->text), param, std::move(dims), paramBase, child->loc);
             }
         }
 
@@ -371,12 +712,12 @@ private:
         }
 
         if (blockFallsThrough(stms)) {
-            stms->push_back(new tree::Return(zero()));
+            stms->push_back(new tree::Return(zero(currentReturnType_)));
         }
         popScope();
 
         return new tree::FuncDecl(name, params, new tree::Seq(stms),
-                                  ret == "void" ? tree::Type::INT : tree::Type::INT,
+                                  ret == "void" ? tree::Type::INT : treeType(currentReturnType_),
                                   temps_.next_temp - 1, temps_.next_label - 1);
     }
 
@@ -414,32 +755,52 @@ private:
     }
 
     void lowerDecl(const Node &node, std::vector<tree::Stm *> *stms) {
-        if (node.text != "int") {
-            throw LoweringError(node.loc, "native backend does not support float locals yet");
-        }
+        BaseType base = baseTypeFromText(node.text);
+        bool isConstDecl = node.kind == NodeKind::ConstDecl;
         for (const auto &def : node.children) {
             std::vector<int> dims = arrayDims(*def);
+            if (isConstDecl && dims.empty()) {
+                const Node *init = initializerNode(*def);
+                if (init == nullptr) {
+                    throw LoweringError(def->loc, "const scalar needs initializer");
+                }
+                declareLocalConstScalar(def->text, base, evalConstScalar(*init, base), def->loc);
+                continue;
+            }
             auto *temp = newTemp();
             if (!dims.empty()) {
-                declareLocalArray(def->text, temp, dims, def->loc);
+                declareLocalArray(def->text, temp, dims, base, def->loc);
                 int totalBytes = dimProduct(dims) * 4;
                 auto *mallocArgs = new std::vector<tree::Exp *>({new tree::Const(totalBytes)});
                 stms->push_back(new tree::Move(new tree::TempExp(tree::Type::PTR, new tree::Temp(temp->num)),
                                                new tree::ExtCall(tree::Type::PTR, "malloc", mallocArgs)));
-                std::vector<tree::Exp *> values = arrayInitializerExprs(*def, dims);
-                for (std::size_t i = 0; i < values.size(); ++i) {
-                    stms->push_back(new tree::Move(
-                        new tree::Mem(tree::Type::INT, arrayElementAddress(Symbol{temp, false, {}, dims}, i)),
-                        values[i]));
+                if (initializerNode(*def) != nullptr) {
+                    auto *memsetArgs = new std::vector<tree::Exp *>({
+                        new tree::TempExp(tree::Type::PTR, new tree::Temp(temp->num)),
+                        new tree::Const(0),
+                        new tree::Const(totalBytes)
+                    });
+                    stms->push_back(new tree::ExpStm(new tree::ExtCall(tree::Type::INT, "memset", memsetArgs)));
+                    std::vector<tree::Exp *> values = arrayInitializerExprs(*def, dims, base);
+                    for (std::size_t i = 0; i < values.size(); ++i) {
+                        auto *constValue = dynamic_cast<tree::Const *>(values[i]);
+                        if (constValue != nullptr && constValue->constVal == 0) {
+                            continue;
+                        }
+                        stms->push_back(new tree::Move(
+                            new tree::Mem(treeType(base),
+                                          arrayElementAddress(Symbol{temp, false, {}, dims, base}, i)),
+                            values[i]));
+                    }
                 }
                 continue;
             }
-            declareLocal(def->text, temp, def->loc);
-            tree::Exp *init = zero();
+            declareLocal(def->text, temp, base, def->loc);
+            tree::Exp *init = zero(base);
             if (!def->children.empty()) {
-                init = lowerExpr(*def->children.back());
+                init = lowerExprAs(*def->children.back(), base);
             }
-            stms->push_back(new tree::Move(tempExp(temp), init));
+            stms->push_back(new tree::Move(tempExp(temp, base), init));
         }
     }
 
@@ -449,7 +810,8 @@ private:
             return lowerBlock(node, stms, true);
         case NodeKind::AssignStmt: {
             auto *dst = lowerLValue(*node.children.at(0));
-            stms->push_back(new tree::Move(dst, lowerExpr(*node.children.at(1))));
+            BaseType dstBase = dst->type == tree::Type::FLOAT ? BaseType::Float : BaseType::Int;
+            stms->push_back(new tree::Move(dst, lowerExprAs(*node.children.at(1), dstBase)));
             return true;
         }
         case NodeKind::ExprStmt:
@@ -476,9 +838,9 @@ private:
             return false;
         case NodeKind::ReturnStmt:
             if (node.children.empty()) {
-                stms->push_back(new tree::Return(zero()));
+                stms->push_back(new tree::Return(zero(currentReturnType_)));
             } else {
-                stms->push_back(new tree::Return(lowerExpr(*node.children.at(0))));
+                stms->push_back(new tree::Return(lowerExprAs(*node.children.at(0), currentReturnType_)));
             }
             return false;
         default:
@@ -528,6 +890,12 @@ private:
 
     tree::Exp *lowerLValue(const Node &node) {
         Symbol sym = lookup(node.text, node.loc);
+        if (sym.constScalar) {
+            if (!node.children.empty()) {
+                throw LoweringError(node.loc, "cannot index scalar const in native backend");
+            }
+            return new tree::Const(sym.constValue.raw, treeType(sym.base));
+        }
         if (isArraySymbol(sym)) {
             if (node.children.empty()) {
                 return arrayBase(sym);
@@ -539,7 +907,7 @@ private:
             tree::Exp *addr = new tree::Binop(tree::Type::PTR, "+", arrayBase(sym),
                                               new tree::Binop(tree::Type::INT, "*", offset, new tree::Const(4)));
             if (node.children.size() == sym.dims.size()) {
-                return new tree::Mem(tree::Type::INT, addr);
+                return new tree::Mem(treeType(sym.base), addr);
             }
             return addr;
         }
@@ -547,9 +915,9 @@ private:
             throw LoweringError(node.loc, "cannot index scalar in native backend");
         }
         if (sym.global) {
-            return new tree::Mem(tree::Type::INT, new tree::Name(new tree::String_Label(sym.label)));
+            return new tree::Mem(treeType(sym.base), new tree::Name(new tree::String_Label(sym.label)));
         }
-        return tempExp(sym.temp);
+        return tempExp(sym.temp, sym.base);
     }
 
     tree::Exp *arrayBase(const Symbol &sym) {
@@ -587,7 +955,7 @@ private:
         switch (node.kind) {
         case NodeKind::Number:
             if (isFloatText(node.text)) {
-                throw LoweringError(node.loc, "native backend does not support float literals yet");
+                return new tree::Const(floatBits(parseFloatLiteral(node.text)), tree::Type::FLOAT);
             }
             return new tree::Const(parseIntLiteral(node.text));
         case NodeKind::LVal:
@@ -611,6 +979,10 @@ private:
             return operand;
         }
         if (node.text == "-") {
+            if (operand->type == tree::Type::FLOAT) {
+                auto *args = new std::vector<tree::Exp *>({operand});
+                return new tree::ExtCall(tree::Type::FLOAT, "__sysy_fneg_bits", args);
+            }
             return new tree::Binop(tree::Type::INT, "-", zero(), operand);
         }
         if (node.text == "!") {
@@ -619,7 +991,8 @@ private:
             auto *falseLabel = newLabel();
             auto *doneLabel = newLabel();
             auto *stms = new std::vector<tree::Stm *>();
-            stms->push_back(new tree::Cjump("==", operand, zero(), trueLabel, falseLabel));
+            stms->push_back(new tree::Cjump("==", operand, zero(operand->type == tree::Type::FLOAT ? BaseType::Float : BaseType::Int),
+                                            trueLabel, falseLabel));
             stms->push_back(new tree::LabelStm(trueLabel));
             stms->push_back(new tree::Move(tempExp(result), new tree::Const(1)));
             stms->push_back(new tree::Jump(doneLabel));
@@ -647,18 +1020,57 @@ private:
             auto *prod = new tree::Binop(tree::Type::INT, "*", quot, lowerExpr(*node.children.at(1)));
             return new tree::Binop(tree::Type::INT, "-", lowerExpr(*node.children.at(0)), prod);
         }
-        return new tree::Binop(tree::Type::INT, op, lowerExpr(*node.children.at(0)),
-                               lowerExpr(*node.children.at(1)));
+        BaseType resultBase = exprBaseType(node);
+        if (resultBase == BaseType::Float) {
+            auto *args = new std::vector<tree::Exp *>({
+                lowerExprAs(*node.children.at(0), BaseType::Float),
+                lowerExprAs(*node.children.at(1), BaseType::Float)
+            });
+            std::string helper = "__sysy_fadd_bits";
+            if (op == "-") {
+                helper = "__sysy_fsub_bits";
+            } else if (op == "*") {
+                helper = "__sysy_fmul_bits";
+            } else if (op == "/") {
+                helper = "__sysy_fdiv_bits";
+            }
+            return new tree::ExtCall(tree::Type::FLOAT, helper, args);
+        }
+        return new tree::Binop(tree::Type::INT, op, lowerExprAs(*node.children.at(0), BaseType::Int),
+                               lowerExprAs(*node.children.at(1), BaseType::Int));
     }
 
     tree::Exp *lowerComparison(const Node &node) {
+        BaseType cmpBase = (exprBaseType(*node.children.at(0)) == BaseType::Float ||
+                            exprBaseType(*node.children.at(1)) == BaseType::Float)
+                               ? BaseType::Float
+                               : BaseType::Int;
+        if (cmpBase == BaseType::Float) {
+            std::string helper = "__sysy_fcmpeq_bits";
+            if (node.text == "!=") {
+                helper = "__sysy_fcmpne_bits";
+            } else if (node.text == "<") {
+                helper = "__sysy_fcmplt_bits";
+            } else if (node.text == ">") {
+                helper = "__sysy_fcmpgt_bits";
+            } else if (node.text == "<=") {
+                helper = "__sysy_fcmple_bits";
+            } else if (node.text == ">=") {
+                helper = "__sysy_fcmpge_bits";
+            }
+            auto *args = new std::vector<tree::Exp *>({
+                lowerExprAs(*node.children.at(0), BaseType::Float),
+                lowerExprAs(*node.children.at(1), BaseType::Float)
+            });
+            return new tree::ExtCall(tree::Type::INT, helper, args);
+        }
         auto *result = newTemp();
         auto *trueLabel = newLabel();
         auto *falseLabel = newLabel();
         auto *doneLabel = newLabel();
         auto *stms = new std::vector<tree::Stm *>();
-        stms->push_back(new tree::Cjump(node.text, lowerExpr(*node.children.at(0)),
-                                        lowerExpr(*node.children.at(1)), trueLabel, falseLabel));
+        stms->push_back(new tree::Cjump(node.text, lowerExprAs(*node.children.at(0), cmpBase),
+                                        lowerExprAs(*node.children.at(1), cmpBase), trueLabel, falseLabel));
         stms->push_back(new tree::LabelStm(trueLabel));
         stms->push_back(new tree::Move(tempExp(result), new tree::Const(1)));
         stms->push_back(new tree::Jump(doneLabel));
@@ -693,24 +1105,22 @@ private:
         } else if (name == "stoptime") {
             name = "_sysy_stoptime";
         }
-        if (!isRuntimeFunction(name) && name != "putf") {
-            auto *args = new std::vector<tree::Exp *>();
-            for (const auto &child : node.children) {
-                args->push_back(lowerExpr(*child));
-            }
-            return new tree::ExtCall(tree::Type::INT, name, args);
-        }
         if (name == "putf") {
             throw LoweringError(node.loc, "native backend does not support putf/string literals yet");
         }
-        if (name == "getarray" || name == "putarray") {
-            throw LoweringError(node.loc, "native backend does not support array runtime calls yet");
-        }
+        auto sigIt = functions_.find(name);
+        FunctionSignature sig = sigIt == functions_.end() ? FunctionSignature{} : sigIt->second;
         auto *args = new std::vector<tree::Exp *>();
-        for (const auto &child : node.children) {
-            args->push_back(lowerExpr(*child));
+        for (std::size_t i = 0; i < node.children.size(); ++i) {
+            BaseType target = i < sig.params.size() ? sig.params[i] : exprBaseType(*node.children[i]);
+            int dims = i < sig.paramDims.size() ? sig.paramDims[i] : 0;
+            if (dims > 0) {
+                args->push_back(lowerExpr(*node.children[i]));
+            } else {
+                args->push_back(lowerExprAs(*node.children[i], target));
+            }
         }
-        return new tree::ExtCall(tree::Type::INT, name, args);
+        return new tree::ExtCall(treeType(sig.ret), name, args);
     }
 
     void emitCond(const Node &node, tree::Label *trueLabel, tree::Label *falseLabel,
@@ -732,15 +1142,24 @@ private:
         if (node.kind == NodeKind::BinaryExpr &&
             (node.text == "==" || node.text == "!=" || node.text == "<" || node.text == ">" ||
              node.text == "<=" || node.text == ">=")) {
-            stms->push_back(new tree::Cjump(node.text, lowerExpr(*node.children.at(0)),
-                                            lowerExpr(*node.children.at(1)), trueLabel, falseLabel));
+            BaseType cmpBase = (exprBaseType(*node.children.at(0)) == BaseType::Float ||
+                                exprBaseType(*node.children.at(1)) == BaseType::Float)
+                                   ? BaseType::Float
+                                   : BaseType::Int;
+            if (cmpBase == BaseType::Float) {
+                stms->push_back(new tree::Cjump("!=", lowerComparison(node), zero(), trueLabel, falseLabel));
+                return;
+            }
+            stms->push_back(new tree::Cjump(node.text, lowerExprAs(*node.children.at(0), cmpBase),
+                                            lowerExprAs(*node.children.at(1), cmpBase), trueLabel, falseLabel));
             return;
         }
         if (node.kind == NodeKind::UnaryExpr && node.text == "!") {
             emitCond(*node.children.at(0), falseLabel, trueLabel, stms);
             return;
         }
-        stms->push_back(new tree::Cjump("!=", lowerExpr(node), zero(), trueLabel, falseLabel));
+        BaseType condBase = exprBaseType(node);
+        stms->push_back(new tree::Cjump("!=", lowerExpr(node), zero(condBase), trueLabel, falseLabel));
     }
 };
 
@@ -756,61 +1175,7 @@ tree::Program *lowerToTree(const Node &root) {
 
 std::string emitGlobalDataSection(const Node &root) {
     Lowerer lowerer;
-    std::string out;
-    for (const auto &child : root.children) {
-        if (child->kind != NodeKind::ConstDecl && child->kind != NodeKind::VarDecl) {
-            continue;
-        }
-        if (child->text != "int") {
-            throw LoweringError(child->loc, "native backend does not support float globals yet");
-        }
-        if (out.empty()) {
-            out += "\n.section .data\n.balign 4\n";
-        }
-        for (const auto &def : child->children) {
-            std::vector<int> dims;
-            for (const auto &defChild : def->children) {
-                if (defChild->kind != NodeKind::ArrayDim) {
-                    continue;
-                }
-                if (defChild->children.empty()) {
-                    throw LoweringError(defChild->loc, "native backend does not support omitted global dimensions yet");
-                }
-                int dim = constIntValue(*defChild->children.at(0));
-                if (dim <= 0) {
-                    throw LoweringError(defChild->loc, "array dimension must be positive for native backend");
-                }
-                dims.push_back(dim);
-            }
-            out += ".global " + globalLabel(def->text) + "\n";
-            out += globalLabel(def->text) + ":\n";
-            if (dims.empty()) {
-                int init = 0;
-                if (!def->children.empty()) {
-                    init = constIntValue(*def->children.back());
-                }
-                out += "    .word " + std::to_string(init) + "\n";
-            } else {
-                std::vector<int> values(dimProduct(dims), 0);
-                const Node *init = nullptr;
-                for (const auto &defChild : def->children) {
-                    if (defChild->kind != NodeKind::ArrayDim) {
-                        init = defChild.get();
-                        break;
-                    }
-                }
-                if (init != nullptr) {
-                    fillArrayInitializer(*init, dims, values, [](const Node &scalar) {
-                        return constIntValue(scalar);
-                    });
-                }
-                for (int value : values) {
-                    out += "    .word " + std::to_string(value) + "\n";
-                }
-            }
-        }
-    }
-    return out;
+    return lowerer.emitGlobalData(root);
 }
 
 } // namespace sysy

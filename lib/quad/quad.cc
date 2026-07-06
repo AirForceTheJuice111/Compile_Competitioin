@@ -36,6 +36,7 @@ string quad::quadKindToString(QuadKind kind) {
 string quad::quadTypeToString(QuadType type) {
     switch (type) {
         case QuadType::INT: return "int";
+        case QuadType::FLOAT: return "float";
         case QuadType::PTR: return "ptr";
     }
     return "unknown";
@@ -43,6 +44,7 @@ string quad::quadTypeToString(QuadType type) {
 
 QuadType quad::stringToQuadType(const string& typeStr) {
     if (typeStr == "ptr") return QuadType::PTR;
+    if (typeStr == "float") return QuadType::FLOAT;
     return QuadType::INT;
 }
 

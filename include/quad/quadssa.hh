@@ -2,6 +2,7 @@
 #define __QUAD_SSA_HH
 
 #include <map>
+#include <utility>
 #include <set>
 #include <string>
 #include <vector>
@@ -15,20 +16,35 @@ using namespace quad;
 class VersionedTemp {
 public:
 
-//Here we use a rather simper method to generate temps with versions
-//with the assumption that the number of versions is small (<=100)
+static void registerVersionedTemp(int versionedTempNum, int oldNum, int version) {
+    registry()[versionedTempNum] = {oldNum, version};
+}
 
 static int versionedTempNum(int old_num, int version) {
-    return old_num*100+version; //unique temp for each version
+    return old_num * 100 + version;
 }
 
 static int origTempNum(int versionedTempNum) {
-    return versionedTempNum/100; //original temp number
+    auto found = registry().find(versionedTempNum);
+    if (found != registry().end()) {
+        return found->second.first;
+    }
+    return versionedTempNum / 100;
 }
 
-//more sophisticated implementation can be done by remembering
-//the num of each new versions, and using a map to get the 
-//original temp num.
+static int versionNum(int versionedTempNum) {
+    auto found = registry().find(versionedTempNum);
+    if (found != registry().end()) {
+        return found->second.second;
+    }
+    return versionedTempNum - origTempNum(versionedTempNum) * 100;
+}
+
+private:
+static std::map<int, std::pair<int, int>>& registry() {
+    static std::map<int, std::pair<int, int>> data;
+    return data;
+}
 };
 
 QuadProgram* quad2ssa(set<FuncFlowInfo*>* allFuncFlow);

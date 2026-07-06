@@ -3,6 +3,7 @@
 
 #include "asmdataflow.hh"
 #include <iostream>
+#include <unordered_map>
 
 namespace instr {
 
@@ -46,16 +47,22 @@ void AsmDataFlowInfo::computeLiveness() {
     
     size_t numInstrs = instrs->size();
     bool changed = true;
-    int iterations = 0;
+    size_t iterations = 0;
+    size_t maxIterations = numInstrs + 1;
+    std::unordered_map<int, size_t> labelToIndex;
     
     // Initialize liveout and livein to empty sets
     for (size_t i = 0; i < numInstrs; ++i) {
         livein[i] = std::set<int>();
         liveout[i] = std::set<int>();
+        const AssemInstr& instr = (*instrs)[i];
+        if (instr.kind == AssemInstr::I_LABEL && instr.label != nullptr) {
+            labelToIndex[instr.label->num] = i;
+        }
     }
     
     // Iteratively compute liveness (fixed-point iteration)
-    while (changed && iterations < 100) {
+    while (changed && iterations < maxIterations) {
         changed = false;
         iterations++;
         
@@ -79,21 +86,16 @@ void AsmDataFlowInfo::computeLiveness() {
             // Handle jump targets (for branches and unconditional jumps)
             const AssemInstr& instr = (*instrs)[idx];
             if (!instr.jumps.labels.empty()) {
-                // instr.jumps.labels contains Label* objects
-                // We need to find the instruction index for each label
                 for (const tree::Label* label : instr.jumps.labels) {
-                    // Find the instruction with this label
-                    for (size_t j = 0; j < numInstrs; ++j) {
-                        const AssemInstr& targetInstr = (*instrs)[j];
-                        if (targetInstr.kind == AssemInstr::I_LABEL &&
-                            targetInstr.label != nullptr &&
-                            targetInstr.label->num == label->num) {
-                            // j is the target instruction
-                            for (int temp : livein[j]) {
-                                liveout[idx].insert(temp);
-                            }
-                            break;
-                        }
+                    if (label == nullptr) {
+                        continue;
+                    }
+                    auto found = labelToIndex.find(label->num);
+                    if (found == labelToIndex.end()) {
+                        continue;
+                    }
+                    for (int temp : livein[found->second]) {
+                        liveout[idx].insert(temp);
                     }
                 }
             }

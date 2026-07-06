@@ -26,9 +26,11 @@ struct Options {
     bool dumpAst = false;
     bool checkSysY = false;
     bool nativeBackend = false;
+    bool emitDebugFiles = false;
     std::string output;
     std::string input;
     std::string optLevel = "-O0";
+    std::string debugPrefix;
     std::vector<std::string> passthrough;
 };
 
@@ -43,7 +45,8 @@ void printUsage(std::ostream &os) {
        << "  compiler --dump-tokens <input.sy>\n"
        << "  compiler --dump-ast <input.sy>\n"
        << "  compiler --check-sysy <input.sy>\n"
-       << "  compiler --native-backend -S -o <output.s> <input.sy>\n";
+       << "  compiler --native-backend -S -o <output.s> <input.sy>\n"
+       << "  compiler --native-backend --debug-prefix /tmp/case -S -o <output.s> <input.sy>\n";
 }
 
 bool isIdentifierStart(char c) {
@@ -427,6 +430,8 @@ int compileWithNativeBackend(const Options &opt, const std::string &source) {
 
     backend::BackendOptions backendOptions;
     backendOptions.optMode = backend::optModeFromCompilerFlag(opt.optLevel);
+    backendOptions.emitDebugFiles = opt.emitDebugFiles;
+    backendOptions.debugBase = opt.debugPrefix;
     backend::BackendResult result = backend::compileTreeToArm(ir, backendOptions);
     if (!result.ok) {
         throw std::runtime_error("native backend failed: " + result.error);
@@ -449,6 +454,12 @@ Options parseArgs(int argc, char **argv) {
             opt.checkSysY = true;
         } else if (arg == "--native-backend") {
             opt.nativeBackend = true;
+        } else if (arg == "--debug-prefix") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--debug-prefix requires a path prefix");
+            }
+            opt.emitDebugFiles = true;
+            opt.debugPrefix = argv[++i];
         } else if (arg == "-S") {
             opt.emitAssembly = true;
         } else if (arg == "-o") {

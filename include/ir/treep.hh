@@ -34,6 +34,7 @@ class Call;     // members: id, obj, args
 class ExtCall;  // members: extfun, args
 
 enum class Type { INT,
+                  FLOAT,
                   PTR };
 
 string typeToString(Type type);
@@ -255,9 +256,9 @@ class Name : public Exp { // Name is used for function names and string labels (
 
 class Const : public Exp {
   public:
-    int constVal; // we only support integer constants
-    Const(int constVal)
-        : constVal(constVal) { type = Type::INT; }
+    int constVal; // integer value, pointer-sized constant, or raw IEEE-754 float bits
+    Const(int constVal, Type t = Type::INT)
+        : Exp(t), constVal(constVal) {}
     Kind getTreeKind() { return Kind::CONST; }
     void accept(Visitor &v) { v.visit(this); }
 };

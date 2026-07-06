@@ -56,72 +56,111 @@ void DataFlowInfo::computeLiveness() {
     livein->clear();
     liveout->clear();
 
-    // Build label -> block map for successor lookup
+    if (func == nullptr || func->quadblocklist == nullptr) {
+        return;
+    }
+
     map<int, QuadBlock*> labelToBlock;
-    for (auto block : *func->quadblocklist) {
-        if (block && block->entry_label) labelToBlock[block->entry_label->num] = block;
-    }
+    map<QuadBlock*, set<int>> blockUse;
+    map<QuadBlock*, set<int>> blockDef;
+    map<QuadBlock*, set<int>> blockLiveIn;
+    map<QuadBlock*, set<int>> blockLiveOut;
 
-    // Initialize live-in and live-out to empty for all statements
     for (auto block : *func->quadblocklist) {
-        if (!block || !block->quadlist) continue;
-        for (auto stmt : *block->quadlist) {
-            (*livein)[stmt] = set<int>();
-            (*liveout)[stmt] = set<int>();
+        if (!block) continue;
+        if (block->entry_label) labelToBlock[block->entry_label->num] = block;
+
+        set<int> usesBeforeDef;
+        set<int> defsInBlock;
+        if (block->quadlist) {
+            for (auto stmt : *block->quadlist) {
+                if (!stmt) continue;
+                (*livein)[stmt] = set<int>();
+                (*liveout)[stmt] = set<int>();
+                if (stmt->use) {
+                    for (auto t : *stmt->use) {
+                        if (t != nullptr && defsInBlock.count(t->num) == 0) {
+                            usesBeforeDef.insert(t->num);
+                        }
+                    }
+                }
+                if (stmt->def) {
+                    for (auto t : *stmt->def) {
+                        if (t != nullptr) {
+                            defsInBlock.insert(t->num);
+                        }
+                    }
+                }
+            }
         }
+        blockUse[block] = usesBeforeDef;
+        blockDef[block] = defsInBlock;
+        blockLiveIn[block] = set<int>();
+        blockLiveOut[block] = set<int>();
     }
 
-    // Iterative backward dataflow analysis until convergence
+    // First solve the standard block-level liveness equations, then expand the
+    // result inside each basic block. This avoids repeatedly copying statement
+    // live sets for long straight-line blocks.
     bool changed = true;
     while (changed) {
         changed = false;
-        // Process blocks in reverse order for faster convergence
         for (int i = (int)func->quadblocklist->size() - 1; i >= 0; i--) {
             auto block = func->quadblocklist->at(i);
-            if (!block || !block->quadlist || block->quadlist->empty()) continue;
+            if (!block) continue;
 
-            auto &stmts = *block->quadlist;
-
-            // live_out of last statement = union of live_in of first stmts of successor blocks (successor means immediate successors)
-            auto lastStmt = stmts.back();
             set<int> new_liveout;
             if (block->exit_labels) {
                 for (auto label : *block->exit_labels) {
+                    if (label == nullptr) continue;
                     auto it = labelToBlock.find(label->num);
-                    if (it != labelToBlock.end() && it->second->quadlist && !it->second->quadlist->empty()) {
-                        auto firstStmt = it->second->quadlist->front();
-                        for (auto v : (*livein)[firstStmt]) new_liveout.insert(v);
+                    if (it != labelToBlock.end()) {
+                        for (auto v : blockLiveIn[it->second]) new_liveout.insert(v);
                     }
                 }
-            }
-            if (new_liveout != (*liveout)[lastStmt]) {
-                (*liveout)[lastStmt] = new_liveout;
-                changed = true;
             }
 
-            // Process statements from last to first
-            for (int j = (int)stmts.size() - 1; j >= 0; j--) {
-                auto stmt = stmts[j];
-                // live_in = use ∪ (live_out - def)
-                set<int> new_livein = (*liveout)[stmt];
-                if (stmt->def) {
-                    for (auto t : *stmt->def) new_livein.erase(t->num);
-                }
-                if (stmt->use) {
-                    for (auto t : *stmt->use) new_livein.insert(t->num);
-                }
-                if (new_livein != (*livein)[stmt]) {
-                    (*livein)[stmt] = new_livein;
-                    changed = true;
-                }
-                // live_out of previous statement = live_in of current statement
-                if (j > 0) {
-                    if ((*livein)[stmt] != (*liveout)[stmts[j - 1]]) {
-                        (*liveout)[stmts[j - 1]] = (*livein)[stmt];
-                        changed = true;
-                    }
+            set<int> new_livein = blockUse[block];
+            for (auto v : new_liveout) {
+                if (blockDef[block].count(v) == 0) {
+                    new_livein.insert(v);
                 }
             }
+
+            if (new_liveout != blockLiveOut[block]) {
+                blockLiveOut[block] = new_liveout;
+                changed = true;
+            }
+            if (new_livein != blockLiveIn[block]) {
+                blockLiveIn[block] = new_livein;
+                changed = true;
+            }
+        }
+    }
+
+    for (auto block : *func->quadblocklist) {
+        if (!block || !block->quadlist) continue;
+        set<int> live = blockLiveOut[block];
+        auto &stmts = *block->quadlist;
+        for (int i = (int)stmts.size() - 1; i >= 0; --i) {
+            auto stmt = stmts[i];
+            if (stmt == nullptr) continue;
+
+            (*liveout)[stmt] = live;
+
+            set<int> in = live;
+            if (stmt->def) {
+                for (auto t : *stmt->def) {
+                    if (t != nullptr) in.erase(t->num);
+                }
+            }
+            if (stmt->use) {
+                for (auto t : *stmt->use) {
+                    if (t != nullptr) in.insert(t->num);
+                }
+            }
+            (*livein)[stmt] = in;
+            live = in;
         }
     }
 }
