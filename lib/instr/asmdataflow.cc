@@ -7,6 +7,22 @@
 
 namespace instr {
 
+namespace {
+
+bool startsWith(const std::string &text, const std::string &prefix) {
+    return text.rfind(prefix, 0) == 0;
+}
+
+bool isUnconditionalBranch(const AssemInstr &instr) {
+    return instr.kind == AssemInstr::I_OPER && startsWith(instr.assem, "b ");
+}
+
+bool isFunctionReturn(const AssemInstr &instr) {
+    return instr.kind == AssemInstr::I_OPER && instr.assem == "bx lr";
+}
+
+} // namespace
+
 AsmDataFlowInfo::AsmDataFlowInfo(AsmFunction* f) : func(f), instrs(&f->instructions) {
 }
 
@@ -73,18 +89,19 @@ void AsmDataFlowInfo::computeLiveness() {
             // Save old livein for change detection
             std::set<int> oldLivein = livein[idx];
             
-            // liveout[i] = union of livein[j] for all successors j
-            // Successors include:
-            // 1. Next instruction in linear flow (idx + 1)
-            // 2. Jump target(s) if this is a jump/branch instruction
-            if (idx + 1 < numInstrs) {
+            const AssemInstr& instr = (*instrs)[idx];
+            bool hasFallthrough = !isFunctionReturn(instr) && !isUnconditionalBranch(instr);
+
+            // liveout[i] = union of livein[j] for all successors j. Conditional
+            // branches have both the jump target and the following instruction as
+            // successors; unconditional branches and returns do not fall through.
+            if (hasFallthrough && idx + 1 < numInstrs) {
                 for (int temp : livein[idx + 1]) {
                     liveout[idx].insert(temp);
                 }
             }
             
             // Handle jump targets (for branches and unconditional jumps)
-            const AssemInstr& instr = (*instrs)[idx];
             if (!instr.jumps.labels.empty()) {
                 for (const tree::Label* label : instr.jumps.labels) {
                     if (label == nullptr) {

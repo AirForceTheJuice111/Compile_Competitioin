@@ -94,10 +94,17 @@ bool Coloring::isMove(int n) {
 }
 
 void Coloring::eraseNode(int node) {
-    graph.erase(node);
-    for (auto& pair : graph) {
-        if (pair.second.find(node) != pair.second.end()) {
-            pair.second.erase(node);
+    auto found = graph.find(node);
+    if (found == graph.end()) {
+        return;
+    }
+
+    set<int> neighbors = found->second;
+    graph.erase(found);
+    for (int neighbor : neighbors) {
+        auto neighborFound = graph.find(neighbor);
+        if (neighborFound != graph.end()) {
+            neighborFound->second.erase(node);
         }
     }
 }

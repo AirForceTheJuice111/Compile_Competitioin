@@ -24,6 +24,7 @@ bool hasSideEffect(QuadStm* stm) {
     // conservatively rooted because they may observe or change program state.
     if (stm == nullptr) return true;
     return stm->kind == QuadKind::STORE ||
+           stm->kind == QuadKind::LOAD ||
            stm->kind == QuadKind::CALL ||
            stm->kind == QuadKind::MOVE_CALL ||
            stm->kind == QuadKind::EXTCALL ||
