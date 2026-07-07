@@ -45,7 +45,17 @@ void printUsage(std::ostream &os) {
        << "  compiler --dump-ast <input.sy>\n"
        << "  compiler --check-sysy <input.sy>\n"
        << "  compiler --debug-prefix /tmp/case -S -o <output.s> <input.sy>\n"
+       << "  compiler --opt-mode none|const|loop1|loop2|allloop|allopt -S -o <output.s> <input.sy>\n"
        << "  compiler --gcc-bridge -S -o <output.s> <input.sy>\n";
+}
+
+bool isNativeOptModeName(const std::string &arg) {
+    return arg == "none" || arg == "no" || arg == "noopt" ||
+           arg == "const" || arg == "sccp" ||
+           arg == "loop1" || arg == "licm" ||
+           arg == "loop2" || arg == "iv" || arg == "strength" ||
+           arg == "allloop" || arg == "loops" ||
+           arg == "allopt";
 }
 
 bool isIdentifierStart(char c) {
@@ -461,6 +471,11 @@ Options parseArgs(int argc, char **argv) {
             }
             opt.emitDebugFiles = true;
             opt.debugPrefix = argv[++i];
+        } else if (arg == "--opt-mode") {
+            if (i + 1 >= argc) {
+                throw std::runtime_error("--opt-mode requires a mode");
+            }
+            opt.optLevel = argv[++i];
         } else if (arg == "-S") {
             opt.emitAssembly = true;
         } else if (arg == "-o") {
@@ -469,6 +484,8 @@ Options parseArgs(int argc, char **argv) {
             }
             opt.output = argv[++i];
         } else if (arg.rfind("-O", 0) == 0) {
+            opt.optLevel = arg;
+        } else if (isNativeOptModeName(arg)) {
             opt.optLevel = arg;
         } else if (arg == "-I" || arg == "-D" || arg == "-U" || arg == "-include") {
             if (i + 1 >= argc) {

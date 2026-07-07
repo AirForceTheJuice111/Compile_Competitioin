@@ -79,6 +79,18 @@ int backedgeLabel(QuadFuncDecl* func, LoopHeader* loop) {
     return -1;
 }
 
+int loopIncomingPhiArgCount(QuadStm* phiStm, LoopHeader* loop) {
+    auto phi = dynamic_cast<QuadPhi*>(phiStm);
+    if (phi == nullptr || phi->args == nullptr || loop == nullptr) return 0;
+
+    int count = 0;
+    for (auto arg : *phi->args) {
+        int incomingLabel = arg.second == nullptr ? -1 : arg.second->num;
+        if (loop->bodyBlocks.count(incomingLabel)) ++count;
+    }
+    return count;
+}
+
 Temp* temp(int num) {
     return new Temp(num);
 }
@@ -477,6 +489,32 @@ QuadStm* buildUpdateStatement(const StrengthReductionPlan::ReplacementIV& repl) 
     return makeBinop(repl.map.newBackedgeTemp, tempTerm(repl.map.newPhiTemp), op, constTerm(abs(repl.stepExpr.stepIncrementValue)), {repl.map.newPhiTemp});
 }
 
+int remapPlannedTemp(int tempNum, const map<int, int>& tempReplacement, int selfOldTemp) {
+    if (tempNum == -1 || tempNum == selfOldTemp) return tempNum;
+    auto it = tempReplacement.find(tempNum);
+    if (it == tempReplacement.end()) return tempNum;
+    return it->second;
+}
+
+int remapPlannedSignedTemp(int signedTempNum, const map<int, int>& tempReplacement, int selfOldTemp) {
+    if (signedTempNum == -1) return -1;
+    int sign = signedTempNum < 0 ? -1 : 1;
+    int mapped = remapPlannedTemp(abs(signedTempNum), tempReplacement, selfOldTemp);
+    return sign * mapped;
+}
+
+void remapReplacementOperandTemps(
+    StrengthReductionPlan::ReplacementIV& repl,
+    const map<int, int>& tempReplacement
+) {
+    int selfOldTemp = repl.map.oldTempNum;
+    repl.initExpr.initTempNum = remapPlannedTemp(repl.initExpr.initTempNum, tempReplacement, selfOldTemp);
+    repl.initExpr.basicStepTempNum = remapPlannedSignedTemp(repl.initExpr.basicStepTempNum, tempReplacement, selfOldTemp);
+    repl.stepExpr.stepIncrementTempNum = remapPlannedTemp(repl.stepExpr.stepIncrementTempNum, tempReplacement, selfOldTemp);
+    repl.stepExpr.stepSourceTempNum = remapPlannedTemp(repl.stepExpr.stepSourceTempNum, tempReplacement, selfOldTemp);
+    repl.stepExpr.stepSecondaryTempNum = remapPlannedTemp(repl.stepExpr.stepSecondaryTempNum, tempReplacement, selfOldTemp);
+}
+
 }
 
 StrengthReductionPlan generateStrengthReductionPlan(
@@ -507,6 +545,12 @@ StrengthReductionPlan generateStrengthReductionPlan(
             });
             if (basicIt == basicIVsByHeader.at(loop->headerLabel).end()) continue;
             const BasicInductionVar& biv = *basicIt;
+            // This pass materializes one recurrence update at one backedge and
+            // builds a two-argument PHI. SysY lowering can create loop headers
+            // whose basic IV PHI has several incoming loop-body edges. Optimizing
+            // those with the single-backedge plan would leave the replacement PHI
+            // incomplete, so keep the original IV for that loop shape.
+            if (loopIncomingPhiArgCount(biv.phiStm, loop) != 1) continue;
 
             // One replacement introduces:
             //   newInitTemp      in the preheader,
@@ -584,6 +628,7 @@ QuadFuncDecl* applyStrengthReduction(
     }
 
     for (auto repl : plan.replacements) {
+        remapReplacementOperandTemps(repl, plan.tempReplacement);
         QuadBlock* preheader = findBlock(func, repl.placement.initLabel);
         QuadBlock* header = findBlock(func, repl.map.headerLabel);
         QuadBlock* backedge = findBlock(func, repl.placement.backedgeLabel);

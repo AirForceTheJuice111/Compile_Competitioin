@@ -8,6 +8,7 @@
 #include <map>
 #include <set>
 #include <stack>
+#include <utility>
 
 using namespace std;
 
@@ -17,7 +18,7 @@ public:
     set<pair<int, int>> movePairs; // Set of move pairs in the original graph
 
     //constructing the graph from the original graph and the move pairs
-    InterferenceGraph(map<int, set<int>> graph, set<pair<int, int>> movePairs) : graph(graph), movePairs(movePairs) { 
+    InterferenceGraph(map<int, set<int>> graph, set<pair<int, int>> movePairs) : graph(std::move(graph)), movePairs(std::move(movePairs)) {
     }; // Constructor
 
     string printGraph(); // Print the current graph with other info (move pairs, etc.) to string
