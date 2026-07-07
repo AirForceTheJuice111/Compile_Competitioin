@@ -67,6 +67,9 @@ private:
     ValueType makeType(const std::string &base, int arrayDims = 0) const;
     ValueType nodeDeclaredType(const Node &decl, const Node &def) const;
     static bool assignmentCompatible(ValueType lhs, ValueType rhs);
+    static bool argumentCompatible(const std::string &callee, std::size_t index,
+                                   ValueType expected, ValueType actual);
+    static void validatePutfCall(const Node &node, const std::vector<ValueType> &args);
     static std::string typeName(ValueType type);
 
     static std::string firstWord(const std::string &text);

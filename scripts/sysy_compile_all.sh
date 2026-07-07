@@ -4,7 +4,7 @@ set -euo pipefail
 COMPILER=${COMPILER:-"$(pwd)/build/compiler"}
 SYSY_TEST_ROOT=${SYSY_TEST_ROOT:-"$(pwd)/test"}
 OUT_DIR=${OUT_DIR:-"$(pwd)/output"}
-SYSY_OPT=${SYSY_OPT:-"-O0"}
+SYSY_OPT=${SYSY_OPT:-}
 
 if [[ ! -x "$COMPILER" ]]; then
   echo "missing compiler: $COMPILER" >&2
@@ -35,7 +35,8 @@ for sy in "${cases[@]}"; do
   out="$OUT_DIR/$stem.s"
   mkdir -p "$(dirname "$out")"
   printf '[%03d] %-55s ' "$total" "$rel"
-  if "$COMPILER" -S "$SYSY_OPT" -o "$out" "$sy" >"$out.compile.out" 2>"$out.compile.err"; then
+  read -r -a sysy_opt_args <<< "$SYSY_OPT"
+  if "$COMPILER" -S "${sysy_opt_args[@]}" -o "$out" "$sy" >"$out.compile.out" 2>"$out.compile.err"; then
     echo "PASS"
     passed=$((passed + 1))
   else

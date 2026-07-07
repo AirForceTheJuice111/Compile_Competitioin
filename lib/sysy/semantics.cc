@@ -1,9 +1,101 @@
 #include "semantics.hh"
 
 #include <algorithm>
+#include <cstdint>
 #include <sstream>
 
 namespace sysy {
+
+namespace {
+
+int hexValue(char ch) {
+    if (ch >= '0' && ch <= '9') return ch - '0';
+    if (ch >= 'a' && ch <= 'f') return ch - 'a' + 10;
+    if (ch >= 'A' && ch <= 'F') return ch - 'A' + 10;
+    return -1;
+}
+
+std::vector<unsigned char> decodeStringLiteral(const std::string &text) {
+    std::vector<unsigned char> bytes;
+    std::size_t i = (!text.empty() && text.front() == '"') ? 1 : 0;
+    std::size_t end = text.size();
+    if (end > i && text[end - 1] == '"') {
+        --end;
+    }
+    while (i < end) {
+        unsigned char ch = static_cast<unsigned char>(text[i++]);
+        if (ch != '\\' || i >= end) {
+            bytes.push_back(ch);
+            continue;
+        }
+        char esc = text[i++];
+        switch (esc) {
+        case 'a': bytes.push_back('\a'); break;
+        case 'b': bytes.push_back('\b'); break;
+        case 'f': bytes.push_back('\f'); break;
+        case 'n': bytes.push_back('\n'); break;
+        case 'r': bytes.push_back('\r'); break;
+        case 't': bytes.push_back('\t'); break;
+        case 'v': bytes.push_back('\v'); break;
+        case '\\': bytes.push_back('\\'); break;
+        case '\'': bytes.push_back('\''); break;
+        case '"': bytes.push_back('"'); break;
+        case '?': bytes.push_back('?'); break;
+        case 'x': {
+            int value = 0;
+            int digits = 0;
+            while (i < end) {
+                int digit = hexValue(text[i]);
+                if (digit < 0) break;
+                value = (value << 4) | digit;
+                ++i;
+                ++digits;
+            }
+            bytes.push_back(static_cast<unsigned char>(digits == 0 ? 'x' : value));
+            break;
+        }
+        default:
+            if (esc >= '0' && esc <= '7') {
+                int value = esc - '0';
+                int digits = 1;
+                while (digits < 3 && i < end && text[i] >= '0' && text[i] <= '7') {
+                    value = value * 8 + (text[i++] - '0');
+                    ++digits;
+                }
+                bytes.push_back(static_cast<unsigned char>(value));
+            } else {
+                bytes.push_back(static_cast<unsigned char>(esc));
+            }
+            break;
+        }
+    }
+    return bytes;
+}
+
+std::vector<char> putfFormatSpecifiers(const std::string &literal, SourceLocation loc) {
+    std::vector<char> specs;
+    std::vector<unsigned char> bytes = decodeStringLiteral(literal);
+    for (std::size_t i = 0; i < bytes.size(); ++i) {
+        if (bytes[i] != '%') {
+            continue;
+        }
+        if (i + 1 >= bytes.size()) {
+            throw SemanticError(loc, "unterminated putf format specifier");
+        }
+        unsigned char spec = bytes[++i];
+        if (spec == '%') {
+            continue;
+        }
+        if (spec == 'd' || spec == 'c' || spec == 'f') {
+            specs.push_back(static_cast<char>(spec));
+            continue;
+        }
+        throw SemanticError(loc, "unsupported putf format specifier");
+    }
+    return specs;
+}
+
+} // namespace
 
 SemanticError::SemanticError(SourceLocation loc, const std::string &message)
     : std::runtime_error(message), loc_(loc) {}
@@ -310,14 +402,20 @@ ValueType SemanticAnalyzer::analyzeExpr(const Node &node) {
         if (node.text != "putf" && sym->params.size() != node.children.size()) {
             throw SemanticError(node.loc, "wrong number of arguments to '" + node.text + "'");
         }
+        std::vector<ValueType> argTypes;
+        argTypes.reserve(node.children.size());
         for (std::size_t i = 0; i < node.children.size(); ++i) {
             ValueType arg = analyzeExpr(*node.children[i]);
+            argTypes.push_back(arg);
             if (node.text != "putf" && i < sym->params.size() &&
-                !assignmentCompatible(sym->params[i], arg)) {
+                !argumentCompatible(node.text, i, sym->params[i], arg)) {
                 throw SemanticError(node.children[i]->loc, "argument type mismatch: expected " +
                                                               typeName(sym->params[i]) + ", got " +
                                                               typeName(arg));
             }
+        }
+        if (node.text == "putf") {
+            validatePutfCall(node, argTypes);
         }
         return sym->type;
     }
@@ -401,6 +499,39 @@ bool SemanticAnalyzer::assignmentCompatible(ValueType lhs, ValueType rhs) {
         return lhs.base == rhs.base;
     }
     return lhs.base != BaseType::Void && rhs.base != BaseType::Void;
+}
+
+bool SemanticAnalyzer::argumentCompatible(const std::string &callee, std::size_t index,
+                                          ValueType expected, ValueType actual) {
+    if ((callee == "getarray" && index == 0) || (callee == "putarray" && index == 1)) {
+        return actual.base == BaseType::Int && actual.arrayDims >= 1;
+    }
+    if ((callee == "getfarray" && index == 0) || (callee == "putfarray" && index == 1)) {
+        return actual.base == BaseType::Float && actual.arrayDims >= 1;
+    }
+    return assignmentCompatible(expected, actual);
+}
+
+void SemanticAnalyzer::validatePutfCall(const Node &node, const std::vector<ValueType> &args) {
+    if (node.children.empty() || node.children.front()->kind != NodeKind::StringLiteral) {
+        throw SemanticError(node.loc, "putf requires a string literal format");
+    }
+    std::vector<char> specs = putfFormatSpecifiers(node.children.front()->text, node.children.front()->loc);
+    if (specs.size() + 1 != args.size()) {
+        throw SemanticError(node.loc, "putf argument count does not match format string");
+    }
+    for (std::size_t i = 0; i < specs.size(); ++i) {
+        ValueType arg = args[i + 1];
+        if (arg.arrayDims != 0) {
+            throw SemanticError(node.children[i + 1]->loc, "putf argument must be scalar");
+        }
+        if ((specs[i] == 'd' || specs[i] == 'c') && arg.base != BaseType::Int) {
+            throw SemanticError(node.children[i + 1]->loc, "putf %d/%c argument must be int");
+        }
+        if (specs[i] == 'f' && arg.base != BaseType::Int && arg.base != BaseType::Float) {
+            throw SemanticError(node.children[i + 1]->loc, "putf %f argument must be numeric");
+        }
+    }
 }
 
 std::string SemanticAnalyzer::typeName(ValueType type) {

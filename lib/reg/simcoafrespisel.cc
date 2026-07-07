@@ -51,6 +51,51 @@ int findRepresentative(const map<int, set<int>> &coalescedMoves, int node) { // 
     return node;
 }
 
+set<int> coalescedGroup(const map<int, set<int>> &coalescedMoves, int node) {
+    set<int> group;
+    int representative = findRepresentative(coalescedMoves, node);
+    group.insert(representative);
+    auto found = coalescedMoves.find(representative);
+    if (found != coalescedMoves.end()) {
+        group.insert(found->second.begin(), found->second.end());
+    }
+    return group;
+}
+
+set<int> unavailableColorsForNode(
+    const InterferenceGraph *ig,
+    const map<int, set<int>> &coalescedMoves,
+    const map<int, int> &colors,
+    int node,
+    int k
+) {
+    set<int> unavailable;
+    if (ig == nullptr) return unavailable;
+
+    set<int> group = coalescedGroup(coalescedMoves, node);
+    for (int member : group) {
+        auto neighbors = ig->graph.find(member);
+        if (neighbors == ig->graph.end()) continue;
+
+        for (int neighbor : neighbors->second) {
+            int representative = findRepresentative(coalescedMoves, neighbor);
+            if (group.find(neighbor) != group.end() || group.find(representative) != group.end()) {
+                continue;
+            }
+
+            auto found = colors.find(representative);
+            if (found == colors.end()) {
+                found = colors.find(neighbor);
+            }
+            if (found != colors.end() && found->second >= 0 && found->second < k) {
+                unavailable.insert(found->second);
+            }
+        }
+    }
+
+    return unavailable;
+}
+
 } // namespace
 
 //return true if any node is removed
@@ -225,16 +270,7 @@ bool Coloring::select() {
         int node = simplifiedNodes.top();
         simplifiedNodes.pop();
 
-        set<int> unavailable;
-        auto neighbors = ig->graph.find(node);
-        if (neighbors != ig->graph.end()) {
-            for (int neighbor : neighbors->second) {
-                auto found = colors.find(neighbor);
-                if (found != colors.end() && found->second >= 0 && found->second < k) {
-                    unavailable.insert(found->second);
-                }
-            }
-        }
+        set<int> unavailable = unavailableColorsForNode(ig, coalescedMoves, colors, node, k);
 
         int selectedColor = -1;
         for (int color = 0; color < k; ++color) {

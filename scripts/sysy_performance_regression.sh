@@ -22,5 +22,5 @@ SYSY_TEST_ROOT="$EXTRACT_DIR" \
 WORK_DIR="$WORK_DIR/run" \
 KEEP_WORK=${KEEP_WORK:-1} \
 MAX_CASES=${MAX_CASES:-} \
-SYSY_OPT=${SYSY_OPT:-"-O0"} \
+SYSY_OPT=${SYSY_OPT:-} \
 bash scripts/sysy_functional_regression.sh

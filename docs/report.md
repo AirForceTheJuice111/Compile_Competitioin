@@ -16,39 +16,44 @@ using_table_of_content: true
 build/compiler -S -o output.s input.sy
 ```
 
-该入口使用 `include/sysy` 与 `lib/sysy` 中的新 lexer、递归下降 parser 和语义检查器完成 SysY2022 前端检查，然后通过 ARM GCC 桥接生成 ARM 汇编。这样做的工程目的，是先把 SysY2022 的语法、语义、运行库 ABI、测试组织和提交接口固定下来，再继续把旧 FDMJ 的 Tree/Quad/SSA/ARM 后端逐步替换为完整 SysY 原生后端。
+该入口使用 `include/sysy` 与 `lib/sysy` 中的新 lexer、递归下降 parser、语义检查器和 lowering，把 SysY2022 源程序直接降低到迁移后的 Tree/Quad/SSA/ARM 后端。也就是说，比赛默认调用 `compiler -S -o output.s input.sy` 已经不再走 ARM GCC bridge；bridge 仅通过 `--gcc-bridge` 作为调试 fallback 保留。
 
 当前分支的 SysY 验证结果如下：
 
 ```text
 make compile
-summary: total=140 pass=140 compile_fail=0
+summary: total=141 pass=141 compile_fail=0
 
 make run
-summary: total=140 pass=140 compile_fail=0 link_fail=0 run_fail=0 wrong=0
+summary: total=141 pass=141 compile_fail=0 link_fail=0 run_fail=0 wrong=0
 
 make sysy-parse-regression
-summary: total=151 pass=151 parse_fail=0
+summary: total=153 pass=153 parse_fail=0
 
 make sysy-semantic-regression
-summary: total=151 pass=140 expected_fail=11 semantic_fail=0
+summary: total=153 pass=141 expected_fail=12 semantic_fail=0
 
-MAX_CASES=3 make sysy-performance-regression SYSY_PERF_ARCHIVE=/tmp/compiler2025/ARM-性能.zip
-summary: total=3 pass=3 compile_fail=0 link_fail=0 run_fail=0 wrong=0
+SYSY_PERF_ARCHIVE=/tmp/compiler2025/ARM-性能.zip make sysy-performance-regression
+summary: total=59 pass=59 compile_fail=0 link_fail=0 run_fail=0 wrong=0
+
+SYSY_PERF_ARCHIVE=/tmp/compiler2025/ARM决赛性能用例.zip make sysy-performance-regression
+summary: total=60 pass=60 compile_fail=0 link_fail=0 run_fail=0 wrong=0
 ```
 
 `test/` 目录现在只保留 SysY2022 `.sy` 测试和对应 `.in`/`.out`，旧 FMJ `.fmj` 测试已从该目录移除。`test/functional` 与 `test/h_functional` 来自官方 functional 测试；`test/reject` 是本地语义拒绝用例，用文件头的 `EXPECT: FAIL` 标记驱动 `sysy-semantic-regression`。
 
-原生后端迁移也已经开始：`build/compiler --native-backend -S -O0 -o out.s input.sy` 会把 SysY AST 直接 lowered 到旧 FDMJ 迁移来的 Tree/Quad/SSA/ARM 后端。目前该路径已经覆盖官方 functional/h_functional 的 `-O0` 功能用例：
+原生后端迁移已经成为默认路径：`build/compiler -S -o out.s input.sy` 会把 SysY AST 直接 lowered 到旧 FDMJ 迁移来的 Tree/Quad/SSA/ARM 后端。目前该路径已经覆盖官方 functional/h_functional 功能用例：
 
 ```text
-SYSY_OPT=--native-backend bash scripts/sysy_functional_regression.sh
-summary: total=140 pass=140 compile_fail=0 link_fail=0 run_fail=0 wrong=0
+bash scripts/sysy_functional_regression.sh
+summary: total=141 pass=141 compile_fail=0 link_fail=0 run_fail=0 wrong=0
 ```
 
-native 路径中的 `float` 采用保守的可验证设计：在 Tree 和 Quad 中增加 `FLOAT` 类型，但值仍以 32 位 IEEE-754 raw bits 存放在普通临时变量和内存槽中；`float` 常量、变量、数组、参数、返回值和隐式 int/float 转换都在 `lib/sysy/lower_tree.cc` 中降低。指令选择阶段把浮点加减乘除、比较和类型转换映射到 ARM EABI 的 `__aeabi_*` helper；对 `getfloat`、`putfloat`、`getfarray` 和 `putfarray` 这类 hard-float 运行库函数，则在通用寄存器与 VFP `s0/s1` 之间插入 `vmov` 桥接。为了满足 AAPCS，最终着色阶段还保证函数调用点的 `sp` 按 8 字节对齐。
+native 路径中的 `float` 采用保守的可验证设计：在 Tree 和 Quad 中增加 `FLOAT` 类型，但值仍以 32 位 IEEE-754 raw bits 存放在普通临时变量和内存槽中；`float` 常量、变量、数组、参数、返回值和隐式 int/float 转换都在 `lib/sysy/lower_tree.cc` 中降低。指令选择阶段把浮点加减乘除、比较和类型转换映射到 ARM EABI 的 `__aeabi_*` helper；对 `getfloat`、`putfloat`、`getfarray` 和 `putfarray` 这类 hard-float 运行库函数，则在通用寄存器与 VFP `s0/s1` 之间插入 `vmov` 桥接。`putf` 的格式字符串 lowered 到 `.rodata`，`%d/%c/%f` 在语义阶段按格式串校验；其中 `%f` 按 C 可变参规则从 `float` 提升为 double，再按 ARM AAPCS core-register/stack 规则传给运行库。为了满足 AAPCS，最终着色阶段还保证函数调用点的 `sp` 按 8 字节对齐。
 
-这条 native 路径说明旧 FDMJ 后端已经可以承载 SysY 的主要语言结构；不过默认比赛入口仍保留 ARM GCC bridge，因为 native lowering 尚未支持字符串 literal 和 `putf`，性能归档也只做了 smoke test，旧优化 pass 对 SysY float 和内存语义还需要继续审计。
+这条 native 路径说明旧 FDMJ 后端已经可以承载 SysY 的主要语言结构。当前已修复性能归档中暴露的几个 native 正确性问题：十六进制整数字面量不再被误判为 float；`%` lowering 会把左右操作数先求值到临时变量，避免副作用表达式重复执行；寄存器合并后的着色会按整个 coalesced 等价类检查冲突，避免跨调用活跃值被分配到 caller-saved 寄存器；运行库数组 I/O 接受多维数组实参的降维地址。剩余工作主要是性能优化调优。
+
+下文的大部分内容仍保留课程 Final Project 对原 FMJ 编译器的详细代码说明。contest 分支中这些 FMJ 组件默认不构建，只在 `BUILD_LEGACY_FMJ=ON` 时作为迁移调试材料使用；SysY2022 的默认比赛入口以上述 contest 附录为准。
 
 ## 引言
 

@@ -12,22 +12,24 @@
 
 ## 0. 当前迁移状态
 
-本分支当前已经完成一层可运行的 SysY2022 功能基线：
+本分支当前已经完成 SysY2022 功能性迁移的默认 native 基线：
 
 - 新增 `tools/compiler/main.cc`，构建产物为 `build/compiler`，支持竞赛常见调用 `compiler -S -o out.s in.sy`。
 - `CMakeLists.txt` 的项目名已经改为 `SysY2022ContestCompiler`，并构建 `compiler` 入口。
 - `vendor/libsysy/` 中加入官方 ARM 运行时 `libsysy_arm.a`、`sylib.c` 和 `sylib.h`。
 - `test/` 已替换为官方 `functional.zip` 中的 SysY2022 测试，旧 `.fmj` 测试已从该目录移除。
 - `make sysy-functional-regression` 会递归扫描 `test/` 中的 `.sy` 文件，编译、链接、qemu 运行，并与 `.out` 精确比较。
-- 已验证 `make sysy-functional-regression` 结果为 `total=140 pass=140 compile_fail=0 link_fail=0 run_fail=0 wrong=0`。
-- 已验证 `make compile` 结果为 `total=140 pass=140 compile_fail=0`。
-- 新增 `make sysy-performance-regression`，可对官方性能 zip 按需解压并复用同一套编译运行比较流程；已用 `MAX_CASES=3` 对 `ARM-性能.zip` 做 smoke test，结果为 3/3 通过。
+- 已验证 `make sysy-functional-regression` 结果为 `total=141 pass=141 compile_fail=0 link_fail=0 run_fail=0 wrong=0`，其中 140 个来自官方 functional/h_functional，1 个为本地 `putf` 规格补测。
+- 已验证 `make compile` 结果为 `total=141 pass=141 compile_fail=0`。
+- 新增 `make sysy-performance-regression`，可对官方性能 zip 按需解压并复用同一套编译运行比较流程；官方 `ARM-性能.zip` 全部 59 个用例通过，`ARM决赛性能用例.zip` 全部 60 个用例通过。
 - 新增 `include/sysy/lexer.hh` 与 `lib/sysy/lexer.cc`，作为原生 SysY 前端的第一块基础设施；`compiler --dump-tokens file.sy` 可以用该 lexer 输出 token 流。
-- 新增 `include/sysy/ast.hh`、`include/sysy/parser.hh` 与 `lib/sysy/parser.cc`，实现 SysY2022 递归下降 parser 和通用 AST 骨架；`compiler --dump-ast file.sy` 可输出解析树，`make sysy-parse-regression` 已验证 `test/` 中 151 个 `.sy` 文件全部 parse 通过。
-- 新增 `include/sysy/semantics.hh` 与 `lib/sysy/semantics.cc`，实现基础语义检查骨架：全局/局部作用域、重定义、`main` 唯一性、未声明引用、const 赋值、`break`/`continue` 位置、`return` 基础约束、运行库函数签名和 `starttime`/`stoptime` 无参别名；`make sysy-semantic-regression` 已验证 140 个 functional 通过、11 个本地 reject 样例按预期失败。
-- 新增 `--native-backend` 调试入口，已将 SysY AST 接到迁移后的 Tree/Quad/SSA/ARM 后端；当前 `-O0` native 路径已通过官方 functional/h_functional 全部 140 个用例，包括 float、float 数组、float 参数/返回值和浮点运行时 I/O。
+- 新增 `include/sysy/ast.hh`、`include/sysy/parser.hh` 与 `lib/sysy/parser.cc`，实现 SysY2022 递归下降 parser 和通用 AST 骨架；`compiler --dump-ast file.sy` 可输出解析树，`make sysy-parse-regression` 已验证 `test/` 中 153 个 `.sy` 文件全部 parse 通过。
+- 新增 `include/sysy/semantics.hh` 与 `lib/sysy/semantics.cc`，实现基础语义检查骨架：全局/局部作用域、重定义、`main` 唯一性、未声明引用、const 赋值、`break`/`continue` 位置、`return` 基础约束、运行库函数签名和 `starttime`/`stoptime` 无参别名；`make sysy-semantic-regression` 已验证 141 个可运行样例通过、12 个本地 reject 样例按预期失败。
+- 默认 `compiler -S -o out.s in.sy` 已将 SysY AST 接到迁移后的 Tree/Quad/SSA/ARM 后端；兼容保留 `--native-backend`，显式 `--gcc-bridge` 可作为调试 fallback。
+- native 路径已通过官方 functional/h_functional 全部 140 个用例，包括 float、float 数组、float 参数/返回值和浮点运行时 I/O。
+- native 路径已通过官方 `ARM-性能.zip` 全部 59 个用例，以及 `ARM决赛性能用例.zip` 全部 60 个用例。
 
-这层功能基线目前默认通过 ARM GCC 生成汇编，以保证比赛入口对完整 SysY 源程序保持最大兼容性。并行推进的 native 路径已经能够在 `-O0` 下生成正确 ARM 汇编并通过官方 functional 测试：`tree::Type`/`QuadType` 增加了 `FLOAT`，`float` 常量以 IEEE-754 raw bits 在整数寄存器和内存中传递，浮点算术/比较/转换通过 `__aeabi_*` helper 降低，`getfloat`/`putfloat` 等 hard-float 运行库调用用 VFP `vmov` 连接。剩余 native 缺口主要是字符串 literal 与 `putf`、完整性能测试归档验证，以及旧 FDMJ 优化在 SysY float 和内存语义下的重新审计。
+默认比赛入口已经不再通过 ARM GCC bridge 生成汇编。`tree::Type`/`QuadType` 增加了 `FLOAT`，`float` 常量以 IEEE-754 raw bits 在整数寄存器和内存中传递，浮点算术/比较/转换通过 `__aeabi_*` helper 降低，`getfloat`/`putfloat` 等 hard-float 运行库调用用 VFP `vmov` 连接。`putf` 的字符串 literal 会生成 `.rodata` 标签，`%d/%c/%f` 参数按格式串检查并 lowered；其中 `%f` 按 C 可变参规则提升为 double，再按 ARM AAPCS core-register/stack 规则传给运行库。为了通过大型性能测试，native 后端还修复了跨调用 caller-saved 寄存器冲突、带副作用 `%` 表达式重复求值、十六进制整数字面量误判为 float，以及运行库数组 I/O 对多维数组实参的兼容规则。剩余非默认工作主要是优化调优。
 
 ## 1. 输入、输出和提交接口
 
@@ -233,8 +235,8 @@ SysY2022 至少需要：
 迁移策略：
 
 1. 已实现整数 SysY 子集，跑通功能样例。
-2. 已接入 `float` AST/IR/native 后端和运行时库，`--native-backend -O0` 通过 140 个官方 functional/h_functional 用例。
-3. 下一步恢复/扩展优化，避免旧 FDMJ 优化错误处理浮点和 SysY 内存语义。
+2. 已接入 `float` AST/IR/native 后端和运行时库，默认 native 入口通过 140 个官方 functional/h_functional 用例和本地 `putf` 规格补测。
+3. 默认 native 入口通过两个官方 ARM 性能归档；下一步主要是优化调优，避免旧 FDMJ 优化错误处理浮点和 SysY 内存语义。
 
 ## 8. ARM/AArch64 后端与 ABI
 

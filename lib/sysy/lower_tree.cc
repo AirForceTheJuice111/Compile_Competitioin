@@ -8,11 +8,13 @@
 #include <cstdlib>
 #include <cstring>
 #include <functional>
+#include <iomanip>
 #include <map>
 #include <cmath>
 #include <numeric>
 #include <optional>
 #include <set>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -41,9 +43,14 @@ std::string secondWord(const std::string &text) {
 }
 
 bool isFloatText(const std::string &text) {
-    return text.find('.') != std::string::npos || text.find('e') != std::string::npos ||
-           text.find('E') != std::string::npos || text.find('p') != std::string::npos ||
-           text.find('P') != std::string::npos;
+    if (text.size() >= 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X')) {
+        return text.find('.') != std::string::npos ||
+               text.find('p') != std::string::npos ||
+               text.find('P') != std::string::npos;
+    }
+    return text.find('.') != std::string::npos ||
+           text.find('e') != std::string::npos ||
+           text.find('E') != std::string::npos;
 }
 
 int parseIntLiteral(const std::string &text) {
@@ -207,7 +214,7 @@ bool isRuntimeFunction(const std::string &name) {
     static const std::set<std::string> runtime = {
         "getint", "getch", "getarray", "getfloat", "getfarray",
         "putint", "putch", "putarray", "putfloat", "putfarray",
-        "starttime", "stoptime", "_sysy_starttime", "_sysy_stoptime"
+        "putf", "starttime", "stoptime", "_sysy_starttime", "_sysy_stoptime"
     };
     return runtime.count(name) != 0;
 }
@@ -230,6 +237,126 @@ struct FunctionSignature {
 
 std::string globalLabel(const std::string &name) {
     return "__sysy_global_" + name;
+}
+
+std::string stringLiteralLabel(const std::string &text) {
+    std::ostringstream out;
+    out << "__sysy_str_";
+    for (unsigned char ch : text) {
+        out << std::hex << std::setfill('0') << std::setw(2) << static_cast<unsigned int>(ch);
+    }
+    return out.str();
+}
+
+int hexValue(char ch) {
+    if (ch >= '0' && ch <= '9') return ch - '0';
+    if (ch >= 'a' && ch <= 'f') return ch - 'a' + 10;
+    if (ch >= 'A' && ch <= 'F') return ch - 'A' + 10;
+    return -1;
+}
+
+std::vector<unsigned char> decodeStringLiteral(const std::string &text) {
+    std::vector<unsigned char> bytes;
+    std::size_t i = (!text.empty() && text.front() == '"') ? 1 : 0;
+    std::size_t end = text.size();
+    if (end > i && text[end - 1] == '"') {
+        --end;
+    }
+    while (i < end) {
+        unsigned char ch = static_cast<unsigned char>(text[i++]);
+        if (ch != '\\' || i >= end) {
+            bytes.push_back(ch);
+            continue;
+        }
+
+        char esc = text[i++];
+        switch (esc) {
+        case 'a': bytes.push_back('\a'); break;
+        case 'b': bytes.push_back('\b'); break;
+        case 'f': bytes.push_back('\f'); break;
+        case 'n': bytes.push_back('\n'); break;
+        case 'r': bytes.push_back('\r'); break;
+        case 't': bytes.push_back('\t'); break;
+        case 'v': bytes.push_back('\v'); break;
+        case '\\': bytes.push_back('\\'); break;
+        case '\'': bytes.push_back('\''); break;
+        case '"': bytes.push_back('"'); break;
+        case '?': bytes.push_back('?'); break;
+        case 'x': {
+            int value = 0;
+            int digits = 0;
+            while (i < end) {
+                int digit = hexValue(text[i]);
+                if (digit < 0) break;
+                value = (value << 4) | digit;
+                ++i;
+                ++digits;
+            }
+            bytes.push_back(static_cast<unsigned char>(digits == 0 ? 'x' : value));
+            break;
+        }
+        default:
+            if (esc >= '0' && esc <= '7') {
+                int value = esc - '0';
+                int digits = 1;
+                while (digits < 3 && i < end && text[i] >= '0' && text[i] <= '7') {
+                    value = value * 8 + (text[i++] - '0');
+                    ++digits;
+                }
+                bytes.push_back(static_cast<unsigned char>(value));
+            } else {
+                bytes.push_back(static_cast<unsigned char>(esc));
+            }
+            break;
+        }
+    }
+    return bytes;
+}
+
+std::vector<char> putfFormatSpecifiers(const std::string &literal, SourceLocation loc) {
+    std::vector<char> specs;
+    std::vector<unsigned char> bytes = decodeStringLiteral(literal);
+    for (std::size_t i = 0; i < bytes.size(); ++i) {
+        if (bytes[i] != '%') {
+            continue;
+        }
+        if (i + 1 >= bytes.size()) {
+            throw LoweringError(loc, "unterminated putf format specifier");
+        }
+        unsigned char spec = bytes[++i];
+        if (spec == '%') {
+            continue;
+        }
+        if (spec == 'd' || spec == 'c' || spec == 'f') {
+            specs.push_back(static_cast<char>(spec));
+            continue;
+        }
+        throw LoweringError(loc, "unsupported putf format specifier");
+    }
+    return specs;
+}
+
+void collectStringLiterals(const Node &node, std::set<std::string> &out) {
+    if (node.kind == NodeKind::StringLiteral) {
+        out.insert(node.text);
+    }
+    for (const auto &child : node.children) {
+        collectStringLiterals(*child, out);
+    }
+}
+
+void appendStringBytes(std::string &out, const std::vector<unsigned char> &bytes) {
+    std::vector<unsigned char> withNull = bytes;
+    withNull.push_back(0);
+    constexpr std::size_t kPerLine = 16;
+    for (std::size_t i = 0; i < withNull.size(); i += kPerLine) {
+        out += "    .byte ";
+        for (std::size_t j = i; j < withNull.size() && j < i + kPerLine; ++j) {
+            if (j != i) out += ", ";
+            out += std::to_string(static_cast<unsigned int>(withNull[j]));
+        }
+        out += "\n";
+    }
 }
 
 int dimProduct(const std::vector<int> &dims) {
@@ -355,6 +482,16 @@ public:
         collectGlobals(root);
 
         std::string out;
+        std::set<std::string> stringLiterals;
+        collectStringLiterals(root, stringLiterals);
+        if (!stringLiterals.empty()) {
+            out += "\n.section .rodata\n.balign 4\n";
+            for (const auto &literal : stringLiterals) {
+                out += stringLiteralLabel(literal) + ":\n";
+                appendStringBytes(out, decodeStringLiteral(literal));
+            }
+        }
+
         for (const auto &child : root.children) {
             if (child->kind != NodeKind::ConstDecl && child->kind != NodeKind::VarDecl) {
                 continue;
@@ -505,6 +642,7 @@ private:
         functions_["putarray"] = FunctionSignature{BaseType::Void, {BaseType::Int, BaseType::Int}, {0, 1}};
         functions_["putfloat"] = FunctionSignature{BaseType::Void, {BaseType::Float}, {0}};
         functions_["putfarray"] = FunctionSignature{BaseType::Void, {BaseType::Int, BaseType::Float}, {0, 1}};
+        functions_["putf"] = FunctionSignature{BaseType::Void, {}, {}};
         functions_["starttime"] = FunctionSignature{BaseType::Void, {}, {}};
         functions_["stoptime"] = FunctionSignature{BaseType::Void, {}, {}};
         functions_["_sysy_starttime"] = FunctionSignature{BaseType::Void, {BaseType::Int}, {0}};
@@ -967,7 +1105,7 @@ private:
         case NodeKind::CallExpr:
             return lowerCall(node);
         case NodeKind::StringLiteral:
-            throw LoweringError(node.loc, "native backend does not support string literals yet");
+            return new tree::Name(new tree::String_Label(stringLiteralLabel(node.text)));
         default:
             throw LoweringError(node.loc, "unsupported expression in native backend");
         }
@@ -1014,11 +1152,18 @@ private:
             return lowerComparison(node);
         }
         if (op == "%") {
-            auto *lhs = lowerExpr(*node.children.at(0));
-            auto *rhs = lowerExpr(*node.children.at(1));
+            auto *lhsTemp = newTemp();
+            auto *rhsTemp = newTemp();
+            auto *stms = new std::vector<tree::Stm *>({
+                new tree::Move(tempExp(lhsTemp), lowerExprAs(*node.children.at(0), BaseType::Int)),
+                new tree::Move(tempExp(rhsTemp), lowerExprAs(*node.children.at(1), BaseType::Int))
+            });
+            auto *lhs = tempExp(lhsTemp);
+            auto *rhs = tempExp(rhsTemp);
             auto *quot = new tree::Binop(tree::Type::INT, "/", lhs, rhs);
-            auto *prod = new tree::Binop(tree::Type::INT, "*", quot, lowerExpr(*node.children.at(1)));
-            return new tree::Binop(tree::Type::INT, "-", lowerExpr(*node.children.at(0)), prod);
+            auto *prod = new tree::Binop(tree::Type::INT, "*", quot, tempExp(rhsTemp));
+            return new tree::Eseq(tree::Type::INT, new tree::Seq(stms),
+                                  new tree::Binop(tree::Type::INT, "-", tempExp(lhsTemp), prod));
         }
         BaseType resultBase = exprBaseType(node);
         if (resultBase == BaseType::Float) {
@@ -1106,7 +1251,22 @@ private:
             name = "_sysy_stoptime";
         }
         if (name == "putf") {
-            throw LoweringError(node.loc, "native backend does not support putf/string literals yet");
+            if (node.children.empty() || node.children.front()->kind != NodeKind::StringLiteral) {
+                throw LoweringError(node.loc, "putf requires a string literal format");
+            }
+            std::vector<char> specs = putfFormatSpecifiers(node.children.front()->text, node.children.front()->loc);
+            if (specs.size() + 1 != node.children.size()) {
+                throw LoweringError(node.loc, "putf argument count does not match format string");
+            }
+
+            std::string encodedName = "putf$";
+            auto *args = new std::vector<tree::Exp *>({lowerExpr(*node.children.front())});
+            for (std::size_t i = 0; i < specs.size(); ++i) {
+                BaseType target = specs[i] == 'f' ? BaseType::Float : BaseType::Int;
+                encodedName.push_back(specs[i]);
+                args->push_back(lowerExprAs(*node.children.at(i + 1), target));
+            }
+            return new tree::ExtCall(tree::Type::INT, encodedName, args);
         }
         auto sigIt = functions_.find(name);
         FunctionSignature sig = sigIt == functions_.end() ? FunctionSignature{} : sigIt->second;

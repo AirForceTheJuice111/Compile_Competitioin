@@ -10,7 +10,7 @@ QEMU_ARM ?= qemu-arm
 LIBSYSY_ARM ?= $(CURDIR)/vendor/libsysy/libsysy_arm.a
 SYSY_TEST_ROOT ?= $(CURDIR)/test
 SYSY_PERF_ARCHIVE ?= /tmp/compiler2025/ARM-性能.zip
-SYSY_OPT ?= -O0
+SYSY_OPT ?=
 OUT_DIR ?= $(CURDIR)/output
 RUN_WORK ?= /tmp/sysy_run_one
 
