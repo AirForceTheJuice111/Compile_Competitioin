@@ -6,7 +6,7 @@
 - SysY 原生前端：`include/sysy/*`、`lib/sysy/lexer.cc`、`lib/sysy/parser.cc`、`lib/sysy/semantics.cc`。
 - SysY 原生 lowering：`lib/sysy/lower_tree.cc`，面向迁移后的 Tree IR。
 - 迁移复用的 IR/Quad/SSA/优化/ARM 后端：`include/ir`、`lib/ir`、`include/quad`、`lib/quad`、`lib/opt`、`lib/instr`、`lib/reg`。
-- 旧 FDMJ 源文件：`include/ast`、`lib/ast`、`include/frontend`、`lib/frontend`、`tools/fmjcc`、`tools/fmjinterp`，默认不构建，仅在 `BUILD_LEGACY_FMJ=ON` 时作为迁移调试工具。
+- 旧 FDMJ-only 源文件和工具已经移除：`include/ast`、`lib/ast`、`include/frontend`、`lib/frontend`、`tools/fmjcc`、`tools/fmjinterp`、`vendor/parser`、FDMJ AST/XML bridge 和旧 course harness scripts 不再属于 contest 分支构建面。
 
 迁移不是改扩展名这么简单。FDMJ 是教学用的类 Java 语言；SysY2022 是接近 C 子集的过程式语言，并增加 `float`、多维数组、全局对象和运行时库 ABI。
 
@@ -17,7 +17,7 @@
 - 新增 `tools/compiler/main.cc`，构建产物为 `build/compiler`，支持竞赛常见调用 `compiler -S -o out.s in.sy`。
 - `CMakeLists.txt` 的项目名已经改为 `SysY2022ContestCompiler`，并构建 `compiler` 入口。
 - `vendor/libsysy/` 中加入官方 ARM 运行时 `libsysy_arm.a`、`sylib.c` 和 `sylib.h`。
-- `test/` 已替换为官方 `functional.zip` 中的 SysY2022 测试，旧 `.fmj` 测试已从该目录移除。
+- `test/` 已替换为官方 `functional.zip` 中的 SysY2022 测试，旧 `.fmj` 测试已从该目录移除；`test/performance_final/` 收录 ARM 决赛性能测试 `.sy/.in/.out`。
 - `make sysy-functional-regression` 会递归扫描 `test/` 中的 `.sy` 文件，编译、链接、qemu 运行，并与 `.out` 精确比较。
 - 已验证 `make sysy-functional-regression` 结果为 `total=141 pass=141 compile_fail=0 link_fail=0 run_fail=0 wrong=0`，其中 140 个来自官方 functional/h_functional，1 个为本地 `putf` 规格补测。
 - 已验证 `make compile` 结果为 `total=141 pass=141 compile_fail=0`。
@@ -35,10 +35,10 @@
 
 | 项目 | FDMJ2026 | SysY2022 | 需要修改 |
 | --- | --- | --- | --- |
-| 源文件扩展名 | `.fmj` | `.sy` | 驱动、脚本、测试收集从 `.fmj` 改为 `.sy`，可临时兼容两者。 |
+| 源文件扩展名 | `.fmj` | `.sy` | 驱动、脚本、测试收集已经改为 `.sy`。 |
 | 程序入口 | 固定 `public int main() { ... }` | 顶层 `int main()`，无参数且唯一 | parser 和语义检查改为顶层 `CompUnit`；删除 `MainMethod` 特殊类包装。 |
 | 输出 main 返回值 | 课程 harness 会打印 FMJ return | SysY 运行时/评测按程序退出码和 stdout | 竞赛通常由评测器运行二进制，编译器不应额外打印 main 返回值。 |
-| 命令行 | `fmjcc --k --opt-mode file.fmj` | 竞赛通常要求 `compiler -S -o out.s in.sy` 或指定技术方案接口 | 新增大赛兼容 CLI，同时保留内部调试参数。 |
+| 命令行 | `fmjcc --k --opt-mode file.fmj` | 竞赛通常要求 `compiler -S -o out.s in.sy` 或指定技术方案接口 | 已新增大赛兼容 CLI；旧 `fmjcc` 已移除。 |
 | 链接库 | 当前 Makefile 依赖 `libsysy32.s` | 大赛提供 `libsysy.a` / `libsysy.so`，通常静态链接 | `vendor/libsysy` 应迁入根目录，Makefile 改为链接目标平台静态库。 |
 
 ## 2. 语法层差异
@@ -266,7 +266,7 @@ SysY2022 至少需要：
 - FDMJ 对象字段默认初始化、vtable/method pointer、动态派发。
 - FDMJ 数组运行时长度 word。
 
-这些代码可以暂时留在内部文件中，但 parser 和语义不应允许 SysY 源程序触发它们。长期应清理，降低错误路径复杂度。
+这些语言特性对应的旧前端、AST、解释器和对象 lowering 已经从 contest 分支移除；共享的 Tree/Quad/SSA/ARM 后端保留并只接受 SysY lowering 生成的 IR。
 
 ## 10. 测试与验证迁移
 
@@ -280,9 +280,9 @@ SysY2022 至少需要：
 
 ## 11. 建议实施顺序
 
-1. 迁移目录结构到 contest 分支根目录，保证现有 FDMJ 编译器仍能 build。
+1. 迁移目录结构到 contest 分支根目录，先建立可验证基线，随后移除 FDMJ-only 源码。
 2. 保持 Makefile 不依赖外层 HW 目录；当前 `vendor/libsysy` 已包含 `libsysy32.s`、32 位头/源文件和 64 位头/源文件。
-3. 新增 `compiler` 命令名和大赛 CLI，保留 `fmjcc` 作为过渡。
+3. 新增 `compiler` 命令名和大赛 CLI，并删除旧 `fmjcc` 过渡入口。
 4. 重写 lexer/parser 为 SysY，生成新的 SysY AST。
 5. 重写符号表与语义检查，先支持 int、函数、局部/全局变量、一维/多维 int 数组。
 6. 改 AST 到 IR，支持全局数据、局部数组栈分配、函数调用。
@@ -291,4 +291,4 @@ SysY2022 至少需要：
 9. 恢复 SSA/常量传播/DCE/LICM/strength reduction，对不支持的 float 和内存场景先保守跳过。
 10. 增加性能优化：内联、GVN、MemSSA、循环展开、窥孔优化、寄存器分配改进。
 
-截至当前分支，1-8 已形成可验证实现；9-10 属于后续性能和优化正确性工作。
+截至当前分支，1-9 已形成可验证实现；10 属于后续性能调优工作。

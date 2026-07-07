@@ -7,16 +7,15 @@ contest entry is:
 build/compiler -S -o output.s input.sy
 ```
 
-The repository still contains the old FMJ implementation files as disabled
-legacy scaffolding, but the default contest-facing executable, tests, runtime
-library, and regression targets are now SysY2022-oriented.
+The old FMJ frontend, AST, interpreter, and course-only tools have been removed
+from this branch. The contest-facing executable, tests, runtime library, and
+regression targets are SysY2022-oriented.
 
 ## Environment
 
 Expected tools on x86_64 Linux:
 
 - `make`, `cmake`, `ninja`
-- `flex`, `bison`
 - `arm-linux-gnueabihf-gcc`
 - `qemu-arm`
 - `unzip` for performance archive regression
@@ -27,11 +26,8 @@ Expected tools on x86_64 Linux:
 make build
 ```
 
-This builds:
-
-- `build/compiler`: SysY2022 contest entry, accepting `-S -o out.s in.sy`.
-- `build/fmjcc` and `build/fmjinterp` only when `BUILD_LEGACY_FMJ=ON`; these
-  legacy FMJ tools are kept as migration scaffolding.
+This builds `build/compiler`, the SysY2022 contest entry accepting
+`-S -o out.s in.sy`.
 
 The current SysY entry uses the native SysY lexer, parser, semantic checker,
 lowering code, and the migrated Tree/Quad/SSA/ARM backend by default. Current
@@ -110,10 +106,12 @@ repository:
 ## SysY Tests
 
 `test/` contains the official functional SysY2022 tests extracted from
-`functional.zip`:
+`functional.zip`, local semantic rejects, and the ARM final performance cases:
 
-- `test/functional`: 100 normal functional cases.
+- `test/functional`: 100 normal functional cases plus local `putf` coverage.
 - `test/h_functional`: 40 hidden-style functional cases.
+- `test/performance_final`: 60 ARM final performance cases.
+- `test/reject`: 12 negative semantic tests marked with `EXPECT: FAIL`.
 
 The old FMJ `.fmj` corpus has been removed from `test/` on this branch.
 
@@ -135,11 +133,11 @@ To run only part of the set while debugging:
 MAX_CASES=10 make sysy-functional-regression
 ```
 
-## Performance Archives
+## Performance Tests
 
-Large performance inputs from the official repository are not expanded into
-`test/`, because the ARM/RISC-V archives contain hundreds of MB of input/output
-data. The regression target consumes an official archive on demand:
+`test/performance_final/` contains the ARM final performance cases currently
+available from the contest reference bundle. The regression target can also
+consume an official archive on demand:
 
 ```sh
 make sysy-performance-regression SYSY_PERF_ARCHIVE=/tmp/compiler2025/ARM-性能.zip
@@ -160,24 +158,24 @@ make build
 build/ contains compiler only by default.
 
 make compile
-summary: total=141 pass=141 compile_fail=0 out_dir=.../output
+summary: total=201 pass=201 compile_fail=0 out_dir=.../output
 
-make run-one test/functional/00_main.sy
-return_code: 3
+make run-one test/functional/100_putf.sy
+return_code: 9
 expect: PASS
 
 make run
-summary: total=141 pass=141 compile_fail=0 link_fail=0 run_fail=0 wrong=0
+summary: total=201 pass=201 compile_fail=0 link_fail=0 run_fail=0 wrong=0
 
 make sysy-parse-regression
-summary: total=153 pass=153 parse_fail=0
+summary: total=213 pass=213 parse_fail=0
 
 make sysy-semantic-regression
-summary: total=153 pass=141 expected_fail=12 semantic_fail=0
+summary: total=213 pass=201 expected_fail=12 semantic_fail=0
 
 native backend path
 SYSY_TEST_ROOT=.../test bash scripts/sysy_functional_regression.sh
-summary: total=141 pass=141 compile_fail=0 link_fail=0 run_fail=0 wrong=0
+summary: total=201 pass=201 compile_fail=0 link_fail=0 run_fail=0 wrong=0
 
 SYSY_PERF_ARCHIVE=/tmp/compiler2025/ARM-性能.zip make sysy-performance-regression
 summary: total=59 pass=59 compile_fail=0 link_fail=0 run_fail=0 wrong=0
@@ -188,7 +186,6 @@ summary: total=60 pass=60 compile_fail=0 link_fail=0 run_fail=0 wrong=0
 
 ## Migration Status
 
-The contest-facing path is now native SysY by default. The old FMJ parser, AST,
-and tools remain in the repository only behind `BUILD_LEGACY_FMJ=ON` for
-migration debugging. Remaining non-default work is mainly deeper optimization
-tuning.
+The contest-facing path is native SysY by default. The old FMJ parser, AST,
+interpreter, XML AST bridge, and course harness scripts have been removed;
+remaining work is mainly deeper optimization tuning.
