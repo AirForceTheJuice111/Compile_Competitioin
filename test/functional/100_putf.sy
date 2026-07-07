@@ -1,0 +1,8 @@
+int main() {
+  int n = 2;
+  float x = 1.5;
+  float y = 2.25;
+  putf("%d: %d(%c), %f, %f\n", n, n + 1, n + 48, x, y);
+  putf("%f %f %d %c %d\n", x, y, 7, 65, 8);
+  return 9;
+}

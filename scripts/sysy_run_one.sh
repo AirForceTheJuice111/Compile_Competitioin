@@ -12,7 +12,7 @@ ARM_CC=${ARM_CC:-arm-linux-gnueabihf-gcc}
 QEMU_ARM=${QEMU_ARM:-qemu-arm}
 LIBSYSY_ARM=${LIBSYSY_ARM:-"$(pwd)/vendor/libsysy/libsysy_arm.a"}
 RUN_WORK=${RUN_WORK:-/tmp/sysy_run_one}
-SYSY_OPT=${SYSY_OPT:-"-O0"}
+SYSY_OPT=${SYSY_OPT:-}
 
 if [[ ! -f "$src" ]]; then
   echo "missing source: $src" >&2
@@ -42,7 +42,8 @@ input_file="${src%.sy}.in"
 expected_file="${src%.sy}.out"
 
 echo "source: $src"
-"$COMPILER" -S "$SYSY_OPT" -o "$asm" "$src"
+read -r -a sysy_opt_args <<< "$SYSY_OPT"
+"$COMPILER" -S "${sysy_opt_args[@]}" -o "$asm" "$src"
 "$ARM_CC" -static -mcpu=cortex-a72 -o "$exe" "$asm" "$LIBSYSY_ARM" -lm
 
 if [[ -f "$input_file" ]]; then

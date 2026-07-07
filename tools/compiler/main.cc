@@ -25,7 +25,7 @@ struct Options {
     bool dumpTokens = false;
     bool dumpAst = false;
     bool checkSysY = false;
-    bool nativeBackend = false;
+    bool gccBridge = false;
     bool emitDebugFiles = false;
     std::string output;
     std::string input;
@@ -37,16 +37,15 @@ struct Options {
 void printUsage(std::ostream &os) {
     os << "Usage: compiler -S -o <output.s> <input.sy> [options]\n"
        << "\n"
-       << "Contest-compatible SysY entry. The current contest branch lowers\n"
-       << "SysY2022 source through the system ARM GCC frontend while the native\n"
-       << "SysY frontend, IR, and backend are being migrated.\n"
+       << "Contest-compatible SysY entry. By default this uses the native\n"
+       << "SysY2022 frontend and the migrated Tree/Quad/ARM backend.\n"
        << "\n"
        << "Debugging:\n"
        << "  compiler --dump-tokens <input.sy>\n"
        << "  compiler --dump-ast <input.sy>\n"
        << "  compiler --check-sysy <input.sy>\n"
-       << "  compiler --native-backend -S -o <output.s> <input.sy>\n"
-       << "  compiler --native-backend --debug-prefix /tmp/case -S -o <output.s> <input.sy>\n";
+       << "  compiler --debug-prefix /tmp/case -S -o <output.s> <input.sy>\n"
+       << "  compiler --gcc-bridge -S -o <output.s> <input.sy>\n";
 }
 
 bool isIdentifierStart(char c) {
@@ -453,7 +452,9 @@ Options parseArgs(int argc, char **argv) {
         } else if (arg == "--check-sysy") {
             opt.checkSysY = true;
         } else if (arg == "--native-backend") {
-            opt.nativeBackend = true;
+            opt.gccBridge = false;
+        } else if (arg == "--gcc-bridge") {
+            opt.gccBridge = true;
         } else if (arg == "--debug-prefix") {
             if (i + 1 >= argc) {
                 throw std::runtime_error("--debug-prefix requires a path prefix");
@@ -546,7 +547,7 @@ int main(int argc, char **argv) {
         if (opt.checkSysY) {
             return checkSysY(source);
         }
-        if (opt.nativeBackend) {
+        if (!opt.gccBridge) {
             return compileWithNativeBackend(opt, source);
         }
         runNativeFrontendChecks(source);

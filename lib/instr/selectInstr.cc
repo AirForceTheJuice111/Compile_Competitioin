@@ -205,6 +205,17 @@ static bool isSysyHardFloatRuntime(const std::string &name) {
     return name == "getfloat" || name == "getfarray" || name == "putfloat" || name == "putfarray";
 }
 
+static bool isEncodedPutf(const std::string &name) {
+    return name.rfind("putf$", 0) == 0;
+}
+
+static std::vector<char> encodedPutfSpecs(const std::string &name) {
+    if (!isEncodedPutf(name)) {
+        return {};
+    }
+    return std::vector<char>(name.begin() + 5, name.end());
+}
+
 static int emitArgs(
     preScheduleBlock &schedBlock,
     const std::vector<quad::QuadTerm*> *args,
@@ -290,6 +301,109 @@ static void selectExtCall(
     int &nextTempNum
 ) {
     if (call == nullptr) {
+        return;
+    }
+    if (isEncodedPutf(call->extfun)) {
+        std::vector<char> specs = encodedPutfSpecs(call->extfun);
+        std::vector<tree::Temp*> regArgs(4, nullptr);
+        std::vector<tree::Temp*> stackArgs;
+        int nextCoreArgReg = 0;
+
+        auto addWordArg = [&](tree::Temp *word) {
+            if (nextCoreArgReg < 4) {
+                regArgs[static_cast<std::size_t>(nextCoreArgReg++)] = word;
+            } else {
+                stackArgs.push_back(word);
+            }
+        };
+        auto addDoubleArg = [&](tree::Temp *low, tree::Temp *high) {
+            if (nextCoreArgReg < 4) {
+                if (nextCoreArgReg % 2 != 0) {
+                    ++nextCoreArgReg;
+                }
+                if (nextCoreArgReg <= 2) {
+                    regArgs[static_cast<std::size_t>(nextCoreArgReg)] = low;
+                    regArgs[static_cast<std::size_t>(nextCoreArgReg + 1)] = high;
+                    nextCoreArgReg += 2;
+                    return;
+                }
+                nextCoreArgReg = 4;
+            }
+            if (stackArgs.size() % 2 != 0) {
+                stackArgs.push_back(nullptr);
+            }
+            stackArgs.push_back(low);
+            stackArgs.push_back(high);
+        };
+        auto floatToDoubleWords = [&](tree::Temp *single) {
+            auto *low = newTemp(nextTempNum);
+            auto *high = newTemp(nextTempNum);
+            schedBlock.addSelectedInstruction(AssemInstr::Oper(
+                "vmov s15, `s0",
+                {},
+                {single},
+                AssemTargets()
+            ));
+            schedBlock.addSelectedInstruction(AssemInstr::Oper(
+                "vcvt.f64.f32 d16, s15",
+                {},
+                {},
+                AssemTargets()
+            ));
+            schedBlock.addSelectedInstruction(AssemInstr::Oper(
+                "vmov `d0, `d1, d16",
+                {low, high},
+                {},
+                AssemTargets()
+            ));
+            return std::pair<tree::Temp*, tree::Temp*>{low, high};
+        };
+
+        if (call->args != nullptr && !call->args->empty()) {
+            addWordArg(materializeTerm(call->args->at(0), schedBlock, nextTempNum));
+            for (std::size_t i = 0; i < specs.size() && i + 1 < call->args->size(); ++i) {
+                tree::Temp *arg = materializeTerm(call->args->at(i + 1), schedBlock, nextTempNum);
+                if (specs[i] == 'f') {
+                    auto words = floatToDoubleWords(arg);
+                    addDoubleArg(words.first, words.second);
+                } else {
+                    addWordArg(arg);
+                }
+            }
+        }
+
+        int stackBytes = 0;
+        if (stackArgs.size() % 2 != 0) {
+            schedBlock.addSelectedInstruction(AssemInstr::Oper("sub sp, sp, #4", {}, {}, AssemTargets()));
+            stackBytes += 4;
+        }
+        for (int i = static_cast<int>(stackArgs.size()) - 1; i >= 0; --i) {
+            auto *src = stackArgs[static_cast<std::size_t>(i)];
+            if (src == nullptr) {
+                schedBlock.addSelectedInstruction(AssemInstr::Oper("sub sp, sp, #4", {}, {}, AssemTargets()));
+            } else {
+                schedBlock.addSelectedInstruction(AssemInstr::Oper("push {`s0}", {}, {src}, AssemTargets()));
+            }
+            stackBytes += 4;
+        }
+        for (int i = 0; i < 4; ++i) {
+            auto *src = regArgs[static_cast<std::size_t>(i)];
+            if (src != nullptr) {
+                schedBlock.addSelectedInstruction(AssemInstr::Oper("push {`s0}", {}, {src}, AssemTargets()));
+            }
+        }
+        for (int i = 3; i >= 0; --i) {
+            if (regArgs[static_cast<std::size_t>(i)] != nullptr) {
+                schedBlock.addSelectedInstruction(AssemInstr::Oper("pop {r" + std::to_string(i) + "}", {}, {}, AssemTargets()));
+            }
+        }
+        schedBlock.addSelectedInstruction(AssemInstr::ExtCall("bl putf", {}, {}));
+        if (stackBytes > 0) {
+            schedBlock.addSelectedInstruction(AssemInstr::Oper("add sp, sp, #" + std::to_string(stackBytes), {}, {}, AssemTargets()));
+        }
+        if (dst != nullptr) {
+            emitMoveFromRegister(schedBlock, dst, "r0");
+        }
         return;
     }
     if (isNotEqualFloatCmp(call->extfun)) {

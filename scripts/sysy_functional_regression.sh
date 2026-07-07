@@ -9,7 +9,7 @@ SYSY_TEST_ROOT=${SYSY_TEST_ROOT:-/tmp/compiler2025_functional/functional_recover
 WORK_DIR=${WORK_DIR:-/tmp/sysy_functional_regression}
 KEEP_WORK=${KEEP_WORK:-0}
 MAX_CASES=${MAX_CASES:-}
-SYSY_OPT=${SYSY_OPT:-"-O0"}
+SYSY_OPT=${SYSY_OPT:-}
 
 rm -rf "$WORK_DIR"
 mkdir -p "$WORK_DIR"
@@ -57,11 +57,14 @@ for sy in "${cases[@]}"; do
   stdout_file="$WORK_DIR/$safe.stdout"
   stderr_file="$WORK_DIR/$safe.stderr"
   actual_file="$WORK_DIR/$safe.actual"
+  actual_norm="$WORK_DIR/$safe.actual.norm"
+  expected_norm="$WORK_DIR/$safe.expected"
   input_file="${sy%.sy}.in"
 
   printf '[%03d] %-55s ' "$total" "$rel"
 
-  if ! "$COMPILER" -S "$SYSY_OPT" -o "$asm" "$sy" >"$WORK_DIR/$safe.compile.out" 2>"$WORK_DIR/$safe.compile.err"; then
+  read -r -a sysy_opt_args <<< "$SYSY_OPT"
+  if ! "$COMPILER" -S "${sysy_opt_args[@]}" -o "$asm" "$sy" >"$WORK_DIR/$safe.compile.out" 2>"$WORK_DIR/$safe.compile.err"; then
     echo "COMPILE_FAIL"
     compile_fail=$((compile_fail + 1))
     continue
@@ -86,13 +89,15 @@ for sy in "${cases[@]}"; do
   fi
 
   cp "$stdout_file" "$actual_file"
-  if [[ -s "$actual_file" ]]; then
-    last_byte=$(tail -c 1 "$actual_file" | od -An -t u1 | tr -d ' ')
+  tr -d '\r' < "$actual_file" > "$actual_norm"
+  if [[ -s "$actual_norm" ]]; then
+    last_byte=$(tail -c 1 "$actual_norm" | od -An -t u1 | tr -d ' ')
     if [[ "$last_byte" != "10" ]]; then
-      printf '\n' >>"$actual_file"
+      printf '\n' >>"$actual_norm"
     fi
   fi
   printf '%s\n' "$rc" >>"$actual_file"
+  printf '%s\n' "$rc" >>"$actual_norm"
 
   if [[ ! -f "$expected_file" ]]; then
     echo "MISSING_EXPECT"
@@ -100,7 +105,15 @@ for sy in "${cases[@]}"; do
     continue
   fi
 
-  if cmp -s "$actual_file" "$expected_file"; then
+  tr -d '\r' < "$expected_file" > "$expected_norm"
+  if [[ -s "$expected_norm" ]]; then
+    expected_last_byte=$(tail -c 1 "$expected_norm" | od -An -t u1 | tr -d ' ')
+    if [[ "$expected_last_byte" != "10" ]]; then
+      printf '\n' >>"$expected_norm"
+    fi
+  fi
+
+  if cmp -s "$actual_norm" "$expected_norm"; then
     echo "PASS"
     passed=$((passed + 1))
   else
@@ -109,11 +122,11 @@ for sy in "${cases[@]}"; do
     {
       echo "case: $rel"
       echo "expected:"
-      sed -n '1,80p' "$expected_file"
+      sed -n '1,80p' "$expected_norm"
       echo "actual:"
-      sed -n '1,80p' "$actual_file"
+      sed -n '1,80p' "$actual_norm"
       echo "diff:"
-      diff -u "$expected_file" "$actual_file" | sed -n '1,120p'
+      diff -u "$expected_norm" "$actual_norm" | sed -n '1,120p'
     } >"$WORK_DIR/$safe.diff"
   fi
 done

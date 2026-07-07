@@ -7,9 +7,9 @@ contest entry is:
 build/compiler -S -o output.s input.sy
 ```
 
-The repository still contains the old FMJ implementation files during the
-migration, but the default contest-facing executable, tests, runtime library,
-and regression targets are now SysY2022-oriented.
+The repository still contains the old FMJ implementation files as disabled
+legacy scaffolding, but the default contest-facing executable, tests, runtime
+library, and regression targets are now SysY2022-oriented.
 
 ## Environment
 
@@ -33,16 +33,9 @@ This builds:
 - `build/fmjcc` and `build/fmjinterp` only when `BUILD_LEGACY_FMJ=ON`; these
   legacy FMJ tools are kept as migration scaffolding.
 
-The current SysY entry is a functional migration bridge: it normalizes SysY2022
-source where C99 differs from the SysY language model, injects the official
-runtime declarations, and asks the ARM GCC toolchain to emit ARM assembly. In
-particular it handles the contest runtime functions, `starttime`/`stoptime`
-macros, SysY scalar `const int` values used in array dimensions, and SysY's
-single-precision floating literal semantics.
-
-The native SysY frontend is being built in parallel under `include/sysy` and
-`lib/sysy`. It now includes a lexer, parser, semantic checker, and an
-experimental Tree/Quad/backend path. Current debug hooks:
+The current SysY entry uses the native SysY lexer, parser, semantic checker,
+lowering code, and the migrated Tree/Quad/SSA/ARM backend by default. Current
+debug hooks:
 
 ```sh
 build/compiler --dump-tokens test/functional/95_float.sy
@@ -52,23 +45,26 @@ make sysy-parse-regression
 make sysy-semantic-regression
 ```
 
-The native ARM backend can be exercised explicitly:
+The default ARM backend path can be exercised directly:
 
 ```sh
-build/compiler --native-backend -S -O0 -o /tmp/native.s test/functional/00_main.sy
+build/compiler -S -o /tmp/native.s test/functional/00_main.sy
 ```
 
 This path lowers SysY AST directly into the migrated Tree/Quad/SSA/optimizer/
-instruction-selection/register-allocation backend. It now covers the official
-functional SysY subset at `-O0`, including scalar and array `int`/`float`,
-implicit int/float conversions, float arithmetic and comparisons, user function
-calls with float parameters/returns, and the runtime calls `getfloat`,
-`getfarray`, `putfloat`, and `putfarray`. Float values are represented inside
-Tree/Quad as 32-bit IEEE-754 bit patterns; instruction selection lowers float
-operations through the ARM EABI helpers and bridges hard-float runtime calls
-with VFP moves. Native lowering still rejects string literals and `putf`, so the
-default contest invocation keeps the bridge for the widest compatibility while
-the self-hosted backend is completed.
+instruction-selection/register-allocation backend. It covers the official
+functional SysY subset, including scalar and array `int`/`float`, implicit
+int/float conversions, float arithmetic and comparisons, user function calls
+with float parameters/returns, and the runtime calls `getfloat`, `getfarray`,
+`putfloat`, `putfarray`, and `putf` format strings. Float values are represented
+inside Tree/Quad as 32-bit IEEE-754 bit patterns; instruction selection lowers
+float operations through the ARM EABI helpers, bridges hard-float runtime calls
+with VFP moves, and promotes `putf` `%f` varargs to ARM AAPCS double-word
+arguments. The old ARM GCC bridge is still available for debugging:
+
+```sh
+build/compiler --gcc-bridge -S -O0 -o /tmp/bridge.s test/functional/00_main.sy
+```
 
 ## Compile SysY Tests
 
@@ -77,11 +73,11 @@ make compile
 ```
 
 This recursively compiles every `.sy` file under `test/` and writes ARM
-assembly under `output/`. The default optimization flag passed to the bridge is
-`SYSY_OPT=-O0`; it can be changed for toolchain-level experiments:
+assembly under `output/`. `SYSY_OPT` is empty by default. Use it only when an
+extra compiler flag or the bridge fallback is needed:
 
 ```sh
-make compile SYSY_OPT=-O2
+make compile SYSY_OPT="--gcc-bridge -O2"
 ```
 
 ## Compile One SysY Program
@@ -164,41 +160,35 @@ make build
 build/ contains compiler only by default.
 
 make compile
-summary: total=140 pass=140 compile_fail=0 out_dir=.../output
+summary: total=141 pass=141 compile_fail=0 out_dir=.../output
 
 make run-one test/functional/00_main.sy
 return_code: 3
 expect: PASS
 
 make run
-summary: total=140 pass=140 compile_fail=0 link_fail=0 run_fail=0 wrong=0
+summary: total=141 pass=141 compile_fail=0 link_fail=0 run_fail=0 wrong=0
 
 make sysy-parse-regression
-summary: total=151 pass=151 parse_fail=0
+summary: total=153 pass=153 parse_fail=0
 
 make sysy-semantic-regression
-summary: total=151 pass=140 expected_fail=11 semantic_fail=0
+summary: total=153 pass=141 expected_fail=12 semantic_fail=0
 
 native backend path
-SYSY_TEST_ROOT=.../test SYSY_OPT=--native-backend bash scripts/sysy_functional_regression.sh
-summary: total=140 pass=140 compile_fail=0 link_fail=0 run_fail=0 wrong=0
-This run exercises the migrated Tree/Quad/SSA/ARM backend at `-O0`, including
-the official float functional cases.
+SYSY_TEST_ROOT=.../test bash scripts/sysy_functional_regression.sh
+summary: total=141 pass=141 compile_fail=0 link_fail=0 run_fail=0 wrong=0
 
-MAX_CASES=3 make sysy-performance-regression
-summary: total=3 pass=3 compile_fail=0 link_fail=0 run_fail=0 wrong=0
+SYSY_PERF_ARCHIVE=/tmp/compiler2025/ARM-性能.zip make sysy-performance-regression
+summary: total=59 pass=59 compile_fail=0 link_fail=0 run_fail=0 wrong=0
+
+SYSY_PERF_ARCHIVE=/tmp/compiler2025/ARM决赛性能用例.zip make sysy-performance-regression
+summary: total=60 pass=60 compile_fail=0 link_fail=0 run_fail=0 wrong=0
 ```
 
 ## Migration Status
 
-This branch has not yet completed the full native rewrite described in
-`contest-docs/SysY2022-vs-FDMJ2026-migration-plan.md`. The native FMJ parser,
-AST, IR, optimizer, and backend files remain in the tree and still need to be
-reworked into a self-contained SysY compiler. The current default `compiler`
-executable uses native SysY lexing/parsing/semantic validation, but default code
-generation still uses the functional bridge. A reusable backend driver and an
-experimental `--native-backend` lowering path now pass the official functional
-suite at `-O0`, including float and runtime array I/O. Remaining native work is
-mainly string/`putf` lowering, broader performance-archive validation, and
-revalidating or extending the old FDMJ optimizations for SysY float and memory
-semantics.
+The contest-facing path is now native SysY by default. The old FMJ parser, AST,
+and tools remain in the repository only behind `BUILD_LEGACY_FMJ=ON` for
+migration debugging. Remaining non-default work is mainly deeper optimization
+tuning.

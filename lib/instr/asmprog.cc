@@ -182,9 +182,14 @@ std::string AsmProg::to_string() const {
     oss << ".global getint\n";
     oss << ".global getch\n";
     oss << ".global getarray\n";
+    oss << ".global getfloat\n";
+    oss << ".global getfarray\n";
     oss << ".global putint\n";
     oss << ".global putch\n";
     oss << ".global putarray\n";
+    oss << ".global putfloat\n";
+    oss << ".global putfarray\n";
+    oss << ".global putf\n";
     oss << ".global starttime\n";
     oss << ".global stoptime\n";
     
