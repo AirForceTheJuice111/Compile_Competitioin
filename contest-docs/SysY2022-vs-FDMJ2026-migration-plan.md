@@ -19,12 +19,12 @@
 - `vendor/libsysy/` 中加入官方 ARM 运行时 `libsysy_arm.a`、`sylib.c` 和 `sylib.h`。
 - `test/` 已替换为官方 `functional.zip` 中的 SysY2022 测试，旧 `.fmj` 测试已从该目录移除；`test/performance_final/` 收录 ARM 决赛性能测试 `.sy/.in/.out`。
 - `make sysy-functional-regression` 会递归扫描 `test/` 中的 `.sy` 文件，编译、链接、qemu 运行，并与 `.out` 精确比较。
-- 已验证 `make sysy-functional-regression` 结果为 `total=141 pass=141 compile_fail=0 link_fail=0 run_fail=0 wrong=0`，其中 140 个来自官方 functional/h_functional，1 个为本地 `putf` 规格补测。
-- 已验证 `make compile` 结果为 `total=141 pass=141 compile_fail=0`。
+- 已验证 `make sysy-functional-regression` 结果为 `total=201 pass=201 compile_fail=0 link_fail=0 run_fail=0 wrong=0`，其中 140 个来自官方 functional/h_functional，1 个为本地 `putf` 规格补测，60 个来自 `test/performance_final/` 决赛性能样例。
+- 已验证 `make compile` 结果为 `total=201 pass=201 compile_fail=0`。
 - 新增 `make sysy-performance-regression`，可对官方性能 zip 按需解压并复用同一套编译运行比较流程；官方 `ARM-性能.zip` 全部 59 个用例通过，`ARM决赛性能用例.zip` 全部 60 个用例通过。
 - 新增 `include/sysy/lexer.hh` 与 `lib/sysy/lexer.cc`，作为原生 SysY 前端的第一块基础设施；`compiler --dump-tokens file.sy` 可以用该 lexer 输出 token 流。
-- 新增 `include/sysy/ast.hh`、`include/sysy/parser.hh` 与 `lib/sysy/parser.cc`，实现 SysY2022 递归下降 parser 和通用 AST 骨架；`compiler --dump-ast file.sy` 可输出解析树，`make sysy-parse-regression` 已验证 `test/` 中 153 个 `.sy` 文件全部 parse 通过。
-- 新增 `include/sysy/semantics.hh` 与 `lib/sysy/semantics.cc`，实现基础语义检查骨架：全局/局部作用域、重定义、`main` 唯一性、未声明引用、const 赋值、`break`/`continue` 位置、`return` 基础约束、运行库函数签名和 `starttime`/`stoptime` 无参别名；`make sysy-semantic-regression` 已验证 141 个可运行样例通过、12 个本地 reject 样例按预期失败。
+- 新增 `include/sysy/ast.hh`、`include/sysy/parser.hh` 与 `lib/sysy/parser.cc`，实现 SysY2022 递归下降 parser 和通用 AST 骨架；`compiler --dump-ast file.sy` 可输出解析树，`make sysy-parse-regression` 已验证 `test/` 中 213 个 `.sy` 文件全部 parse 通过。
+- 新增 `include/sysy/semantics.hh` 与 `lib/sysy/semantics.cc`，实现基础语义检查骨架：全局/局部作用域、重定义、`main` 唯一性、未声明引用、const 赋值、`break`/`continue` 位置、`return` 基础约束、运行库函数签名和 `starttime`/`stoptime` 无参别名；`make sysy-semantic-regression` 已验证 201 个可运行样例通过、12 个本地 reject 样例按预期失败。
 - 默认 `compiler -S -o out.s in.sy` 已将 SysY AST 接到迁移后的 Tree/Quad/SSA/ARM 后端；兼容保留 `--native-backend`，显式 `--gcc-bridge` 可作为调试 fallback。
 - native 路径已通过官方 functional/h_functional 全部 140 个用例，包括 float、float 数组、float 参数/返回值和浮点运行时 I/O。
 - native 路径已通过官方 `ARM-性能.zip` 全部 59 个用例，以及 `ARM决赛性能用例.zip` 全部 60 个用例。
