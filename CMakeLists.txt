@@ -28,27 +28,13 @@ set(BACKEND_SOURCES
     lib/opt/loopoptreport.cc
     lib/opt/loopstrengthreduction.cc
     lib/opt/opt.cc
-    lib/instr/advDFG.cc
-    lib/instr/asmdataflow.cc
-    lib/instr/asmprog.cc
-    lib/instr/asmprog2colored.cc
-    lib/instr/buildAdvDFG.cc
-    lib/instr/buildPreSchedule.cc
-    lib/instr/fileSchedule.cc
-    lib/instr/preSchedule.cc
-    lib/instr/predataflowpass.cc
-    lib/instr/schedule.cc
-    lib/instr/selectInstr.cc
-    lib/reg/buildIg.cc
-    lib/reg/coloring.cc
-    lib/reg/ig.cc
-    lib/reg/simcoafrespisel.cc
 )
 
 add_executable(compiler
     tools/compiler/main.cc
     lib/sysy/lexer.cc
     lib/sysy/lower_tree.cc
+    lib/sysy/parallel_plan.cc
     lib/sysy/parser.cc
     lib/sysy/semantics.cc
     vendor/tinyxml2/tinyxml2.cc
@@ -61,7 +47,5 @@ target_include_directories(compiler PRIVATE
     include/quad
     include/quadflow
     include/opt
-    include/instr
-    include/reg
     vendor/tinyxml2
 )

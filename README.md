@@ -1,24 +1,24 @@
-# SysY2022 Contest Compiler Branch
+# SysY2022 AArch64 Contest Compiler
 
-This repository root is the 2026 compiler-contest migration branch. The public
-contest entry is:
+This branch is the SysY2022 contest migration. The public contest entry is:
 
 ```sh
 build/compiler -S -o output.s input.sy
 ```
 
-The old FMJ frontend, AST, interpreter, and course-only tools have been removed
-from this branch. The contest-facing executable, tests, runtime library, and
-regression targets are SysY2022-oriented.
+The old FMJ frontend, AST, interpreter, course harness, ARM32 backend, GCC
+bridge, and ARM32 runtime files have been removed from this branch. Assembly
+output is AArch64 ARMv8-A only.
 
 ## Environment
 
 Expected tools on x86_64 Linux:
 
 - `make`, `cmake`, `ninja`
-- `arm-linux-gnueabihf-gcc`
-- `qemu-arm`
-- `unzip` for performance archive regression
+- `clang` with `--target=aarch64-linux-gnu`
+- `qemu-aarch64`
+- AArch64 sysroot, defaulting to `/usr/aarch64-linux-gnu`
+- `unzip` for optional performance archive regression
 
 ## Build
 
@@ -26,166 +26,121 @@ Expected tools on x86_64 Linux:
 make build
 ```
 
-This builds `build/compiler`, the SysY2022 contest entry accepting
-`-S -o out.s in.sy`.
+This builds `build/compiler`. The compiler uses the native SysY lexer, parser,
+semantic checker, lowering code, Tree/Quad/SSA optimizers, and the native
+AArch64 backend. `--target aarch64` is accepted as a compatibility no-op; any
+ARM32 target or bridge option is rejected.
 
-The current SysY entry uses the native SysY lexer, parser, semantic checker,
-lowering code, and the migrated Tree/Quad/SSA/ARM backend by default. Current
-debug hooks:
+Useful frontend/debug commands:
 
 ```sh
 build/compiler --dump-tokens test/functional/95_float.sy
 build/compiler --dump-ast test/functional/95_float.sy
 build/compiler --check-sysy test/functional/95_float.sy
-make sysy-parse-regression
-make sysy-semantic-regression
+build/compiler --dump-parallel-plan test/performance_final/2025-MYO-20.sy
 ```
 
-The default ARM backend path can be exercised directly:
-
-```sh
-build/compiler -S -o /tmp/native.s test/functional/00_main.sy
-```
-
-This path lowers SysY AST directly into the migrated Tree/Quad/SSA/optimizer/
-instruction-selection/register-allocation backend. It covers the official
-functional SysY subset, including scalar and array `int`/`float`, implicit
-int/float conversions, float arithmetic and comparisons, user function calls
-with float parameters/returns, and the runtime calls `getfloat`, `getfarray`,
-`putfloat`, `putfarray`, and `putf` format strings. Float values are represented
-inside Tree/Quad as 32-bit IEEE-754 bit patterns; instruction selection lowers
-float operations through the ARM EABI helpers, bridges hard-float runtime calls
-with VFP moves, and promotes `putf` `%f` varargs to ARM AAPCS double-word
-arguments. The old ARM GCC bridge is still available for debugging:
-
-```sh
-build/compiler --gcc-bridge -S -O0 -o /tmp/bridge.s test/functional/00_main.sy
-```
-
-## Compile SysY Tests
-
-```sh
-make compile
-```
-
-This recursively compiles every `.sy` file under `test/` and writes ARM
-assembly under `output/`. `SYSY_OPT` is empty by default. Use it only when an
-extra compiler flag or the bridge fallback is needed:
-
-```sh
-make compile SYSY_OPT="--gcc-bridge -O2"
-```
-
-## Compile One SysY Program
-
-```sh
-make build
-build/compiler -S -o /tmp/program.s test/functional/00_main.sy
-arm-linux-gnueabihf-gcc -static -mcpu=cortex-a72 \
-  -o /tmp/program.arm /tmp/program.s vendor/libsysy/libsysy_arm.a -lm
-qemu-arm /tmp/program.arm
-```
-
-The Makefile wrapper can compile, link, run, and compare one test case:
+## Run One Program
 
 ```sh
 make run-one test/functional/95_float.sy
+SYSY_OPT='-O1' make run-one test/performance_final/2025-3Z0-43.sy
 ```
 
-If a sibling `.in` file exists, it is fed to qemu. If a sibling `.out` file
-exists, the script compares stdout plus the process return-code line against
-that expectation.
+`make run-one` compiles the selected `.sy` file to AArch64 assembly, links it
+with `vendor/libsysy/sylib.c`, runs it through `qemu-aarch64 -L
+/usr/aarch64-linux-gnu`, prints stdout/stderr/return code, and compares
+`stdout + return_code` with a sibling `.out` file when one exists. If a sibling
+`.in` file exists, it is used as stdin.
 
-The vendored runtime files are copied from the official `compiler2025`
-repository:
+Equivalent manual command:
 
-- `vendor/libsysy/libsysy_arm.a`
-- `vendor/libsysy/sylib.c`
-- `vendor/libsysy/sylib.h`
+```sh
+build/compiler -S -o /tmp/program.s test/functional/00_main.sy
+clang --target=aarch64-linux-gnu \
+  -o /tmp/program.a64 /tmp/program.s vendor/libsysy/sylib.c -lm
+qemu-aarch64 -L /usr/aarch64-linux-gnu /tmp/program.a64
+```
 
-## SysY Tests
+If the generated assembly calls the embedded parallel helpers
+`__sysy_parallel_for_range` or `__sysy_parallel_reduce_int_range`, the run
+scripts add `-pthread` at link time.
 
-`test/` contains the official functional SysY2022 tests extracted from
-`functional.zip`, local semantic rejects, and the ARM final performance cases:
+## Regression
 
-- `test/functional`: 100 normal functional cases plus local `putf` coverage.
-- `test/h_functional`: 40 hidden-style functional cases.
-- `test/performance_final`: 60 ARM final performance cases.
-- `test/reject`: 12 negative semantic tests marked with `EXPECT: FAIL`.
+Compile every positive `.sy` under `test/`:
 
-The old FMJ `.fmj` corpus has been removed from `test/` on this branch.
+```sh
+make compile
+SYSY_OPT='-O1' make compile
+```
 
-Run all vendored functional tests. `make run` is an alias for the same
-regression:
+Run functional regression:
 
 ```sh
 make run
 make sysy-functional-regression
+MAX_CASES=40 make sysy-functional-regression
 ```
 
-The regression script compiles each `.sy`, links with `libsysy_arm.a`, runs the
-ARM binary under qemu, appends the process return code as the official harness
-does, and compares exact output with the corresponding `.out` file.
-
-To run only part of the set while debugging:
+Run parser and semantic checks:
 
 ```sh
-MAX_CASES=10 make sysy-functional-regression
+make sysy-parse-regression
+make sysy-semantic-regression
 ```
 
-## Performance Tests
-
-`test/performance_final/` contains the ARM final performance cases currently
-available from the contest reference bundle. The regression target can also
-consume an official archive on demand:
+Run performance archive regression:
 
 ```sh
 make sysy-performance-regression SYSY_PERF_ARCHIVE=/tmp/compiler2025/ARM-性能.zip
-```
-
-Use `MAX_CASES=N` for smoke testing:
-
-```sh
 MAX_CASES=3 make sysy-performance-regression
 ```
 
-## Current Verification
+## AArch64 Backend
 
-Current checked result on this branch:
+The backend lowers SysY AST into the migrated Tree/Quad/SSA IR. It supports the
+existing SCCP, LICM, and induction-variable optimization modes:
 
-```text
-make build
-build/ contains compiler only by default.
+- `-O0` or `--opt-mode none`
+- `const`
+- `loop1`
+- `loop2`
+- `allloop`
+- `allopt`, `-O1`, `-O2`
 
-make compile
-summary: total=201 pass=201 compile_fail=0 out_dir=.../output
+The AArch64 emitter uses 64-bit pointers and AAPCS64 calling convention:
+integer/pointer arguments use `w/x` registers, scalar floats use `s` registers,
+and `%f` varargs are promoted to `double` in `d` registers. SysY globals and
+arrays use the official `sylib.c/.h` runtime interface.
 
-make run-one test/functional/100_putf.sy
-return_code: 9
-expect: PASS
+Native loop parallelization is enabled automatically for optimized modes unless
+`--no-parallel-native` is passed. The lowering stage uses the shared loop plan
+analysis in `lib/sysy/parallel_plan.cc`; when a loop is parallelized, the
+AArch64 assembly embeds worker functions, 8-byte pointer-safe context structs,
+and a small pthread runtime in the same `.s` file.
 
-make run
-summary: total=201 pass=201 compile_fail=0 link_fail=0 run_fail=0 wrong=0
+## Native Parallel Check
 
-make sysy-parse-regression
-summary: total=213 pass=213 parse_fail=0
+The production native parallel path can be checked with:
 
-make sysy-semantic-regression
-summary: total=213 pass=201 expected_fail=12 semantic_fail=0
-
-native backend path
-SYSY_TEST_ROOT=.../test bash scripts/sysy_functional_regression.sh
-summary: total=201 pass=201 compile_fail=0 link_fail=0 run_fail=0 wrong=0
-
-SYSY_PERF_ARCHIVE=/tmp/compiler2025/ARM-性能.zip make sysy-performance-regression
-summary: total=59 pass=59 compile_fail=0 link_fail=0 run_fail=0 wrong=0
-
-SYSY_PERF_ARCHIVE=/tmp/compiler2025/ARM决赛性能用例.zip make sysy-performance-regression
-summary: total=60 pass=60 compile_fail=0 link_fail=0 run_fail=0 wrong=0
+```sh
+THREADS=2 make sysy-parallel-native-regression
 ```
 
-## Migration Status
+## Runtime Files
 
-The contest-facing path is native SysY by default. The old FMJ parser, AST,
-interpreter, XML AST bridge, and course harness scripts have been removed;
-remaining work is mainly deeper optimization tuning.
+Only the official SysY source runtime is kept:
+
+- `vendor/libsysy/sylib.c`
+- `vendor/libsysy/sylib.h`
+
+Legacy `libsysy32.*`, `libsysy64.*`, and `libsysy_arm.a` were removed during
+the AArch64-only migration.
+
+## Tests
+
+`test/` contains official functional SysY2022 tests, hidden-style functional
+tests, local semantic rejects, final performance cases, and additional
+FINALREPORT tests. The old FMJ `.fmj` corpus is not part of this contest
+branch.

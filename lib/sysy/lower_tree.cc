@@ -1,5 +1,6 @@
 #include "lower_tree.hh"
 
+#include "parallel_plan.hh"
 #include "temp.hh"
 
 #include <algorithm>
@@ -227,6 +228,7 @@ struct Symbol {
     BaseType base = BaseType::Int;
     bool constScalar = false;
     ConstScalar constValue = {};
+    bool arrayParam = false;
 };
 
 struct FunctionSignature {
@@ -345,6 +347,18 @@ void collectStringLiterals(const Node &node, std::set<std::string> &out) {
     }
 }
 
+bool exprContainsCall(const Node &node) {
+    if (node.kind == NodeKind::CallExpr) {
+        return true;
+    }
+    for (const auto &child : node.children) {
+        if (exprContainsCall(*child)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void appendStringBytes(std::string &out, const std::vector<unsigned char> &bytes) {
     std::vector<unsigned char> withNull = bytes;
     withNull.push_back(0);
@@ -457,6 +471,8 @@ void appendCompressedWords(std::string &out, const std::vector<int> &values) {
 
 class Lowerer {
 public:
+    explicit Lowerer(LoweringOptions options = {}) : options_(options) {}
+
     tree::Program *lower(const Node &root) {
         if (root.kind != NodeKind::CompUnit) {
             throw LoweringError(root.loc, "expected compilation unit");
@@ -464,6 +480,8 @@ public:
 
         collectFunctions(root);
         collectGlobals(root);
+        generatedFunctions_.clear();
+        parallelWorkerId_ = 0;
 
         auto *funcs = new std::vector<tree::FuncDecl *>();
         for (const auto &child : root.children) {
@@ -471,6 +489,7 @@ public:
                 funcs->push_back(lowerFunction(*child));
             }
         }
+        funcs->insert(funcs->end(), generatedFunctions_.begin(), generatedFunctions_.end());
         return new tree::Program(funcs);
     }
 
@@ -527,19 +546,34 @@ public:
     }
 
 private:
+    struct ParallelContextField {
+        ParallelCapture capture;
+        Symbol symbol;
+        int offset = 0;
+    };
+
+    LoweringOptions options_;
     std::map<std::string, Symbol> globalSymbols_;
     std::map<std::string, FunctionSignature> functions_;
     std::vector<std::unordered_map<std::string, Symbol>> scopes_;
     tree::Temp_map temps_;
     std::vector<tree::Label *> breakLabels_;
     std::vector<tree::Label *> continueLabels_;
+    std::vector<tree::FuncDecl *> generatedFunctions_;
     BaseType currentReturnType_ = BaseType::Int;
+    std::string currentFunctionName_;
+    int parallelWorkerId_ = 0;
+    bool suppressParallelLowering_ = false;
 
     tree::Temp *newTemp() { return temps_.newtemp(); }
     tree::Label *newLabel() { return temps_.newlabel(); }
 
     tree::Exp *tempExp(tree::Temp *temp, BaseType type = BaseType::Int) {
         return new tree::TempExp(treeType(type), new tree::Temp(temp->num));
+    }
+
+    tree::Exp *ptrTempExp(tree::Temp *temp) {
+        return new tree::TempExp(tree::Type::PTR, new tree::Temp(temp->num));
     }
 
     tree::Exp *zero(BaseType type = BaseType::Int) {
@@ -561,11 +595,12 @@ private:
     }
 
     void declareLocalArray(const std::string &name, tree::Temp *temp,
-                           std::vector<int> dims, BaseType base, SourceLocation loc) {
+                           std::vector<int> dims, BaseType base, SourceLocation loc,
+                           bool arrayParam = false) {
         if (scopes_.empty()) {
             throw LoweringError(loc, "internal lowering scope error");
         }
-        scopes_.back()[name] = Symbol{temp, false, {}, std::move(dims), base};
+        scopes_.back()[name] = Symbol{temp, false, {}, std::move(dims), base, false, {}, arrayParam};
     }
 
     void declareLocalConstScalar(const std::string &name, BaseType base, ConstScalar value, SourceLocation loc) {
@@ -647,6 +682,15 @@ private:
         functions_["stoptime"] = FunctionSignature{BaseType::Void, {}, {}};
         functions_["_sysy_starttime"] = FunctionSignature{BaseType::Void, {BaseType::Int}, {0}};
         functions_["_sysy_stoptime"] = FunctionSignature{BaseType::Void, {BaseType::Int}, {0}};
+        functions_["__sysy_parallel_for_range"] =
+            FunctionSignature{BaseType::Void,
+                              {BaseType::Int, BaseType::Int, BaseType::Int, BaseType::Int},
+                              {0, 0, 0, 0}};
+        functions_["__sysy_parallel_reduce_int_range"] =
+            FunctionSignature{BaseType::Int,
+                              {BaseType::Int, BaseType::Int, BaseType::Int, BaseType::Int},
+                              {0, 0, 0, 0}};
+        functions_["free"] = FunctionSignature{BaseType::Void, {BaseType::Int}, {0}};
     }
 
     void collectFunctions(const Node &root) {
@@ -814,6 +858,7 @@ private:
         std::string ret = firstWord(node.text);
         std::string name = secondWord(node.text);
         currentReturnType_ = baseTypeFromText(ret);
+        currentFunctionName_ = name;
 
         pushScope();
         auto *params = new std::vector<tree::Temp *>();
@@ -839,7 +884,7 @@ private:
             if (dims.empty()) {
                 declareLocal(secondWord(child->text), param, paramBase, child->loc);
             } else {
-                declareLocalArray(secondWord(child->text), param, std::move(dims), paramBase, child->loc);
+                declareLocalArray(secondWord(child->text), param, std::move(dims), paramBase, child->loc, true);
             }
         }
 
@@ -875,9 +920,22 @@ private:
             pushScope();
         }
         bool fallsThrough = true;
-        for (const auto &child : node.children) {
+        for (std::size_t index = 0; index < node.children.size(); ++index) {
             if (!fallsThrough) {
                 break;
+            }
+            const auto &child = node.children[index];
+            if (options_.parallelLoops && !suppressParallelLowering_ &&
+                index + 1 < node.children.size() &&
+                parseParallelLoopInit(*node.children[index]).valid &&
+                node.children[index + 1]->kind == NodeKind::WhileStmt) {
+                ParallelLoopPlan plan = analyzeParallelLoopPair(
+                    *node.children[index], *node.children[index + 1],
+                    [this](const std::string &name) { return parallelTypeName(name); });
+                if (lowerParallelLoop(plan, stms)) {
+                    ++index;
+                    continue;
+                }
             }
             if (child->kind == NodeKind::ConstDecl || child->kind == NodeKind::VarDecl) {
                 lowerDecl(*child, stms);
@@ -940,6 +998,314 @@ private:
             }
             stms->push_back(new tree::Move(tempExp(temp, base), init));
         }
+    }
+
+    std::string parallelTypeName(const std::string &name) const {
+        Symbol sym = lookup(name, SourceLocation{});
+        if (sym.base == BaseType::Float) {
+            return "float";
+        }
+        if (sym.base == BaseType::Void) {
+            return "void";
+        }
+        return "int";
+    }
+
+    tree::Exp *ctxFieldAddr(tree::Temp *ctx, int offset) {
+        return new tree::Binop(tree::Type::PTR, "+", ptrTempExp(ctx), new tree::Const(offset));
+    }
+
+    int pointerBytes() const {
+        return options_.pointerBytes <= 4 ? 4 : 8;
+    }
+
+    int alignTo(int value, int align) const {
+        if (align <= 1) {
+            return value;
+        }
+        int rem = value % align;
+        return rem == 0 ? value : value + align - rem;
+    }
+
+    int contextFieldSize(const ParallelCapture &capture) const {
+        return capture.array ? pointerBytes() : 4;
+    }
+
+    int contextFieldAlign(const ParallelCapture &capture) const {
+        return capture.array ? pointerBytes() : 4;
+    }
+
+    tree::Exp *symbolScalarValue(const Symbol &sym) {
+        if (sym.constScalar) {
+            return new tree::Const(sym.constValue.raw, treeType(sym.base));
+        }
+        if (sym.global) {
+            return new tree::Mem(treeType(sym.base), new tree::Name(new tree::String_Label(sym.label)));
+        }
+        return tempExp(sym.temp, sym.base);
+    }
+
+    bool buildParallelContextFields(const ParallelLoopPlan &plan,
+                                    std::vector<ParallelContextField> &fields) {
+        fields.clear();
+        int offset = 0;
+        for (const ParallelCapture &capture : plan.captures) {
+            Symbol sym = lookup(capture.name, plan.init.initExpr == nullptr ? SourceLocation{} : plan.init.initExpr->loc);
+            if (capture.array && !isArraySymbol(sym)) {
+                return false;
+            }
+            if (!capture.array && isArraySymbol(sym)) {
+                return false;
+            }
+            offset = alignTo(offset, contextFieldAlign(capture));
+            fields.push_back(ParallelContextField{capture, sym, offset});
+            offset += contextFieldSize(capture);
+        }
+        return true;
+    }
+
+    int parallelContextBytes(const std::vector<ParallelContextField> &fields) const {
+        int bytes = 0;
+        for (const ParallelContextField &field : fields) {
+            bytes = std::max(bytes, field.offset + contextFieldSize(field.capture));
+        }
+        return alignTo(bytes, pointerBytes());
+    }
+
+    bool nativeParallelAliasSafe(const ParallelLoopPlan &plan,
+                                 const std::vector<ParallelContextField> &fields) const {
+        bool hasArrayWrite = false;
+        int arrayParamCaptures = 0;
+        for (const ParallelContextField &field : fields) {
+            if (!field.capture.array) {
+                continue;
+            }
+            if (field.capture.write) {
+                hasArrayWrite = true;
+            }
+            if (field.symbol.arrayParam) {
+                ++arrayParamCaptures;
+            }
+        }
+        if (!hasArrayWrite) {
+            return true;
+        }
+        for (const ParallelContextField &field : fields) {
+            if (field.capture.array && field.capture.write && field.symbol.arrayParam &&
+                arrayParamCaptures > 1) {
+                return false;
+            }
+        }
+        return plan.reductions.size() <= 1;
+    }
+
+    std::string sanitizedFunctionName(const std::string &name) const {
+        std::string out;
+        for (char ch : name) {
+            if (std::isalnum(static_cast<unsigned char>(ch)) || ch == '_') {
+                out.push_back(ch);
+            } else {
+                out.push_back('_');
+            }
+        }
+        return out.empty() ? "fn" : out;
+    }
+
+    tree::FuncDecl *buildParallelWorkerFunction(const std::string &workerName,
+                                                const ParallelLoopPlan &plan,
+                                                const std::vector<ParallelContextField> &fields) {
+        auto savedScopes = scopes_;
+        auto savedBreakLabels = breakLabels_;
+        auto savedContinueLabels = continueLabels_;
+        BaseType savedReturnType = currentReturnType_;
+        bool savedSuppress = suppressParallelLowering_;
+
+        scopes_.clear();
+        breakLabels_.clear();
+        continueLabels_.clear();
+        currentReturnType_ = BaseType::Int;
+        suppressParallelLowering_ = true;
+
+        auto *beginParam = newTemp();
+        auto *endParam = newTemp();
+        auto *ctxParam = newTemp();
+        auto *params = new std::vector<tree::Temp *>({beginParam, endParam, ctxParam});
+        auto *stms = new std::vector<tree::Stm *>();
+        stms->push_back(new tree::LabelStm(newLabel()));
+
+        pushScope();
+        declareLocal("__sysy_begin", beginParam, BaseType::Int, plan.init.initExpr->loc);
+        declareLocal("__sysy_end", endParam, BaseType::Int, plan.init.initExpr->loc);
+
+        for (const ParallelContextField &field : fields) {
+            auto *captureTemp = newTemp();
+            if (field.capture.array) {
+                declareLocalArray(field.capture.name, captureTemp, field.symbol.dims,
+                                  field.symbol.base, plan.init.initExpr->loc,
+                                  field.symbol.arrayParam);
+                stms->push_back(new tree::Move(
+                    ptrTempExp(captureTemp),
+                    new tree::Mem(tree::Type::PTR, ctxFieldAddr(ctxParam, field.offset))));
+            } else {
+                declareLocal(field.capture.name, captureTemp, field.symbol.base, plan.init.initExpr->loc);
+                stms->push_back(new tree::Move(
+                    tempExp(captureTemp, field.symbol.base),
+                    new tree::Mem(treeType(field.symbol.base), ctxFieldAddr(ctxParam, field.offset))));
+            }
+        }
+
+        tree::Temp *reductionTemp = nullptr;
+        if (!plan.reductions.empty()) {
+            reductionTemp = newTemp();
+            declareLocal(plan.reductions.front().var, reductionTemp, BaseType::Int, plan.init.initExpr->loc);
+            stms->push_back(new tree::Move(tempExp(reductionTemp), new tree::Const(0)));
+        }
+
+        auto *ivTemp = newTemp();
+        declareLocal(plan.init.var, ivTemp, BaseType::Int, plan.init.initExpr->loc);
+        stms->push_back(new tree::Move(tempExp(ivTemp), tempExp(beginParam)));
+
+        auto *testLabel = newLabel();
+        auto *bodyLabel = newLabel();
+        auto *doneLabel = newLabel();
+        stms->push_back(new tree::LabelStm(testLabel));
+        stms->push_back(new tree::Cjump("<", tempExp(ivTemp), tempExp(endParam), bodyLabel, doneLabel));
+        stms->push_back(new tree::LabelStm(bodyLabel));
+
+        pushScope();
+        bool bodyFallsThrough = true;
+        for (const Node *stmt : plan.body) {
+            if (!bodyFallsThrough) {
+                break;
+            }
+            if (stmt->kind == NodeKind::ConstDecl || stmt->kind == NodeKind::VarDecl) {
+                lowerDecl(*stmt, stms);
+                bodyFallsThrough = true;
+            } else {
+                bodyFallsThrough = lowerStmt(*stmt, stms);
+            }
+        }
+        popScope();
+
+        if (bodyFallsThrough) {
+            stms->push_back(new tree::Move(
+                tempExp(ivTemp),
+                new tree::Binop(tree::Type::INT, "+", tempExp(ivTemp), new tree::Const(1))));
+            stms->push_back(new tree::Jump(testLabel));
+        }
+        stms->push_back(new tree::LabelStm(doneLabel));
+        stms->push_back(new tree::Return(reductionTemp == nullptr ? new tree::Const(0) : tempExp(reductionTemp)));
+        popScope();
+
+        auto *worker = new tree::FuncDecl(workerName, params, new tree::Seq(stms),
+                                          tree::Type::INT, temps_.next_temp - 1,
+                                          temps_.next_label - 1);
+
+        scopes_ = std::move(savedScopes);
+        breakLabels_ = std::move(savedBreakLabels);
+        continueLabels_ = std::move(savedContinueLabels);
+        currentReturnType_ = savedReturnType;
+        suppressParallelLowering_ = savedSuppress;
+        return worker;
+    }
+
+    bool lowerParallelLoop(const ParallelLoopPlan &plan, std::vector<tree::Stm *> *stms) {
+        if (!options_.parallelLoops || suppressParallelLowering_ || !plan.valid ||
+            plan.init.initExpr == nullptr || plan.endExpr == nullptr) {
+            return false;
+        }
+        if (exprContainsCall(*plan.endExpr)) {
+            return false;
+        }
+        if (!plan.init.type.empty() && plan.init.type != "int") {
+            return false;
+        }
+        if (!plan.init.declaration) {
+            Symbol iv = lookup(plan.init.var, plan.init.initExpr->loc);
+            if (iv.base != BaseType::Int || iv.global || iv.temp == nullptr) {
+                return false;
+            }
+        }
+
+        std::vector<ParallelContextField> fields;
+        if (!buildParallelContextFields(plan, fields) || !nativeParallelAliasSafe(plan, fields)) {
+            return false;
+        }
+
+        std::string workerName = "__sysy_parallel_worker_" +
+                                 sanitizedFunctionName(currentFunctionName_) + "_" +
+                                 std::to_string(parallelWorkerId_++);
+        generatedFunctions_.push_back(buildParallelWorkerFunction(workerName, plan, fields));
+
+        tree::Temp *ivTemp = nullptr;
+        if (plan.init.declaration) {
+            ivTemp = newTemp();
+            declareLocal(plan.init.var, ivTemp, BaseType::Int, plan.init.initExpr->loc);
+        } else {
+            Symbol iv = lookup(plan.init.var, plan.init.initExpr->loc);
+            ivTemp = iv.temp;
+        }
+        stms->push_back(new tree::Move(tempExp(ivTemp), lowerExprAs(*plan.init.initExpr, BaseType::Int)));
+
+        auto *beginTemp = newTemp();
+        auto *endTemp = newTemp();
+        stms->push_back(new tree::Move(tempExp(beginTemp), tempExp(ivTemp)));
+        stms->push_back(new tree::Move(tempExp(endTemp), lowerExprAs(*plan.endExpr, BaseType::Int)));
+
+        tree::Temp *ctxTemp = nullptr;
+        tree::Exp *ctxArg = new tree::Const(0, tree::Type::PTR);
+        if (!fields.empty()) {
+            ctxTemp = newTemp();
+            int ctxBytes = parallelContextBytes(fields);
+            stms->push_back(new tree::Move(
+                ptrTempExp(ctxTemp),
+                new tree::ExtCall(tree::Type::PTR, "malloc",
+                                  new std::vector<tree::Exp *>({new tree::Const(ctxBytes)}))));
+            ctxArg = ptrTempExp(ctxTemp);
+            for (const ParallelContextField &field : fields) {
+                tree::Exp *value = field.capture.array ? arrayBase(field.symbol)
+                                                       : symbolScalarValue(field.symbol);
+                tree::Type fieldType = field.capture.array ? tree::Type::PTR : treeType(field.symbol.base);
+                stms->push_back(new tree::Move(
+                    new tree::Mem(fieldType, ctxFieldAddr(ctxTemp, field.offset)),
+                    value));
+            }
+        }
+
+        auto *runtimeArgs = new std::vector<tree::Exp *>({
+            tempExp(beginTemp),
+            tempExp(endTemp),
+            ctxArg,
+            new tree::Name(new tree::String_Label(workerName))
+        });
+
+        if (plan.reductions.empty()) {
+            stms->push_back(new tree::ExpStm(
+                new tree::ExtCall(tree::Type::INT, "__sysy_parallel_for_range", runtimeArgs)));
+        } else {
+            auto *partialTemp = newTemp();
+            stms->push_back(new tree::Move(
+                tempExp(partialTemp),
+                new tree::ExtCall(tree::Type::INT, "__sysy_parallel_reduce_int_range", runtimeArgs)));
+            const std::string &var = plan.reductions.front().var;
+            auto *dst = lowerLValue(Node{NodeKind::LVal, plan.init.initExpr->loc, var});
+            BaseType dstBase = dst->type == tree::Type::FLOAT ? BaseType::Float : BaseType::Int;
+            if (dstBase != BaseType::Int) {
+                return false;
+            }
+            stms->push_back(new tree::Move(
+                dst,
+                new tree::Binop(tree::Type::INT, "+", lowerExpr(Node{NodeKind::LVal, plan.init.initExpr->loc, var}),
+                                tempExp(partialTemp))));
+        }
+
+        if (ctxTemp != nullptr) {
+            stms->push_back(new tree::ExpStm(
+                new tree::ExtCall(tree::Type::INT, "free",
+                                  new std::vector<tree::Exp *>({ptrTempExp(ctxTemp)}))));
+        }
+        stms->push_back(new tree::Move(tempExp(ivTemp), tempExp(endTemp)));
+        return true;
     }
 
     bool lowerStmt(const Node &node, std::vector<tree::Stm *> *stms) {
@@ -1328,8 +1694,8 @@ private:
 LoweringError::LoweringError(SourceLocation loc, const std::string &message)
     : std::runtime_error(message), loc_(loc) {}
 
-tree::Program *lowerToTree(const Node &root) {
-    Lowerer lowerer;
+tree::Program *lowerToTree(const Node &root, const LoweringOptions &options) {
+    Lowerer lowerer(options);
     return lowerer.lower(root);
 }
 
