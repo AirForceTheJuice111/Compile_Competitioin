@@ -8,9 +8,11 @@ if [[ -z "$src" ]]; then
 fi
 
 COMPILER=${COMPILER:-"$(pwd)/build/compiler"}
-ARM_CC=${ARM_CC:-arm-linux-gnueabihf-gcc}
-QEMU_ARM=${QEMU_ARM:-qemu-arm}
-LIBSYSY_ARM=${LIBSYSY_ARM:-"$(pwd)/vendor/libsysy/libsysy_arm.a"}
+AARCH64_CC=${AARCH64_CC:-clang}
+AARCH64_CC_FLAGS=${AARCH64_CC_FLAGS:---target=aarch64-linux-gnu}
+QEMU_AARCH64=${QEMU_AARCH64:-qemu-aarch64}
+SYSY_AARCH64_SYSROOT=${SYSY_AARCH64_SYSROOT:-/usr/aarch64-linux-gnu}
+LIBSYSY_AARCH64_C=${LIBSYSY_AARCH64_C:-"$(pwd)/vendor/libsysy/sylib.c"}
 RUN_WORK=${RUN_WORK:-/tmp/sysy_run_one}
 SYSY_OPT=${SYSY_OPT:-}
 
@@ -24,8 +26,8 @@ if [[ ! -x "$COMPILER" ]]; then
   exit 2
 fi
 
-if [[ ! -f "$LIBSYSY_ARM" ]]; then
-  echo "missing ARM SysY runtime: $LIBSYSY_ARM" >&2
+if [[ ! -f "$LIBSYSY_AARCH64_C" ]]; then
+  echo "missing AArch64 SysY runtime C: $LIBSYSY_AARCH64_C" >&2
   exit 2
 fi
 
@@ -34,7 +36,7 @@ mkdir -p "$RUN_WORK"
 
 base=$(basename "$src" .sy)
 asm="$RUN_WORK/$base.s"
-exe="$RUN_WORK/$base.arm"
+exe="$RUN_WORK/$base.aarch64"
 stdout_file="$RUN_WORK/$base.stdout"
 stderr_file="$RUN_WORK/$base.stderr"
 actual_file="$RUN_WORK/$base.actual"
@@ -44,16 +46,25 @@ expected_file="${src%.sy}.out"
 echo "source: $src"
 read -r -a sysy_opt_args <<< "$SYSY_OPT"
 "$COMPILER" -S "${sysy_opt_args[@]}" -o "$asm" "$src"
-"$ARM_CC" -static -mcpu=cortex-a72 -o "$exe" "$asm" "$LIBSYSY_ARM" -lm
+needs_parallel_runtime=0
+if grep -Eq '^[[:space:]]*bl[[:space:]]+__sysy_parallel_(for_range|reduce_int_range)' "$asm"; then
+  needs_parallel_runtime=1
+fi
+read -r -a aarch64_cc_flags <<< "$AARCH64_CC_FLAGS"
+link_cmd=("$AARCH64_CC" "${aarch64_cc_flags[@]}" -o "$exe" "$asm" "$LIBSYSY_AARCH64_C" -lm)
+if [[ "$needs_parallel_runtime" == 1 ]]; then
+  link_cmd+=(-pthread)
+fi
+"${link_cmd[@]}"
 
 if [[ -f "$input_file" ]]; then
   set +e
-  "$QEMU_ARM" "$exe" <"$input_file" >"$stdout_file" 2>"$stderr_file"
+  "$QEMU_AARCH64" -L "$SYSY_AARCH64_SYSROOT" "$exe" <"$input_file" >"$stdout_file" 2>"$stderr_file"
   rc=$?
   set -e
 else
   set +e
-  "$QEMU_ARM" "$exe" >"$stdout_file" 2>"$stderr_file"
+  "$QEMU_AARCH64" -L "$SYSY_AARCH64_SYSROOT" "$exe" >"$stdout_file" 2>"$stderr_file"
   rc=$?
   set -e
 fi

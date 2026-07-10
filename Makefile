@@ -3,16 +3,18 @@ MAKEFLAGS = --no-print-directory
 
 BUILD_DIR = $(CURDIR)/build
 COMPILER = $(BUILD_DIR)/compiler
-ARM_CC ?= arm-linux-gnueabihf-gcc
-QEMU_ARM ?= qemu-arm
-LIBSYSY_ARM ?= $(CURDIR)/vendor/libsysy/libsysy_arm.a
+AARCH64_CC ?= clang
+AARCH64_CC_FLAGS ?= --target=aarch64-linux-gnu
+QEMU_AARCH64 ?= qemu-aarch64
+SYSY_AARCH64_SYSROOT ?= /usr/aarch64-linux-gnu
+LIBSYSY_AARCH64_C ?= $(CURDIR)/vendor/libsysy/sylib.c
 SYSY_TEST_ROOT ?= $(CURDIR)/test
 SYSY_PERF_ARCHIVE ?= /tmp/compiler2025/ARM-性能.zip
 SYSY_OPT ?=
 OUT_DIR ?= $(CURDIR)/output
 RUN_WORK ?= /tmp/sysy_run_one
 
-.PHONY: build clean rebuild compile run run-one sysy-parse-regression sysy-semantic-regression sysy-functional-regression sysy-performance-regression
+.PHONY: build clean rebuild compile run run-one sysy-parse-regression sysy-semantic-regression sysy-functional-regression sysy-performance-regression sysy-parallel-native-regression
 
 RUN_ONE_ARG := $(word 2,$(MAKECMDGOALS))
 
@@ -39,9 +41,11 @@ compile: build
 
 run: sysy-functional-regression
 
-run-one: build $(LIBSYSY_ARM)
-	@COMPILER="$(COMPILER)" ARM_CC="$(ARM_CC)" QEMU_ARM="$(QEMU_ARM)" LIBSYSY_ARM="$(LIBSYSY_ARM)" \
-		RUN_WORK="$(RUN_WORK)" SYSY_OPT="$(SYSY_OPT)" bash scripts/sysy_run_one.sh "$(RUN_ONE_ARG)"
+run-one: build
+	@COMPILER="$(COMPILER)" AARCH64_CC="$(AARCH64_CC)" AARCH64_CC_FLAGS="$(AARCH64_CC_FLAGS)" \
+		QEMU_AARCH64="$(QEMU_AARCH64)" SYSY_AARCH64_SYSROOT="$(SYSY_AARCH64_SYSROOT)" \
+		LIBSYSY_AARCH64_C="$(LIBSYSY_AARCH64_C)" RUN_WORK="$(RUN_WORK)" SYSY_OPT="$(SYSY_OPT)" \
+		bash scripts/sysy_run_one.sh "$(RUN_ONE_ARG)"
 
 sysy-parse-regression: build
 	@COMPILER="$(COMPILER)" SYSY_TEST_ROOT="$(SYSY_TEST_ROOT)" bash scripts/sysy_parse_regression.sh
@@ -49,10 +53,19 @@ sysy-parse-regression: build
 sysy-semantic-regression: build
 	@COMPILER="$(COMPILER)" SYSY_TEST_ROOT="$(SYSY_TEST_ROOT)" bash scripts/sysy_semantic_regression.sh
 
-sysy-functional-regression: build $(LIBSYSY_ARM)
-	@COMPILER="$(COMPILER)" ARM_CC="$(ARM_CC)" QEMU_ARM="$(QEMU_ARM)" LIBSYSY_ARM="$(LIBSYSY_ARM)" \
-		SYSY_TEST_ROOT="$(SYSY_TEST_ROOT)" SYSY_OPT="$(SYSY_OPT)" bash scripts/sysy_functional_regression.sh
+sysy-functional-regression: build
+	@COMPILER="$(COMPILER)" AARCH64_CC="$(AARCH64_CC)" AARCH64_CC_FLAGS="$(AARCH64_CC_FLAGS)" \
+		QEMU_AARCH64="$(QEMU_AARCH64)" SYSY_AARCH64_SYSROOT="$(SYSY_AARCH64_SYSROOT)" \
+		LIBSYSY_AARCH64_C="$(LIBSYSY_AARCH64_C)" SYSY_TEST_ROOT="$(SYSY_TEST_ROOT)" SYSY_OPT="$(SYSY_OPT)" \
+		bash scripts/sysy_functional_regression.sh
 
-sysy-performance-regression: build $(LIBSYSY_ARM)
-	@COMPILER="$(COMPILER)" ARM_CC="$(ARM_CC)" QEMU_ARM="$(QEMU_ARM)" LIBSYSY_ARM="$(LIBSYSY_ARM)" \
-		SYSY_PERF_ARCHIVE="$(SYSY_PERF_ARCHIVE)" SYSY_OPT="$(SYSY_OPT)" bash scripts/sysy_performance_regression.sh
+sysy-performance-regression: build
+	@COMPILER="$(COMPILER)" AARCH64_CC="$(AARCH64_CC)" AARCH64_CC_FLAGS="$(AARCH64_CC_FLAGS)" \
+		QEMU_AARCH64="$(QEMU_AARCH64)" SYSY_AARCH64_SYSROOT="$(SYSY_AARCH64_SYSROOT)" \
+		LIBSYSY_AARCH64_C="$(LIBSYSY_AARCH64_C)" SYSY_PERF_ARCHIVE="$(SYSY_PERF_ARCHIVE)" SYSY_OPT="$(SYSY_OPT)" \
+		bash scripts/sysy_performance_regression.sh
+
+sysy-parallel-native-regression: build
+	@COMPILER="$(COMPILER)" AARCH64_CC="$(AARCH64_CC)" AARCH64_CC_FLAGS="$(AARCH64_CC_FLAGS)" \
+		QEMU_AARCH64="$(QEMU_AARCH64)" SYSY_AARCH64_SYSROOT="$(SYSY_AARCH64_SYSROOT)" \
+		LIBSYSY_AARCH64_C="$(LIBSYSY_AARCH64_C)" bash scripts/sysy_parallel_native_regression.sh

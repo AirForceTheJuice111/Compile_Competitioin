@@ -15,9 +15,11 @@ mkdir -p "$EXTRACT_DIR"
 unzip -q "$SYSY_PERF_ARCHIVE" -d "$EXTRACT_DIR"
 
 COMPILER=${COMPILER:-"$(pwd)/build/compiler"} \
-ARM_CC=${ARM_CC:-arm-linux-gnueabihf-gcc} \
-QEMU_ARM=${QEMU_ARM:-qemu-arm} \
-LIBSYSY_ARM=${LIBSYSY_ARM:-"$(pwd)/vendor/libsysy/libsysy_arm.a"} \
+AARCH64_CC=${AARCH64_CC:-clang} \
+AARCH64_CC_FLAGS=${AARCH64_CC_FLAGS:---target=aarch64-linux-gnu} \
+QEMU_AARCH64=${QEMU_AARCH64:-qemu-aarch64} \
+SYSY_AARCH64_SYSROOT=${SYSY_AARCH64_SYSROOT:-/usr/aarch64-linux-gnu} \
+LIBSYSY_AARCH64_C=${LIBSYSY_AARCH64_C:-"$(pwd)/vendor/libsysy/sylib.c"} \
 SYSY_TEST_ROOT="$EXTRACT_DIR" \
 WORK_DIR="$WORK_DIR/run" \
 KEEP_WORK=${KEEP_WORK:-1} \

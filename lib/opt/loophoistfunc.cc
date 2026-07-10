@@ -24,9 +24,15 @@ int blockLabel(QuadBlock *block) {
 
 bool isPureHoistCandidate(QuadStm *stm) {
     if (stm == nullptr) return false;
-    return stm->kind == QuadKind::MOVE ||
-           stm->kind == QuadKind::MOVE_BINOP ||
-           stm->kind == QuadKind::PTR_CALC;
+    if (stm->kind != QuadKind::MOVE_BINOP) return false;
+
+    auto *binop = dynamic_cast<QuadMoveBinop*>(stm);
+    if (binop == nullptr) return false;
+
+    // On the current ARM backend, hoisting cheap arithmetic or address
+    // calculations often lengthens live ranges enough to create spill traffic.
+    // Keep LICM conservative and only hoist expensive invariant integer divides.
+    return binop->binop == "/";
 }
 
 set<int> tempNums(set<Temp*> *temps) {
