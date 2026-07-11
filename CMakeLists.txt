@@ -17,6 +17,7 @@ set(BACKEND_SOURCES
     lib/quadflow/controlflowinfo.cc
     lib/quadflow/dataflowinfo.cc
     lib/quadflow/flowinfo.cc
+    lib/opt/algebrasimp.cc
     lib/opt/copyprop.cc
     lib/opt/defusechain.cc
     lib/opt/gvn.cc

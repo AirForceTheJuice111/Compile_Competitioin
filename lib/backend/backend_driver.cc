@@ -1,5 +1,6 @@
 #include "backend_driver.hh"
 
+#include "algebrasimp.hh"
 #include "blocking.hh"
 #include "canon.hh"
 #include "copyprop.hh"
@@ -300,6 +301,18 @@ quad::QuadProgram *runGvnPass(quad::QuadProgram *program) {
                   << " instructions\n";
         std::cerr.flush();
     }
+    return result;
+}
+
+quad::QuadProgram *runAlgebraSimpPass(quad::QuadProgram *program) {
+    int eliminated = 0;
+    auto *result = quad::algebraSimpProg(program, &eliminated);
+    if (result == nullptr) return program;
+    refreshQuadExtents(result);
+    const char *env = std::getenv("BACKEND_PROFILE");
+    if (env && env[0] && std::string(env) != "0")
+        std::cerr << "BACKEND_PROFILE algebrasimp eliminated "
+                  << eliminated << " instructions\n";
     return result;
 }
 
@@ -1633,6 +1646,14 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
         }
         refreshQuadExtents(optimizedSsa);
         profile.mark("sccp");
+    }
+    if (optModeUsesSccp(options.optMode)) {
+        optimizedSsa = runAlgebraSimpPass(optimizedSsa);
+        if (optimizedSsa == nullptr) {
+            result.error = "AlgebraSimp optimization failed";
+            return result;
+        }
+        profile.mark("algebrasimp");
     }
     if (optModeUsesGvn(options.optMode)) {
         optimizedSsa = runGvnPass(optimizedSsa);
