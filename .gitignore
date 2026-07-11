@@ -49,3 +49,6 @@ output/
 
 **/*.quad
 tmp
+contest-docs/
+test/performance_final/*.in
+test/performance_final/*.out
