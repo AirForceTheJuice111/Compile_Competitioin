@@ -1,11 +1,17 @@
 #include "backend_driver.hh"
 
+#include "algebrasimp.hh"
 #include "blocking.hh"
 #include "canon.hh"
+#include "copyprop.hh"
 #include "flowinfo.hh"
+#include "funcspec.hh"
+#include "gvn.hh"
+#include "inline.hh"
 #include "loopheader.hh"
 #include "loopinductionopt.hh"
 #include "looplicm.hh"
+#include "memopt.hh"
 #include "opt.hh"
 #include "quad.hh"
 #include "quadssa.hh"
@@ -268,12 +274,127 @@ bool optModeUsesSccp(OptMode mode) {
     return mode == OptMode::Const || mode == OptMode::AllOpt;
 }
 
+bool optModeUsesGvn(OptMode mode) {
+    return mode == OptMode::Const || mode == OptMode::AllOpt;
+}
+
 bool optModeUsesLicm(OptMode mode) {
     return mode == OptMode::Loop1 || mode == OptMode::AllLoop || mode == OptMode::AllOpt;
 }
 
 bool optModeUsesIv(OptMode mode) {
     return mode == OptMode::Loop2 || mode == OptMode::AllLoop || mode == OptMode::AllOpt;
+}
+
+bool experimentalPassEnabled(const std::string &name) {
+    const char *env = std::getenv("SYSY_EXPERIMENTAL_PASSES");
+    if (env == nullptr || env[0] == '\0') {
+        return false;
+    }
+    std::string enabled(env);
+    std::size_t begin = 0;
+    while (begin < enabled.size()) {
+        begin = enabled.find_first_not_of(" ,;:", begin);
+        if (begin == std::string::npos) {
+            break;
+        }
+        std::size_t end = enabled.find_first_of(" ,;:", begin);
+        if (enabled.substr(begin, end - begin) == name) {
+            return true;
+        }
+        begin = end == std::string::npos ? enabled.size() : end + 1;
+    }
+    return false;
+}
+
+quad::QuadProgram *runGvnPass(quad::QuadProgram *program) {
+    auto *flow = computeFlow(program);
+    if (flow == nullptr) {
+        return nullptr;
+    }
+    int eliminated = 0;
+    auto *result = quad::gvnProg(program, flow, &eliminated);
+    if (result == nullptr) {
+        return program;
+    }
+    refreshQuadExtents(result);
+    if (std::getenv("BACKEND_PROFILE") != nullptr) {
+        std::cerr << "BACKEND_PROFILE gvn eliminated " << eliminated << " instructions\n";
+    }
+    return result;
+}
+
+quad::QuadProgram *runInlinePass(quad::QuadProgram *program) {
+    int inlined = 0;
+    auto *result = quad::inlineProg(program, &inlined);
+    if (result == nullptr) {
+        return program;
+    }
+    refreshQuadExtents(result);
+    if (std::getenv("BACKEND_PROFILE") != nullptr) {
+        std::cerr << "BACKEND_PROFILE inline inlined " << inlined << " calls\n";
+    }
+    return result;
+}
+
+quad::QuadProgram *runAlgebraSimpPass(quad::QuadProgram *program) {
+    int eliminated = 0;
+    auto *result = quad::algebraSimpProg(program, &eliminated);
+    if (result == nullptr) {
+        return program;
+    }
+    refreshQuadExtents(result);
+    if (std::getenv("BACKEND_PROFILE") != nullptr) {
+        std::cerr << "BACKEND_PROFILE algebrasimp eliminated " << eliminated
+                  << " instructions\n";
+    }
+    return result;
+}
+
+quad::QuadProgram *runCopyPropPass(quad::QuadProgram *program) {
+    int eliminated = 0;
+    auto *result = quad::copyPropProg(program, &eliminated);
+    if (result == nullptr) {
+        return program;
+    }
+    refreshQuadExtents(result);
+    if (std::getenv("BACKEND_PROFILE") != nullptr) {
+        std::cerr << "BACKEND_PROFILE copyprop eliminated " << eliminated
+                  << " instructions\n";
+    }
+    return result;
+}
+
+quad::QuadProgram *runMemOptPass(quad::QuadProgram *program) {
+    auto *flow = computeFlow(program);
+    if (flow == nullptr) {
+        return program;
+    }
+    int eliminated = 0;
+    auto *result = quad::memOptProg(program, flow, &eliminated);
+    if (result == nullptr) {
+        return program;
+    }
+    refreshQuadExtents(result);
+    if (std::getenv("BACKEND_PROFILE") != nullptr) {
+        std::cerr << "BACKEND_PROFILE memopt eliminated " << eliminated
+                  << " instructions\n";
+    }
+    return result;
+}
+
+quad::QuadProgram *runFuncSpecPass(quad::QuadProgram *program) {
+    int specialized = 0;
+    auto *result = quad::funcSpecProg(program, &specialized);
+    if (result == nullptr) {
+        return program;
+    }
+    refreshQuadExtents(result);
+    if (std::getenv("BACKEND_PROFILE") != nullptr) {
+        std::cerr << "BACKEND_PROFILE funcspec created " << specialized
+                  << " specializations\n";
+    }
+    return result;
 }
 
 quad::QuadProgram *runLicmPass(quad::QuadProgram *program) {
@@ -1860,6 +1981,90 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
         }
         refreshQuadExtents(optimizedSsa);
         profile.mark("sccp");
+    }
+    if (optModeUsesSccp(options.optMode) && experimentalPassEnabled("algebrasimp")) {
+        optimizedSsa = runAlgebraSimpPass(optimizedSsa);
+        if (optimizedSsa == nullptr) {
+            result.error = "AlgebraSimp optimization failed";
+            return result;
+        }
+        profile.mark("algebrasimp");
+    }
+    if (optModeUsesGvn(options.optMode) && experimentalPassEnabled("gvn")) {
+        optimizedSsa = runGvnPass(optimizedSsa);
+        if (optimizedSsa == nullptr) {
+            result.error = "GVN optimization failed";
+            return result;
+        }
+        profile.mark("gvn");
+    }
+    if (optModeUsesSccp(options.optMode) && experimentalPassEnabled("copyprop")) {
+        optimizedSsa = runCopyPropPass(optimizedSsa);
+        if (optimizedSsa == nullptr) {
+            result.error = "CopyProp optimization failed";
+            return result;
+        }
+        profile.mark("copyprop");
+    }
+
+    if (optModeUsesSccp(options.optMode) && experimentalPassEnabled("memopt")) {
+        optimizedSsa = runMemOptPass(optimizedSsa);
+        if (optimizedSsa == nullptr) {
+            result.error = "MemOpt optimization failed";
+            return result;
+        }
+        profile.mark("memopt");
+    }
+
+    if (optModeUsesSccp(options.optMode) && experimentalPassEnabled("inline")) {
+        optimizedSsa = runInlinePass(optimizedSsa);
+        if (optimizedSsa == nullptr) {
+            result.error = "Inlining optimization failed";
+            return result;
+        }
+        profile.mark("inline");
+    }
+
+    if (optModeUsesSccp(options.optMode) && experimentalPassEnabled("funcspec")) {
+        optimizedSsa = runFuncSpecPass(optimizedSsa);
+        if (optimizedSsa == nullptr) {
+            result.error = "FuncSpec optimization failed";
+            return result;
+        }
+        profile.mark("funcspec");
+    }
+
+    if (optModeUsesSccp(options.optMode) && experimentalPassEnabled("memopt")) {
+        optimizedSsa = runMemOptPass(optimizedSsa);
+        if (optimizedSsa == nullptr) {
+            result.error = "MemOpt round 2 failed";
+            return result;
+        }
+        profile.mark("memopt-r2");
+    }
+    if (optModeUsesSccp(options.optMode) && experimentalPassEnabled("algebrasimp")) {
+        optimizedSsa = runAlgebraSimpPass(optimizedSsa);
+        if (optimizedSsa == nullptr) {
+            result.error = "AlgebraSimp round 2 failed";
+            return result;
+        }
+        profile.mark("algebrasimp-r2");
+    }
+    if (optModeUsesGvn(options.optMode) && experimentalPassEnabled("gvn")) {
+        optimizedSsa = runGvnPass(optimizedSsa);
+        if (optimizedSsa == nullptr) {
+            result.error = "GVN round 2 failed";
+            return result;
+        }
+        profile.mark("gvn-r2");
+    }
+    if (optModeUsesSccp(options.optMode) && experimentalPassEnabled("copyprop")) {
+        optimizedSsa = runCopyPropPass(optimizedSsa);
+        if (optimizedSsa == nullptr) {
+            result.error = "CopyProp round 2 failed";
+            return result;
+        }
+        profile.mark("copyprop-r2");
     }
     if (optModeUsesLicm(options.optMode)) {
         optimizedSsa = runLicmPass(optimizedSsa);
