@@ -1746,8 +1746,13 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
         }
         profile.mark("funcspec");
     }
-    // Round 2: Inlining exposes new optimization opportunities.
-    // Re-run the core passes to clean up the inlined code (ref: GVNPass R2).
+    // Round 2: Inlining exposes new memory optimization opportunities.
+    if (optModeUsesSccp(options.optMode)) {
+        optimizedSsa = runMemOptPass(optimizedSsa);
+        if (!optimizedSsa) { result.error="MemOpt r2 failed"; return result; }
+        profile.mark("memopt-r2");
+    }
+    // Round 2 AlgebraSimp/GVN/CopyProp: clean up after inlining + MemOpt
     if (optModeUsesSccp(options.optMode) && passEnabled("algebrasimp")) {
         optimizedSsa = runAlgebraSimpPass(optimizedSsa);
         if (!optimizedSsa) { result.error="AlgebraSimp r2 failed"; return result; }
