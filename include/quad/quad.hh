@@ -152,10 +152,13 @@ class QuadFuncDecl : public Quad {
     vector<QuadBlock*> *quadblocklist;
     string funcname;
     vector<Temp*> *params;
+    QuadType return_type;
     int last_label_num;
     int last_temp_num;
-    QuadFuncDecl(string funcname, vector<Temp*> *params, vector<QuadBlock*> *quadblocklist, int lln, int ltn)
-        : Quad(QuadKind::FUNCDECL), params(params), quadblocklist(quadblocklist), funcname(funcname), last_label_num(lln), last_temp_num(ltn) {}
+    QuadFuncDecl(string funcname, vector<Temp*> *params, vector<QuadBlock*> *quadblocklist,
+                 QuadType return_type, int lln, int ltn)
+        : Quad(QuadKind::FUNCDECL), params(params), quadblocklist(quadblocklist),
+          funcname(funcname), return_type(return_type), last_label_num(lln), last_temp_num(ltn) {}
     void accept(QuadVisitor &v) override {v.visit(this);}
     void print(string &output_str, int indent, bool print_def_use) override;
     

@@ -1,0 +1,35 @@
+void add_arrays(int a[], int b[], int n) {
+  int i = 0;
+  while (i < n) {
+    int j = 0;
+    while (j < 8) {
+      a[i] = a[i] + b[i] + j;
+      j = j + 1;
+    }
+    i = i + 1;
+  }
+}
+
+int main() {
+  int x[600];
+  int y[600];
+  int i = 0;
+  while (i < 600) {
+    x[i] = i + 1;
+    y[i] = i + 10;
+    i = i + 1;
+  }
+
+  add_arrays(x, y, 600);
+  add_arrays(x, x, 600);
+
+  int sum = 0;
+  i = 0;
+  while (i < 600) {
+    sum = sum + x[i];
+    i = i + 1;
+  }
+  putint(sum);
+  putch(10);
+  return 0;
+}

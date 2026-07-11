@@ -30,11 +30,11 @@
 *.la
 *.a
 *.lib
-!vendor/libsysy/libsysy_arm.a
 
 # Executables
 *.exe
 *.out
+!test/**/*.out
 *.app
 
 **/build

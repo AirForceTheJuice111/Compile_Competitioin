@@ -1,7 +1,9 @@
 #include "parallel_plan.hh"
 
 #include <algorithm>
+#include <climits>
 #include <cstdlib>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -15,6 +17,11 @@ namespace {
 struct ArrayAccess {
     std::string base;
     const Node *lval = nullptr;
+};
+
+struct LexicalInfo {
+    std::unordered_set<const Node *> localLvals;
+    std::unordered_set<std::string> bodyScopeNames;
 };
 
 bool isScalarLVal(const Node &node) {
@@ -122,25 +129,26 @@ bool intConstValue(const Node &node, int &value) {
     }
     char *end = nullptr;
     long parsed = std::strtol(text.c_str(), &end, 0);
-    if (end == nullptr || *end != '\0') {
+    if (end == nullptr || *end != '\0' || parsed < INT_MIN || parsed > INT_MAX) {
         return false;
     }
     value = static_cast<int>(parsed);
     return true;
 }
 
-bool affineCoeff(const Node &node, const std::string &var, int &coeff) {
+bool affineCoeff(const Node &node, const std::string &var,
+                 const std::unordered_set<const Node *> &localLvals, int &coeff) {
     if (node.kind == NodeKind::Number) {
         coeff = 0;
         return true;
     }
     if (node.kind == NodeKind::LVal) {
-        coeff = node.text == var ? 1 : 0;
+        coeff = node.text == var && localLvals.find(&node) == localLvals.end() ? 1 : 0;
         return true;
     }
     if (node.kind == NodeKind::UnaryExpr) {
         int inner = 0;
-        if (!affineCoeff(*node.children.at(0), var, inner)) {
+        if (!affineCoeff(*node.children.at(0), var, localLvals, inner)) {
             return false;
         }
         if (node.text == "+") {
@@ -159,8 +167,8 @@ bool affineCoeff(const Node &node, const std::string &var, int &coeff) {
     int left = 0;
     int right = 0;
     if (node.text == "+" || node.text == "-") {
-        if (!affineCoeff(*node.children.at(0), var, left) ||
-            !affineCoeff(*node.children.at(1), var, right)) {
+        if (!affineCoeff(*node.children.at(0), var, localLvals, left) ||
+            !affineCoeff(*node.children.at(1), var, localLvals, right)) {
             return false;
         }
         coeff = node.text == "+" ? left + right : left - right;
@@ -169,12 +177,12 @@ bool affineCoeff(const Node &node, const std::string &var, int &coeff) {
     if (node.text == "*") {
         int c = 0;
         if (intConstValue(*node.children.at(0), c) &&
-            affineCoeff(*node.children.at(1), var, right)) {
+            affineCoeff(*node.children.at(1), var, localLvals, right)) {
             coeff = c * right;
             return true;
         }
         if (intConstValue(*node.children.at(1), c) &&
-            affineCoeff(*node.children.at(0), var, left)) {
+            affineCoeff(*node.children.at(0), var, localLvals, left)) {
             coeff = c * left;
             return true;
         }
@@ -182,29 +190,40 @@ bool affineCoeff(const Node &node, const std::string &var, int &coeff) {
     return false;
 }
 
-bool lvalHasAffineLoopIndex(const Node &lval, const std::string &var) {
-    if (lval.kind != NodeKind::LVal || lval.children.empty()) {
-        return false;
-    }
-    bool hasLoopIndex = false;
-    for (const auto &index : lval.children) {
-        int coeff = 0;
-        if (!affineCoeff(*index, var, coeff)) {
-            return false;
-        }
-        if (coeff != 0) {
-            hasLoopIndex = true;
-        }
-    }
-    return hasLoopIndex;
-}
-
-bool lvalFirstIndexIsPartitionedByLoopVar(const Node &lval, const std::string &var) {
+bool lvalFirstIndexIsPartitionedByLoopVar(
+    const Node &lval, const std::string &var,
+    const std::unordered_set<const Node *> &localLvals) {
     if (lval.kind != NodeKind::LVal || lval.children.empty()) {
         return false;
     }
     int coeff = 0;
-    return affineCoeff(*lval.children.front(), var, coeff) && coeff != 0;
+    return affineCoeff(*lval.children.front(), var, localLvals, coeff) && coeff != 0;
+}
+
+std::string nodeKey(const Node &node) {
+    std::ostringstream out;
+    out << static_cast<int>(node.kind) << ":" << node.text << "(";
+    for (const auto &child : node.children) {
+        out << nodeKey(*child) << ",";
+    }
+    out << ")";
+    return out.str();
+}
+
+bool sameFirstPartitionIndex(const Node &lhs, const Node &rhs, const std::string &var,
+                             const std::unordered_set<const Node *> &localLvals) {
+    if (lhs.kind != NodeKind::LVal || rhs.kind != NodeKind::LVal ||
+        lhs.children.empty() || rhs.children.empty()) {
+        return false;
+    }
+    int lhsCoeff = 0;
+    int rhsCoeff = 0;
+    if (!affineCoeff(*lhs.children.front(), var, localLvals, lhsCoeff) ||
+        !affineCoeff(*rhs.children.front(), var, localLvals, rhsCoeff) ||
+        lhsCoeff == 0 || rhsCoeff == 0) {
+        return false;
+    }
+    return nodeKey(*lhs.children.front()) == nodeKey(*rhs.children.front());
 }
 
 bool isIncrementOf(const Node &stmt, const std::string &var) {
@@ -227,12 +246,12 @@ bool isIncrementOf(const Node &stmt, const std::string &var) {
 }
 
 bool canonicalWhile(const Node &loop, const ParallelLoopInit &init, const Node *&endExpr,
-                    std::vector<const Node *> &body) {
+                    bool &inclusiveEnd, std::vector<const Node *> &body) {
     if (!init.valid || loop.kind != NodeKind::WhileStmt || loop.children.size() != 2) {
         return false;
     }
     const Node &cond = *loop.children.at(0);
-    if (cond.kind != NodeKind::BinaryExpr || cond.text != "<" ||
+    if (cond.kind != NodeKind::BinaryExpr || (cond.text != "<" && cond.text != "<=") ||
         cond.children.at(0)->kind != NodeKind::LVal ||
         cond.children.at(0)->text != init.var ||
         !cond.children.at(0)->children.empty()) {
@@ -247,6 +266,7 @@ bool canonicalWhile(const Node &loop, const ParallelLoopInit &init, const Node *
         return false;
     }
     endExpr = cond.children.at(1).get();
+    inclusiveEnd = cond.text == "<=";
     body.clear();
     for (std::size_t i = 0; i + 1 < bodyNode.children.size(); ++i) {
         body.push_back(bodyNode.children[i].get());
@@ -254,17 +274,219 @@ bool canonicalWhile(const Node &loop, const ParallelLoopInit &init, const Node *
     return true;
 }
 
-void collectLocalScalars(const Node &node, std::unordered_set<std::string> &locals) {
+bool nameIsLocal(const std::vector<std::unordered_set<std::string>> &scopes,
+                 const std::string &name) {
+    return std::any_of(scopes.rbegin(), scopes.rend(), [&](const auto &scope) {
+        return scope.find(name) != scope.end();
+    });
+}
+
+void collectLexicalInfo(const Node &node,
+                        std::vector<std::unordered_set<std::string>> &scopes,
+                        LexicalInfo &info) {
+    if (node.kind == NodeKind::LVal) {
+        if (nameIsLocal(scopes, node.text)) {
+            info.localLvals.insert(&node);
+        }
+        for (const auto &index : node.children) {
+            collectLexicalInfo(*index, scopes, info);
+        }
+        return;
+    }
+    if (node.kind == NodeKind::Block) {
+        scopes.push_back({});
+        for (const auto &stmt : node.children) {
+            collectLexicalInfo(*stmt, scopes, info);
+        }
+        scopes.pop_back();
+        return;
+    }
     if (node.kind == NodeKind::VarDecl || node.kind == NodeKind::ConstDecl) {
         for (const auto &def : node.children) {
+            // Match lowering: each definition becomes visible to its initializer,
+            // and definitions in one declaration are processed in source order.
             if (isScalarDef(*def)) {
-                locals.insert(def->text);
+                scopes.back().insert(def->text);
+            }
+            for (const auto &child : def->children) {
+                collectLexicalInfo(*child, scopes, info);
+            }
+        }
+        return;
+    }
+    for (const auto &child : node.children) {
+        collectLexicalInfo(*child, scopes, info);
+    }
+}
+
+LexicalInfo buildLexicalInfo(const std::vector<const Node *> &body) {
+    LexicalInfo info;
+    std::vector<std::unordered_set<std::string>> scopes(1);
+    for (const Node *stmt : body) {
+        collectLexicalInfo(*stmt, scopes, info);
+    }
+    info.bodyScopeNames = std::move(scopes.front());
+    return info;
+}
+
+bool containsScalarDeclarationNamed(const Node &node, const std::string &name) {
+    if (node.kind == NodeKind::VarDecl || node.kind == NodeKind::ConstDecl) {
+        for (const auto &def : node.children) {
+            if (isScalarDef(*def) && def->text == name) {
+                return true;
             }
         }
     }
-    for (const auto &child : node.children) {
-        collectLocalScalars(*child, locals);
+    return std::any_of(node.children.begin(), node.children.end(), [&](const auto &child) {
+        return containsScalarDeclarationNamed(*child, name);
+    });
+}
+
+bool containsScalarWriteNamed(const Node &node, const std::string &name) {
+    if (node.kind == NodeKind::AssignStmt && node.children.size() == 2 &&
+        isScalarLVal(*node.children.front()) && node.children.front()->text == name) {
+        return true;
     }
+    return std::any_of(node.children.begin(), node.children.end(), [&](const auto &child) {
+        return containsScalarWriteNamed(*child, name);
+    });
+}
+
+void markPrivatizedScalarLvals(const Node &node, const std::string &name,
+                              std::unordered_set<const Node *> &localLvals) {
+    if (node.kind == NodeKind::LVal && node.text == name) {
+        localLvals.insert(&node);
+    }
+    for (const auto &child : node.children) {
+        markPrivatizedScalarLvals(*child, name, localLvals);
+    }
+}
+
+std::optional<ParallelPrivatizedScalar> recognizeCanonicalScratchScalar(
+    const ParallelLoopPlan &plan, const ParallelTypeLookup &lookupType) {
+    if (plan.body.size() != 2) {
+        return std::nullopt;
+    }
+
+    ParallelLoopInit scratchInit = parseParallelLoopInit(*plan.body.front());
+    if (!scratchInit.valid || scratchInit.declaration || scratchInit.initExpr == nullptr ||
+        scratchInit.var == plan.init.var || !lookupType ||
+        lookupType(scratchInit.var) != "int") {
+        return std::nullopt;
+    }
+    int ignoredInit = 0;
+    if (!intConstValue(*scratchInit.initExpr, ignoredInit)) {
+        return std::nullopt;
+    }
+
+    const Node *scratchEnd = nullptr;
+    bool scratchInclusive = false;
+    std::vector<const Node *> scratchBody;
+    if (!canonicalWhile(*plan.body.back(), scratchInit, scratchEnd,
+                        scratchInclusive, scratchBody) || scratchEnd == nullptr) {
+        return std::nullopt;
+    }
+
+    if (scratchEnd->kind == NodeKind::Number) {
+        int ignoredEnd = 0;
+        if (!intConstValue(*scratchEnd, ignoredEnd) ||
+            (scratchInclusive && ignoredEnd == INT_MAX)) {
+            return std::nullopt;
+        }
+    } else if (!scratchInclusive && scratchEnd->kind == NodeKind::LVal &&
+               scratchEnd->children.empty()) {
+        if (scratchEnd->text == scratchInit.var || scratchEnd->text == plan.init.var ||
+            lookupType(scratchEnd->text) != "int") {
+            return std::nullopt;
+        }
+    } else {
+        return std::nullopt;
+    }
+
+    for (const Node *stmt : plan.body) {
+        if (containsScalarDeclarationNamed(*stmt, scratchInit.var)) {
+            return std::nullopt;
+        }
+    }
+    for (const Node *stmt : scratchBody) {
+        if (containsScalarWriteNamed(*stmt, scratchInit.var)) {
+            return std::nullopt;
+        }
+    }
+
+    if (scratchEnd->kind == NodeKind::LVal) {
+        for (const Node *stmt : plan.body) {
+            if (containsScalarWriteNamed(*stmt, scratchEnd->text)) {
+                return std::nullopt;
+            }
+        }
+    }
+
+    return ParallelPrivatizedScalar{scratchInit.var, "int", scratchInit.initExpr,
+                                    scratchEnd, scratchInclusive};
+}
+
+bool containsWhile(const Node &node) {
+    if (node.kind == NodeKind::WhileStmt) {
+        return true;
+    }
+    return std::any_of(node.children.begin(), node.children.end(), [](const auto &child) {
+        return containsWhile(*child);
+    });
+}
+
+bool containsArrayLVal(const Node &node) {
+    if (node.kind == NodeKind::LVal && !node.children.empty()) {
+        return true;
+    }
+    return std::any_of(node.children.begin(), node.children.end(), [](const auto &child) {
+        return containsArrayLVal(*child);
+    });
+}
+
+bool containsExternalScalarReference(
+    const Node &node, const std::string &name,
+    const std::unordered_set<const Node *> &localLvals) {
+    if (node.kind == NodeKind::LVal && node.children.empty() && node.text == name &&
+        localLvals.find(&node) == localLvals.end()) {
+        return true;
+    }
+    return std::any_of(node.children.begin(), node.children.end(), [&](const auto &child) {
+        return containsExternalScalarReference(*child, name, localLvals);
+    });
+}
+
+void collectExternalScalarWrites(
+    const Node &node, const std::unordered_set<const Node *> &localLvals,
+    std::unordered_set<std::string> &writes) {
+    if (node.kind == NodeKind::AssignStmt && node.children.size() == 2) {
+        const Node &lhs = *node.children.at(0);
+        if (isScalarLVal(lhs) && localLvals.find(&lhs) == localLvals.end()) {
+            writes.insert(lhs.text);
+        }
+    }
+    for (const auto &child : node.children) {
+        collectExternalScalarWrites(*child, localLvals, writes);
+    }
+}
+
+bool exprIsProvablyInt(const Node &node, const ParallelTypeLookup &lookupType) {
+    if (node.kind == NodeKind::Number) {
+        int ignored = 0;
+        return intConstValue(node, ignored);
+    }
+    if (node.kind == NodeKind::LVal) {
+        return node.children.empty() && lookupType && lookupType(node.text) == "int";
+    }
+    if (node.kind == NodeKind::UnaryExpr) {
+        return node.children.size() == 1 && exprIsProvablyInt(*node.children.front(), lookupType);
+    }
+    if (node.kind == NodeKind::BinaryExpr) {
+        return node.children.size() == 2 &&
+               exprIsProvablyInt(*node.children.at(0), lookupType) &&
+               exprIsProvablyInt(*node.children.at(1), lookupType);
+    }
+    return false;
 }
 
 void addReduction(std::vector<ParallelReduction> &reductions, ParallelReduction info) {
@@ -323,36 +545,36 @@ bool isReductionVar(const ParallelLoopPlan &plan, const std::string &name) {
 }
 
 void collectCapturesFromExpr(const Node &node, const std::string &loopVar,
-                             const std::unordered_set<std::string> &locals,
+                             const std::unordered_set<const Node *> &localLvals,
                              const ParallelTypeLookup &lookupType,
                              ParallelLoopPlan &plan) {
     if (node.kind == NodeKind::LVal) {
         if (!node.children.empty()) {
             noteCapture(plan, node.text, lookupType ? lookupType(node.text) : "", true, true, false);
             for (const auto &index : node.children) {
-                collectCapturesFromExpr(*index, loopVar, locals, lookupType, plan);
+                collectCapturesFromExpr(*index, loopVar, localLvals, lookupType, plan);
             }
             return;
         }
-        if (node.text != loopVar && locals.find(node.text) == locals.end() &&
+        if (node.text != loopVar && localLvals.find(&node) == localLvals.end() &&
             !isReductionVar(plan, node.text)) {
             noteCapture(plan, node.text, lookupType ? lookupType(node.text) : "", false, true, false);
         }
         return;
     }
     for (const auto &child : node.children) {
-        collectCapturesFromExpr(*child, loopVar, locals, lookupType, plan);
+        collectCapturesFromExpr(*child, loopVar, localLvals, lookupType, plan);
     }
 }
 
 void collectCapturesFromStmt(const Node &node, const std::string &loopVar,
-                             const std::unordered_set<std::string> &locals,
+                             const std::unordered_set<const Node *> &localLvals,
                              const ParallelTypeLookup &lookupType,
                              ParallelLoopPlan &plan) {
     if (node.kind == NodeKind::LVal || node.kind == NodeKind::BinaryExpr ||
         node.kind == NodeKind::UnaryExpr || node.kind == NodeKind::CallExpr ||
         node.kind == NodeKind::InitList) {
-        collectCapturesFromExpr(node, loopVar, locals, lookupType, plan);
+        collectCapturesFromExpr(node, loopVar, localLvals, lookupType, plan);
         return;
     }
     if (node.kind == NodeKind::AssignStmt && node.children.size() == 2) {
@@ -360,38 +582,40 @@ void collectCapturesFromStmt(const Node &node, const std::string &loopVar,
         if (lhs.kind == NodeKind::LVal && !lhs.children.empty()) {
             noteCapture(plan, lhs.text, lookupType ? lookupType(lhs.text) : "", true, false, true);
             for (const auto &index : lhs.children) {
-                collectCapturesFromExpr(*index, loopVar, locals, lookupType, plan);
+                collectCapturesFromExpr(*index, loopVar, localLvals, lookupType, plan);
             }
         } else if (lhs.kind == NodeKind::LVal && lhs.text != loopVar &&
-                   locals.find(lhs.text) == locals.end() && !isReductionVar(plan, lhs.text)) {
+                   localLvals.find(&lhs) == localLvals.end() &&
+                   !isReductionVar(plan, lhs.text)) {
             noteCapture(plan, lhs.text, lookupType ? lookupType(lhs.text) : "", false, false, true);
         }
-        collectCapturesFromExpr(*node.children.at(1), loopVar, locals, lookupType, plan);
+        collectCapturesFromExpr(*node.children.at(1), loopVar, localLvals, lookupType, plan);
         return;
     }
     if (node.kind == NodeKind::VarDecl || node.kind == NodeKind::ConstDecl) {
         for (const auto &def : node.children) {
             if (const Node *init = initializerOf(*def)) {
-                collectCapturesFromExpr(*init, loopVar, locals, lookupType, plan);
+                collectCapturesFromExpr(*init, loopVar, localLvals, lookupType, plan);
             }
         }
         return;
     }
     for (const auto &child : node.children) {
-        collectCapturesFromStmt(*child, loopVar, locals, lookupType, plan);
+        collectCapturesFromStmt(*child, loopVar, localLvals, lookupType, plan);
     }
 }
 
-bool sameArrayReadsArePartitioned(const Node &rhs, const std::string &writtenArray,
-                                  const std::string &loopVar) {
+bool sameArrayReadsStayInWrittenPartition(const Node &writeLval, const Node &rhs,
+                                          const std::string &loopVar,
+                                          const std::unordered_set<const Node *> &localLvals) {
     std::vector<ArrayAccess> reads;
     collectArrayReads(rhs, reads);
     for (const ArrayAccess &read : reads) {
-        if (read.base != writtenArray) {
+        if (read.base != writeLval.text) {
             continue;
         }
         if (read.lval == nullptr ||
-            !lvalFirstIndexIsPartitionedByLoopVar(*read.lval, loopVar)) {
+            !sameFirstPartitionIndex(writeLval, *read.lval, loopVar, localLvals)) {
             return false;
         }
     }
@@ -399,7 +623,7 @@ bool sameArrayReadsArePartitioned(const Node &rhs, const std::string &writtenArr
 }
 
 bool analyzeNode(const Node &node, const std::string &loopVar,
-                 const std::unordered_set<std::string> &locals,
+                 const std::unordered_set<const Node *> &localLvals,
                  const ParallelTypeLookup &lookupType,
                  ParallelLoopPlan &plan) {
     if (exprContainsCall(node)) {
@@ -424,16 +648,17 @@ bool analyzeNode(const Node &node, const std::string &loopVar,
     case NodeKind::AssignStmt: {
         const Node &lhs = *node.children.at(0);
         if (isScalarLVal(lhs)) {
+            if (localLvals.find(&lhs) != localLvals.end()) {
+                return true;
+            }
             if (lhs.text == loopVar) {
                 plan.rejectReason = "loop induction variable write";
                 return false;
             }
-            if (locals.find(lhs.text) != locals.end()) {
-                return true;
-            }
             if (lookupType && lookupType(lhs.text) == "int") {
                 const Node *add = parallelReductionAddend(node, lhs.text);
-                if (add != nullptr) {
+                if (add != nullptr &&
+                    !containsExternalScalarReference(*add, lhs.text, localLvals)) {
                     addReduction(plan.reductions, ParallelReduction{lhs.text, add});
                     return true;
                 }
@@ -441,11 +666,12 @@ bool analyzeNode(const Node &node, const std::string &loopVar,
             plan.rejectReason = "unsafe scalar write";
             return false;
         }
-        if (!lvalHasAffineLoopIndex(lhs, loopVar)) {
+        if (!lvalFirstIndexIsPartitionedByLoopVar(lhs, loopVar, localLvals)) {
             plan.rejectReason = "non-affine array write";
             return false;
         }
-        if (!sameArrayReadsArePartitioned(*node.children.at(1), lhs.text, loopVar)) {
+        if (!sameArrayReadsStayInWrittenPartition(lhs, *node.children.at(1), loopVar,
+                                                  localLvals)) {
             plan.rejectReason = "same-array read is not partitioned";
             return false;
         }
@@ -454,7 +680,7 @@ bool analyzeNode(const Node &node, const std::string &loopVar,
     }
     default:
         for (const auto &child : node.children) {
-            if (!analyzeNode(*child, loopVar, locals, lookupType, plan)) {
+            if (!analyzeNode(*child, loopVar, localLvals, lookupType, plan)) {
                 return false;
             }
         }
@@ -462,8 +688,115 @@ bool analyzeNode(const Node &node, const std::string &loopVar,
     }
 }
 
+bool validateReductionUses(
+    const Node &node, const std::string &var,
+    const std::unordered_set<const Node *> &localLvals) {
+    if (node.kind == NodeKind::AssignStmt && node.children.size() == 2) {
+        const Node &lhs = *node.children.at(0);
+        if (isScalarLVal(lhs) && lhs.text == var &&
+            localLvals.find(&lhs) == localLvals.end()) {
+            const Node *addend = parallelReductionAddend(node, var);
+            return addend != nullptr &&
+                   !containsExternalScalarReference(*addend, var, localLvals);
+        }
+    }
+    if (node.kind == NodeKind::LVal && node.children.empty() && node.text == var &&
+        localLvals.find(&node) == localLvals.end()) {
+        return false;
+    }
+    return std::all_of(node.children.begin(), node.children.end(), [&](const auto &child) {
+        return validateReductionUses(*child, var, localLvals);
+    });
+}
+
+bool boundReferencesWrittenScalar(const Node &node,
+                                  const std::unordered_set<std::string> &writes) {
+    if (node.kind == NodeKind::LVal && node.children.empty() &&
+        writes.find(node.text) != writes.end()) {
+        return true;
+    }
+    return std::any_of(node.children.begin(), node.children.end(), [&](const auto &child) {
+        return boundReferencesWrittenScalar(*child, writes);
+    });
+}
+
+bool validateLoopBound(ParallelLoopPlan &plan, const LexicalInfo &lexical,
+                       const ParallelTypeLookup &lookupType) {
+    if (plan.endExpr == nullptr) {
+        plan.rejectReason = "missing loop endpoint";
+        return false;
+    }
+    std::string ivType = plan.init.declaration
+                             ? plan.init.type
+                             : (lookupType ? lookupType(plan.init.var) : std::string{});
+    if (ivType != "int") {
+        plan.rejectReason = "non-int induction variable";
+        return false;
+    }
+    if (exprContainsCall(*plan.endExpr)) {
+        plan.rejectReason = "call in loop endpoint";
+        return false;
+    }
+    if (containsArrayLVal(*plan.endExpr)) {
+        plan.rejectReason = "array access in loop endpoint";
+        return false;
+    }
+    static const std::unordered_set<const Node *> noLocals;
+    if (containsExternalScalarReference(*plan.endExpr, plan.init.var, noLocals)) {
+        plan.rejectReason = "induction variable in loop endpoint";
+        return false;
+    }
+    std::unordered_set<std::string> writes;
+    for (const Node *stmt : plan.body) {
+        collectExternalScalarWrites(*stmt, lexical.localLvals, writes);
+    }
+    if (boundReferencesWrittenScalar(*plan.endExpr, writes)) {
+        plan.rejectReason = "loop endpoint is modified in body";
+        return false;
+    }
+    if (!exprIsProvablyInt(*plan.endExpr, lookupType)) {
+        plan.rejectReason = "non-int loop endpoint";
+        return false;
+    }
+    if (plan.inclusiveEnd) {
+        int endpoint = 0;
+        if (intConstValue(*plan.endExpr, endpoint) && endpoint == INT_MAX) {
+            plan.rejectReason = "inclusive endpoint may overflow";
+            return false;
+        }
+    }
+    return true;
+}
+
+std::optional<int> constantTripCount(const ParallelLoopPlan &plan) {
+    if (plan.init.initExpr == nullptr || plan.endExpr == nullptr) {
+        return std::nullopt;
+    }
+    int init = 0;
+    int end = 0;
+    if (!intConstValue(*plan.init.initExpr, init) || !intConstValue(*plan.endExpr, end)) {
+        return std::nullopt;
+    }
+    long long count = static_cast<long long>(end) - static_cast<long long>(init);
+    if (plan.inclusiveEnd) {
+        ++count;
+    }
+    if (count < 0) {
+        count = 0;
+    }
+    if (count > INT_MAX) {
+        count = INT_MAX;
+    }
+    return static_cast<int>(count);
+}
+
 bool profitableParallelLoop(const ParallelLoopPlan &plan) {
     if (!plan.valid) {
+        return false;
+    }
+    constexpr int kNativeParallelThreadThreshold = 512;
+    if (std::optional<int> tripCount = constantTripCount(plan);
+        tripCount.has_value() && *tripCount < kNativeParallelThreadThreshold) {
         return false;
     }
     if (!plan.reductions.empty()) {
@@ -662,6 +995,7 @@ private:
              << ",\"init_var\":\"" << jsonEscape(plan.init.var) << "\""
              << ",\"init_decl\":" << (plan.init.declaration ? "true" : "false")
              << ",\"init_type\":\"" << jsonEscape(plan.init.type) << "\""
+             << ",\"inclusive_end\":" << (plan.inclusiveEnd ? "true" : "false")
              << ",\"estimated_cost\":" << plan.estimatedCost
              << ",\"has_nested_loop\":" << (plan.hasNestedLoop ? "true" : "false")
              << ",\"has_array_write\":" << (plan.hasArrayWrite ? "true" : "false")
@@ -692,6 +1026,18 @@ private:
                 out_ << ",";
             }
             out_ << "{\"var\":\"" << jsonEscape(plan.reductions[i].var) << "\"}";
+        }
+        out_ << "],\"privatized_scalars\":[";
+        for (std::size_t i = 0; i < plan.privatizedScalars.size(); ++i) {
+            if (i != 0) {
+                out_ << ",";
+            }
+            const ParallelPrivatizedScalar &scalar = plan.privatizedScalars[i];
+            out_ << "{\"name\":\"" << jsonEscape(scalar.var)
+                 << "\",\"type\":\"" << jsonEscape(scalar.type)
+                 << "\",\"kind\":\"canonical_nested_iv\""
+                 << ",\"inclusive_end\":"
+                 << (scalar.inclusiveEnd ? "true" : "false") << "}";
         }
         out_ << "],\"reject\":\"" << jsonEscape(plan.rejectReason) << "\"}\n";
     }
@@ -754,29 +1100,50 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
         plan.rejectReason = "not a canonical loop initializer";
         return plan;
     }
-    if (!canonicalWhile(loopStmt, plan.init, plan.endExpr, plan.body)) {
+    if (!canonicalWhile(loopStmt, plan.init, plan.endExpr, plan.inclusiveEnd, plan.body)) {
         plan.rejectReason = "not a canonical while loop";
         return plan;
     }
 
     plan.valid = true;
-    std::unordered_set<std::string> locals;
-    locals.insert(plan.init.var);
-    for (const Node *stmt : plan.body) {
-        plan.estimatedCost += estimateStmtCost(*stmt);
-        if (stmt->kind == NodeKind::WhileStmt) {
-            plan.hasNestedLoop = true;
+    LexicalInfo lexical = buildLexicalInfo(plan.body);
+    if (lexical.bodyScopeNames.find(plan.init.var) != lexical.bodyScopeNames.end()) {
+        plan.valid = false;
+        plan.rejectReason = "loop increment is shadowed";
+        return plan;
+    }
+    if (std::optional<ParallelPrivatizedScalar> scratch =
+            recognizeCanonicalScratchScalar(plan, lookupType)) {
+        plan.privatizedScalars.push_back(*scratch);
+        for (const Node *stmt : plan.body) {
+            markPrivatizedScalarLvals(*stmt, scratch->var, lexical.localLvals);
         }
-        collectLocalScalars(*stmt, locals);
     }
     for (const Node *stmt : plan.body) {
-        if (!analyzeNode(*stmt, plan.init.var, locals, lookupType, plan)) {
+        plan.estimatedCost += estimateStmtCost(*stmt);
+        plan.hasNestedLoop = plan.hasNestedLoop || containsWhile(*stmt);
+    }
+    if (!validateLoopBound(plan, lexical, lookupType)) {
+        plan.valid = false;
+        return plan;
+    }
+    for (const Node *stmt : plan.body) {
+        if (!analyzeNode(*stmt, plan.init.var, lexical.localLvals, lookupType, plan)) {
             plan.valid = false;
             return plan;
         }
     }
+    for (const ParallelReduction &reduction : plan.reductions) {
+        for (const Node *stmt : plan.body) {
+            if (!validateReductionUses(*stmt, reduction.var, lexical.localLvals)) {
+                plan.valid = false;
+                plan.rejectReason = "reduction variable has non-reduction use";
+                return plan;
+            }
+        }
+    }
     for (const Node *stmt : plan.body) {
-        collectCapturesFromStmt(*stmt, plan.init.var, locals, lookupType, plan);
+        collectCapturesFromStmt(*stmt, plan.init.var, lexical.localLvals, lookupType, plan);
     }
 
     std::vector<ArrayAccess> reads;
@@ -786,9 +1153,22 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
         collectArrayWrites(*stmt, writes);
     }
     for (const ArrayAccess &write : writes) {
+        for (const ArrayAccess &otherWrite : writes) {
+            if (&write == &otherWrite || write.base != otherWrite.base ||
+                write.lval == nullptr || otherWrite.lval == nullptr) {
+                continue;
+            }
+            if (!sameFirstPartitionIndex(*write.lval, *otherWrite.lval, plan.init.var,
+                                         lexical.localLvals)) {
+                plan.valid = false;
+                plan.rejectReason = "same-array write partitions overlap";
+                return plan;
+            }
+        }
         for (const ArrayAccess &read : reads) {
             if (write.base == read.base && read.lval != nullptr &&
-                !lvalFirstIndexIsPartitionedByLoopVar(*read.lval, plan.init.var)) {
+                !sameFirstPartitionIndex(*write.lval, *read.lval, plan.init.var,
+                                         lexical.localLvals)) {
                 plan.valid = false;
                 plan.rejectReason = "loop-carried array dependence";
                 return plan;
@@ -803,6 +1183,13 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
     if (plan.reductions.size() > 1) {
         plan.valid = false;
         plan.rejectReason = "multiple reductions";
+        return plan;
+    }
+    if (!plan.privatizedScalars.empty() &&
+        (plan.reductions.size() != 1 || plan.hasArrayWrite ||
+         plan.reductions.front().var == plan.privatizedScalars.front().var)) {
+        plan.valid = false;
+        plan.rejectReason = "scratch scalar privatization requires a pure reduction";
         return plan;
     }
     if (!profitableParallelLoop(plan)) {

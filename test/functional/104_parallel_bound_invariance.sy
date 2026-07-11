@@ -1,0 +1,16 @@
+int a[600][2];
+
+int main() {
+  int i = 0;
+  while (i < 600 - i) {
+    int j = 0;
+    while (j < 2) {
+      a[i][j] = i + j;
+      j = j + 1;
+    }
+    i = i + 1;
+  }
+  putint(i);
+  putch(10);
+  return 0;
+}

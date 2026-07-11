@@ -29,15 +29,25 @@ struct ParallelCapture {
     bool write = false;
 };
 
+struct ParallelPrivatizedScalar {
+    std::string var;
+    std::string type;
+    const Node *initExpr = nullptr;
+    const Node *endExpr = nullptr;
+    bool inclusiveEnd = false;
+};
+
 struct ParallelLoopPlan {
     bool valid = false;
     ParallelLoopInit init;
     const Node *endExpr = nullptr;
+    bool inclusiveEnd = false;
     std::vector<const Node *> body;
     bool hasArrayWrite = false;
     bool hasNestedLoop = false;
     int estimatedCost = 0;
     std::vector<ParallelReduction> reductions;
+    std::vector<ParallelPrivatizedScalar> privatizedScalars;
     std::vector<ParallelCapture> captures;
     std::string rejectReason;
 };

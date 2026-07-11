@@ -1,0 +1,59 @@
+int scratch_lt(int n, int seed) {
+  int sum = 0;
+  int j = seed;
+  int i;
+  i = 0;
+  while (i < n) {
+    j = 0;
+    while (j < 4) {
+      sum = sum + (i + j);
+      j = j + 1;
+    }
+    i = i + 1;
+  }
+  return sum + j;
+}
+
+int scratch_le(int n) {
+  int sum = 0;
+  int j = 81;
+  int i;
+  i = 0;
+  while (i < n) {
+    j = 0;
+    while (j <= 3) {
+      sum = sum + (i + j);
+      j = j + 1;
+    }
+    i = i + 1;
+  }
+  return sum + j;
+}
+
+int scratch_empty_inner(int n) {
+  int sum = 0;
+  int j = 92;
+  int i;
+  i = 0;
+  while (i < n) {
+    j = 5;
+    while (j < 3) {
+      sum = sum + (i + j);
+      j = j + 1;
+    }
+    i = i + 1;
+  }
+  return sum + j;
+}
+
+int main() {
+  putint(scratch_lt(600, 71));
+  putch(10);
+  putint(scratch_lt(0, 73));
+  putch(10);
+  putint(scratch_le(600));
+  putch(10);
+  putint(scratch_empty_inner(600));
+  putch(10);
+  return 0;
+}

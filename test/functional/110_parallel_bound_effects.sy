@@ -1,0 +1,49 @@
+int rows[600][2];
+int array_limit[1] = {600};
+
+int fixed_limit() {
+  return 600;
+}
+
+int main() {
+  int end = 600;
+  int i = 0;
+  while (i < end) {
+    int j = 0;
+    while (j < 2) {
+      rows[i][j] = i;
+      j = j + 1;
+    }
+    end = end + (-1);
+    i = i + 1;
+  }
+  putint(i);
+  putch(10);
+  putint(end);
+  putch(10);
+
+  i = 0;
+  while (i < array_limit[0]) {
+    int j = 0;
+    while (j < 2) {
+      rows[i][j] = i + j;
+      j = j + 1;
+    }
+    i = i + 1;
+  }
+  putint(i);
+  putch(10);
+
+  i = 0;
+  while (i < fixed_limit()) {
+    int j = 0;
+    while (j < 2) {
+      rows[i][j] = i - j;
+      j = j + 1;
+    }
+    i = i + 1;
+  }
+  putint(i);
+  putch(10);
+  return 0;
+}

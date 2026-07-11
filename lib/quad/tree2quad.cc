@@ -118,8 +118,14 @@ void Tree2Quad::visit(tree::Program *prog) {
 
             int fn_last_label = temp_map->next_label - 1;
             int fn_last_temp = temp_map->next_temp - 1;
+            QuadType return_type = QuadType::INT;
+            if (func->return_type == tree::Type::FLOAT) {
+                return_type = QuadType::FLOAT;
+            } else if (func->return_type == tree::Type::PTR) {
+                return_type = QuadType::PTR;
+            }
             funcs->push_back(new QuadFuncDecl(
-                func->name, func->args, blocks, fn_last_label, fn_last_temp
+                func->name, func->args, blocks, return_type, fn_last_label, fn_last_temp
             ));
             if (fn_last_label > max_label) max_label = fn_last_label;
             if (fn_last_temp > max_temp) max_temp = fn_last_temp;
