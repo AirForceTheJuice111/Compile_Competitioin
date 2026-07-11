@@ -6,6 +6,7 @@
 #include "copyprop.hh"
 #include "flowinfo.hh"
 #include "gvn.hh"
+#include "inline.hh"
 #include "loopheader.hh"
 #include "loopinductionopt.hh"
 #include "looplicm.hh"
@@ -301,6 +302,18 @@ quad::QuadProgram *runGvnPass(quad::QuadProgram *program) {
                   << " instructions\n";
         std::cerr.flush();
     }
+    return result;
+}
+
+quad::QuadProgram *runInlinePass(quad::QuadProgram *program) {
+    int eliminated = 0;
+    auto *result = quad::inlineProg(program, &eliminated);
+    if (result == nullptr) return program;
+    refreshQuadExtents(result);
+    const char *env = std::getenv("BACKEND_PROFILE");
+    if (env && env[0] && std::string(env) != "0")
+        std::cerr << "BACKEND_PROFILE inline inlined " << eliminated
+                  << " calls\n";
     return result;
 }
 
@@ -1670,6 +1683,14 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
             return result;
         }
         profile.mark("copyprop");
+    }
+    if (optModeUsesSccp(options.optMode)) {
+        optimizedSsa = runInlinePass(optimizedSsa);
+        if (optimizedSsa == nullptr) {
+            result.error = "Inlining optimization failed";
+            return result;
+        }
+        profile.mark("inline");
     }
     if (optModeUsesLicm(options.optMode)) {
         optimizedSsa = runLicmPass(optimizedSsa);
