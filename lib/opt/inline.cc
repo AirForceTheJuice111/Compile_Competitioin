@@ -28,6 +28,11 @@ bool isRecursive(quad::QuadFuncDecl* f) {
     return false;
 }
 int countInsts(quad::QuadFuncDecl* f) { if(!f||!f->quadblocklist)return 0;int n=0;for(auto*b:*f->quadblocklist)if(b&&b->quadlist)n+=b->quadlist->size();return n; }
+bool hasPHI(quad::QuadFuncDecl* f) {
+    if(!f||!f->quadblocklist)return false;
+    for(auto*b:*f->quadblocklist){if(!b||!b->quadlist)continue;for(auto*s:*b->quadlist)if(s&&s->kind==quad::QuadKind::PHI)return true;}
+    return false;
+}
 
 quad::QuadTerm* cloneTerm(quad::QuadTerm* t, const map<int,int>& rm) {
     if(!t)return nullptr;
@@ -59,7 +64,7 @@ void inlineProgImpl(quad::QuadProgram* prog, int& inlined) {
     map<string,quad::QuadFuncDecl*>nm;set<string>uf;
     for(auto*f:funcs){if(f){nm[f->funcname]=f;uf.insert(f->funcname);}}
     set<string>eligible;
-    for(auto&kv:nm){auto*f=kv.second;if(!isRecursive(f)&&countInsts(f)<=MAX_INLINE_INSTS)eligible.insert(kv.first);}
+    for(auto&kv:nm){auto*f=kv.second;if(!isRecursive(f)&&!hasPHI(f)&&countInsts(f)<=MAX_INLINE_INSTS)eligible.insert(kv.first);}
     if(eligible.empty())return;
 
     int gl=prog->last_label_num, gt=prog->last_temp_num;

@@ -1729,20 +1729,22 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
         profile.mark("memopt");
     }
     if (optModeUsesSccp(options.optMode)) {
-        optimizedSsa = runFuncSpecPass(optimizedSsa);
-        if (optimizedSsa == nullptr) {
-            result.error = "FuncSpec optimization failed";
-            return result;
-        }
-        profile.mark("funcspec");
-    }
-    if (optModeUsesSccp(options.optMode)) {
         optimizedSsa = runInlinePass(optimizedSsa);
         if (optimizedSsa == nullptr) {
             result.error = "Inlining optimization failed";
             return result;
         }
         profile.mark("inline");
+    }
+    // FuncSpec after Inline: specialize remaining calls with const args
+    // (ref: reference project places FunctionSpecialization after inlining)
+    if (optModeUsesSccp(options.optMode)) {
+        optimizedSsa = runFuncSpecPass(optimizedSsa);
+        if (optimizedSsa == nullptr) {
+            result.error = "FuncSpec optimization failed";
+            return result;
+        }
+        profile.mark("funcspec");
     }
     // Round 2: Inlining exposes new optimization opportunities.
     // Re-run the core passes to clean up the inlined code (ref: GVNPass R2).
