@@ -49,16 +49,36 @@ const Node *initializerOf(const Node &def) {
     return nullptr;
 }
 
-bool exprContainsCall(const Node &node) {
-    if (node.kind == NodeKind::CallExpr) {
+const ParallelScalarFunctionSummary *lookupPureFunction(
+    const ParallelFunctionSummaryLookup &lookupFunction, const std::string &name) {
+    if (!lookupFunction) {
+        return nullptr;
+    }
+    const ParallelScalarFunctionSummary *summary = lookupFunction(name);
+    return summary != nullptr && summary->pure ? summary : nullptr;
+}
+
+bool exprContainsUnsafeCall(const Node &node,
+                            const ParallelFunctionSummaryLookup &lookupFunction) {
+    if (node.kind == NodeKind::CallExpr &&
+        lookupPureFunction(lookupFunction, node.text) == nullptr) {
         return true;
     }
     for (const auto &child : node.children) {
-        if (exprContainsCall(*child)) {
+        if (exprContainsUnsafeCall(*child, lookupFunction)) {
             return true;
         }
     }
     return false;
+}
+
+bool exprContainsAnyCall(const Node &node) {
+    if (node.kind == NodeKind::CallExpr) {
+        return true;
+    }
+    return std::any_of(node.children.begin(), node.children.end(), [](const auto &child) {
+        return exprContainsAnyCall(*child);
+    });
 }
 
 int estimateExprCost(const Node &node) {
@@ -117,6 +137,49 @@ int estimateStmtCost(const Node &node) {
     }
 }
 
+int saturatingWorkAdd(int lhs, int rhs) {
+    long long value = static_cast<long long>(lhs) + static_cast<long long>(rhs);
+    return value > INT_MAX ? INT_MAX : static_cast<int>(value);
+}
+
+int saturatingWorkMultiply(int value, int multiplier) {
+    long long product = static_cast<long long>(value) * multiplier;
+    return product > INT_MAX ? INT_MAX : static_cast<int>(product);
+}
+
+int estimateRuntimeStmtCost(const Node &node) {
+    switch (node.kind) {
+    case NodeKind::AssignStmt:
+    case NodeKind::VarDecl:
+    case NodeKind::ConstDecl:
+        return std::max(1, estimateStmtCost(node));
+    case NodeKind::IfStmt: {
+        int cost = 8 + estimateExprCost(*node.children.at(0));
+        for (std::size_t i = 1; i < node.children.size(); ++i) {
+            cost = saturatingWorkAdd(cost, estimateRuntimeStmtCost(*node.children[i]));
+        }
+        return std::max(1, cost);
+    }
+    case NodeKind::WhileStmt: {
+        // Dynamic nested bounds are unknown at compile time.  Eight iterations
+        // is a conservative profitability weight: it exposes genuinely heavy
+        // outer iterations without claiming the full dynamic trip count.
+        int bodyCost = node.children.size() > 1
+                           ? estimateRuntimeStmtCost(*node.children.at(1))
+                           : 1;
+        int loopCost = 64 + estimateExprCost(*node.children.at(0));
+        return saturatingWorkAdd(loopCost, saturatingWorkMultiply(bodyCost, 8));
+    }
+    default: {
+        int cost = 1;
+        for (const auto &child : node.children) {
+            cost = saturatingWorkAdd(cost, estimateRuntimeStmtCost(*child));
+        }
+        return cost;
+    }
+    }
+}
+
 bool intConstValue(const Node &node, int &value) {
     if (node.kind != NodeKind::Number) {
         return false;
@@ -136,8 +199,84 @@ bool intConstValue(const Node &node, int &value) {
     return true;
 }
 
-bool affineCoeff(const Node &node, const std::string &var,
-                 const std::unordered_set<const Node *> &localLvals, int &coeff) {
+struct AffineSubstitutions {
+    const AffineSubstitutions *parent = nullptr;
+    std::unordered_map<std::string, const Node *> arguments;
+};
+
+const Node *substitutedNode(const Node &node, const AffineSubstitutions *substitutions,
+                            const AffineSubstitutions *&parent) {
+    if (node.kind == NodeKind::LVal && node.children.empty() && substitutions != nullptr) {
+        auto found = substitutions->arguments.find(node.text);
+        if (found != substitutions->arguments.end()) {
+            parent = substitutions->parent;
+            return found->second;
+        }
+    }
+    parent = substitutions;
+    return &node;
+}
+
+bool affineIntConstValue(const Node &node, const AffineSubstitutions *substitutions,
+                         int &value) {
+    const AffineSubstitutions *resolvedSubstitutions = substitutions;
+    const Node *resolved = substitutedNode(node, substitutions, resolvedSubstitutions);
+    if (resolved != &node) {
+        return affineIntConstValue(*resolved, resolvedSubstitutions, value);
+    }
+    return intConstValue(node, value);
+}
+
+bool safeExprReferencesLoopVar(
+    const Node &node, const std::string &var,
+    const std::unordered_set<const Node *> &localLvals,
+    const ParallelFunctionSummaryLookup &lookupFunction,
+    const AffineSubstitutions *substitutions, bool &references) {
+    const AffineSubstitutions *resolvedSubstitutions = substitutions;
+    const Node *resolved = substitutedNode(node, substitutions, resolvedSubstitutions);
+    if (resolved != &node) {
+        return safeExprReferencesLoopVar(*resolved, var, localLvals, lookupFunction,
+                                         resolvedSubstitutions, references);
+    }
+    if (node.kind == NodeKind::CallExpr &&
+        lookupPureFunction(lookupFunction, node.text) == nullptr) {
+        return false;
+    }
+    if (node.kind == NodeKind::LVal && node.children.empty() && node.text == var &&
+        localLvals.find(&node) == localLvals.end()) {
+        references = true;
+    }
+    for (const auto &child : node.children) {
+        if (!safeExprReferencesLoopVar(*child, var, localLvals, lookupFunction,
+                                       substitutions, references)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool affineCoeffImpl(
+    const Node &node, const std::string &var,
+    const std::unordered_set<const Node *> &localLvals,
+    const ParallelFunctionSummaryLookup &lookupFunction,
+    const AffineSubstitutions *substitutions,
+    std::unordered_set<std::string> &activeFunctions, int &coeff) {
+    const AffineSubstitutions *resolvedSubstitutions = substitutions;
+    const Node *resolved = substitutedNode(node, substitutions, resolvedSubstitutions);
+    if (resolved != &node) {
+        return affineCoeffImpl(*resolved, var, localLvals, lookupFunction,
+                               resolvedSubstitutions, activeFunctions, coeff);
+    }
+
+    bool referencesLoopVar = false;
+    if (!safeExprReferencesLoopVar(node, var, localLvals, lookupFunction,
+                                   substitutions, referencesLoopVar)) {
+        return false;
+    }
+    if (!referencesLoopVar) {
+        coeff = 0;
+        return true;
+    }
     if (node.kind == NodeKind::Number) {
         coeff = 0;
         return true;
@@ -148,7 +287,8 @@ bool affineCoeff(const Node &node, const std::string &var,
     }
     if (node.kind == NodeKind::UnaryExpr) {
         int inner = 0;
-        if (!affineCoeff(*node.children.at(0), var, localLvals, inner)) {
+        if (!affineCoeffImpl(*node.children.at(0), var, localLvals, lookupFunction,
+                             substitutions, activeFunctions, inner)) {
             return false;
         }
         if (node.text == "+") {
@@ -161,14 +301,37 @@ bool affineCoeff(const Node &node, const std::string &var,
         }
         return false;
     }
+    if (node.kind == NodeKind::CallExpr) {
+        const ParallelScalarFunctionSummary *summary =
+            lookupPureFunction(lookupFunction, node.text);
+        if (summary == nullptr || summary->affineReturnExpr == nullptr ||
+            summary->parameters.size() != node.children.size() ||
+            activeFunctions.find(node.text) != activeFunctions.end()) {
+            return false;
+        }
+        AffineSubstitutions callSubstitutions;
+        callSubstitutions.parent = substitutions;
+        for (std::size_t i = 0; i < summary->parameters.size(); ++i) {
+            callSubstitutions.arguments.emplace(summary->parameters[i],
+                                                node.children[i].get());
+        }
+        activeFunctions.insert(node.text);
+        bool affine = affineCoeffImpl(*summary->affineReturnExpr, var, localLvals,
+                                      lookupFunction, &callSubstitutions,
+                                      activeFunctions, coeff);
+        activeFunctions.erase(node.text);
+        return affine;
+    }
     if (node.kind != NodeKind::BinaryExpr) {
         return false;
     }
     int left = 0;
     int right = 0;
     if (node.text == "+" || node.text == "-") {
-        if (!affineCoeff(*node.children.at(0), var, localLvals, left) ||
-            !affineCoeff(*node.children.at(1), var, localLvals, right)) {
+        if (!affineCoeffImpl(*node.children.at(0), var, localLvals, lookupFunction,
+                             substitutions, activeFunctions, left) ||
+            !affineCoeffImpl(*node.children.at(1), var, localLvals, lookupFunction,
+                             substitutions, activeFunctions, right)) {
             return false;
         }
         coeff = node.text == "+" ? left + right : left - right;
@@ -176,13 +339,15 @@ bool affineCoeff(const Node &node, const std::string &var,
     }
     if (node.text == "*") {
         int c = 0;
-        if (intConstValue(*node.children.at(0), c) &&
-            affineCoeff(*node.children.at(1), var, localLvals, right)) {
+        if (affineIntConstValue(*node.children.at(0), substitutions, c) &&
+            affineCoeffImpl(*node.children.at(1), var, localLvals, lookupFunction,
+                             substitutions, activeFunctions, right)) {
             coeff = c * right;
             return true;
         }
-        if (intConstValue(*node.children.at(1), c) &&
-            affineCoeff(*node.children.at(0), var, localLvals, left)) {
+        if (affineIntConstValue(*node.children.at(1), substitutions, c) &&
+            affineCoeffImpl(*node.children.at(0), var, localLvals, lookupFunction,
+                             substitutions, activeFunctions, left)) {
             coeff = c * left;
             return true;
         }
@@ -190,14 +355,24 @@ bool affineCoeff(const Node &node, const std::string &var,
     return false;
 }
 
+bool affineCoeff(const Node &node, const std::string &var,
+                 const std::unordered_set<const Node *> &localLvals,
+                 const ParallelFunctionSummaryLookup &lookupFunction, int &coeff) {
+    std::unordered_set<std::string> activeFunctions;
+    return affineCoeffImpl(node, var, localLvals, lookupFunction, nullptr,
+                           activeFunctions, coeff);
+}
+
 bool lvalFirstIndexIsPartitionedByLoopVar(
     const Node &lval, const std::string &var,
-    const std::unordered_set<const Node *> &localLvals) {
+    const std::unordered_set<const Node *> &localLvals,
+    const ParallelFunctionSummaryLookup &lookupFunction) {
     if (lval.kind != NodeKind::LVal || lval.children.empty()) {
         return false;
     }
     int coeff = 0;
-    return affineCoeff(*lval.children.front(), var, localLvals, coeff) && coeff != 0;
+    return affineCoeff(*lval.children.front(), var, localLvals, lookupFunction, coeff) &&
+           coeff != 0;
 }
 
 std::string nodeKey(const Node &node) {
@@ -211,15 +386,16 @@ std::string nodeKey(const Node &node) {
 }
 
 bool sameFirstPartitionIndex(const Node &lhs, const Node &rhs, const std::string &var,
-                             const std::unordered_set<const Node *> &localLvals) {
+                             const std::unordered_set<const Node *> &localLvals,
+                             const ParallelFunctionSummaryLookup &lookupFunction) {
     if (lhs.kind != NodeKind::LVal || rhs.kind != NodeKind::LVal ||
         lhs.children.empty() || rhs.children.empty()) {
         return false;
     }
     int lhsCoeff = 0;
     int rhsCoeff = 0;
-    if (!affineCoeff(*lhs.children.front(), var, localLvals, lhsCoeff) ||
-        !affineCoeff(*rhs.children.front(), var, localLvals, rhsCoeff) ||
+    if (!affineCoeff(*lhs.children.front(), var, localLvals, lookupFunction, lhsCoeff) ||
+        !affineCoeff(*rhs.children.front(), var, localLvals, lookupFunction, rhsCoeff) ||
         lhsCoeff == 0 || rhsCoeff == 0) {
         return false;
     }
@@ -374,8 +550,8 @@ std::optional<ParallelPrivatizedScalar> recognizeCanonicalScratchScalar(
         lookupType(scratchInit.var) != "int") {
         return std::nullopt;
     }
-    int ignoredInit = 0;
-    if (!intConstValue(*scratchInit.initExpr, ignoredInit)) {
+    int scratchBegin = 0;
+    if (!intConstValue(*scratchInit.initExpr, scratchBegin)) {
         return std::nullopt;
     }
 
@@ -387,19 +563,19 @@ std::optional<ParallelPrivatizedScalar> recognizeCanonicalScratchScalar(
         return std::nullopt;
     }
 
-    if (scratchEnd->kind == NodeKind::Number) {
-        int ignoredEnd = 0;
-        if (!intConstValue(*scratchEnd, ignoredEnd) ||
-            (scratchInclusive && ignoredEnd == INT_MAX)) {
-            return std::nullopt;
-        }
-    } else if (!scratchInclusive && scratchEnd->kind == NodeKind::LVal &&
-               scratchEnd->children.empty()) {
-        if (scratchEnd->text == scratchInit.var || scratchEnd->text == plan.init.var ||
-            lookupType(scratchEnd->text) != "int") {
-            return std::nullopt;
-        }
-    } else {
+    int scratchEndValue = 0;
+    if (!intConstValue(*scratchEnd, scratchEndValue) ||
+        (scratchInclusive && scratchEndValue == INT_MAX)) {
+        return std::nullopt;
+    }
+    long long scratchTripCount = static_cast<long long>(scratchEndValue) -
+                                 static_cast<long long>(scratchBegin) +
+                                 (scratchInclusive ? 1LL : 0LL);
+    if (scratchTripCount < 0) {
+        scratchTripCount = 0;
+    }
+    constexpr long long kNativeParallelThreadThreshold = 512;
+    if (scratchTripCount >= kNativeParallelThreadThreshold) {
         return std::nullopt;
     }
 
@@ -411,14 +587,6 @@ std::optional<ParallelPrivatizedScalar> recognizeCanonicalScratchScalar(
     for (const Node *stmt : scratchBody) {
         if (containsScalarWriteNamed(*stmt, scratchInit.var)) {
             return std::nullopt;
-        }
-    }
-
-    if (scratchEnd->kind == NodeKind::LVal) {
-        for (const Node *stmt : plan.body) {
-            if (containsScalarWriteNamed(*stmt, scratchEnd->text)) {
-                return std::nullopt;
-            }
         }
     }
 
@@ -470,7 +638,8 @@ void collectExternalScalarWrites(
     }
 }
 
-bool exprIsProvablyInt(const Node &node, const ParallelTypeLookup &lookupType) {
+bool exprIsProvablyInt(const Node &node, const ParallelTypeLookup &lookupType,
+                       const ParallelFunctionSummaryLookup &lookupFunction) {
     if (node.kind == NodeKind::Number) {
         int ignored = 0;
         return intConstValue(node, ignored);
@@ -478,13 +647,19 @@ bool exprIsProvablyInt(const Node &node, const ParallelTypeLookup &lookupType) {
     if (node.kind == NodeKind::LVal) {
         return node.children.empty() && lookupType && lookupType(node.text) == "int";
     }
+    if (node.kind == NodeKind::CallExpr) {
+        const ParallelScalarFunctionSummary *summary =
+            lookupPureFunction(lookupFunction, node.text);
+        return summary != nullptr && summary->returnType == "int";
+    }
     if (node.kind == NodeKind::UnaryExpr) {
-        return node.children.size() == 1 && exprIsProvablyInt(*node.children.front(), lookupType);
+        return node.children.size() == 1 &&
+               exprIsProvablyInt(*node.children.front(), lookupType, lookupFunction);
     }
     if (node.kind == NodeKind::BinaryExpr) {
         return node.children.size() == 2 &&
-               exprIsProvablyInt(*node.children.at(0), lookupType) &&
-               exprIsProvablyInt(*node.children.at(1), lookupType);
+               exprIsProvablyInt(*node.children.at(0), lookupType, lookupFunction) &&
+               exprIsProvablyInt(*node.children.at(1), lookupType, lookupFunction);
     }
     return false;
 }
@@ -607,7 +782,8 @@ void collectCapturesFromStmt(const Node &node, const std::string &loopVar,
 
 bool sameArrayReadsStayInWrittenPartition(const Node &writeLval, const Node &rhs,
                                           const std::string &loopVar,
-                                          const std::unordered_set<const Node *> &localLvals) {
+                                          const std::unordered_set<const Node *> &localLvals,
+                                          const ParallelFunctionSummaryLookup &lookupFunction) {
     std::vector<ArrayAccess> reads;
     collectArrayReads(rhs, reads);
     for (const ArrayAccess &read : reads) {
@@ -615,7 +791,8 @@ bool sameArrayReadsStayInWrittenPartition(const Node &writeLval, const Node &rhs
             continue;
         }
         if (read.lval == nullptr ||
-            !sameFirstPartitionIndex(writeLval, *read.lval, loopVar, localLvals)) {
+            !sameFirstPartitionIndex(writeLval, *read.lval, loopVar, localLvals,
+                                     lookupFunction)) {
             return false;
         }
     }
@@ -625,9 +802,10 @@ bool sameArrayReadsStayInWrittenPartition(const Node &writeLval, const Node &rhs
 bool analyzeNode(const Node &node, const std::string &loopVar,
                  const std::unordered_set<const Node *> &localLvals,
                  const ParallelTypeLookup &lookupType,
+                 const ParallelFunctionSummaryLookup &lookupFunction,
                  ParallelLoopPlan &plan) {
-    if (exprContainsCall(node)) {
-        plan.rejectReason = "call in loop body";
+    if (exprContainsUnsafeCall(node, lookupFunction)) {
+        plan.rejectReason = "unsafe call in loop body";
         return false;
     }
     switch (node.kind) {
@@ -666,12 +844,13 @@ bool analyzeNode(const Node &node, const std::string &loopVar,
             plan.rejectReason = "unsafe scalar write";
             return false;
         }
-        if (!lvalFirstIndexIsPartitionedByLoopVar(lhs, loopVar, localLvals)) {
+        if (!lvalFirstIndexIsPartitionedByLoopVar(lhs, loopVar, localLvals,
+                                                  lookupFunction)) {
             plan.rejectReason = "non-affine array write";
             return false;
         }
         if (!sameArrayReadsStayInWrittenPartition(lhs, *node.children.at(1), loopVar,
-                                                  localLvals)) {
+                                                  localLvals, lookupFunction)) {
             plan.rejectReason = "same-array read is not partitioned";
             return false;
         }
@@ -680,7 +859,8 @@ bool analyzeNode(const Node &node, const std::string &loopVar,
     }
     default:
         for (const auto &child : node.children) {
-            if (!analyzeNode(*child, loopVar, localLvals, lookupType, plan)) {
+            if (!analyzeNode(*child, loopVar, localLvals, lookupType,
+                             lookupFunction, plan)) {
                 return false;
             }
         }
@@ -721,7 +901,8 @@ bool boundReferencesWrittenScalar(const Node &node,
 }
 
 bool validateLoopBound(ParallelLoopPlan &plan, const LexicalInfo &lexical,
-                       const ParallelTypeLookup &lookupType) {
+                       const ParallelTypeLookup &lookupType,
+                       const ParallelFunctionSummaryLookup &lookupFunction) {
     if (plan.endExpr == nullptr) {
         plan.rejectReason = "missing loop endpoint";
         return false;
@@ -733,7 +914,7 @@ bool validateLoopBound(ParallelLoopPlan &plan, const LexicalInfo &lexical,
         plan.rejectReason = "non-int induction variable";
         return false;
     }
-    if (exprContainsCall(*plan.endExpr)) {
+    if (exprContainsAnyCall(*plan.endExpr)) {
         plan.rejectReason = "call in loop endpoint";
         return false;
     }
@@ -754,7 +935,7 @@ bool validateLoopBound(ParallelLoopPlan &plan, const LexicalInfo &lexical,
         plan.rejectReason = "loop endpoint is modified in body";
         return false;
     }
-    if (!exprIsProvablyInt(*plan.endExpr, lookupType)) {
+    if (!exprIsProvablyInt(*plan.endExpr, lookupType, lookupFunction)) {
         plan.rejectReason = "non-int loop endpoint";
         return false;
     }
@@ -794,10 +975,14 @@ bool profitableParallelLoop(const ParallelLoopPlan &plan) {
     if (!plan.valid) {
         return false;
     }
-    constexpr int kNativeParallelThreadThreshold = 512;
+    constexpr long long kNativeParallelWorkThreshold = 16384;
     if (std::optional<int> tripCount = constantTripCount(plan);
-        tripCount.has_value() && *tripCount < kNativeParallelThreadThreshold) {
-        return false;
+        tripCount.has_value()) {
+        long long work = static_cast<long long>(*tripCount) *
+                         std::max(1, plan.runtimeWorkCost);
+        if (work < kNativeParallelWorkThreshold) {
+            return false;
+        }
     }
     if (!plan.reductions.empty()) {
         return true;
@@ -807,6 +992,184 @@ bool profitableParallelLoop(const ParallelLoopPlan &plan) {
     }
     return plan.estimatedCost >= 48;
 }
+
+std::string summaryFirstWord(const std::string &text) {
+    std::size_t pos = text.find(' ');
+    return pos == std::string::npos ? text : text.substr(0, pos);
+}
+
+std::string summarySecondWord(const std::string &text) {
+    std::size_t pos = text.find(' ');
+    if (pos == std::string::npos) {
+        return {};
+    }
+    std::size_t begin = text.find_first_not_of(' ', pos);
+    if (begin == std::string::npos) {
+        return {};
+    }
+    std::size_t end = text.find(' ', begin);
+    return text.substr(begin, end == std::string::npos ? std::string::npos : end - begin);
+}
+
+bool declarationIsArray(const Node &def) {
+    return std::any_of(def.children.begin(), def.children.end(), [](const auto &child) {
+        return child->kind == NodeKind::ArrayDim;
+    });
+}
+
+struct GlobalPuritySymbol {
+    bool immutableScalar = false;
+};
+
+struct FunctionPurityCandidate {
+    ParallelScalarFunctionSummary summary;
+    bool structurallyPure = true;
+    std::unordered_set<std::string> callees;
+};
+
+bool directReturnIsAffineTemplate(const Node &node,
+                                  const std::unordered_set<std::string> &parameters) {
+    switch (node.kind) {
+    case NodeKind::Number:
+        return true;
+    case NodeKind::LVal:
+        return node.children.empty() && parameters.find(node.text) != parameters.end();
+    case NodeKind::UnaryExpr:
+    case NodeKind::BinaryExpr:
+        return std::all_of(node.children.begin(), node.children.end(),
+                           [&](const auto &child) {
+                               return directReturnIsAffineTemplate(*child, parameters);
+                           });
+    default:
+        return false;
+    }
+}
+
+class FunctionPurityScanner {
+public:
+    explicit FunctionPurityScanner(
+        const std::unordered_map<std::string, GlobalPuritySymbol> &globals)
+        : globals_(globals) {}
+
+    FunctionPurityCandidate scan(const Node &function) {
+        candidate_ = {};
+        candidate_.summary.returnType = summaryFirstWord(function.text);
+        scopes_.clear();
+        scopes_.push_back({});
+        std::unordered_set<std::string> parameters;
+        for (const auto &child : function.children) {
+            if (child->kind != NodeKind::FuncParam) {
+                continue;
+            }
+            std::string name = summarySecondWord(child->text);
+            candidate_.summary.parameters.push_back(name);
+            parameters.insert(name);
+            scopes_.back().insert(name);
+            if (declarationIsArray(*child)) {
+                candidate_.structurallyPure = false;
+            }
+        }
+        for (const auto &child : function.children) {
+            if (child->kind == NodeKind::Block) {
+                scanBlock(*child, false);
+                if (child->children.size() == 1 &&
+                    child->children.front()->kind == NodeKind::ReturnStmt &&
+                    child->children.front()->children.size() == 1) {
+                    const Node *returnExpr = child->children.front()->children.front().get();
+                    if (directReturnIsAffineTemplate(*returnExpr, parameters)) {
+                        candidate_.summary.affineReturnExpr = returnExpr;
+                    }
+                }
+            }
+        }
+        return candidate_;
+    }
+
+private:
+    bool local(const std::string &name) const {
+        return std::any_of(scopes_.rbegin(), scopes_.rend(), [&](const auto &scope) {
+            return scope.find(name) != scope.end();
+        });
+    }
+
+    void scanBlock(const Node &block, bool scoped) {
+        if (scoped) {
+            scopes_.push_back({});
+        }
+        for (const auto &child : block.children) {
+            scanNode(*child);
+        }
+        if (scoped) {
+            scopes_.pop_back();
+        }
+    }
+
+    void scanDeclaration(const Node &declaration) {
+        for (const auto &def : declaration.children) {
+            if (declarationIsArray(*def)) {
+                candidate_.structurallyPure = false;
+            } else {
+                // Match frontend visibility: a scalar definition is in scope in
+                // its own initializer and in later definitions.
+                scopes_.back().insert(def->text);
+            }
+            for (const auto &child : def->children) {
+                if (child->kind != NodeKind::ArrayDim) {
+                    scanNode(*child);
+                }
+            }
+        }
+    }
+
+    void scanNode(const Node &node) {
+        if (node.kind == NodeKind::Block) {
+            scanBlock(node, true);
+            return;
+        }
+        if (node.kind == NodeKind::VarDecl || node.kind == NodeKind::ConstDecl) {
+            scanDeclaration(node);
+            return;
+        }
+        if (node.kind == NodeKind::AssignStmt && node.children.size() == 2) {
+            const Node &lhs = *node.children.front();
+            if (lhs.kind != NodeKind::LVal || !lhs.children.empty() || !local(lhs.text)) {
+                candidate_.structurallyPure = false;
+            }
+            for (const auto &index : lhs.children) {
+                scanNode(*index);
+            }
+            scanNode(*node.children.at(1));
+            return;
+        }
+        if (node.kind == NodeKind::LVal) {
+            if (!node.children.empty()) {
+                candidate_.structurallyPure = false;
+            } else if (!local(node.text)) {
+                auto found = globals_.find(node.text);
+                if (found == globals_.end() || !found->second.immutableScalar) {
+                    candidate_.structurallyPure = false;
+                }
+            }
+            for (const auto &index : node.children) {
+                scanNode(*index);
+            }
+            return;
+        }
+        if (node.kind == NodeKind::CallExpr) {
+            candidate_.callees.insert(node.text);
+        }
+        if (node.kind == NodeKind::StringLiteral) {
+            candidate_.structurallyPure = false;
+        }
+        for (const auto &child : node.children) {
+            scanNode(*child);
+        }
+    }
+
+    const std::unordered_map<std::string, GlobalPuritySymbol> &globals_;
+    std::vector<std::unordered_set<std::string>> scopes_;
+    FunctionPurityCandidate candidate_;
+};
 
 } // namespace
 
@@ -855,10 +1218,67 @@ std::string jsonEscape(const std::string &text) {
     return out.str();
 }
 
+ParallelFunctionSummaries summarizeParallelScalarFunctions(const Node &root) {
+    std::unordered_map<std::string, GlobalPuritySymbol> globals;
+    for (const auto &child : root.children) {
+        if (child->kind != NodeKind::VarDecl && child->kind != NodeKind::ConstDecl) {
+            continue;
+        }
+        for (const auto &def : child->children) {
+            globals[def->text] = GlobalPuritySymbol{
+                child->kind == NodeKind::ConstDecl && !declarationIsArray(*def)};
+        }
+    }
+
+    std::unordered_map<std::string, FunctionPurityCandidate> candidates;
+    FunctionPurityScanner scanner(globals);
+    for (const auto &child : root.children) {
+        if (child->kind != NodeKind::FuncDef) {
+            continue;
+        }
+        std::string name = summarySecondWord(child->text);
+        if (!name.empty()) {
+            candidates[name] = scanner.scan(*child);
+        }
+    }
+
+    ParallelFunctionSummaries summaries;
+    for (const auto &entry : candidates) {
+        ParallelScalarFunctionSummary summary = entry.second.summary;
+        summary.pure = entry.second.structurallyPure;
+        summaries.emplace(entry.first, std::move(summary));
+    }
+
+    // Start optimistic and remove functions that reach an impure or unknown
+    // callee.  This greatest fixed point keeps closed recursive SCCs pure.
+    bool changed = true;
+    while (changed) {
+        changed = false;
+        for (const auto &entry : candidates) {
+            auto summary = summaries.find(entry.first);
+            if (summary == summaries.end() || !summary->second.pure) {
+                continue;
+            }
+            bool callsOnlyPureUserFunctions =
+                std::all_of(entry.second.callees.begin(), entry.second.callees.end(),
+                            [&](const std::string &callee) {
+                                auto found = summaries.find(callee);
+                                return found != summaries.end() && found->second.pure;
+                            });
+            if (!callsOnlyPureUserFunctions) {
+                summary->second.pure = false;
+                changed = true;
+            }
+        }
+    }
+    return summaries;
+}
+
 class ParallelPlanJsonDumper {
 public:
     std::string dump(const Node &root) {
         scopes_.clear();
+        functionSummaries_ = summarizeParallelScalarFunctions(root);
         nextId_ = 0;
         loopDepth_ = 0;
         out_.str("");
@@ -936,7 +1356,12 @@ private:
                 node.children[i + 1]->kind == NodeKind::WhileStmt) {
                 ParallelLoopPlan plan = analyzeParallelLoopPair(
                     *node.children[i], *node.children[i + 1],
-                    [this](const std::string &name) { return lookupType(name); });
+                    [this](const std::string &name) { return lookupType(name); },
+                    [this](const std::string &name)
+                        -> const ParallelScalarFunctionSummary * {
+                        auto found = functionSummaries_.find(name);
+                        return found == functionSummaries_.end() ? nullptr : &found->second;
+                    });
                 emitPlan(plan, node.children[i]->loc, node.children[i + 1]->loc);
             }
             visitStmt(*node.children[i]);
@@ -997,6 +1422,7 @@ private:
              << ",\"init_type\":\"" << jsonEscape(plan.init.type) << "\""
              << ",\"inclusive_end\":" << (plan.inclusiveEnd ? "true" : "false")
              << ",\"estimated_cost\":" << plan.estimatedCost
+             << ",\"runtime_work_cost\":" << plan.runtimeWorkCost
              << ",\"has_nested_loop\":" << (plan.hasNestedLoop ? "true" : "false")
              << ",\"has_array_write\":" << (plan.hasArrayWrite ? "true" : "false")
              << ",\"body_stmts\":" << plan.body.size()
@@ -1043,6 +1469,7 @@ private:
     }
 
     std::vector<std::unordered_map<std::string, std::string>> scopes_;
+    ParallelFunctionSummaries functionSummaries_;
     int nextId_ = 0;
     int loopDepth_ = 0;
     std::ostringstream out_;
@@ -1093,7 +1520,8 @@ const Node *parallelReductionAddend(const Node &assign, const std::string &var) 
 }
 
 ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopStmt,
-                                         const ParallelTypeLookup &lookupType) {
+                                         const ParallelTypeLookup &lookupType,
+                                         const ParallelFunctionSummaryLookup &lookupFunction) {
     ParallelLoopPlan plan;
     plan.init = parseParallelLoopInit(initStmt);
     if (!plan.init.valid) {
@@ -1121,14 +1549,17 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
     }
     for (const Node *stmt : plan.body) {
         plan.estimatedCost += estimateStmtCost(*stmt);
+        plan.runtimeWorkCost = saturatingWorkAdd(
+            plan.runtimeWorkCost, estimateRuntimeStmtCost(*stmt));
         plan.hasNestedLoop = plan.hasNestedLoop || containsWhile(*stmt);
     }
-    if (!validateLoopBound(plan, lexical, lookupType)) {
+    if (!validateLoopBound(plan, lexical, lookupType, lookupFunction)) {
         plan.valid = false;
         return plan;
     }
     for (const Node *stmt : plan.body) {
-        if (!analyzeNode(*stmt, plan.init.var, lexical.localLvals, lookupType, plan)) {
+        if (!analyzeNode(*stmt, plan.init.var, lexical.localLvals, lookupType,
+                         lookupFunction, plan)) {
             plan.valid = false;
             return plan;
         }
@@ -1159,7 +1590,7 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
                 continue;
             }
             if (!sameFirstPartitionIndex(*write.lval, *otherWrite.lval, plan.init.var,
-                                         lexical.localLvals)) {
+                                         lexical.localLvals, lookupFunction)) {
                 plan.valid = false;
                 plan.rejectReason = "same-array write partitions overlap";
                 return plan;
@@ -1168,7 +1599,7 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
         for (const ArrayAccess &read : reads) {
             if (write.base == read.base && read.lval != nullptr &&
                 !sameFirstPartitionIndex(*write.lval, *read.lval, plan.init.var,
-                                         lexical.localLvals)) {
+                                         lexical.localLvals, lookupFunction)) {
                 plan.valid = false;
                 plan.rejectReason = "loop-carried array dependence";
                 return plan;

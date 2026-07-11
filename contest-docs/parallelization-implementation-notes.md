@@ -54,19 +54,27 @@ Supported idioms:
 - outer row loops around sequential inner loops
 - same-rank array-parameter loops guarded by runtime alias checks
 - nested row loops reached through blocks or conditional statements
+- transitively pure scalar helper calls, including closed recursive call SCCs
+  and immutable scalar-constant reads
+- direct pure scalar return helpers substituted into affine index checks
 - pure integer outer reductions whose body resets one previously declared
   integer scratch IV and immediately runs its canonical nested loop
 
-The scratch-IV case is deliberately narrow. The reset must be an integer
-constant, the nested bound must be invariant, and the reset plus nested loop
-must be the complete outer body. The worker receives a private scratch temp;
+The scratch-IV case is deliberately narrow. The reset and nested bound must be
+integer constants whose trip count is below the 512-iteration scratch
+privatization limit, and the
+reset plus nested loop must be the complete outer body. Dynamic and large
+nested ranges retain inner-loop selection because measured deeper workers were
+slower. The worker receives a private scratch temp;
 after a nonempty outer range, lowering always writes the deterministic
 canonical final IV value back to the source scalar. Empty outer ranges preserve
 the scalar's incoming value, so this optimization does not depend on liveness.
 
 Conservative rejection cases:
 
-- calls inside the candidate loop body
+- runtime, unknown, or transitively impure calls inside the candidate body;
+  functions using arrays, mutable globals, nonlocal writes, or I/O are impure
+- every call in a loop endpoint, including otherwise pure calls
 - non-integer, induction-dependent, mutable, array-valued, or call-valued loop
   endpoints
 - `break`, `continue`, or `return` inside the body
@@ -87,10 +95,13 @@ Profitability rules:
 - loops containing nested loops are allowed because each outer iteration is
   relatively expensive;
 - otherwise the AST-level cost estimate must meet the static threshold;
-- if the trip count is compile-time constant and below the native runtime's
-  pthread threshold, the loop is kept sequential;
-- generated runtime helpers still check the dynamic trip count before creating
-  worker threads.
+- compile-time constant ranges are rejected when `trip_count * work_cost` is
+  below the runtime work threshold;
+- nested bodies receive an eight-iteration work boost per level, while lowering
+  discounts helpers nested inside sequential enclosing loops because they are
+  invoked repeatedly;
+- generated runtime helpers use an overflow-safe 64-bit product and create a
+  worker only when total estimated work reaches 16384.
 
 The plan dump interface is:
 
@@ -114,8 +125,10 @@ plan is selected, lowering emits:
 4. a call to one of the AArch64 runtime entry points:
 
 ```c
-void __sysy_parallel_for_range(int begin, int end, void *ctx, worker);
-int __sysy_parallel_reduce_int_range(int begin, int end, void *ctx, worker);
+void __sysy_parallel_for_range(int begin, int end, void *ctx, worker,
+                               int work_cost);
+int __sysy_parallel_reduce_int_range(int begin, int end, void *ctx, worker,
+                                     int work_cost);
 ```
 
 The AArch64 backend embeds the pthread runtime implementation directly into the
@@ -129,9 +142,9 @@ Context layout after the AArch64 migration:
 - scalar `int` and `float` captures remain 4-byte payloads;
 - worker function pointers use AAPCS64 `x` registers.
 
-The runtime defaults to two worker chunks and applies a dynamic minimum trip
-count gate. If `pthread_create` fails or the trip count is too small, it falls
-back to sequential worker execution over the whole range.
+The runtime uses two worker chunks and applies the dynamic work gate above. It
+also takes the direct path for empty ranges, invalid costs, or failed
+`pthread_create`, preserving sequential worker and reduction behavior.
 
 The AArch64 backend emits 64-bit `x` register comparisons for pointer-valued
 conditional jumps, which is required by the runtime alias guards.

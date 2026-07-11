@@ -1,0 +1,31 @@
+const int base_value = 2;
+int values[600];
+
+int recursive_value(int x) {
+  if (x == 0) {
+    return base_value;
+  }
+  return recursive_value(x - 1) + 1;
+}
+
+int pure_value(int x) {
+  return recursive_value(x % 4);
+}
+
+int main() {
+  int i = 0;
+  while (i < 600) {
+    values[i] = pure_value(i);
+    i = i + 1;
+  }
+
+  int sum = 0;
+  i = 0;
+  while (i < 600) {
+    sum = sum + values[i];
+    i = i + 1;
+  }
+  putint(sum);
+  putch(10);
+  return 0;
+}

@@ -286,8 +286,8 @@ bool optModeUsesIv(OptMode mode) {
     return mode == OptMode::Loop2 || mode == OptMode::AllLoop || mode == OptMode::AllOpt;
 }
 
-bool experimentalPassEnabled(const std::string &name) {
-    const char *env = std::getenv("SYSY_EXPERIMENTAL_PASSES");
+bool passListContains(const char *environment, const std::string &name) {
+    const char *env = std::getenv(environment);
     if (env == nullptr || env[0] == '\0') {
         return false;
     }
@@ -305,6 +305,17 @@ bool experimentalPassEnabled(const std::string &name) {
         begin = end == std::string::npos ? enabled.size() : end + 1;
     }
     return false;
+}
+
+bool optimizationPassEnabled(const std::string &name) {
+    if (passListContains("SYSY_DISABLE_PASSES", name)) {
+        return false;
+    }
+    if (name == "algebrasimp" || name == "gvn" || name == "copyprop" ||
+        name == "inline") {
+        return true;
+    }
+    return passListContains("SYSY_EXPERIMENTAL_PASSES", name);
 }
 
 quad::QuadProgram *runGvnPass(quad::QuadProgram *program) {
@@ -998,7 +1009,7 @@ private:
         if (name == "memset" && index == 0) return quad::QuadType::PTR;
         if (name == "__sysy_parallel_for_range" || name == "__sysy_parallel_reduce_int_range") {
             if (index == 2 || index == 3) return quad::QuadType::PTR;
-            return quad::QuadType::INT;
+            if (index == 0 || index == 1 || index == 4) return quad::QuadType::INT;
         }
         return fallback;
     }
@@ -1804,7 +1815,13 @@ __sysy_parallel_for_range:
 	mov x21, x2
 	mov x22, x3
 	sub w9, w20, w19
-	cmp w9, #512
+	cmp w9, #1
+	blt .Lsysy_parallel_for_direct
+	cmp w4, #1
+	blt .Lsysy_parallel_for_direct
+	umull x10, w9, w4
+	movz x11, #16384
+	cmp x10, x11
 	blt .Lsysy_parallel_for_direct
 	asr w23, w9, #1
 	add w23, w19, w23
@@ -1859,7 +1876,13 @@ __sysy_parallel_reduce_int_range:
 	mov x21, x2
 	mov x22, x3
 	sub w9, w20, w19
-	cmp w9, #512
+	cmp w9, #1
+	blt .Lsysy_parallel_reduce_direct
+	cmp w4, #1
+	blt .Lsysy_parallel_reduce_direct
+	umull x10, w9, w4
+	movz x11, #16384
+	cmp x10, x11
 	blt .Lsysy_parallel_reduce_direct
 	asr w23, w9, #1
 	add w23, w19, w23
@@ -1982,7 +2005,7 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
         refreshQuadExtents(optimizedSsa);
         profile.mark("sccp");
     }
-    if (optModeUsesSccp(options.optMode) && experimentalPassEnabled("algebrasimp")) {
+    if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("algebrasimp")) {
         optimizedSsa = runAlgebraSimpPass(optimizedSsa);
         if (optimizedSsa == nullptr) {
             result.error = "AlgebraSimp optimization failed";
@@ -1990,24 +2013,7 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
         }
         profile.mark("algebrasimp");
     }
-    if (optModeUsesGvn(options.optMode) && experimentalPassEnabled("gvn")) {
-        optimizedSsa = runGvnPass(optimizedSsa);
-        if (optimizedSsa == nullptr) {
-            result.error = "GVN optimization failed";
-            return result;
-        }
-        profile.mark("gvn");
-    }
-    if (optModeUsesSccp(options.optMode) && experimentalPassEnabled("copyprop")) {
-        optimizedSsa = runCopyPropPass(optimizedSsa);
-        if (optimizedSsa == nullptr) {
-            result.error = "CopyProp optimization failed";
-            return result;
-        }
-        profile.mark("copyprop");
-    }
-
-    if (optModeUsesSccp(options.optMode) && experimentalPassEnabled("memopt")) {
+    if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("memopt")) {
         optimizedSsa = runMemOptPass(optimizedSsa);
         if (optimizedSsa == nullptr) {
             result.error = "MemOpt optimization failed";
@@ -2016,7 +2022,7 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
         profile.mark("memopt");
     }
 
-    if (optModeUsesSccp(options.optMode) && experimentalPassEnabled("inline")) {
+    if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("inline")) {
         optimizedSsa = runInlinePass(optimizedSsa);
         if (optimizedSsa == nullptr) {
             result.error = "Inlining optimization failed";
@@ -2025,7 +2031,7 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
         profile.mark("inline");
     }
 
-    if (optModeUsesSccp(options.optMode) && experimentalPassEnabled("funcspec")) {
+    if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("funcspec")) {
         optimizedSsa = runFuncSpecPass(optimizedSsa);
         if (optimizedSsa == nullptr) {
             result.error = "FuncSpec optimization failed";
@@ -2034,7 +2040,7 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
         profile.mark("funcspec");
     }
 
-    if (optModeUsesSccp(options.optMode) && experimentalPassEnabled("memopt")) {
+    if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("memopt")) {
         optimizedSsa = runMemOptPass(optimizedSsa);
         if (optimizedSsa == nullptr) {
             result.error = "MemOpt round 2 failed";
@@ -2042,29 +2048,13 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
         }
         profile.mark("memopt-r2");
     }
-    if (optModeUsesSccp(options.optMode) && experimentalPassEnabled("algebrasimp")) {
+    if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("algebrasimp")) {
         optimizedSsa = runAlgebraSimpPass(optimizedSsa);
         if (optimizedSsa == nullptr) {
             result.error = "AlgebraSimp round 2 failed";
             return result;
         }
         profile.mark("algebrasimp-r2");
-    }
-    if (optModeUsesGvn(options.optMode) && experimentalPassEnabled("gvn")) {
-        optimizedSsa = runGvnPass(optimizedSsa);
-        if (optimizedSsa == nullptr) {
-            result.error = "GVN round 2 failed";
-            return result;
-        }
-        profile.mark("gvn-r2");
-    }
-    if (optModeUsesSccp(options.optMode) && experimentalPassEnabled("copyprop")) {
-        optimizedSsa = runCopyPropPass(optimizedSsa);
-        if (optimizedSsa == nullptr) {
-            result.error = "CopyProp round 2 failed";
-            return result;
-        }
-        profile.mark("copyprop-r2");
     }
     if (optModeUsesLicm(options.optMode)) {
         optimizedSsa = runLicmPass(optimizedSsa);
@@ -2081,6 +2071,26 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
             return result;
         }
         profile.mark("iv");
+    }
+    // Run SSA substitution passes after loop transforms. Besides keeping their
+    // rebuilt metadata fresh for final flow/RA, this prevents value-numbering
+    // simplifications from changing the pattern language consumed by the
+    // legacy induction pass.
+    if (optModeUsesGvn(options.optMode) && optimizationPassEnabled("gvn")) {
+        optimizedSsa = runGvnPass(optimizedSsa);
+        if (optimizedSsa == nullptr) {
+            result.error = "GVN optimization failed";
+            return result;
+        }
+        profile.mark("gvn");
+    }
+    if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("copyprop")) {
+        optimizedSsa = runCopyPropPass(optimizedSsa);
+        if (optimizedSsa == nullptr) {
+            result.error = "CopyProp optimization failed";
+            return result;
+        }
+        profile.mark("copyprop");
     }
     maybeWriteQuad(options, ".4-ssa-final.quad", optimizedSsa);
 

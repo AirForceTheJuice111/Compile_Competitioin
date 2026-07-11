@@ -1,225 +1,300 @@
 #include "inline.hh"
+
 #include <map>
 #include <set>
 #include <string>
 #include <vector>
-#include "quad.hh"
+
+#include "quad_metadata.hh"
 #include "temp.hh"
-using namespace std;
 
 namespace {
-static const int MAX_INLINE_INSTS = 60;
 
-set<Temp*>* es() { return new set<Temp*>(); }
+constexpr std::size_t kMaxInlineBodyStatements = 16;
 
-string callName(quad::QuadStm* s) {
-    if(!s)return"";
-    switch(s->kind){
-    case quad::QuadKind::CALL: return static_cast<quad::QuadCall*>(s)->name;
-    case quad::QuadKind::EXTCALL: return static_cast<quad::QuadExtCall*>(s)->extfun;
-    case quad::QuadKind::MOVE_CALL:{auto*m=static_cast<quad::QuadMoveCall*>(s);return m->call?m->call->name:"";}
-    case quad::QuadKind::MOVE_EXTCALL:{auto*m=static_cast<quad::QuadMoveExtCall*>(s);return m->extcall?m->extcall->extfun:"";}
-    default:return"";
+struct InlineCandidate {
+    quad::QuadFuncDecl *function = nullptr;
+    std::vector<quad::QuadStm *> body;
+    quad::QuadReturn *returnStatement = nullptr;
+};
+
+bool isIntTerm(quad::QuadTerm *term, const std::set<int> &available,
+               const std::set<int> &parameters, std::set<int> *usedParameters) {
+    if (term == nullptr) return false;
+    if (term->kind == quad::QuadTermKind::CONST) return true;
+    if (term->kind != quad::QuadTermKind::TEMP || term->get_temp() == nullptr ||
+        term->get_temp()->temp == nullptr ||
+        term->get_temp()->type != quad::QuadType::INT) {
+        return false;
     }
-}
-bool isRecursive(quad::QuadFuncDecl* f) {
-    if(!f||!f->quadblocklist)return false; string n=f->funcname;
-    for(auto*b:*f->quadblocklist){if(!b||!b->quadlist)continue;for(auto*s:*b->quadlist)if(s&&callName(s)==n)return true;}
-    return false;
-}
-int countInsts(quad::QuadFuncDecl* f) { if(!f||!f->quadblocklist)return 0;int n=0;for(auto*b:*f->quadblocklist)if(b&&b->quadlist)n+=b->quadlist->size();return n; }
-bool hasPHI(quad::QuadFuncDecl* f) {
-    if(!f||!f->quadblocklist)return false;
-    for(auto*b:*f->quadblocklist){if(!b||!b->quadlist)continue;for(auto*s:*b->quadlist)if(s&&s->kind==quad::QuadKind::PHI)return true;}
-    return false;
+    int number = term->get_temp()->temp->num;
+    if (available.count(number) == 0) return false;
+    if (usedParameters != nullptr && parameters.count(number) != 0)
+        usedParameters->insert(number);
+    return true;
 }
 
-quad::QuadTerm* cloneTerm(quad::QuadTerm* t, const map<int,int>& rm) {
-    if(!t)return nullptr;
-    if(t->kind==quad::QuadTermKind::CONST)return new quad::QuadTerm(t->get_const());
-    if(t->kind==quad::QuadTermKind::TEMP){int on=t->get_temp()->temp->num,nn=on;auto it=rm.find(on);if(it!=rm.end())nn=it->second;return new quad::QuadTerm(new quad::QuadTemp(new Temp(nn),t->get_temp()->type));}
-    return new quad::QuadTerm(t->get_name());
+bool isIntBinop(const std::string &op) {
+    static const std::set<std::string> supported = {
+        "+", "-", "*", "/", "%", "&&", "||", "&", "|", "^",
+        "<<", ">>", "==", "!=", "<", "<=", ">", ">="};
+    return supported.count(op) != 0;
 }
 
-void remapStm(quad::QuadStm* cl, map<int,int>& rm, int& gt, map<int,int>& rm2, map<int,int>& lm) {
-    auto fresh=[&](int on)->int{if(rm2.count(on))return rm2[on];int n=++gt;rm2[on]=n;rm[on]=n;return n;};
-    if(cl->def){auto* nd=new set<Temp*>();for(auto*t:*cl->def)if(t)nd->insert(new Temp(fresh(t->num)));cl->def=nd;}
-    if(cl->use){auto* nu=new set<Temp*>();for(auto*t:*cl->use)if(t)nu->insert(new Temp(rm.count(t->num)?rm.at(t->num):t->num));cl->use=nu;}
-    switch(cl->kind){
-    case quad::QuadKind::JUMP:{auto*j=static_cast<quad::QuadJump*>(cl);j->label=new Label(lm.count(j->label->num)?lm.at(j->label->num):j->label->num);break;}
-    case quad::QuadKind::CJUMP:{auto*c=static_cast<quad::QuadCJump*>(cl);if(c->left)c->left=cloneTerm(c->left,rm);if(c->right)c->right=cloneTerm(c->right,rm);if(c->t)c->t=new Label(lm.count(c->t->num)?lm.at(c->t->num):c->t->num);if(c->f)c->f=new Label(lm.count(c->f->num)?lm.at(c->f->num):c->f->num);break;}
-    case quad::QuadKind::MOVE:{auto*mv=static_cast<quad::QuadMove*>(cl);mv->dst=new quad::QuadTemp(new Temp(fresh(mv->dst->temp->num)),mv->dst->type);if(mv->src)mv->src=cloneTerm(mv->src,rm);break;}
-    case quad::QuadKind::MOVE_BINOP:{auto*bp=static_cast<quad::QuadMoveBinop*>(cl);bp->dst=new quad::QuadTemp(new Temp(fresh(bp->dst->temp->num)),bp->dst->type);if(bp->left)bp->left=cloneTerm(bp->left,rm);if(bp->right)bp->right=cloneTerm(bp->right,rm);break;}
-    case quad::QuadKind::LOAD:{auto*ld=static_cast<quad::QuadLoad*>(cl);ld->dst=new quad::QuadTemp(new Temp(fresh(ld->dst->temp->num)),ld->dst->type);if(ld->src)ld->src=cloneTerm(ld->src,rm);break;}
-    case quad::QuadKind::STORE:{auto*st=static_cast<quad::QuadStore*>(cl);if(st->src)st->src=cloneTerm(st->src,rm);if(st->dst)st->dst=cloneTerm(st->dst,rm);break;}
-    case quad::QuadKind::PTR_CALC:{auto*pc=static_cast<quad::QuadPtrCalc*>(cl);if(pc->dst&&pc->dst->kind==quad::QuadTermKind::TEMP)pc->dst=new quad::QuadTerm(new quad::QuadTemp(new Temp(fresh(pc->dst->get_temp()->temp->num)),pc->dst->get_temp()->type));if(pc->ptr)pc->ptr=cloneTerm(pc->ptr,rm);if(pc->offset)pc->offset=cloneTerm(pc->offset,rm);break;}
-    case quad::QuadKind::PHI:{auto*ph=static_cast<quad::QuadPhi*>(cl);ph->temp_exp=new quad::QuadTemp(new Temp(fresh(ph->temp_exp->temp->num)),ph->temp_exp->type);if(ph->args)for(auto&a:*ph->args){if(a.first)a.first=new Temp(rm.count(a.first->num)?rm.at(a.first->num):a.first->num);if(a.second)a.second=new Label(lm.count(a.second->num)?lm.at(a.second->num):a.second->num);}break;}
-    default:break;
+bool addIntDefinition(quad::QuadTemp *destination, std::set<int> &available,
+                      const std::set<int> &parameters) {
+    if (destination == nullptr || destination->temp == nullptr ||
+        destination->type != quad::QuadType::INT) {
+        return false;
     }
+    int number = destination->temp->num;
+    if (parameters.count(number) != 0 || available.count(number) != 0)
+        return false;
+    available.insert(number);
+    return true;
 }
 
-void inlineProgImpl(quad::QuadProgram* prog, int& inlined) {
-    if(!prog||!prog->quadFuncDeclList)return;
-    auto&funcs=*prog->quadFuncDeclList;
-    map<string,quad::QuadFuncDecl*>nm;set<string>uf;
-    for(auto*f:funcs){if(f){nm[f->funcname]=f;uf.insert(f->funcname);}}
-    set<string>eligible;
-    for(auto&kv:nm){auto*f=kv.second;if(!isRecursive(f)&&!hasPHI(f)&&countInsts(f)<=MAX_INLINE_INSTS)eligible.insert(kv.first);}
-    if(eligible.empty())return;
+bool analyzeCandidate(quad::QuadFuncDecl *function, InlineCandidate &candidate) {
+    if (function == nullptr || function->return_type != quad::QuadType::INT ||
+        function->quadblocklist == nullptr ||
+        function->quadblocklist->size() != 1 || function->params == nullptr) {
+        return false;
+    }
 
-    int gl=prog->last_label_num, gt=prog->last_temp_num;
-    auto*newFuncs=new vector<quad::QuadFuncDecl*>();
+    quad::QuadBlock *block = function->quadblocklist->front();
+    if (block == nullptr || block->entry_label == nullptr ||
+        block->quadlist == nullptr || block->quadlist->size() < 2 ||
+        block->quadlist->size() > kMaxInlineBodyStatements + 2 ||
+        (block->exit_labels != nullptr && !block->exit_labels->empty())) {
+        return false;
+    }
 
-    for(auto*caller:funcs){
-        if(!caller||!caller->quadblocklist){newFuncs->push_back(caller);continue;}
-        auto*newBlocks=new vector<quad::QuadBlock*>();
-        bool modified=false;
+    auto *label = block->quadlist->front();
+    auto *last = block->quadlist->back();
+    if (label == nullptr || label->kind != quad::QuadKind::LABEL ||
+        static_cast<quad::QuadLabel *>(label)->label == nullptr ||
+        static_cast<quad::QuadLabel *>(label)->label->num !=
+            block->entry_label->num ||
+        last == nullptr || last->kind != quad::QuadKind::RETURN) {
+        return false;
+    }
 
-        for(auto*block:*caller->quadblocklist){
-            if(!block||!block->quadlist){newBlocks->push_back(block);continue;}
+    std::set<int> parameters;
+    std::set<int> available;
+    for (auto *parameter : *function->params) {
+        if (parameter == nullptr || !parameters.insert(parameter->num).second)
+            return false;
+        available.insert(parameter->num);
+    }
 
-            // Find call sites in this block
-            auto&stmts=*block->quadlist;
-            for(size_t i=0;i<stmts.size();i++){
-                auto*stm=stmts[i];
-                if(!stm)continue;
-                string cn=callName(stm);
-                quad::QuadTemp*dst=nullptr;
-                if(stm->kind==quad::QuadKind::MOVE_CALL)dst=static_cast<quad::QuadMoveCall*>(stm)->dst;
-                if(stm->kind==quad::QuadKind::MOVE_EXTCALL)dst=static_cast<quad::QuadMoveExtCall*>(stm)->dst;
-                if(cn.empty()||!eligible.count(cn))continue;
-                auto*callee=nm[cn];
-                if(!callee||!callee->quadblocklist||callee->quadblocklist->empty())continue;
-
-                // --- Split block and inline ---
-                // Prefix: instructions 0..i-1
-                auto*prefix=new vector<quad::QuadStm*>();
-                for(size_t j=0;j<i;j++)prefix->push_back(stmts[j]);
-
-                // Suffix (continuation): instructions i+1..end
-                int contLabel=++gl;
-                auto*suffix=new vector<quad::QuadStm*>();
-                for(size_t j=i+1;j<stmts.size();j++)suffix->push_back(stmts[j]);
-
-                // Build label map for callee
-                map<int,int>lm;
-                for(auto*cb:*callee->quadblocklist)if(cb&&cb->entry_label){int nl=++gl;lm[cb->entry_label->num]=nl;}
-
-                // Temp remap
-                map<int,int>rm,rm2;
-                auto fresh=[&](int on)->int{if(rm2.count(on))return rm2[on];int n=++gt;rm2[on]=n;rm[on]=n;return n;};
-
-                // Extract args
-                vector<quad::QuadTerm*>*args=nullptr;
-                switch(stm->kind){
-                case quad::QuadKind::CALL:args=static_cast<quad::QuadCall*>(stm)->args;break;
-                case quad::QuadKind::EXTCALL:args=static_cast<quad::QuadExtCall*>(stm)->args;break;
-                case quad::QuadKind::MOVE_CALL:args=static_cast<quad::QuadMoveCall*>(stm)->call->args;break;
-                case quad::QuadKind::MOVE_EXTCALL:args=static_cast<quad::QuadMoveExtCall*>(stm)->extcall->args;break;
-                default:break;
-                }
-                map<int,quad::QuadTerm*>pm;
-                if(callee->params&&args){int np=callee->params->size(),na=args->size();for(int j=0;j<np&&j<na;j++)pm[(*callee->params)[j]->num]=(*args)[j]->clone();}
-
-                // Clone callee blocks
-                int calleeEntryLabel=lm[callee->quadblocklist->at(0)->entry_label->num];
-                vector<quad::QuadBlock*>clonedBlocks;
-
-                for(auto*cb:*callee->quadblocklist){
-                    if(!cb||!cb->quadlist)continue;
-                    auto*cl=new vector<quad::QuadStm*>();
-
-                    // Param moves at entry block
-                    if(cb==callee->quadblocklist->at(0)){
-                        for(auto&kv2:pm){
-                            int npn=fresh(kv2.first);
-                            auto*mv=new quad::QuadMove(new quad::QuadTemp(new Temp(npn),quad::QuadType::INT),kv2.second,new set<Temp*>(),new set<Temp*>());
-                            mv->def->insert(new Temp(npn));
-                            if(kv2.second->kind==quad::QuadTermKind::TEMP)mv->use->insert(new Temp(kv2.second->get_temp()->temp->num));
-                            cl->push_back(mv);
-                        }
-                    }
-
-                    for(auto*cs:*cb->quadlist){
-                        if(!cs)continue;
-                        if(cs->kind==quad::QuadKind::LABEL)continue;
-
-                        if(cs->kind==quad::QuadKind::RETURN){
-                            auto*ret=static_cast<quad::QuadReturn*>(cs);
-                            if(dst&&ret->exp){
-                                auto*src=cloneTerm(ret->exp,rm);
-                                auto*mv=new quad::QuadMove(dst->clone(),src,new set<Temp*>(),new set<Temp*>());
-                                mv->def->insert(new Temp(dst->temp->num));
-                                if(src->kind==quad::QuadTermKind::TEMP)mv->use->insert(new Temp(src->get_temp()->temp->num));
-                                cl->push_back(mv);
-                            }
-                            cl->push_back(new quad::QuadJump(new Label(contLabel),new set<Temp*>(),new set<Temp*>()));
-                            continue;
-                        }
-
-                        auto*cc=static_cast<quad::QuadStm*>(cs->clone());
-                        remapStm(cc,rm,gt,rm2,lm);
-                        cl->push_back(cc);
-                    }
-
-                    int el=lm[cb->entry_label->num];
-                    auto*exits=new vector<Label*>();
-                    for(auto*s:*cl)if(s){
-                        if(s->kind==quad::QuadKind::JUMP)exits->push_back(new Label(static_cast<quad::QuadJump*>(s)->label->num));
-                        else if(s->kind==quad::QuadKind::CJUMP){auto*cj=static_cast<quad::QuadCJump*>(s);if(cj->t)exits->push_back(new Label(cj->t->num));if(cj->f)exits->push_back(new Label(cj->f->num));}
-                    }
-                    clonedBlocks.push_back(new quad::QuadBlock(cl,new Label(el),exits));
-                }
-
-                // Build result blocks
-                // Prefix block (may be empty)
-                if(!prefix->empty()){
-                    prefix->push_back(new quad::QuadJump(new Label(calleeEntryLabel),new set<Temp*>(),new set<Temp*>()));
-                    auto*pe=new vector<Label*>();pe->push_back(new Label(calleeEntryLabel));
-                    if(block->entry_label)newBlocks->push_back(new quad::QuadBlock(prefix,new Label(block->entry_label->num),pe));
-                }else{
-                    // No prefix - first block is callee entry, so update entry
-                    // We need a block for this. Create empty prefix block.
-                    auto*ep=new vector<quad::QuadStm*>();
-                    ep->push_back(new quad::QuadJump(new Label(calleeEntryLabel),new set<Temp*>(),new set<Temp*>()));
-                    auto*pe2=new vector<Label*>();pe2->push_back(new Label(calleeEntryLabel));
-                    newBlocks->push_back(new quad::QuadBlock(ep,new Label(block->entry_label->num),pe2));
-                }
-
-                // Cloned callee blocks
-                for(auto*cb2:clonedBlocks)newBlocks->push_back(cb2);
-
-                // Continuation block
-                if(!suffix->empty()){
-                    auto*se=new vector<Label*>();
-                    // Inherit original block's exit labels
-                    if(block->exit_labels)for(auto*l:*block->exit_labels)if(l)se->push_back(new Label(l->num));
-                    newBlocks->push_back(new quad::QuadBlock(suffix,new Label(contLabel),se));
-                }else{
-                    auto*se2=new vector<Label*>();
-                    if(block->exit_labels)for(auto*l:*block->exit_labels)if(l)se2->push_back(new Label(l->num));
-                    newBlocks->push_back(new quad::QuadBlock(suffix,new Label(contLabel),se2));
-                }
-
-                inlined++;modified=true;
-                goto next_block; // break out of stmt loop
+    std::set<int> usedParameters;
+    std::vector<quad::QuadStm *> body;
+    for (std::size_t index = 1; index + 1 < block->quadlist->size(); ++index) {
+        quad::QuadStm *statement = block->quadlist->at(index);
+        if (statement == nullptr) return false;
+        if (statement->kind == quad::QuadKind::MOVE) {
+            auto *move = static_cast<quad::QuadMove *>(statement);
+            if (!isIntTerm(move->src, available, parameters, &usedParameters) ||
+                !addIntDefinition(move->dst, available, parameters)) {
+                return false;
             }
-
-            // No call site found, keep block as-is
-            newBlocks->push_back(block);
-            next_block:;
+        } else if (statement->kind == quad::QuadKind::MOVE_BINOP) {
+            auto *binop = static_cast<quad::QuadMoveBinop *>(statement);
+            if (!isIntBinop(binop->binop) ||
+                !isIntTerm(binop->left, available, parameters,
+                           &usedParameters) ||
+                !isIntTerm(binop->right, available, parameters,
+                           &usedParameters) ||
+                !addIntDefinition(binop->dst, available, parameters)) {
+                return false;
+            }
+        } else {
+            // This excludes calls, memory and pointer operations, PHIs, and
+            // every form of control flow from an inline candidate.
+            return false;
         }
-
-        if(modified){caller->quadblocklist=newBlocks;caller->last_label_num=gl;caller->last_temp_num=gt;}
-        newFuncs->push_back(caller);
+        body.push_back(statement);
     }
 
-    prog->quadFuncDeclList=newFuncs;
-    prog->last_label_num=gl;
-    prog->last_temp_num=gt;
+    auto *returnStatement = static_cast<quad::QuadReturn *>(last);
+    if (!isIntTerm(returnStatement->exp, available, parameters,
+                   &usedParameters) || usedParameters != parameters) {
+        // Quad parameters have no stored type. Requiring each one to occur in
+        // an INT-typed operand is the conservative proof that the signature is
+        // scalar-INT; an otherwise-unused parameter is therefore rejected.
+        return false;
+    }
+
+    candidate.function = function;
+    candidate.body = std::move(body);
+    candidate.returnStatement = returnStatement;
+    return true;
 }
+
+bool isIntCallArgument(quad::QuadTerm *argument) {
+    return argument != nullptr &&
+           (argument->kind == quad::QuadTermKind::CONST ||
+            (argument->kind == quad::QuadTermKind::TEMP &&
+             argument->get_temp() != nullptr &&
+             argument->get_temp()->temp != nullptr &&
+             argument->get_temp()->type == quad::QuadType::INT));
+}
+
+quad::QuadTerm *cloneSubstitutedTerm(
+    quad::QuadTerm *term,
+    const std::map<int, quad::QuadTerm *> &parameterValues,
+    const std::map<int, int> &localTemps) {
+    if (term == nullptr) return nullptr;
+    if (term->kind == quad::QuadTermKind::CONST)
+        return new quad::QuadTerm(term->get_const());
+    if (term->kind != quad::QuadTermKind::TEMP || term->get_temp() == nullptr ||
+        term->get_temp()->temp == nullptr ||
+        term->get_temp()->type != quad::QuadType::INT) {
+        return nullptr;
+    }
+
+    int oldNumber = term->get_temp()->temp->num;
+    auto parameter = parameterValues.find(oldNumber);
+    if (parameter != parameterValues.end()) return parameter->second->clone();
+    auto local = localTemps.find(oldNumber);
+    if (local == localTemps.end()) return nullptr;
+    return new quad::QuadTerm(new quad::QuadTemp(
+        new Temp(local->second), quad::QuadType::INT));
+}
+
+quad::QuadStm *cloneBodyStatement(
+    quad::QuadStm *statement,
+    const std::map<int, quad::QuadTerm *> &parameterValues,
+    std::map<int, int> &localTemps, int &lastTemp) {
+    if (statement == nullptr) return nullptr;
+    if (statement->kind == quad::QuadKind::MOVE) {
+        auto *move = static_cast<quad::QuadMove *>(statement);
+        quad::QuadTerm *source =
+            cloneSubstitutedTerm(move->src, parameterValues, localTemps);
+        if (source == nullptr || move->dst == nullptr ||
+            move->dst->temp == nullptr) {
+            return nullptr;
+        }
+        int fresh = ++lastTemp;
+        localTemps[move->dst->temp->num] = fresh;
+        return new quad::QuadMove(
+            new quad::QuadTemp(new Temp(fresh), quad::QuadType::INT), source,
+            new std::set<Temp *>(), new std::set<Temp *>());
+    }
+    if (statement->kind == quad::QuadKind::MOVE_BINOP) {
+        auto *binop = static_cast<quad::QuadMoveBinop *>(statement);
+        quad::QuadTerm *left =
+            cloneSubstitutedTerm(binop->left, parameterValues, localTemps);
+        quad::QuadTerm *right =
+            cloneSubstitutedTerm(binop->right, parameterValues, localTemps);
+        if (left == nullptr || right == nullptr || binop->dst == nullptr ||
+            binop->dst->temp == nullptr) {
+            return nullptr;
+        }
+        int fresh = ++lastTemp;
+        localTemps[binop->dst->temp->num] = fresh;
+        return new quad::QuadMoveBinop(
+            new quad::QuadTemp(new Temp(fresh), quad::QuadType::INT), left,
+            binop->binop, right, new std::set<Temp *>(),
+            new std::set<Temp *>());
+    }
+    return nullptr;
+}
+
+bool inlineCall(quad::QuadMoveExtCall *callStatement,
+                const InlineCandidate &candidate, int &lastTemp,
+                std::vector<quad::QuadStm *> &replacement) {
+    if (callStatement == nullptr || callStatement->dst == nullptr ||
+        callStatement->dst->temp == nullptr ||
+        callStatement->dst->type != quad::QuadType::INT ||
+        callStatement->extcall == nullptr ||
+        callStatement->extcall->args == nullptr ||
+        candidate.function == nullptr || candidate.function->params == nullptr ||
+        callStatement->extcall->args->size() !=
+            candidate.function->params->size()) {
+        return false;
+    }
+
+    std::map<int, quad::QuadTerm *> parameterValues;
+    for (std::size_t index = 0;
+         index < candidate.function->params->size(); ++index) {
+        quad::QuadTerm *argument = callStatement->extcall->args->at(index);
+        Temp *parameter = candidate.function->params->at(index);
+        if (parameter == nullptr || !isIntCallArgument(argument)) return false;
+        parameterValues[parameter->num] = argument;
+    }
+
+    int trialLastTemp = lastTemp;
+    std::map<int, int> localTemps;
+    std::vector<quad::QuadStm *> clonedBody;
+    for (auto *statement : candidate.body) {
+        quad::QuadStm *clone = cloneBodyStatement(
+            statement, parameterValues, localTemps, trialLastTemp);
+        if (clone == nullptr) return false;
+        clonedBody.push_back(clone);
+    }
+
+    quad::QuadTerm *returnValue = cloneSubstitutedTerm(
+        candidate.returnStatement->exp, parameterValues, localTemps);
+    if (returnValue == nullptr) return false;
+    replacement.insert(replacement.end(), clonedBody.begin(), clonedBody.end());
+    replacement.push_back(new quad::QuadMove(
+        callStatement->dst->clone(), returnValue, new std::set<Temp *>(),
+        new std::set<Temp *>()));
+    lastTemp = trialLastTemp;
+    return true;
+}
+
 } // namespace
 
 namespace quad {
-QuadProgram* inlineProg(QuadProgram* p, int* eo) { if(!p)return p; int e=0; inlineProgImpl(p,e); if(eo)*eo=e; return p; }
+
+QuadProgram *inlineProg(QuadProgram *program, int *eliminatedOut) {
+    if (eliminatedOut != nullptr) *eliminatedOut = 0;
+    if (program == nullptr || program->quadFuncDeclList == nullptr)
+        return program;
+
+    rebuildQuadProgramMetadata(program);
+    std::map<std::string, InlineCandidate> candidates;
+    for (auto *function : *program->quadFuncDeclList) {
+        InlineCandidate candidate;
+        if (analyzeCandidate(function, candidate))
+            candidates[function->funcname] = std::move(candidate);
+    }
+    if (candidates.empty()) return program;
+
+    int lastTemp = program->last_temp_num;
+    int inlined = 0;
+    for (auto *function : *program->quadFuncDeclList) {
+        if (function == nullptr || function->quadblocklist == nullptr) continue;
+        for (auto *block : *function->quadblocklist) {
+            if (block == nullptr || block->quadlist == nullptr) continue;
+            auto *rewritten = new std::vector<QuadStm *>();
+            for (auto *statement : *block->quadlist) {
+                if (statement != nullptr &&
+                    statement->kind == QuadKind::MOVE_EXTCALL) {
+                    auto *call = static_cast<QuadMoveExtCall *>(statement);
+                    std::string name = call->extcall == nullptr
+                                           ? std::string()
+                                           : call->extcall->extfun;
+                    auto candidate = candidates.find(name);
+                    if (candidate != candidates.end() &&
+                        inlineCall(call, candidate->second, lastTemp,
+                                   *rewritten)) {
+                        ++inlined;
+                        continue;
+                    }
+                }
+                rewritten->push_back(statement);
+            }
+            block->quadlist = rewritten;
+        }
+    }
+
+    program->last_temp_num = lastTemp;
+    rebuildQuadProgramMetadata(program);
+    if (eliminatedOut != nullptr) *eliminatedOut = inlined;
+    return program;
+}
+
 } // namespace quad

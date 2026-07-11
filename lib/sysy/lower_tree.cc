@@ -481,6 +481,7 @@ public:
 
         collectFunctions(root);
         collectGlobals(root);
+        parallelFunctionSummaries_ = summarizeParallelScalarFunctions(root);
         generatedFunctions_.clear();
         parallelWorkerId_ = 0;
 
@@ -563,6 +564,7 @@ private:
     LoweringOptions options_;
     std::map<std::string, Symbol> globalSymbols_;
     std::map<std::string, FunctionSignature> functions_;
+    ParallelFunctionSummaries parallelFunctionSummaries_;
     std::vector<std::unordered_map<std::string, Symbol>> scopes_;
     tree::Temp_map temps_;
     std::vector<tree::Label *> breakLabels_;
@@ -692,12 +694,14 @@ private:
         functions_["_sysy_stoptime"] = FunctionSignature{BaseType::Void, {BaseType::Int}, {0}};
         functions_["__sysy_parallel_for_range"] =
             FunctionSignature{BaseType::Void,
-                              {BaseType::Int, BaseType::Int, BaseType::Int, BaseType::Int},
-                              {0, 0, 0, 0}};
+                              {BaseType::Int, BaseType::Int, BaseType::Int, BaseType::Int,
+                               BaseType::Int},
+                              {0, 0, 0, 0, 0}};
         functions_["__sysy_parallel_reduce_int_range"] =
             FunctionSignature{BaseType::Int,
-                              {BaseType::Int, BaseType::Int, BaseType::Int, BaseType::Int},
-                              {0, 0, 0, 0}};
+                              {BaseType::Int, BaseType::Int, BaseType::Int, BaseType::Int,
+                               BaseType::Int},
+                              {0, 0, 0, 0, 0}};
         functions_["free"] = FunctionSignature{BaseType::Void, {BaseType::Int}, {0}};
     }
 
@@ -939,7 +943,14 @@ private:
                 node.children[index + 1]->kind == NodeKind::WhileStmt) {
                 ParallelLoopPlan plan = analyzeParallelLoopPair(
                     *node.children[index], *node.children[index + 1],
-                    [this](const std::string &name) { return parallelTypeName(name); });
+                    [this](const std::string &name) { return parallelTypeName(name); },
+                    [this](const std::string &name)
+                        -> const ParallelScalarFunctionSummary * {
+                        auto found = parallelFunctionSummaries_.find(name);
+                        return found == parallelFunctionSummaries_.end()
+                                   ? nullptr
+                                   : &found->second;
+                    });
                 if (lowerParallelLoop(plan, stms)) {
                     ++index;
                     continue;
@@ -1284,11 +1295,24 @@ private:
             }
         }
 
+        int emittedWorkCost = std::max(1, plan.runtimeWorkCost);
+        // A candidate selected inside sequential loops may invoke the helper
+        // once per enclosing iteration.  Discount each such level so a costly
+        // inner worker is not mistaken for one coarse parallel region.  The
+        // planner's nested-body estimate remains boosted; only repeated helper
+        // invocation is discounted here.
+        for (std::size_t depth = 0; depth < breakLabels_.size(); ++depth) {
+            emittedWorkCost = emittedWorkCost / 8 +
+                              (emittedWorkCost % 8 == 0 ? 0 : 1);
+            emittedWorkCost = std::max(1, emittedWorkCost);
+        }
+
         auto *runtimeArgs = new std::vector<tree::Exp *>({
             tempExp(beginTemp),
             tempExp(endTemp),
             ctxArg,
-            new tree::Name(new tree::String_Label(workerName))
+            new tree::Name(new tree::String_Label(workerName)),
+            new tree::Const(emittedWorkCost)
         });
 
         if (plan.reductions.empty()) {

@@ -1,0 +1,33 @@
+int duplicate_int(int x) {
+  int left = x + 7;
+  int right = x + 7;
+  return left * 10 + right;
+}
+
+float float_copies(float x) {
+  float first = x;
+  float second = first;
+  float third = second + 1.5;
+  return third;
+}
+
+int array_operands(int data[], int index) {
+  int copied_index = index;
+  data[copied_index] = 7;
+  int loaded = data[copied_index];
+  if (loaded == 7) {
+    return loaded;
+  }
+  return 0;
+}
+
+int main() {
+  int values[4];
+  putint(duplicate_int(5));
+  putch(10);
+  putfloat(float_copies(0.5));
+  putch(10);
+  putint(array_operands(values, 2));
+  putch(10);
+  return 0;
+}

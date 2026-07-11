@@ -1,0 +1,32 @@
+int sibling(int x, int choose_left) {
+  if (choose_left) {
+    int left = x + 1;
+    return left;
+  } else {
+    int right = x + 1;
+    return right + 1;
+  }
+}
+
+int dominated(int x, int condition) {
+  int first = x * 5;
+  int selected = 0;
+  if (condition) {
+    selected = x * 5;
+  } else {
+    selected = x * 5 + 1;
+  }
+  return first + selected;
+}
+
+int main() {
+  putint(sibling(10, 1));
+  putch(10);
+  putint(sibling(10, 0));
+  putch(10);
+  putint(dominated(4, 1));
+  putch(10);
+  putint(dominated(4, 0));
+  putch(10);
+  return 0;
+}

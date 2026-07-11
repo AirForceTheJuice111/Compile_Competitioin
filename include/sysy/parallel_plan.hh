@@ -4,6 +4,7 @@
 
 #include <functional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace sysy {
@@ -46,6 +47,7 @@ struct ParallelLoopPlan {
     bool hasArrayWrite = false;
     bool hasNestedLoop = false;
     int estimatedCost = 0;
+    int runtimeWorkCost = 1;
     std::vector<ParallelReduction> reductions;
     std::vector<ParallelPrivatizedScalar> privatizedScalars;
     std::vector<ParallelCapture> captures;
@@ -54,10 +56,26 @@ struct ParallelLoopPlan {
 
 using ParallelTypeLookup = std::function<std::string(const std::string &)>;
 
+struct ParallelScalarFunctionSummary {
+    bool pure = false;
+    std::string returnType;
+    std::vector<std::string> parameters;
+    // Present only for a direct, single-expression return.  The expression is
+    // owned by the source AST and can be substituted into affine index checks.
+    const Node *affineReturnExpr = nullptr;
+};
+
+using ParallelFunctionSummaries =
+    std::unordered_map<std::string, ParallelScalarFunctionSummary>;
+using ParallelFunctionSummaryLookup =
+    std::function<const ParallelScalarFunctionSummary *(const std::string &)>;
+
 ParallelLoopInit parseParallelLoopInit(const Node &node);
 const Node *parallelReductionAddend(const Node &assign, const std::string &var);
+ParallelFunctionSummaries summarizeParallelScalarFunctions(const Node &root);
 ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopStmt,
-                                         const ParallelTypeLookup &lookupType);
+                                         const ParallelTypeLookup &lookupType,
+                                         const ParallelFunctionSummaryLookup &lookupFunction = {});
 std::string dumpParallelPlansJsonl(const Node &root);
 
 } // namespace sysy
