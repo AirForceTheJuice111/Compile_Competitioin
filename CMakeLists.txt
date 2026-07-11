@@ -17,8 +17,14 @@ set(BACKEND_SOURCES
     lib/quadflow/controlflowinfo.cc
     lib/quadflow/dataflowinfo.cc
     lib/quadflow/flowinfo.cc
+    lib/opt/algebrasimp.cc
+    lib/opt/copyprop.cc
     lib/opt/defusechain.cc
+    lib/opt/funcspec.cc
+    lib/opt/gvn.cc
+    lib/opt/inline.cc
     lib/opt/loopheaderwithflow.cc
+    lib/opt/memopt.cc
     lib/opt/loophoistfunc.cc
     lib/opt/loopinductionbasic.cc
     lib/opt/loopinductionderived.cc
