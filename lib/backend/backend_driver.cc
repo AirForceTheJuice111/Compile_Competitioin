@@ -3,6 +3,7 @@
 #include "blocking.hh"
 #include "canon.hh"
 #include "flowinfo.hh"
+#include "gvn.hh"
 #include "loopheader.hh"
 #include "loopinductionopt.hh"
 #include "looplicm.hh"
@@ -268,12 +269,37 @@ bool optModeUsesSccp(OptMode mode) {
     return mode == OptMode::Const || mode == OptMode::AllOpt;
 }
 
+bool optModeUsesGvn(OptMode mode) {
+    return mode == OptMode::Const || mode == OptMode::AllOpt;
+}
+
 bool optModeUsesLicm(OptMode mode) {
     return mode == OptMode::Loop1 || mode == OptMode::AllLoop || mode == OptMode::AllOpt;
 }
 
 bool optModeUsesIv(OptMode mode) {
     return mode == OptMode::Loop2 || mode == OptMode::AllLoop || mode == OptMode::AllOpt;
+}
+
+quad::QuadProgram *runGvnPass(quad::QuadProgram *program) {
+    auto *flow = computeFlow(program);
+    if (flow == nullptr) {
+        return nullptr;
+    }
+    int eliminated = 0;
+    auto *result = quad::gvnProg(program, flow, &eliminated);
+    if (result == nullptr) {
+        return program;
+    }
+    refreshQuadExtents(result);
+
+    const char *env = std::getenv("BACKEND_PROFILE");
+    if (env != nullptr && env[0] != '\0' && std::string(env) != "0") {
+        std::cerr << "BACKEND_PROFILE gvn eliminated " << eliminated
+                  << " instructions\n";
+        std::cerr.flush();
+    }
+    return result;
 }
 
 quad::QuadProgram *runLicmPass(quad::QuadProgram *program) {
@@ -1589,6 +1615,14 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
         }
         refreshQuadExtents(optimizedSsa);
         profile.mark("sccp");
+    }
+    if (optModeUsesGvn(options.optMode)) {
+        optimizedSsa = runGvnPass(optimizedSsa);
+        if (optimizedSsa == nullptr) {
+            result.error = "GVN optimization failed";
+            return result;
+        }
+        profile.mark("gvn");
     }
     if (optModeUsesLicm(options.optMode)) {
         optimizedSsa = runLicmPass(optimizedSsa);

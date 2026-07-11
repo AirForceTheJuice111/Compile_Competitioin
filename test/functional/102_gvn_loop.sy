@@ -1,0 +1,20 @@
+// GVN test: loop-invariant redundant computation inside loop
+// Unlike LICM which hoists loop-invariant code, GVN eliminates the
+// repeated computation entirely
+
+int compute(int n) {
+    int i, a, b, sum;
+    sum = 0;
+    i = 0;
+    a = n * 2;
+    b = n * 2;  // redundant: same as a -> GVN should replace with a
+    while (i < 10) {
+        sum = sum + a + b;  // b should be replaced by a, so: sum + 2*a
+        i = i + 1;
+    }
+    return sum;
+}
+
+int main() {
+    return compute(3);  // sum = 10 * (a + b) = 10 * (6 + 6) = 120
+}

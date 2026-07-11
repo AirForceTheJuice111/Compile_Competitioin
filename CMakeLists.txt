@@ -18,6 +18,7 @@ set(BACKEND_SOURCES
     lib/quadflow/dataflowinfo.cc
     lib/quadflow/flowinfo.cc
     lib/opt/defusechain.cc
+    lib/opt/gvn.cc
     lib/opt/loopheaderwithflow.cc
     lib/opt/loophoistfunc.cc
     lib/opt/loopinductionbasic.cc
