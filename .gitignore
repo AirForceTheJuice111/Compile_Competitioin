@@ -49,3 +49,6 @@ output/
 
 **/*.quad
 tmp
+
+AGENTS.md
+handoff.md

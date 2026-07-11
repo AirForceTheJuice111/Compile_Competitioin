@@ -1,0 +1,40 @@
+int global_state;
+
+int bump_global(int x) {
+  global_state = global_state + x;
+  return global_state;
+}
+
+int read_array(int data[], int i) {
+  return data[i];
+}
+
+void rejected_global_loop(int output[]) {
+  int i = 0;
+  while (i < 600) {
+    output[i] = bump_global(i);
+    i = i + 1;
+  }
+}
+
+void rejected_array_loop(int output[], int input[]) {
+  int i = 0;
+  while (i < 600) {
+    output[i] = read_array(input, i);
+    i = i + 1;
+  }
+}
+
+void rejected_runtime_loop(int output[]) {
+  int i = 0;
+  while (i < 600) {
+    output[i] = getint();
+    i = i + 1;
+  }
+}
+
+int main() {
+  putint(0);
+  putch(10);
+  return 0;
+}

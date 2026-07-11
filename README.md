@@ -114,6 +114,12 @@ integer/pointer arguments use `w/x` registers, scalar floats use `s` registers,
 and `%f` varargs are promoted to `double` in `d` registers. SysY globals and
 arrays use the official `sylib.c/.h` runtime interface.
 
+The hardened integer algebra simplifier can be evaluated independently with
+`SYSY_EXPERIMENTAL_PASSES=algebrasimp` in an optimized mode. It folds only
+operations proven to use SysY `int` values, uses defined 32-bit wrapping for
+constant arithmetic, and leaves floating-point identities and comparisons
+unchanged so signed zero and NaN behavior are preserved.
+
 Native loop parallelization is enabled automatically for optimized modes unless
 `--no-parallel-native` is passed. The lowering stage uses the shared loop plan
 analysis in `lib/sysy/parallel_plan.cc`; current canonical loops may use either
@@ -125,11 +131,24 @@ aliasing calls take a generated sequential fallback, while non-aliasing calls
 use the parallel worker. Loop endpoints must be invariant integer expressions;
 dynamic inclusive endpoints guard `INT_MAX` and use the original sequential
 comparison on the overflow path.
+Loop bodies may call user helpers proven transitively scalar-only and pure,
+including self-recursive helpers and reads of immutable scalar constants.
+Runtime/unknown calls, mutable globals, and every hidden array access remain
+sequential; simple pure return expressions can also expose affine indices such
+as `idx(r, c, n)` to the partition checker.
 Pure integer reductions can additionally select an outer loop whose complete
 body resets one previously declared integer scratch IV and runs its canonical
 nested loop. The scratch is worker-private, but its source-visible final IV
 value is still restored for nonempty outer ranges; empty ranges leave it
-unchanged.
+unchanged. This coarse form is selected only when the nested trip count is a
+compile-time constant below the pthread threshold; dynamic or large inner
+ranges retain the simpler inner-loop worker selected by measurements.
+Native profitability uses a fifth runtime argument containing a conservative
+per-iteration work estimate. Nested bodies are boosted, helpers emitted inside
+sequential enclosing loops are depth-discounted, and the two-core runtime
+creates a pthread only when the overflow-safe 64-bit `trip_count * work_cost`
+reaches 16384. Cheap dynamic reductions therefore retain direct execution,
+while sufficiently coarse short ranges can parallelize.
 
 ## Native Parallel Check
 

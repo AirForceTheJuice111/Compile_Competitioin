@@ -145,9 +145,14 @@ kept parallel only when reads and writes stay in the same first-index partition;
 cross-iteration patterns such as `a[i] = a[i + 1]` are rejected. Same-rank
 array parameter aliasing no longer forces a static rejection: lowering emits a
 runtime pointer guard and falls back to the original sequential loop when the
-captured array bases alias. The pass still rejects loops with calls,
-control-flow exits, unsafe scalar writes, unguardable array disjointness,
-multiple reductions, and float reductions.
+captured array bases alias. An interprocedural fixed-point summary permits
+user helpers proven scalar-only and side-effect-free, including recursion and
+immutable scalar constants. Runtime/unknown calls, arrays, mutable globals,
+nonlocal writes, and I/O remain impure. Direct pure return expressions are
+substituted conservatively into affine index checks, exposing helpers such as
+`idx(r, c, n)`. The pass still rejects endpoint calls, control-flow exits,
+unsafe scalar writes, unguardable array disjointness, multiple reductions, and
+float reductions.
 
 Nested-loop profitability detection is recursive through blocks and
 conditionals. Reduction validation also rejects self-dependent accumulators and
@@ -155,16 +160,21 @@ uses of a partial accumulator value elsewhere in the loop body.
 
 Pure outer integer reductions may also privatize one canonical nested-loop
 scratch IV when the complete outer body is an unconditional constant reset
-followed immediately by that IV's invariant-bound unit-step loop. Workers bind
-the scratch name to a private temp. The caller writes its deterministic final
-IV value back after every nonempty parallel range and preserves the incoming
-value for an empty range, avoiding any assumption that the scalar is dead.
+followed immediately by that IV's constant-bound unit-step loop, provided its
+trip count is below the pthread threshold. Dynamic or large nested ranges keep
+the simpler measured inner-loop choice. Workers bind the scratch name to a
+private temp. The caller writes its deterministic final IV value back after
+every nonempty parallel range and preserves the incoming value for an empty
+range, avoiding any assumption that the scalar is dead.
 
 Optimized modes enable native parallel lowering by default. The generated
 AArch64 assembly contains worker functions, 8-byte pointer-safe context
-layouts, and runtime helper implementations when needed. Known constant trip
-counts below the native runtime's thread threshold are kept sequential to avoid
-paying context and helper-call overhead when no pthread worker would be used.
+layouts, and runtime helper implementations when needed. Each helper receives
+a conservative per-iteration work estimate. Nested bodies are boosted and
+helpers inside sequential enclosing loops are depth-discounted; compile-time
+and dynamic profitability use an overflow-safe 64-bit `trip_count * work_cost`
+threshold of 16384. This admits coarse short ranges without spawning threads
+for cheap dynamic reductions or repeatedly invoked inner workers.
 
 ## Build And Test
 

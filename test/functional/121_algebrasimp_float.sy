@@ -1,0 +1,21 @@
+int main() {
+  float negative_zero = getfloat();
+  float not_a_number = getfloat();
+
+  putfloat(negative_zero + 0.0);
+  putch(10);
+  putfloat(negative_zero * 0.0);
+  putch(10);
+  putfloat(negative_zero - negative_zero);
+  putch(10);
+
+  if (not_a_number == not_a_number) {
+    putint(1);
+  } else {
+    putint(0);
+  }
+  putch(10);
+  putfloat(not_a_number * 0.0);
+  putch(10);
+  return 0;
+}

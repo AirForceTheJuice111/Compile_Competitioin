@@ -1,0 +1,46 @@
+int choose(int x, int y, int c) {
+  int result = x;
+  if (c) {
+    int copy = y;
+    result = copy;
+  } else {
+    int copy = x;
+    result = copy;
+  }
+  int out = result;
+  return out;
+}
+
+int redefine_param(int x) {
+  int before = x + 1;
+  x = 10;
+  int after = x + 1;
+  return before * 100 + after;
+}
+
+int loop_phi(int n) {
+  int value = 0;
+  int i = 0;
+  while (i < n) {
+    int copy = value;
+    if (i % 2) {
+      value = copy + i;
+    } else {
+      value = copy + 1;
+    }
+    i = i + 1;
+  }
+  return value;
+}
+
+int main() {
+  putint(choose(3, 9, 0));
+  putch(10);
+  putint(choose(3, 9, 1));
+  putch(10);
+  putint(redefine_param(4));
+  putch(10);
+  putint(loop_phi(6));
+  putch(10);
+  return 0;
+}

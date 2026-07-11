@@ -1,0 +1,22 @@
+int cheap_reduce(int n) {
+  int sum = 0;
+  int i = 0;
+  while (i < n) {
+    sum = sum + i;
+    i = i + 1;
+  }
+  return sum;
+}
+
+int main() {
+  int n = getint();
+  int result = 0;
+  int rounds = 1000;
+  while (rounds > 0) {
+    result = result + cheap_reduce(n);
+    rounds = rounds - 1;
+  }
+  putint(result);
+  putch(10);
+  return 0;
+}

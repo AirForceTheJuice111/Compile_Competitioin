@@ -78,7 +78,7 @@ PY
 assert_workers() {
   local case_name=$1
   local expected=$2
-  local source="$TEST_ROOT/$case_name.sy"
+  local source=${3:-"$TEST_ROOT/$case_name.sy"}
   local asm="$WORK_DIR/$case_name.s"
   "$COMPILER" --parallel-native -O1 -S -o "$asm" "$source"
   local actual
@@ -104,12 +104,24 @@ assert_plan 111_parallel_scratch_iv 6 true "" j false
 assert_plan 111_parallel_scratch_iv 22 true "" j true
 assert_plan 111_parallel_scratch_iv 38 true "" j false
 assert_plan 112_parallel_scratch_iv_reject 6 false "unsafe scalar write"
-assert_plan 2025-MYO-20 92 true "" i false \
+assert_plan 113_parallel_pure_calls 17 true
+assert_plan 114_parallel_impure_calls 14 false "unsafe call in loop body"
+assert_plan 114_parallel_impure_calls 22 false "unsafe call in loop body"
+assert_plan 114_parallel_impure_calls 30 false "unsafe call in loop body"
+assert_plan 115_parallel_cost_expensive 5 true
+assert_plan 116_parallel_cost_cheap 4 true
+assert_plan 2025-MYO-20 92 false "unsafe scalar write" "" "" \
   "$TEST_ROOT/../performance_final/2025-MYO-20.sy"
-assert_plan 2025-680-52 76 true "" j false \
+assert_plan 2025-680-52 76 false "unsafe scalar write" "" "" \
   "$TEST_ROOT/../performance_final/2025-680-52.sy"
+assert_plan 2025-D6H-55 69 true "" "" "" \
+  "$TEST_ROOT/../performance_final/2025-D6H-55.sy"
+assert_plan 2025-D6H-55 75 true "" "" "" \
+  "$TEST_ROOT/../performance_final/2025-D6H-55.sy"
+assert_plan 2025-4W1-32 58 true "" "" "" \
+  "$TEST_ROOT/../performance_final/2025-4W1-32.sy"
 
-assert_workers 101_parallel_le 2
+assert_workers 101_parallel_le 1
 assert_workers 104_parallel_bound_invariance 0
 assert_workers 105_parallel_reduction_constraints 0
 assert_workers 106_parallel_shadow_scope 0
@@ -119,12 +131,44 @@ assert_workers 109_parallel_dynamic_le 1
 assert_workers 110_parallel_bound_effects 0
 assert_workers 111_parallel_scratch_iv 3
 assert_workers 112_parallel_scratch_iv_reject 0
+assert_workers 113_parallel_pure_calls 1
+assert_workers 114_parallel_impure_calls 0
+assert_workers 115_parallel_cost_expensive 1
+assert_workers 116_parallel_cost_cheap 1
+assert_workers 2025-D6H-55 2 \
+  "$TEST_ROOT/../performance_final/2025-D6H-55.sy"
+assert_workers 2025-4W1-32 3 \
+  "$TEST_ROOT/../performance_final/2025-4W1-32.sy"
 
 # The dynamic <= worker must guard normalization overflow and preserve the
 # original comparator on its sequential INT_MAX path.
 if ! grep -Eq 'movk[[:space:]]+w[0-9]+, #32767, lsl #16' "$WORK_DIR/109_parallel_dynamic_le.s" ||
    ! grep -Eq 'b\.le[[:space:]]' "$WORK_DIR/109_parallel_dynamic_le.s"; then
   echo "109_parallel_dynamic_le: missing INT_MAX/original-<= fallback guard" >&2
+  exit 1
+fi
+
+# Runtime profitability uses a 64-bit trip*cost product, so expensive short
+# ranges can create a worker while cheap dynamic ranges retain direct fallback.
+if ! grep -Eq 'umull[[:space:]]+x[0-9]+, w[0-9]+, w[0-9]+' \
+      "$WORK_DIR/115_parallel_cost_expensive.s" ||
+   ! grep -Eq 'movz[[:space:]]+x[0-9]+, #16384' \
+      "$WORK_DIR/116_parallel_cost_cheap.s"; then
+  echo "parallel work gate: missing 64-bit product/threshold" >&2
+  exit 1
+fi
+
+# Exact emitted costs cover both the boosted depth-0 model and discounting for
+# helpers repeatedly invoked inside sequential loops.
+if ! grep -Eq 'movz[[:space:]]+w4, #166' \
+      "$WORK_DIR/115_parallel_cost_expensive.s" ||
+   ! grep -Eq 'movz[[:space:]]+w4, #7' \
+      "$WORK_DIR/116_parallel_cost_cheap.s" ||
+   ! grep -Eq 'movz[[:space:]]+w4, #67' \
+      "$WORK_DIR/2025-4W1-32.s" ||
+   ! grep -Eq 'movz[[:space:]]+w4, #73' \
+      "$WORK_DIR/2025-D6H-55.s"; then
+  echo "parallel work gate: unexpected emitted cost/depth discount" >&2
   exit 1
 fi
 

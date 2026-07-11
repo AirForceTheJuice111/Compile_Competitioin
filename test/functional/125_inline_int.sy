@@ -1,0 +1,22 @@
+int idx(int row, int column, int width) {
+  return row * width + column;
+}
+
+int mix(int value, int factor) {
+  int adjusted = value + 3;
+  int product = adjusted * factor;
+  return product - 1;
+}
+
+int main() {
+  int row = getint();
+  int column = getint();
+  int width = getint();
+
+  int first = idx(row, column, width);
+  int second = idx(first, 2, width);
+  int result = mix(second, column);
+  putint(result);
+  putch(10);
+  return 0;
+}

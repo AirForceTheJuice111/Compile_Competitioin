@@ -1,0 +1,41 @@
+int pointer_read(int values[], int index) {
+  return values[index];
+}
+
+float scale(float value) {
+  return value * 2.0;
+}
+
+int choose(int value) {
+  if (value < 0) {
+    return -value;
+  }
+  return value + 1;
+}
+
+int recurse(int value) {
+  if (value <= 0) {
+    return 0;
+  }
+  return recurse(value - 1) + 1;
+}
+
+int nested(int value) {
+  return recurse(value) + 7;
+}
+
+int main() {
+  int value = getint();
+  float input = getfloat();
+  int values[2] = {4, 9};
+  int total = pointer_read(values, value % 2);
+  if (scale(input) == 3.0) {
+    total = total + 1;
+  }
+  total = total + choose(-value);
+  total = total + recurse(value);
+  total = total + nested(value);
+  putint(total);
+  putch(10);
+  return 0;
+}

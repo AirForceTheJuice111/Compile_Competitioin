@@ -1,0 +1,18 @@
+int values[161];
+
+int main() {
+  int i = 0;
+  while (i < 161) {
+    int sum = 0;
+    int j = 0;
+    while (j < 100000) {
+      sum = sum + 1;
+      j = j + 1;
+    }
+    values[i] = sum;
+    i = i + 1;
+  }
+  putint(values[160]);
+  putch(10);
+  return 0;
+}
