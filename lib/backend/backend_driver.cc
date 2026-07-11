@@ -1744,11 +1744,16 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
         }
         profile.mark("inline");
     }
-    // Round 2: CopyProp+DCE after inlining cleans up new copies
-    if (optModeUsesSccp(options.optMode)) {
+    // Round 2: Inlining exposes new optimization opportunities.
+    // Re-run the core passes to clean up the inlined code (ref: GVNPass R2).
+    if (optModeUsesSccp(options.optMode) && passEnabled("algebrasimp")) {
+        optimizedSsa = runAlgebraSimpPass(optimizedSsa);
+        if (!optimizedSsa) { result.error="AlgebraSimp r2 failed"; return result; }
+        optimizedSsa = runGvnPass(optimizedSsa);
+        if (!optimizedSsa) { result.error="GVN r2 failed"; return result; }
         optimizedSsa = runCopyPropPass(optimizedSsa);
-        if (!optimizedSsa) { result.error="CopyProp round2 failed"; return result; }
-        profile.mark("copyprop-r2");
+        if (!optimizedSsa) { result.error="CopyProp r2 failed"; return result; }
+        profile.mark("opt-round2");
     }
     if (optModeUsesLicm(options.optMode)) {
         optimizedSsa = runLicmPass(optimizedSsa);
