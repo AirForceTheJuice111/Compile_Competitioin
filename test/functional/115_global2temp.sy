@@ -1,0 +1,15 @@
+// Global2Temp: global scalar used only in one function → promote to local
+int g;
+int calc() {
+    int s, i;
+    s = 0; i = 0;
+    while (i < 5) {
+        g = i;        // store to global
+        s = s + g;    // load from global → should use promoted temp
+        i = i + 1;
+    }
+    return s;
+}
+int main() {
+    return calc();  // 0+0 + 1+1 + 2+2 + 3+3 + 4+4 = 20
+}
