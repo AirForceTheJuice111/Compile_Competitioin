@@ -1,0 +1,8 @@
+// MemOpt global variable: dead store elimination on globals
+int g;
+int main() {
+    g = 1;     // dead
+    g = 2;     // dead
+    g = 3;
+    return g;  // 3
+}

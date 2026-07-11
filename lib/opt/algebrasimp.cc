@@ -122,33 +122,11 @@ bool tryStrengthReduce(quad::QuadMoveBinop* bp) {
     bool lc = isConst(L), rc = isConst(R);
     int lv = constVal(L), rv = constVal(R);
 
-    // x * pow2 → x << log2(pow2)
+    // NOTE: x*pow2 → x<<k is DISABLED — AArch64 shift semantics differ.
+    // -1 * x → 0 - x (negation)
     if (op == "*") {
-        if (rc && rv > 0 && (rv & (rv - 1)) == 0 && rv <= 256) {
-            int shift = 0, v = rv; while (v > 1) { v >>= 1; shift++; }
-            bp->binop = "<<";
-            bp->right = termConst(shift);
-            return true;
-        }
-        if (lc && lv > 0 && (lv & (lv - 1)) == 0 && lv <= 256) {
-            int shift = 0, v = lv; while (v > 1) { v >>= 1; shift++; }
-            bp->binop = "<<";
-            bp->left = bp->right;
-            bp->right = termConst(shift);
-            return true;
-        }
-        // -1 * x → 0 - x
-        if (lc && lv == -1) {
-            bp->binop = "-";
-            bp->left = termConst(0);
-            return true;
-        }
-        if (rc && rv == -1) {
-            bp->binop = "-";
-            bp->right = bp->left;
-            bp->left = termConst(0);
-            return true;
-        }
+        if (lc && lv == -1) { bp->binop = "-"; bp->left = termConst(0); return true; }
+        if (rc && rv == -1) { bp->binop = "-"; bp->right = bp->left; bp->left = termConst(0); return true; }
     }
     return false;
 }
@@ -194,6 +172,14 @@ void algebraSimpFunction(quad::QuadFuncDecl *func, int &eliminated) {
                 }
                 // Try strength reduction (modifies binop in-place)
                 if (tryStrengthReduce(b)) {
+                    // Rebuild def/use sets after modification
+                    b->def = new set<Temp*>();
+                    b->use = new set<Temp*>();
+                    b->def->insert(new Temp(b->dst->temp->num));
+                    if (b->left && b->left->kind == quad::QuadTermKind::TEMP)
+                        b->use->insert(new Temp(b->left->get_temp()->temp->num));
+                    if (b->right && b->right->kind == quad::QuadTermKind::TEMP)
+                        b->use->insert(new Temp(b->right->get_temp()->temp->num));
                     newList->push_back(b);
                     eliminated++;
                     continue;

@@ -1,0 +1,14 @@
+// MemOpt expression matching: accesses through different intermediate temps
+// but same (base, offset) should still match
+
+int arr[20];
+int main() {
+    int i, s;
+    i = 0; s = 0;
+    while (i < 10) {
+        arr[i] = i * 3;    // store
+        s = s + arr[i];    // load — should forward from store if same iteration
+        i = i + 1;
+    }
+    return s;  // sum of i*3 for i=0..9 = 0+3+6+...+27 = 135
+}
