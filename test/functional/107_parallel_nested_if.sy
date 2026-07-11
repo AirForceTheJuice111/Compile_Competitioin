@@ -1,0 +1,29 @@
+int a[600][8];
+
+int main() {
+  int i = 0;
+  while (i < 600) {
+    if (i % 2 == 0) {
+      int j = 0;
+      while (j < 8) {
+        a[i][j] = i + j;
+        j = j + 1;
+      }
+    }
+    i = i + 1;
+  }
+
+  int sum = 0;
+  i = 0;
+  while (i < 600) {
+    int j = 0;
+    while (j < 8) {
+      sum = sum + a[i][j];
+      j = j + 1;
+    }
+    i = i + 1;
+  }
+  putint(sum);
+  putch(10);
+  return 0;
+}

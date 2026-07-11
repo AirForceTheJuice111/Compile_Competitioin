@@ -1,0 +1,26 @@
+int prefix[600];
+
+int main() {
+  int doubled = 1;
+  int i = 0;
+  while (i < 600) {
+    doubled = doubled + doubled;
+    i = i + 1;
+  }
+
+  int sum = 0;
+  i = 0;
+  while (i < 600) {
+    prefix[i] = sum;
+    sum = sum + 1;
+    i = i + 1;
+  }
+
+  putint(doubled);
+  putch(10);
+  putint(prefix[599]);
+  putch(10);
+  putint(sum);
+  putch(10);
+  return 0;
+}

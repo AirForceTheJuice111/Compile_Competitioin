@@ -568,7 +568,8 @@ QuadFuncDecl* QuadFuncDecl::clone() const {
             cloned_blocks->push_back(block != nullptr ? (QuadBlock*)block->clone() : nullptr);
         }
     }
-    return new QuadFuncDecl(funcname, cloned_params, cloned_blocks, last_label_num, last_temp_num);
+    return new QuadFuncDecl(funcname, cloned_params, cloned_blocks, return_type,
+                            last_label_num, last_temp_num);
 }
 
 QuadBlock* QuadBlock::clone() const {

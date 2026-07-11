@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <climits>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -552,6 +553,13 @@ private:
         int offset = 0;
     };
 
+    struct ParallelScratchWriteback {
+        Symbol symbol;
+        tree::Temp *finalValue = nullptr;
+    };
+
+    using ParallelAliasPair = std::pair<std::size_t, std::size_t>;
+
     LoweringOptions options_;
     std::map<std::string, Symbol> globalSymbols_;
     std::map<std::string, FunctionSignature> functions_;
@@ -1072,31 +1080,253 @@ private:
         return alignTo(bytes, pointerBytes());
     }
 
-    bool nativeParallelAliasSafe(const ParallelLoopPlan &plan,
-                                 const std::vector<ParallelContextField> &fields) const {
-        bool hasArrayWrite = false;
-        int arrayParamCaptures = 0;
-        for (const ParallelContextField &field : fields) {
-            if (!field.capture.array) {
-                continue;
-            }
-            if (field.capture.write) {
-                hasArrayWrite = true;
-            }
-            if (field.symbol.arrayParam) {
-                ++arrayParamCaptures;
-            }
-        }
-        if (!hasArrayWrite) {
+    bool aliasPairNeedsRuntimeGuard(const ParallelContextField &lhs,
+                                    const ParallelContextField &rhs,
+                                    bool &needsGuard) const {
+        needsGuard = false;
+        if (!lhs.capture.array || !rhs.capture.array ||
+            (!lhs.capture.write && !rhs.capture.write)) {
             return true;
         }
-        for (const ParallelContextField &field : fields) {
-            if (field.capture.array && field.capture.write && field.symbol.arrayParam &&
-                arrayParamCaptures > 1) {
-                return false;
+        if (lhs.symbol.base != rhs.symbol.base) {
+            return true;
+        }
+        if (!lhs.symbol.arrayParam && !rhs.symbol.arrayParam) {
+            return true;
+        }
+        if ((!lhs.symbol.arrayParam && !lhs.symbol.global) ||
+            (!rhs.symbol.arrayParam && !rhs.symbol.global)) {
+            return true;
+        }
+        if (lhs.symbol.dims.size() != rhs.symbol.dims.size()) {
+            return false;
+        }
+        needsGuard = true;
+        return true;
+    }
+
+    bool buildParallelAliasGuardPairs(const std::vector<ParallelContextField> &fields,
+                                      std::vector<ParallelAliasPair> &pairs) const {
+        pairs.clear();
+        for (std::size_t i = 0; i < fields.size(); ++i) {
+            for (std::size_t j = i + 1; j < fields.size(); ++j) {
+                bool needsGuard = false;
+                if (!aliasPairNeedsRuntimeGuard(fields[i], fields[j], needsGuard)) {
+                    return false;
+                }
+                if (needsGuard) {
+                    pairs.push_back({i, j});
+                }
             }
         }
-        return plan.reductions.size() <= 1;
+        return true;
+    }
+
+    bool reductionDestinationIsInt(const ParallelLoopPlan &plan) const {
+        if (plan.reductions.empty()) {
+            return true;
+        }
+        if (plan.reductions.size() > 1) {
+            return false;
+        }
+        Symbol dst = lookup(plan.reductions.front().var, plan.init.initExpr->loc);
+        return !isArraySymbol(dst) && dst.base == BaseType::Int;
+    }
+
+    bool buildParallelScratchSymbols(const ParallelLoopPlan &plan,
+                                     std::vector<Symbol> &symbols) const {
+        symbols.clear();
+        for (const ParallelPrivatizedScalar &scalar : plan.privatizedScalars) {
+            if (scalar.type != "int" || scalar.initExpr == nullptr ||
+                scalar.endExpr == nullptr) {
+                return false;
+            }
+            Symbol symbol = lookup(scalar.var, scalar.initExpr->loc);
+            if (symbol.base != BaseType::Int || symbol.global || symbol.constScalar ||
+                symbol.temp == nullptr || isArraySymbol(symbol)) {
+                return false;
+            }
+            symbols.push_back(symbol);
+        }
+        return true;
+    }
+
+    std::vector<ParallelScratchWriteback> buildParallelScratchWritebacks(
+        const ParallelLoopPlan &plan, const std::vector<Symbol> &symbols,
+        std::vector<tree::Stm *> *stms) {
+        std::vector<ParallelScratchWriteback> writebacks;
+        for (std::size_t index = 0; index < plan.privatizedScalars.size(); ++index) {
+            const ParallelPrivatizedScalar &scalar = plan.privatizedScalars[index];
+            auto *finalTemp = newTemp();
+            auto *endTemp = newTemp();
+            stms->push_back(new tree::Move(
+                tempExp(finalTemp), lowerExprAs(*scalar.initExpr, BaseType::Int)));
+            tree::Exp *exclusiveEnd = lowerExprAs(*scalar.endExpr, BaseType::Int);
+            if (scalar.inclusiveEnd) {
+                exclusiveEnd = new tree::Binop(tree::Type::INT, "+", exclusiveEnd,
+                                               new tree::Const(1));
+            }
+            stms->push_back(new tree::Move(tempExp(endTemp), exclusiveEnd));
+
+            auto *setEndLabel = newLabel();
+            auto *doneLabel = newLabel();
+            stms->push_back(new tree::Cjump("<", tempExp(finalTemp), tempExp(endTemp),
+                                            setEndLabel, doneLabel));
+            stms->push_back(new tree::LabelStm(setEndLabel));
+            stms->push_back(new tree::Move(tempExp(finalTemp), tempExp(endTemp)));
+            stms->push_back(new tree::Jump(doneLabel));
+            stms->push_back(new tree::LabelStm(doneLabel));
+            writebacks.push_back(ParallelScratchWriteback{symbols[index], finalTemp});
+        }
+        return writebacks;
+    }
+
+    void emitParallelScratchWritebacks(
+        const std::vector<ParallelScratchWriteback> &writebacks,
+        tree::Temp *beginTemp, tree::Temp *endTemp,
+        std::vector<tree::Stm *> *stms) {
+        if (writebacks.empty()) {
+            return;
+        }
+        auto *writeLabel = newLabel();
+        auto *doneLabel = newLabel();
+        stms->push_back(new tree::Cjump("<", tempExp(beginTemp), tempExp(endTemp),
+                                        writeLabel, doneLabel));
+        stms->push_back(new tree::LabelStm(writeLabel));
+        for (const ParallelScratchWriteback &writeback : writebacks) {
+            stms->push_back(new tree::Move(tempExp(writeback.symbol.temp),
+                                            tempExp(writeback.finalValue)));
+        }
+        stms->push_back(new tree::Jump(doneLabel));
+        stms->push_back(new tree::LabelStm(doneLabel));
+    }
+
+    void emitRuntimeAliasGuard(const std::vector<ParallelContextField> &fields,
+                               const std::vector<ParallelAliasPair> &pairs,
+                               tree::Label *aliasLabel,
+                               tree::Label *noAliasLabel,
+                               std::vector<tree::Stm *> *stms) {
+        for (const ParallelAliasPair &pair : pairs) {
+            auto *nextLabel = newLabel();
+            stms->push_back(new tree::Cjump("==",
+                                            arrayBase(fields[pair.first].symbol),
+                                            arrayBase(fields[pair.second].symbol),
+                                            aliasLabel,
+                                            nextLabel));
+            stms->push_back(new tree::LabelStm(nextLabel));
+        }
+        stms->push_back(new tree::Jump(noAliasLabel));
+    }
+
+    void lowerParallelSequentialFallback(const ParallelLoopPlan &plan,
+                                         tree::Temp *ivTemp,
+                                         tree::Temp *endTemp,
+                                         const std::string &relop,
+                                         std::vector<tree::Stm *> *stms) {
+        auto *testLabel = newLabel();
+        auto *bodyLabel = newLabel();
+        auto *doneLabel = newLabel();
+        stms->push_back(new tree::LabelStm(testLabel));
+        stms->push_back(new tree::Cjump(relop, tempExp(ivTemp), tempExp(endTemp),
+                                        bodyLabel, doneLabel));
+        stms->push_back(new tree::LabelStm(bodyLabel));
+
+        bool savedSuppress = suppressParallelLowering_;
+        suppressParallelLowering_ = true;
+        pushScope();
+        bool bodyFallsThrough = true;
+        for (const Node *stmt : plan.body) {
+            if (!bodyFallsThrough) {
+                break;
+            }
+            if (stmt->kind == NodeKind::ConstDecl || stmt->kind == NodeKind::VarDecl) {
+                lowerDecl(*stmt, stms);
+                bodyFallsThrough = true;
+            } else {
+                bodyFallsThrough = lowerStmt(*stmt, stms);
+            }
+        }
+        popScope();
+        suppressParallelLowering_ = savedSuppress;
+
+        if (bodyFallsThrough) {
+            stms->push_back(new tree::Move(
+                tempExp(ivTemp),
+                new tree::Binop(tree::Type::INT, "+", tempExp(ivTemp), new tree::Const(1))));
+            stms->push_back(new tree::Jump(testLabel));
+        }
+        stms->push_back(new tree::LabelStm(doneLabel));
+    }
+
+    void emitParallelRuntimeCall(const ParallelLoopPlan &plan,
+                                 const std::vector<ParallelContextField> &fields,
+                                 const std::string &workerName,
+                                 tree::Temp *beginTemp,
+                                 tree::Temp *endTemp,
+                                 std::vector<tree::Stm *> *stms) {
+        tree::Temp *ctxTemp = nullptr;
+        tree::Exp *ctxArg = new tree::Const(0, tree::Type::PTR);
+        if (!fields.empty()) {
+            ctxTemp = newTemp();
+            int ctxBytes = parallelContextBytes(fields);
+            stms->push_back(new tree::Move(
+                ptrTempExp(ctxTemp),
+                new tree::ExtCall(tree::Type::PTR, "malloc",
+                                  new std::vector<tree::Exp *>({new tree::Const(ctxBytes)}))));
+            ctxArg = ptrTempExp(ctxTemp);
+            for (const ParallelContextField &field : fields) {
+                tree::Exp *value = field.capture.array ? arrayBase(field.symbol)
+                                                       : symbolScalarValue(field.symbol);
+                tree::Type fieldType = field.capture.array ? tree::Type::PTR : treeType(field.symbol.base);
+                stms->push_back(new tree::Move(
+                    new tree::Mem(fieldType, ctxFieldAddr(ctxTemp, field.offset)),
+                    value));
+            }
+        }
+
+        auto *runtimeArgs = new std::vector<tree::Exp *>({
+            tempExp(beginTemp),
+            tempExp(endTemp),
+            ctxArg,
+            new tree::Name(new tree::String_Label(workerName))
+        });
+
+        if (plan.reductions.empty()) {
+            stms->push_back(new tree::ExpStm(
+                new tree::ExtCall(tree::Type::INT, "__sysy_parallel_for_range", runtimeArgs)));
+        } else {
+            auto *partialTemp = newTemp();
+            stms->push_back(new tree::Move(
+                tempExp(partialTemp),
+                new tree::ExtCall(tree::Type::INT, "__sysy_parallel_reduce_int_range", runtimeArgs)));
+            const std::string &var = plan.reductions.front().var;
+            auto *dst = lowerLValue(Node{NodeKind::LVal, plan.init.initExpr->loc, var});
+            stms->push_back(new tree::Move(
+                dst,
+                new tree::Binop(tree::Type::INT, "+",
+                                lowerExpr(Node{NodeKind::LVal, plan.init.initExpr->loc, var}),
+                                tempExp(partialTemp))));
+        }
+
+        if (ctxTemp != nullptr) {
+            stms->push_back(new tree::ExpStm(
+                new tree::ExtCall(tree::Type::INT, "free",
+                                  new std::vector<tree::Exp *>({ptrTempExp(ctxTemp)}))));
+        }
+    }
+
+    void emitParallelFinalIvUpdate(tree::Temp *ivTemp,
+                                   tree::Temp *beginTemp,
+                                   tree::Temp *endTemp,
+                                   std::vector<tree::Stm *> *stms) {
+        auto *setEndLabel = newLabel();
+        auto *doneLabel = newLabel();
+        stms->push_back(new tree::Cjump("<", tempExp(beginTemp), tempExp(endTemp),
+                                        setEndLabel, doneLabel));
+        stms->push_back(new tree::LabelStm(setEndLabel));
+        stms->push_back(new tree::Move(tempExp(ivTemp), tempExp(endTemp)));
+        stms->push_back(new tree::Jump(doneLabel));
+        stms->push_back(new tree::LabelStm(doneLabel));
     }
 
     std::string sanitizedFunctionName(const std::string &name) const {
@@ -1152,6 +1382,12 @@ private:
                     tempExp(captureTemp, field.symbol.base),
                     new tree::Mem(treeType(field.symbol.base), ctxFieldAddr(ctxParam, field.offset))));
             }
+        }
+
+        for (const ParallelPrivatizedScalar &scalar : plan.privatizedScalars) {
+            auto *scratchTemp = newTemp();
+            declareLocal(scalar.var, scratchTemp, BaseType::Int, scalar.initExpr->loc);
+            stms->push_back(new tree::Move(tempExp(scratchTemp), new tree::Const(0)));
         }
 
         tree::Temp *reductionTemp = nullptr;
@@ -1217,6 +1453,14 @@ private:
         if (exprContainsCall(*plan.endExpr)) {
             return false;
         }
+        // The source comparison follows the usual int/float conversion rules,
+        // while the native range runtime accepts integer endpoints only.  In
+        // particular, truncating `i < 600.5` to the integer endpoint 600 would
+        // drop the final source iteration.  Keep mixed/float bounds on the
+        // ordinary sequential lowering path.
+        if (exprBaseType(*plan.endExpr) != BaseType::Int) {
+            return false;
+        }
         if (!plan.init.type.empty() && plan.init.type != "int") {
             return false;
         }
@@ -1228,7 +1472,12 @@ private:
         }
 
         std::vector<ParallelContextField> fields;
-        if (!buildParallelContextFields(plan, fields) || !nativeParallelAliasSafe(plan, fields)) {
+        std::vector<ParallelAliasPair> aliasPairs;
+        std::vector<Symbol> scratchSymbols;
+        if (!buildParallelContextFields(plan, fields) ||
+            !reductionDestinationIsInt(plan) ||
+            !buildParallelScratchSymbols(plan, scratchSymbols) ||
+            !buildParallelAliasGuardPairs(fields, aliasPairs)) {
             return false;
         }
 
@@ -1248,63 +1497,67 @@ private:
         stms->push_back(new tree::Move(tempExp(ivTemp), lowerExprAs(*plan.init.initExpr, BaseType::Int)));
 
         auto *beginTemp = newTemp();
+        auto *rawEndTemp = newTemp();
         auto *endTemp = newTemp();
         stms->push_back(new tree::Move(tempExp(beginTemp), tempExp(ivTemp)));
-        stms->push_back(new tree::Move(tempExp(endTemp), lowerExprAs(*plan.endExpr, BaseType::Int)));
+        stms->push_back(new tree::Move(
+            tempExp(rawEndTemp), lowerExprAs(*plan.endExpr, BaseType::Int)));
 
-        tree::Temp *ctxTemp = nullptr;
-        tree::Exp *ctxArg = new tree::Const(0, tree::Type::PTR);
-        if (!fields.empty()) {
-            ctxTemp = newTemp();
-            int ctxBytes = parallelContextBytes(fields);
+        tree::Label *inclusiveDoneLabel = nullptr;
+        if (plan.inclusiveEnd) {
+            // Normalizing <= to a half-open range needs end + 1.  Preserve the
+            // original wrapping-loop behavior when a dynamic endpoint is
+            // INT_MAX by taking a sequential path that uses the source <=
+            // comparison instead of overflowing the normalized endpoint.
+            auto *overflowLabel = newLabel();
+            auto *normalLabel = newLabel();
+            inclusiveDoneLabel = newLabel();
+            stms->push_back(new tree::Cjump("==", tempExp(rawEndTemp),
+                                            new tree::Const(INT_MAX),
+                                            overflowLabel, normalLabel));
+            stms->push_back(new tree::LabelStm(overflowLabel));
+            lowerParallelSequentialFallback(plan, ivTemp, rawEndTemp, "<=", stms);
+            stms->push_back(new tree::Jump(inclusiveDoneLabel));
+            stms->push_back(new tree::LabelStm(normalLabel));
             stms->push_back(new tree::Move(
-                ptrTempExp(ctxTemp),
-                new tree::ExtCall(tree::Type::PTR, "malloc",
-                                  new std::vector<tree::Exp *>({new tree::Const(ctxBytes)}))));
-            ctxArg = ptrTempExp(ctxTemp);
-            for (const ParallelContextField &field : fields) {
-                tree::Exp *value = field.capture.array ? arrayBase(field.symbol)
-                                                       : symbolScalarValue(field.symbol);
-                tree::Type fieldType = field.capture.array ? tree::Type::PTR : treeType(field.symbol.base);
-                stms->push_back(new tree::Move(
-                    new tree::Mem(fieldType, ctxFieldAddr(ctxTemp, field.offset)),
-                    value));
-            }
-        }
-
-        auto *runtimeArgs = new std::vector<tree::Exp *>({
-            tempExp(beginTemp),
-            tempExp(endTemp),
-            ctxArg,
-            new tree::Name(new tree::String_Label(workerName))
-        });
-
-        if (plan.reductions.empty()) {
-            stms->push_back(new tree::ExpStm(
-                new tree::ExtCall(tree::Type::INT, "__sysy_parallel_for_range", runtimeArgs)));
+                tempExp(endTemp),
+                new tree::Binop(tree::Type::INT, "+", tempExp(rawEndTemp),
+                                new tree::Const(1))));
         } else {
-            auto *partialTemp = newTemp();
-            stms->push_back(new tree::Move(
-                tempExp(partialTemp),
-                new tree::ExtCall(tree::Type::INT, "__sysy_parallel_reduce_int_range", runtimeArgs)));
-            const std::string &var = plan.reductions.front().var;
-            auto *dst = lowerLValue(Node{NodeKind::LVal, plan.init.initExpr->loc, var});
-            BaseType dstBase = dst->type == tree::Type::FLOAT ? BaseType::Float : BaseType::Int;
-            if (dstBase != BaseType::Int) {
-                return false;
-            }
-            stms->push_back(new tree::Move(
-                dst,
-                new tree::Binop(tree::Type::INT, "+", lowerExpr(Node{NodeKind::LVal, plan.init.initExpr->loc, var}),
-                                tempExp(partialTemp))));
+            stms->push_back(new tree::Move(tempExp(endTemp), tempExp(rawEndTemp)));
         }
 
-        if (ctxTemp != nullptr) {
-            stms->push_back(new tree::ExpStm(
-                new tree::ExtCall(tree::Type::INT, "free",
-                                  new std::vector<tree::Exp *>({ptrTempExp(ctxTemp)}))));
+        std::vector<ParallelScratchWriteback> scratchWritebacks =
+            buildParallelScratchWritebacks(plan, scratchSymbols, stms);
+
+        if (!aliasPairs.empty()) {
+            auto *sequentialLabel = newLabel();
+            auto *parallelLabel = newLabel();
+            auto *doneLabel = newLabel();
+            emitRuntimeAliasGuard(fields, aliasPairs, sequentialLabel, parallelLabel, stms);
+
+            stms->push_back(new tree::LabelStm(sequentialLabel));
+            lowerParallelSequentialFallback(plan, ivTemp,
+                                            plan.inclusiveEnd ? rawEndTemp : endTemp,
+                                            plan.inclusiveEnd ? "<=" : "<", stms);
+            stms->push_back(new tree::Jump(doneLabel));
+
+            stms->push_back(new tree::LabelStm(parallelLabel));
+            emitParallelRuntimeCall(plan, fields, workerName, beginTemp, endTemp, stms);
+            emitParallelFinalIvUpdate(ivTemp, beginTemp, endTemp, stms);
+            emitParallelScratchWritebacks(scratchWritebacks, beginTemp, endTemp, stms);
+            stms->push_back(new tree::Jump(doneLabel));
+
+            stms->push_back(new tree::LabelStm(doneLabel));
+        } else {
+            emitParallelRuntimeCall(plan, fields, workerName, beginTemp, endTemp, stms);
+            emitParallelFinalIvUpdate(ivTemp, beginTemp, endTemp, stms);
+            emitParallelScratchWritebacks(scratchWritebacks, beginTemp, endTemp, stms);
         }
-        stms->push_back(new tree::Move(tempExp(ivTemp), tempExp(endTemp)));
+
+        if (inclusiveDoneLabel != nullptr) {
+            stms->push_back(new tree::LabelStm(inclusiveDoneLabel));
+        }
         return true;
     }
 

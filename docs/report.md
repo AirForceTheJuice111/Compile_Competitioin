@@ -134,14 +134,37 @@ Loop analysis is shared by native lowering and the plan dump interface:
 - `include/sysy/parallel_plan.hh`
 - `lib/sysy/parallel_plan.cc`
 
-The analysis recognizes affine `while` loops with disjoint array writes or
-integer sum reductions. It rejects loops with calls, control-flow exits,
-unsafe scalar writes, unproven array disjointness, multiple reductions, and
-float reductions.
+The analysis recognizes affine `while` loops with `<` or `<=` invariant integer
+upper bounds, disjoint array writes, and strict integer sum reductions. The
+inclusive `<=` form is normalized to the half-open AArch64 runtime interval by
+evaluating the end expression once and passing `end + 1` to the helper; dynamic
+endpoints equal to `INT_MAX` take a generated sequential path with the original
+comparison. Bounds containing calls, arrays, the induction variable, or
+scalars modified by the loop are rejected. Same-array accesses are
+kept parallel only when reads and writes stay in the same first-index partition;
+cross-iteration patterns such as `a[i] = a[i + 1]` are rejected. Same-rank
+array parameter aliasing no longer forces a static rejection: lowering emits a
+runtime pointer guard and falls back to the original sequential loop when the
+captured array bases alias. The pass still rejects loops with calls,
+control-flow exits, unsafe scalar writes, unguardable array disjointness,
+multiple reductions, and float reductions.
+
+Nested-loop profitability detection is recursive through blocks and
+conditionals. Reduction validation also rejects self-dependent accumulators and
+uses of a partial accumulator value elsewhere in the loop body.
+
+Pure outer integer reductions may also privatize one canonical nested-loop
+scratch IV when the complete outer body is an unconditional constant reset
+followed immediately by that IV's invariant-bound unit-step loop. Workers bind
+the scratch name to a private temp. The caller writes its deterministic final
+IV value back after every nonempty parallel range and preserves the incoming
+value for an empty range, avoiding any assumption that the scalar is dead.
 
 Optimized modes enable native parallel lowering by default. The generated
 AArch64 assembly contains worker functions, 8-byte pointer-safe context
-layouts, and runtime helper implementations when needed.
+layouts, and runtime helper implementations when needed. Known constant trip
+counts below the native runtime's thread threshold are kept sequential to avoid
+paying context and helper-call overhead when no pthread worker would be used.
 
 ## Build And Test
 
@@ -163,6 +186,7 @@ Run all executable tests:
 ```sh
 make run
 SYSY_OPT='-O1' make run
+make sysy-parallel-plan-regression
 ```
 
 Run one test:
@@ -189,5 +213,6 @@ is performance:
 
 - implement an AArch64 register allocator;
 - add AArch64 peephole and addressing-mode optimizations;
-- tune loop parallelization profitability on Cortex-A53 hardware;
+- support multi-reduction loops with a richer native runtime ABI;
+- tune the remaining dynamic profitability model on Cortex-A53 hardware;
 - consider inlining, GVN/MemSSA, loop unrolling, and NEON lowering.

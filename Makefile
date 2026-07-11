@@ -14,7 +14,7 @@ SYSY_OPT ?=
 OUT_DIR ?= $(CURDIR)/output
 RUN_WORK ?= /tmp/sysy_run_one
 
-.PHONY: build clean rebuild compile run run-one sysy-parse-regression sysy-semantic-regression sysy-functional-regression sysy-performance-regression sysy-parallel-native-regression
+.PHONY: build clean rebuild compile run run-one sysy-parse-regression sysy-semantic-regression sysy-functional-regression sysy-performance-regression sysy-parallel-native-regression sysy-parallel-plan-regression
 
 RUN_ONE_ARG := $(word 2,$(MAKECMDGOALS))
 
@@ -69,3 +69,7 @@ sysy-parallel-native-regression: build
 	@COMPILER="$(COMPILER)" AARCH64_CC="$(AARCH64_CC)" AARCH64_CC_FLAGS="$(AARCH64_CC_FLAGS)" \
 		QEMU_AARCH64="$(QEMU_AARCH64)" SYSY_AARCH64_SYSROOT="$(SYSY_AARCH64_SYSROOT)" \
 		LIBSYSY_AARCH64_C="$(LIBSYSY_AARCH64_C)" bash scripts/sysy_parallel_native_regression.sh
+
+sysy-parallel-plan-regression: build
+	@COMPILER="$(COMPILER)" SYSY_TEST_ROOT="$(CURDIR)/test/functional" \
+		bash scripts/sysy_parallel_plan_regression.sh

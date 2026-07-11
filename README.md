@@ -116,9 +116,20 @@ arrays use the official `sylib.c/.h` runtime interface.
 
 Native loop parallelization is enabled automatically for optimized modes unless
 `--no-parallel-native` is passed. The lowering stage uses the shared loop plan
-analysis in `lib/sysy/parallel_plan.cc`; when a loop is parallelized, the
-AArch64 assembly embeds worker functions, 8-byte pointer-safe context structs,
-and a small pthread runtime in the same `.s` file.
+analysis in `lib/sysy/parallel_plan.cc`; current canonical loops may use either
+`while (i < end)` or `while (i <= end)` with unit increments. When a loop is
+parallelized, the AArch64 assembly embeds worker functions, 8-byte pointer-safe
+context structs, and a small pthread runtime in the same `.s` file. Parameter
+array aliasing is handled with a runtime guard for same-rank array parameters:
+aliasing calls take a generated sequential fallback, while non-aliasing calls
+use the parallel worker. Loop endpoints must be invariant integer expressions;
+dynamic inclusive endpoints guard `INT_MAX` and use the original sequential
+comparison on the overflow path.
+Pure integer reductions can additionally select an outer loop whose complete
+body resets one previously declared integer scratch IV and runs its canonical
+nested loop. The scratch is worker-private, but its source-visible final IV
+value is still restored for nonempty outer ranges; empty ranges leave it
+unchanged.
 
 ## Native Parallel Check
 
@@ -126,6 +137,7 @@ The production native parallel path can be checked with:
 
 ```sh
 THREADS=2 make sysy-parallel-native-regression
+make sysy-parallel-plan-regression
 ```
 
 ## Runtime Files
