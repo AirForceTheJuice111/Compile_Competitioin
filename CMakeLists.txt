@@ -20,6 +20,7 @@ set(BACKEND_SOURCES
     lib/opt/algebrasimp.cc
     lib/opt/copyprop.cc
     lib/opt/defusechain.cc
+    lib/opt/funcspec.cc
     lib/opt/gvn.cc
     lib/opt/inline.cc
     lib/opt/loopheaderwithflow.cc

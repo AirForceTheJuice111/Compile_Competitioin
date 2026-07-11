@@ -5,6 +5,7 @@
 #include "canon.hh"
 #include "copyprop.hh"
 #include "flowinfo.hh"
+#include "funcspec.hh"
 #include "gvn.hh"
 #include "inline.hh"
 #include "loopheader.hh"
@@ -343,6 +344,18 @@ quad::QuadProgram *runCopyPropPass(quad::QuadProgram *program) {
                   << " instructions\n";
         std::cerr.flush();
     }
+    return result;
+}
+
+quad::QuadProgram *runFuncSpecPass(quad::QuadProgram *program) {
+    int eliminated = 0;
+    auto *result = quad::funcSpecProg(program, &eliminated);
+    if (result == nullptr) return program;
+    refreshQuadExtents(result);
+    const char *env = std::getenv("BACKEND_PROFILE");
+    if (env && env[0] && std::string(env) != "0")
+        std::cerr << "BACKEND_PROFILE funcspec created " << eliminated
+                  << " specializations\n";
     return result;
 }
 
@@ -1683,6 +1696,14 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
             return result;
         }
         profile.mark("copyprop");
+    }
+    if (optModeUsesSccp(options.optMode)) {
+        optimizedSsa = runFuncSpecPass(optimizedSsa);
+        if (optimizedSsa == nullptr) {
+            result.error = "FuncSpec optimization failed";
+            return result;
+        }
+        profile.mark("funcspec");
     }
     if (optModeUsesSccp(options.optMode)) {
         optimizedSsa = runInlinePass(optimizedSsa);

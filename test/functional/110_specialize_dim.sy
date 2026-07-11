@@ -1,0 +1,12 @@
+// Function Specialization: simple function with constant param
+int triple(int x) {
+    return x + x + x;
+}
+int compute(int a, int b) {
+    return a * b;
+}
+int main() {
+    int x = triple(7);     // x=21, can specialize triple for 7
+    int y = compute(3, 5); // y=15, can specialize compute for (3,5)
+    return x + y;          // 36
+}
