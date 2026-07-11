@@ -1,0 +1,11 @@
+// Algebra Simplification: identity elements
+int calc(int x) {
+    int a, b, c, d, e;
+    a = x + 0;
+    b = x * 1;
+    c = x - 0;
+    d = 0 + x;
+    e = 1 * x;
+    return a + b + c + d + e;
+}
+int main() { return calc(7); }  // 35
