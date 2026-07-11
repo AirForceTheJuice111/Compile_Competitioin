@@ -1744,6 +1744,12 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
         }
         profile.mark("inline");
     }
+    // Round 2: CopyProp+DCE after inlining cleans up new copies
+    if (optModeUsesSccp(options.optMode)) {
+        optimizedSsa = runCopyPropPass(optimizedSsa);
+        if (!optimizedSsa) { result.error="CopyProp round2 failed"; return result; }
+        profile.mark("copyprop-r2");
+    }
     if (optModeUsesLicm(options.optMode)) {
         optimizedSsa = runLicmPass(optimizedSsa);
         if (optimizedSsa == nullptr) {
