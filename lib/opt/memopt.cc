@@ -1,155 +1,58 @@
 #include "memopt.hh"
-
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
 #include <vector>
-
 #include "quad.hh"
+#include "flowinfo.hh"
 #include "temp.hh"
-
 using namespace std;
 
 namespace {
-
 set<Temp*>* es() { return new set<Temp*>(); }
 set<Temp*>* os(int n) { auto* s = new set<Temp*>(); s->insert(new Temp(n)); return s; }
+using MemKey = int; const MemKey BAD = -1;
+MemKey key(quad::QuadTerm* a) { return (a&&a->kind==quad::QuadTermKind::TEMP)?a->get_temp()->temp->num:BAD; }
+bool call(quad::QuadStm* s) { if(!s)return false; auto k=s->kind; return k==quad::QuadKind::CALL||k==quad::QuadKind::EXTCALL||k==quad::QuadKind::MOVE_CALL||k==quad::QuadKind::MOVE_EXTCALL; }
 
-// Memory address key: PTR_CALC result temp number.
-// If a STORE and a LOAD use the same PTR_CALC temp as address,
-// they access the same location (within a block, no aliasing).
-using MemKey = int;  // PTR_CALC result temp number
-const MemKey INVALID_KEY = -1;
+struct Mem { map<MemKey,int> val; map<MemKey,int> pos; set<int> dead; };
 
-MemKey extractKey(quad::QuadTerm* addr) {
-    if (!addr || addr->kind != quad::QuadTermKind::TEMP) return INVALID_KEY;
-    return addr->get_temp()->temp->num;
+void memFn(quad::QuadFuncDecl* f, ControlFlowInfo* cfi, int& elim) {
+    if(!f||!f->quadblocklist||!cfi) return;
+    map<int,Mem> bs;
+    std::function<void(int)> walk=[&](int L){
+        auto it=cfi->labelToBlock.find(L); if(it==cfi->labelToBlock.end())return;
+        auto* b=it->second; if(!b||!b->quadlist)return;
+        Mem m; int id=-1; auto ii=cfi->immediateDominator.find(L); if(ii!=cfi->immediateDominator.end())id=ii->second;
+        if(id>=0&&bs.count(id)) m=bs[id];
+        auto* nl=new vector<quad::QuadStm*>();
+        for(auto* s:*b->quadlist){if(!s)continue;
+            if(call(s)){m.val.clear();m.pos.clear();nl->push_back(s);continue;}
+            if(s->kind==quad::QuadKind::STORE){auto* st=static_cast<quad::QuadStore*>(s); MemKey k=key(st->dst);
+                if(k==BAD){m.val.clear();m.pos.clear();nl->push_back(s);continue;}
+                int vt=-1; if(st->src&&st->src->kind==quad::QuadTermKind::TEMP)vt=st->src->get_temp()->temp->num;
+                if(m.pos.count(k)){m.dead.insert(m.pos[k]);elim++;}
+                m.val[k]=vt; m.pos[k]=(int)nl->size(); nl->push_back(st); continue;}
+            if(s->kind==quad::QuadKind::LOAD){auto* ld=static_cast<quad::QuadLoad*>(s); MemKey k=key(ld->src);
+                if(k==BAD){nl->push_back(s);continue;}
+                if(m.val.count(k)&&m.val[k]>=0){int dn=ld->dst->temp->num,sn=m.val[k];
+                    auto* src=new quad::QuadTerm(new quad::QuadTemp(new Temp(sn),ld->dst->type));
+                    nl->push_back(new quad::QuadMove(ld->dst->clone(),src,os(dn),os(sn))); elim++; continue;}
+                nl->push_back(s); continue;}
+            nl->push_back(s);}
+        if(!m.dead.empty()){auto* fl=new vector<quad::QuadStm*>(); for(int i=0;i<(int)nl->size();i++)if(!m.dead.count(i))fl->push_back((*nl)[i]); nl=fl;}
+        b->quadlist=nl; bs[L]=m;
+        auto dc=cfi->domTree.find(L); if(dc!=cfi->domTree.end())for(int c:dc->second)walk(c);
+    };
+    if(cfi->entryBlock>=0) walk(cfi->entryBlock);
 }
-
-// Check if a statement is a call that might have side effects.
-bool isSideEffectCall(quad::QuadStm* stm) {
-    if (!stm) return false;
-    switch (stm->kind) {
-    case quad::QuadKind::CALL:
-    case quad::QuadKind::EXTCALL:
-    case quad::QuadKind::MOVE_CALL:
-    case quad::QuadKind::MOVE_EXTCALL:
-        return true;
-    default:
-        return false;
-    }
-}
-
-void memOptFunction(quad::QuadFuncDecl* func, int& eliminated) {
-    if (!func || !func->quadblocklist) return;
-
-    // Optimize each block independently
-    for (auto* block : *func->quadblocklist) {
-        if (!block || !block->quadlist) continue;
-
-// Track last store to each address (PTR_CALC temp)
-    map<MemKey, int> lastStoreVal;   // MemKey -> stored value temp (-1 if const)
-    map<MemKey, int> lastStorePos;   // MemKey -> position in newList
-    set<int> deadPositions;
-
-        auto* newList = new vector<quad::QuadStm*>();
-
-        for (auto* stm : *block->quadlist) {
-            if (!stm) continue;
-
-            // Calls invalidate all memory state
-            if (isSideEffectCall(stm)) {
-                lastStoreVal.clear();
-                lastStorePos.clear();
-                newList->push_back(stm);
-                continue;
-            }
-
-            // STORE: mem[addr] = value
-            if (stm->kind == quad::QuadKind::STORE) {
-                auto* store = static_cast<quad::QuadStore*>(stm);
-                MemKey key = extractKey(store->dst);
-                if (key == INVALID_KEY) {
-                    newList->push_back(stm);
-                    // Invalidate stores to unknown addresses
-                    lastStoreVal.clear();
-                    lastStorePos.clear();
-                    continue;
-                }
-
-                // Get stored value temp
-                int valTemp = -1;
-                if (store->src && store->src->kind == quad::QuadTermKind::TEMP)
-                    valTemp = store->src->get_temp()->temp->num;
-
-                // If there's a previous store to same address, mark it dead
-                auto it = lastStorePos.find(key);
-                if (it != lastStorePos.end()) {
-                    deadPositions.insert(it->second);
-                    eliminated++;
-                }
-
-                // Record this store
-                lastStoreVal[key] = valTemp;
-                lastStorePos[key] = (int)newList->size();
-                newList->push_back(store);
-                continue;
-            }
-
-            // LOAD: temp = mem[addr]
-            if (stm->kind == quad::QuadKind::LOAD) {
-                auto* load = static_cast<quad::QuadLoad*>(stm);
-                MemKey key = extractKey(load->src);
-                if (key == INVALID_KEY) {
-                    newList->push_back(stm);
-                    continue;
-                }
-
-                // Check if we have a stored value for this address
-                auto it = lastStoreVal.find(key);
-                if (it != lastStoreVal.end() && it->second >= 0) {
-                    // Forward: replace LOAD with MOVE from stored value
-                    int dstNum = load->dst->temp->num;
-                    int srcNum = it->second;
-                    auto* src = new quad::QuadTerm(
-                        new quad::QuadTemp(new Temp(srcNum),
-                                           load->dst->type));
-                    auto* mv = new quad::QuadMove(
-                        load->dst->clone(), src, os(dstNum), os(srcNum));
-                    newList->push_back(mv);
-                    eliminated++;
-                    continue;
-                }
-
-                newList->push_back(stm);
-                continue;
-            }
-
-            newList->push_back(stm);
-        }
-
-        // Filter out dead stores
-        if (!deadPositions.empty()) {
-            auto* filtered = new vector<quad::QuadStm*>();
-            for (int i = 0; i < (int)newList->size(); i++)
-                if (!deadPositions.count(i))
-                    filtered->push_back((*newList)[i]);
-            newList = filtered;
-        }
-
-        block->quadlist = newList;
-    }
-}
-
 } // namespace
 
 namespace quad {
-QuadProgram* memOptProg(QuadProgram* prog, int* eliminatedOut) {
-    if (!prog) return prog;
-    int eliminated = 0;
-    for (auto* fd : *prog->quadFuncDeclList)
-        if (fd) memOptFunction(fd, eliminated);
-    if (eliminatedOut) *eliminatedOut = eliminated;
-    return prog;
+QuadProgram* memOptProg(QuadProgram* p, set<FuncFlowInfo*>* fl, int* eo) {
+    if(!p||!fl)return p; int e=0;
+    for(auto* ff:*fl)if(ff&&ff->cfi&&ff->cfi->func)memFn(ff->cfi->func,ff->cfi,e);
+    if(eo)*eo=e; return p;
 }
 } // namespace quad

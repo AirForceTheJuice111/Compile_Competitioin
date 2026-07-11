@@ -286,6 +286,14 @@ bool optModeUsesIv(OptMode mode) {
     return mode == OptMode::Loop2 || mode == OptMode::AllLoop || mode == OptMode::AllOpt;
 }
 
+// Check if a specific pass is disabled via SKIP_PASS=name env var.
+bool passEnabled(const std::string &name) {
+    const char *env = std::getenv("SKIP_PASS");
+    if (!env || !env[0]) return true;
+    std::string skip(env);
+    return skip.find(name) == std::string::npos;
+}
+
 quad::QuadProgram *runGvnPass(quad::QuadProgram *program) {
     auto *flow = computeFlow(program);
     if (flow == nullptr) {
@@ -349,8 +357,10 @@ quad::QuadProgram *runCopyPropPass(quad::QuadProgram *program) {
 }
 
 quad::QuadProgram *runMemOptPass(quad::QuadProgram *program) {
+    auto *flow = computeFlow(program);
+    if (flow == nullptr) return program;
     int eliminated = 0;
-    auto *result = quad::memOptProg(program, &eliminated);
+    auto *result = quad::memOptProg(program, flow, &eliminated);
     if (result == nullptr) return program;
     refreshQuadExtents(result);
     const char *env = std::getenv("BACKEND_PROFILE");
@@ -1686,7 +1696,7 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
         refreshQuadExtents(optimizedSsa);
         profile.mark("sccp");
     }
-    if (optModeUsesSccp(options.optMode)) {
+    if (optModeUsesSccp(options.optMode) && passEnabled("algebrasimp")) {
         optimizedSsa = runAlgebraSimpPass(optimizedSsa);
         if (optimizedSsa == nullptr) {
             result.error = "AlgebraSimp optimization failed";
