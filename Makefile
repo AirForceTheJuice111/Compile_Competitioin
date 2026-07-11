@@ -11,10 +11,13 @@ LIBSYSY_AARCH64_C ?= $(CURDIR)/vendor/libsysy/sylib.c
 SYSY_TEST_ROOT ?= $(CURDIR)/test
 SYSY_PERF_ARCHIVE ?= /tmp/compiler2025/ARM-性能.zip
 SYSY_OPT ?=
+MAX_CASES ?=
+FILTER ?=
+THREADS ?= 2
 OUT_DIR ?= $(CURDIR)/output
 RUN_WORK ?= /tmp/sysy_run_one
 
-.PHONY: build clean rebuild compile run run-one sysy-parse-regression sysy-semantic-regression sysy-functional-regression sysy-performance-regression sysy-parallel-native-regression
+.PHONY: build clean rebuild compile run run-one benchmark sysy-parse-regression sysy-semantic-regression sysy-functional-regression sysy-performance-regression sysy-parallel-native-regression
 
 RUN_ONE_ARG := $(word 2,$(MAKECMDGOALS))
 
@@ -66,6 +69,18 @@ sysy-performance-regression: build
 		bash scripts/sysy_performance_regression.sh
 
 sysy-parallel-native-regression: build
+	@COMPILER="$(COMPILER)" AARCH64_CC="$(AARCH64_CC)" AARCH64_CC_FLAGS="$(AARCH64_CC_FLAGS)" \
+		QEMU_AARCH64="$(QEMU_AARCH64)" SYSY_AARCH64_SYSROOT="$(SYSY_AARCH64_SYSROOT)" \
+		LIBSYSY_AARCH64_C="$(LIBSYSY_AARCH64_C)" THREADS=$(THREADS) \
+		bash scripts/sysy_parallel_native_regression.sh
+
+benchmark: build
+	@COMPILER="$(COMPILER)" AARCH64_CC="$(AARCH64_CC)" AARCH64_CC_FLAGS="$(AARCH64_CC_FLAGS)" \
+		QEMU_AARCH64="$(QEMU_AARCH64)" SYSY_AARCH64_SYSROOT="$(SYSY_AARCH64_SYSROOT)" \
+		LIBSYSY_AARCH64_C="$(LIBSYSY_AARCH64_C)" MAX_CASES=$(MAX_CASES) \
+		bash scripts/benchmark.sh $(FILTER)
+
+sysy-parse-regression: build
 	@COMPILER="$(COMPILER)" AARCH64_CC="$(AARCH64_CC)" AARCH64_CC_FLAGS="$(AARCH64_CC_FLAGS)" \
 		QEMU_AARCH64="$(QEMU_AARCH64)" SYSY_AARCH64_SYSROOT="$(SYSY_AARCH64_SYSROOT)" \
 		LIBSYSY_AARCH64_C="$(LIBSYSY_AARCH64_C)" bash scripts/sysy_parallel_native_regression.sh
