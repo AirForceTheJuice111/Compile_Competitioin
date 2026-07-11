@@ -24,6 +24,7 @@ set(BACKEND_SOURCES
     lib/opt/gvn.cc
     lib/opt/inline.cc
     lib/opt/loopheaderwithflow.cc
+    lib/opt/memopt.cc
     lib/opt/loophoistfunc.cc
     lib/opt/loopinductionbasic.cc
     lib/opt/loopinductionderived.cc

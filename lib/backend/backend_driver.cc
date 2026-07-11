@@ -9,6 +9,7 @@
 #include "gvn.hh"
 #include "inline.hh"
 #include "loopheader.hh"
+#include "memopt.hh"
 #include "loopinductionopt.hh"
 #include "looplicm.hh"
 #include "opt.hh"
@@ -344,6 +345,18 @@ quad::QuadProgram *runCopyPropPass(quad::QuadProgram *program) {
                   << " instructions\n";
         std::cerr.flush();
     }
+    return result;
+}
+
+quad::QuadProgram *runMemOptPass(quad::QuadProgram *program) {
+    int eliminated = 0;
+    auto *result = quad::memOptProg(program, &eliminated);
+    if (result == nullptr) return program;
+    refreshQuadExtents(result);
+    const char *env = std::getenv("BACKEND_PROFILE");
+    if (env && env[0] && std::string(env) != "0")
+        std::cerr << "BACKEND_PROFILE memopt eliminated " << eliminated
+                  << " instructions\n";
     return result;
 }
 
@@ -1696,6 +1709,14 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
             return result;
         }
         profile.mark("copyprop");
+    }
+    if (optModeUsesSccp(options.optMode)) {
+        optimizedSsa = runMemOptPass(optimizedSsa);
+        if (optimizedSsa == nullptr) {
+            result.error = "MemOpt optimization failed";
+            return result;
+        }
+        profile.mark("memopt");
     }
     if (optModeUsesSccp(options.optMode)) {
         optimizedSsa = runFuncSpecPass(optimizedSsa);

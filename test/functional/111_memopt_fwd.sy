@@ -1,0 +1,14 @@
+// Memory Optimization: store-to-load forwarding
+// After storing x to arr[i], loading arr[i] should return x
+
+int arr[10];
+int main() {
+    int i, x;
+    i = 0;
+    while (i < 10) {
+        arr[i] = i * 2;      // store
+        x = arr[i];          // load → should be forwarded to i*2
+        i = i + 1;
+    }
+    return arr[9];  // 18
+}
