@@ -1,0 +1,39 @@
+---
+# 编译器项目代码风格配置
+# 要求：
+#   1. if/循环体只有一行代码时不用大括号，该行与 if/循环在同一行
+#   2. tab 使用 4 个空格
+#   3. 小括号和大括号周围要有空格
+
+BasedOnStyle: LLVM
+
+# 缩进 4 个空格，不使用 tab
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+# 单行 if / 循环：body 只有一行时放在同一行
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+AllowShortLoopsOnASingleLine: true
+AllowShortBlocksOnASingleLine: Always
+
+# 移除单行 if/loop 的多余大括号
+RemoveBracesLLVM: true
+
+# 小括号周围空格：控制流关键字后加空格 if (...) / for (...)
+SpaceBeforeParens: ControlStatements
+
+# 大括号风格：attach，保证 { 前有空格
+BreakBeforeBraces: Attach
+
+# 不限制列宽，避免强制折行已有的长行
+ColumnLimit: 0
+
+# 其他
+IndentCaseLabels: false
+AlignAfterOpenBracket: Align
+AllowShortFunctionsOnASingleLine: Inline
+SortIncludes: false
+PointerAlignment: Right
+SpaceAfterCStyleCast: false
+...

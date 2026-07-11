@@ -1,0 +1,4 @@
+// EXPECT: FAIL
+int f() {
+  return 1;
+}

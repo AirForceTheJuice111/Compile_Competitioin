@@ -1,3 +1,8 @@
+.vscode
+.agents
+.codex
+.DS_Store
+
 # Prerequisites
 *.d
 
@@ -25,8 +30,22 @@
 *.la
 *.a
 *.lib
+!vendor/libsysy/libsysy_arm.a
 
 # Executables
 *.exe
 *.out
 *.app
+
+**/build
+HW11/build/
+final/output/
+output/
+**/*.pdf
+**/*.zip
+
+**/*.ast
+**/*.my
+
+**/*.quad
+tmp

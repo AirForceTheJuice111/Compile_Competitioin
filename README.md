@@ -1,37 +1,146 @@
-# FDUCompilerH2026
+# SysY2022 AArch64 Contest Compiler
 
-#### 介绍
-This is code repository for programming exercises for the Compiler(H) class in the Spring Semester of 2026.
+This branch is the SysY2022 contest migration. The public contest entry is:
 
-#### 软件架构
-软件架构说明
+```sh
+build/compiler -S -o output.s input.sy
+```
 
+The old FMJ frontend, AST, interpreter, course harness, ARM32 backend, GCC
+bridge, and ARM32 runtime files have been removed from this branch. Assembly
+output is AArch64 ARMv8-A only.
 
-#### 安装教程
+## Environment
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+Expected tools on x86_64 Linux:
 
-#### 使用说明
+- `make`, `cmake`, `ninja`
+- `clang` with `--target=aarch64-linux-gnu`
+- `qemu-aarch64`
+- AArch64 sysroot, defaulting to `/usr/aarch64-linux-gnu`
+- `unzip` for optional performance archive regression
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+## Build
 
-#### 参与贡献
+```sh
+make build
+```
 
-1.  Fork 本仓库
-2.  新建 Feat_xxx 分支
-3.  提交代码
-4.  新建 Pull Request
+This builds `build/compiler`. The compiler uses the native SysY lexer, parser,
+semantic checker, lowering code, Tree/Quad/SSA optimizers, and the native
+AArch64 backend. `--target aarch64` is accepted as a compatibility no-op; any
+ARM32 target or bridge option is rejected.
 
+Useful frontend/debug commands:
 
-#### 特技
+```sh
+build/compiler --dump-tokens test/functional/95_float.sy
+build/compiler --dump-ast test/functional/95_float.sy
+build/compiler --check-sysy test/functional/95_float.sy
+build/compiler --dump-parallel-plan test/performance_final/2025-MYO-20.sy
+```
 
-1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
-2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
-3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
-4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
-5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
-6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+## Run One Program
+
+```sh
+make run-one test/functional/95_float.sy
+SYSY_OPT='-O1' make run-one test/performance_final/2025-3Z0-43.sy
+```
+
+`make run-one` compiles the selected `.sy` file to AArch64 assembly, links it
+with `vendor/libsysy/sylib.c`, runs it through `qemu-aarch64 -L
+/usr/aarch64-linux-gnu`, prints stdout/stderr/return code, and compares
+`stdout + return_code` with a sibling `.out` file when one exists. If a sibling
+`.in` file exists, it is used as stdin.
+
+Equivalent manual command:
+
+```sh
+build/compiler -S -o /tmp/program.s test/functional/00_main.sy
+clang --target=aarch64-linux-gnu \
+  -o /tmp/program.a64 /tmp/program.s vendor/libsysy/sylib.c -lm
+qemu-aarch64 -L /usr/aarch64-linux-gnu /tmp/program.a64
+```
+
+If the generated assembly calls the embedded parallel helpers
+`__sysy_parallel_for_range` or `__sysy_parallel_reduce_int_range`, the run
+scripts add `-pthread` at link time.
+
+## Regression
+
+Compile every positive `.sy` under `test/`:
+
+```sh
+make compile
+SYSY_OPT='-O1' make compile
+```
+
+Run functional regression:
+
+```sh
+make run
+make sysy-functional-regression
+MAX_CASES=40 make sysy-functional-regression
+```
+
+Run parser and semantic checks:
+
+```sh
+make sysy-parse-regression
+make sysy-semantic-regression
+```
+
+Run performance archive regression:
+
+```sh
+make sysy-performance-regression SYSY_PERF_ARCHIVE=/tmp/compiler2025/ARM-性能.zip
+MAX_CASES=3 make sysy-performance-regression
+```
+
+## AArch64 Backend
+
+The backend lowers SysY AST into the migrated Tree/Quad/SSA IR. It supports the
+existing SCCP, LICM, and induction-variable optimization modes:
+
+- `-O0` or `--opt-mode none`
+- `const`
+- `loop1`
+- `loop2`
+- `allloop`
+- `allopt`, `-O1`, `-O2`
+
+The AArch64 emitter uses 64-bit pointers and AAPCS64 calling convention:
+integer/pointer arguments use `w/x` registers, scalar floats use `s` registers,
+and `%f` varargs are promoted to `double` in `d` registers. SysY globals and
+arrays use the official `sylib.c/.h` runtime interface.
+
+Native loop parallelization is enabled automatically for optimized modes unless
+`--no-parallel-native` is passed. The lowering stage uses the shared loop plan
+analysis in `lib/sysy/parallel_plan.cc`; when a loop is parallelized, the
+AArch64 assembly embeds worker functions, 8-byte pointer-safe context structs,
+and a small pthread runtime in the same `.s` file.
+
+## Native Parallel Check
+
+The production native parallel path can be checked with:
+
+```sh
+THREADS=2 make sysy-parallel-native-regression
+```
+
+## Runtime Files
+
+Only the official SysY source runtime is kept:
+
+- `vendor/libsysy/sylib.c`
+- `vendor/libsysy/sylib.h`
+
+Legacy `libsysy32.*`, `libsysy64.*`, and `libsysy_arm.a` were removed during
+the AArch64-only migration.
+
+## Tests
+
+`test/` contains official functional SysY2022 tests, hidden-style functional
+tests, local semantic rejects, final performance cases, and additional
+FINALREPORT tests. The old FMJ `.fmj` corpus is not part of this contest
+branch.
