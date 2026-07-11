@@ -87,7 +87,70 @@ quad::QuadTerm *simplifyBinop(const string &op, quad::QuadTerm *left,
     if (op == "-" && isTemp(left) && isTemp(right) &&
         left->get_temp()->temp->num == right->get_temp()->temp->num)
         return termConst(0);
+
+    // Same-temp identity: x & x = x, x | x = x, x ^ x = 0
+    if (isTemp(left) && isTemp(right) &&
+        left->get_temp()->temp->num == right->get_temp()->temp->num) {
+        if (op == "&" || op == "|") return left;
+        if (op == "^") return termConst(0);
+        if (op == "==" || op == "<=" || op == ">=") return termConst(1);
+        if (op == "!=" || op == "<" || op == ">") return termConst(0);
+    }
+
+    // Strength reduction: x * const_pow2 → x << log2(const)
+    if (op == "*" && rc && rv > 0 && (rv & (rv - 1)) == 0 && rv <= 256) {
+        // Power of 2: transform to left shift
+        int shift = 0; while (rv >>= 1) shift++;
+        // Return nullptr and handle in caller by modifying binop
+        return nullptr; // handled via tryStrengthReduce
+    }
+    if (op == "*" && lc && lv > 0 && (lv & (lv - 1)) == 0 && lv <= 256) {
+        return nullptr; // handled via tryStrengthReduce
+    }
+
+    // Negation: 0 - x  stays as-is (already handled)
+    // -1 * x → 0 - x
+    if (op == "*" && lc && lv == -1) return nullptr; // handled via negate transform
+
     return nullptr;
+}
+
+// Try to strength-reduce or transform the BINOP in-place. Returns true if modified.
+bool tryStrengthReduce(quad::QuadMoveBinop* bp) {
+    string op = bp->binop;
+    auto *L = bp->left, *R = bp->right;
+    bool lc = isConst(L), rc = isConst(R);
+    int lv = constVal(L), rv = constVal(R);
+
+    // x * pow2 → x << log2(pow2)
+    if (op == "*") {
+        if (rc && rv > 0 && (rv & (rv - 1)) == 0 && rv <= 256) {
+            int shift = 0, v = rv; while (v > 1) { v >>= 1; shift++; }
+            bp->binop = "<<";
+            bp->right = termConst(shift);
+            return true;
+        }
+        if (lc && lv > 0 && (lv & (lv - 1)) == 0 && lv <= 256) {
+            int shift = 0, v = lv; while (v > 1) { v >>= 1; shift++; }
+            bp->binop = "<<";
+            bp->left = bp->right;
+            bp->right = termConst(shift);
+            return true;
+        }
+        // -1 * x → 0 - x
+        if (lc && lv == -1) {
+            bp->binop = "-";
+            bp->left = termConst(0);
+            return true;
+        }
+        if (rc && rv == -1) {
+            bp->binop = "-";
+            bp->right = bp->left;
+            bp->left = termConst(0);
+            return true;
+        }
+    }
+    return false;
 }
 
 int simplifyCondition(const string &relop, quad::QuadTerm *left,
@@ -126,6 +189,12 @@ void algebraSimpFunction(quad::QuadFuncDecl *func, int &eliminated) {
                     if (r->kind == quad::QuadTermKind::TEMP)
                         mv->use->insert(new Temp(r->get_temp()->temp->num));
                     newList->push_back(mv);
+                    eliminated++;
+                    continue;
+                }
+                // Try strength reduction (modifies binop in-place)
+                if (tryStrengthReduce(b)) {
+                    newList->push_back(b);
                     eliminated++;
                     continue;
                 }
