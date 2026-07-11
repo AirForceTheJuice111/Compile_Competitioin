@@ -2,6 +2,7 @@
 
 #include "blocking.hh"
 #include "canon.hh"
+#include "copyprop.hh"
 #include "flowinfo.hh"
 #include "gvn.hh"
 #include "loopheader.hh"
@@ -296,6 +297,23 @@ quad::QuadProgram *runGvnPass(quad::QuadProgram *program) {
     const char *env = std::getenv("BACKEND_PROFILE");
     if (env != nullptr && env[0] != '\0' && std::string(env) != "0") {
         std::cerr << "BACKEND_PROFILE gvn eliminated " << eliminated
+                  << " instructions\n";
+        std::cerr.flush();
+    }
+    return result;
+}
+
+quad::QuadProgram *runCopyPropPass(quad::QuadProgram *program) {
+    int eliminated = 0;
+    auto *result = quad::copyPropProg(program, &eliminated);
+    if (result == nullptr) {
+        return program;
+    }
+    refreshQuadExtents(result);
+
+    const char *env = std::getenv("BACKEND_PROFILE");
+    if (env != nullptr && env[0] != '\0' && std::string(env) != "0") {
+        std::cerr << "BACKEND_PROFILE copyprop eliminated " << eliminated
                   << " instructions\n";
         std::cerr.flush();
     }
@@ -1623,6 +1641,14 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
             return result;
         }
         profile.mark("gvn");
+    }
+    if (optModeUsesSccp(options.optMode)) {
+        optimizedSsa = runCopyPropPass(optimizedSsa);
+        if (optimizedSsa == nullptr) {
+            result.error = "CopyProp optimization failed";
+            return result;
+        }
+        profile.mark("copyprop");
     }
     if (optModeUsesLicm(options.optMode)) {
         optimizedSsa = runLicmPass(optimizedSsa);

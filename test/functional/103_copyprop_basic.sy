@@ -1,0 +1,12 @@
+// Copy Propagation test: simple copy chain
+// GVN may handle some of these, but CP+DCE ensures all copies are cleaned
+
+int add_one(int x) {
+    int y;
+    y = x;        // copy: should be eliminated, uses of y replaced by x
+    return y + 1; // should become x + 1
+}
+
+int main() {
+    return add_one(5);  // 6
+}
