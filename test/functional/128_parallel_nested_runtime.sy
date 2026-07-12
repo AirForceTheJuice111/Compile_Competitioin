@@ -1,0 +1,29 @@
+int values[512];
+
+int calc(int seed) {
+  int sum = 0;
+  int j = 0;
+  while (j < 2048) {
+    sum = sum + (seed + j) % 97;
+    j = j + 1;
+  }
+  return sum;
+}
+
+int main() {
+  int i = 0;
+  while (i < 512) {
+    values[i] = calc(i);
+    i = i + 1;
+  }
+
+  int total = 0;
+  i = 0;
+  while (i < 512) {
+    total = total + values[i];
+    i = i + 1;
+  }
+  putint(total);
+  putch(10);
+  return 0;
+}
