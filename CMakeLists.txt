@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED YES)
 add_compile_options(-w)
 
 set(BACKEND_SOURCES
+    lib/backend/aarch64_block_layout.cc
+    lib/backend/aarch64_peephole.cc
     lib/backend/backend_driver.cc
     lib/ir/canon.cc
     lib/ir/treep.cc
@@ -19,11 +21,14 @@ set(BACKEND_SOURCES
     lib/quadflow/flowinfo.cc
     lib/opt/algebrasimp.cc
     lib/opt/copyprop.cc
+    lib/opt/cfg_transform.cc
     lib/opt/defusechain.cc
     lib/opt/funcspec.cc
     lib/opt/gvn.cc
     lib/opt/inline.cc
     lib/opt/loopheaderwithflow.cc
+    lib/opt/loopsimplify.cc
+    lib/opt/loopunroll.cc
     lib/opt/memopt.cc
     lib/opt/quad_metadata.cc
     lib/opt/loophoistfunc.cc

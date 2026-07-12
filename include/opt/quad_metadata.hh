@@ -24,6 +24,11 @@ bool verifySsaFunction(QuadFuncDecl *func, ControlFlowInfo *cfi,
 // edge inputs. Definitions are intentionally never rewritten.
 void rewriteQuadUses(QuadFuncDecl *func, const std::map<int, int> &replacements);
 
+// Rewrite uses in one detached/cloned statement. This is used by structural
+// transforms while assembling a new block, before it belongs to a function.
+void rewriteQuadStatementUses(QuadStm *statement,
+                              const std::map<int, int> &replacements);
+
 // Iterative DCE restricted to side-effect-free scalar/address computations.
 // Loads and all calls remain conservative even when their result is unused.
 int eliminateDeadPureQuadDefs(QuadFuncDecl *func);

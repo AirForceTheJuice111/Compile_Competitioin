@@ -356,7 +356,14 @@ void rewriteQuadUses(QuadFuncDecl *func, const std::map<int, int> &replacements)
     if (func == nullptr || func->quadblocklist == nullptr || replacements.empty()) return;
     for (auto *block : *func->quadblocklist) if (block != nullptr && block->quadlist != nullptr) {
         for (auto *stm : *block->quadlist) {
-            if (stm == nullptr) continue;
+            rewriteQuadStatementUses(stm, replacements);
+        }
+    }
+}
+
+void rewriteQuadStatementUses(QuadStm *stm,
+                              const std::map<int, int> &replacements) {
+            if (stm == nullptr || replacements.empty()) return;
             switch (stm->kind) {
             case QuadKind::MOVE: rewriteTerm(static_cast<QuadMove *>(stm)->src, replacements); break;
             case QuadKind::LOAD: rewriteTerm(static_cast<QuadLoad *>(stm)->src, replacements); break;
@@ -376,8 +383,6 @@ void rewriteQuadUses(QuadFuncDecl *func, const std::map<int, int> &replacements)
             } break; }
             default: break;
             }
-        }
-    }
 }
 
 int eliminateDeadPureQuadDefs(QuadFuncDecl *func) {
