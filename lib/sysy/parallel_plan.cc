@@ -390,11 +390,25 @@ bool affineCoeff(const Node &node, const std::string &var,
                            activeFunctions, coeff);
 }
 
+bool containsLocalLVal(const Node &node,
+                       const std::unordered_set<const Node *> &localLvals) {
+    if (node.kind == NodeKind::LVal && localLvals.find(&node) != localLvals.end()) {
+        return true;
+    }
+    return std::any_of(node.children.begin(), node.children.end(),
+                       [&](const auto &child) {
+                           return containsLocalLVal(*child, localLvals);
+                       });
+}
+
 bool lvalFirstIndexIsPartitionedByLoopVar(
     const Node &lval, const std::string &var,
     const std::unordered_set<const Node *> &localLvals,
     const ParallelFunctionSummaryLookup &lookupFunction) {
     if (lval.kind != NodeKind::LVal || lval.children.empty()) {
+        return false;
+    }
+    if (containsLocalLVal(*lval.children.front(), localLvals)) {
         return false;
     }
     int coeff = 0;
@@ -417,6 +431,10 @@ bool sameFirstPartitionIndex(const Node &lhs, const Node &rhs, const std::string
                              const ParallelFunctionSummaryLookup &lookupFunction) {
     if (lhs.kind != NodeKind::LVal || rhs.kind != NodeKind::LVal ||
         lhs.children.empty() || rhs.children.empty()) {
+        return false;
+    }
+    if (containsLocalLVal(*lhs.children.front(), localLvals) ||
+        containsLocalLVal(*rhs.children.front(), localLvals)) {
         return false;
     }
     int lhsCoeff = 0;

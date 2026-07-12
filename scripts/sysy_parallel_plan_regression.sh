@@ -124,6 +124,8 @@ assert_plan 130_parallel_mod_reject 23 false "unsafe scalar write"
 assert_plan 130_parallel_mod_reject 28 false "array-free"
 assert_plan 130_parallel_mod_reject 33 false "unsafe call"
 assert_plan 130_parallel_mod_reject 38 false "call reads loop-written scalar"
+assert_plan 133_parallel_local_partition_overlap 5 false "non-affine array write"
+assert_plan 134_parallel_affine_partition_control 5 true
 assert_plan 2025-O30-49 24 true "" "" "" \
   "$TEST_ROOT/../performance_final/2025-O30-49.sy"
 assert_plan 2025-MYO-20 92 false "unsafe scalar write" "" "" \
@@ -157,6 +159,8 @@ assert_workers 119_parallel_ne 1
 assert_workers 127_parallel_general_alias 2
 assert_workers 129_parallel_mod_reduction 2
 assert_workers 130_parallel_mod_reject 0
+assert_workers 133_parallel_local_partition_overlap 0
+assert_workers 134_parallel_affine_partition_control 1
 assert_workers 2025-O30-49 1 \
   "$TEST_ROOT/../performance_final/2025-O30-49.sy"
 assert_workers 2025-D6H-55 2 \

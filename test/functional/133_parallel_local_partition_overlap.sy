@@ -1,0 +1,30 @@
+int values[20003];
+
+int main() {
+  int i = 0;
+  while (i < 20000) {
+    int j = 0;
+    while (j < 4) {
+      values[i + j] = values[i + j] + 1;
+      j = j + 1;
+    }
+    i = i + 1;
+  }
+  putint(values[0]);
+  putch(32);
+  putint(values[1]);
+  putch(32);
+  putint(values[2]);
+  putch(32);
+  putint(values[3]);
+  putch(32);
+  putint(values[19999]);
+  putch(32);
+  putint(values[20000]);
+  putch(32);
+  putint(values[20001]);
+  putch(32);
+  putint(values[20002]);
+  putch(10);
+  return 0;
+}
