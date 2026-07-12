@@ -126,6 +126,15 @@ assert_plan 130_parallel_mod_reject 33 false "unsafe call"
 assert_plan 130_parallel_mod_reject 38 false "call reads loop-written scalar"
 assert_plan 133_parallel_local_partition_overlap 5 false "non-affine array write"
 assert_plan 134_parallel_affine_partition_control 5 true
+assert_plan 135_parallel_continue 6 true
+assert_plan 135_parallel_continue 23 true
+assert_plan 135_parallel_continue 37 true
+assert_plan 136_parallel_continue_reject 5 false "canonical induction update"
+assert_plan 136_parallel_continue_reject 17 false "canonical induction update"
+assert_plan 136_parallel_continue_reject 30 false "canonical induction update"
+assert_plan 136_parallel_continue_reject 44 false "break exits candidate loop"
+assert_plan 136_parallel_continue_reject 56 false "return in loop body"
+assert_plan 136_parallel_continue_reject 68 false "return in loop body"
 assert_plan 2025-O30-49 24 true "" "" "" \
   "$TEST_ROOT/../performance_final/2025-O30-49.sy"
 assert_plan 2025-MYO-20 92 false "unsafe scalar write" "" "" \
@@ -161,6 +170,8 @@ assert_workers 129_parallel_mod_reduction 2
 assert_workers 130_parallel_mod_reject 0
 assert_workers 133_parallel_local_partition_overlap 0
 assert_workers 134_parallel_affine_partition_control 1
+assert_workers 135_parallel_continue 3
+assert_workers 136_parallel_continue_reject 0
 assert_workers 2025-O30-49 1 \
   "$TEST_ROOT/../performance_final/2025-O30-49.sy"
 assert_workers 2025-D6H-55 2 \

@@ -1,0 +1,90 @@
+int left_values[1600];
+int right_values[1600];
+
+int fill_stride(int a[], int b[]) {
+  int i = 0;
+  while (i < 1200) {
+    if (i % 6 == 0) {
+      a[i] = b[i] + 7;
+      i = i + 2;
+      continue;
+    }
+    a[i] = b[i] + (i % 97) * (i % 89) +
+           (i % 83) * (i % 79) + (i % 73) * (i % 71) +
+           (i % 67) * (i % 61) + 3;
+    i = i + 2;
+  }
+  return i;
+}
+
+int descending_sum() {
+  int sum = 0;
+  int i = 1200;
+  while (i > 0) {
+    if (i % 10 == 0) {
+      i = i - 2;
+      continue;
+    }
+    sum = sum + ((i % 97) * (i % 89) +
+                 (i % 83) * (i % 79) + (i % 73) * (i % 71));
+    i = i - 2;
+  }
+  return sum;
+}
+
+int nested_control(int a[]) {
+  int i = 0;
+  while (i < 600) {
+    int j = 0;
+    while (j < 5) {
+      if (j == 1) {
+        j = j + 1;
+        continue;
+      }
+      if (j == 4) {
+        break;
+      }
+      a[i] = a[i] + j;
+      j = j + 1;
+    }
+    if (i % 5 == 0) {
+      i = i + 1;
+      continue;
+    }
+    a[i] = a[i] + 11;
+    i = i + 1;
+  }
+  return i;
+}
+
+int main() {
+  putint(fill_stride(left_values, right_values));
+  putch(32);
+  putint(fill_stride(right_values, right_values));
+  putch(32);
+  putint(nested_control(left_values));
+  putch(10);
+
+  putint(left_values[0]);
+  putch(32);
+  putint(left_values[2]);
+  putch(32);
+  putint(left_values[6]);
+  putch(32);
+  putint(left_values[10]);
+  putch(32);
+  putint(left_values[599]);
+  putch(32);
+  putint(left_values[600]);
+  putch(10);
+
+  putint(right_values[0]);
+  putch(32);
+  putint(right_values[2]);
+  putch(32);
+  putint(right_values[6]);
+  putch(10);
+  putint(descending_sum());
+  putch(10);
+  return 0;
+}

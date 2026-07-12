@@ -1,0 +1,96 @@
+int values[700];
+
+int bare_continue() {
+  int i = 0;
+  while (i < 600) {
+    values[i] = i * i + i * 17 + i % 13;
+    if (i < 0) {
+      continue;
+    }
+    i = i + 1;
+  }
+  return i;
+}
+
+int wrong_step_continue() {
+  int i = 0;
+  while (i < 600) {
+    values[i] = i * i + i * 19 + i % 17;
+    if (i < 0) {
+      i = i + 2;
+      continue;
+    }
+    i = i + 1;
+  }
+  return i;
+}
+
+int shadowed_update_continue() {
+  int i = 0;
+  while (i < 600) {
+    values[i] = i * i + i * 23 + i % 19;
+    if (i < 0) {
+      int i = 0;
+      i = i + 1;
+      continue;
+    }
+    i = i + 1;
+  }
+  return i;
+}
+
+int outer_break() {
+  int i = 0;
+  while (i < 600) {
+    values[i] = i * i + i * 29 + i % 23;
+    if (i == 3) {
+      break;
+    }
+    i = i + 1;
+  }
+  return i;
+}
+
+int outer_return() {
+  int i = 0;
+  while (i < 600) {
+    values[i] = i * i + i * 31 + i % 29;
+    if (i == 3) {
+      return i;
+    }
+    i = i + 1;
+  }
+  return i;
+}
+
+int nested_return() {
+  int i = 0;
+  while (i < 600) {
+    int j = 0;
+    while (j < 3) {
+      if (i < 0) {
+        return i;
+      }
+      values[i] = values[i] + j;
+      j = j + 1;
+    }
+    i = i + 1;
+  }
+  return i;
+}
+
+int main() {
+  putint(bare_continue());
+  putch(32);
+  putint(wrong_step_continue());
+  putch(32);
+  putint(shadowed_update_continue());
+  putch(32);
+  putint(outer_break());
+  putch(32);
+  putint(outer_return());
+  putch(32);
+  putint(nested_return());
+  putch(10);
+  return 0;
+}

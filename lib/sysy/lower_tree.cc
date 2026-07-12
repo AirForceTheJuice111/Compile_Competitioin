@@ -19,6 +19,7 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -581,6 +582,7 @@ private:
     std::string currentFunctionName_;
     int parallelWorkerId_ = 0;
     bool suppressParallelLowering_ = false;
+    std::unordered_set<const Node *> suppressedParallelIvUpdates_;
     std::string workerModReductionVar_;
     int workerModulus_ = 0;
 
@@ -1280,6 +1282,7 @@ private:
                                          std::vector<tree::Stm *> *stms) {
         auto *testLabel = newLabel();
         auto *bodyLabel = newLabel();
+        auto *latchLabel = newLabel();
         auto *doneLabel = newLabel();
         stms->push_back(new tree::LabelStm(testLabel));
         stms->push_back(new tree::Cjump(relop, tempExp(ivTemp), tempExp(endTemp),
@@ -1287,7 +1290,13 @@ private:
         stms->push_back(new tree::LabelStm(bodyLabel));
 
         bool savedSuppress = suppressParallelLowering_;
+        auto savedSuppressedIvUpdates = suppressedParallelIvUpdates_;
         suppressParallelLowering_ = true;
+        suppressedParallelIvUpdates_.clear();
+        suppressedParallelIvUpdates_.insert(
+            plan.canonicalContinueUpdates.begin(),
+            plan.canonicalContinueUpdates.end());
+        continueLabels_.push_back(latchLabel);
         pushScope();
         bool bodyFallsThrough = true;
         for (const Node *stmt : plan.body) {
@@ -1302,15 +1311,20 @@ private:
             }
         }
         popScope();
+        continueLabels_.pop_back();
         suppressParallelLowering_ = savedSuppress;
+        suppressedParallelIvUpdates_ =
+            std::move(savedSuppressedIvUpdates);
 
-        if (bodyFallsThrough) {
-            stms->push_back(new tree::Move(
-                tempExp(ivTemp),
-                new tree::Binop(tree::Type::INT, "+", tempExp(ivTemp),
-                                new tree::Const(plan.step))));
-            stms->push_back(new tree::Jump(testLabel));
-        }
+        // Both ordinary fallthrough and a validated candidate-loop continue
+        // reach this latch.  Its explicit source update was suppressed above,
+        // so the IV advances exactly once on either path.
+        stms->push_back(new tree::LabelStm(latchLabel));
+        stms->push_back(new tree::Move(
+            tempExp(ivTemp),
+            new tree::Binop(tree::Type::INT, "+", tempExp(ivTemp),
+                            new tree::Const(plan.step))));
+        stms->push_back(new tree::Jump(testLabel));
         stms->push_back(new tree::LabelStm(doneLabel));
     }
 
@@ -1466,6 +1480,7 @@ private:
         auto savedContinueLabels = continueLabels_;
         BaseType savedReturnType = currentReturnType_;
         bool savedSuppress = suppressParallelLowering_;
+        auto savedSuppressedIvUpdates = suppressedParallelIvUpdates_;
         std::string savedModVar = workerModReductionVar_;
         int savedModulus = workerModulus_;
 
@@ -1474,6 +1489,10 @@ private:
         continueLabels_.clear();
         currentReturnType_ = BaseType::Int;
         suppressParallelLowering_ = true;
+        suppressedParallelIvUpdates_.clear();
+        suppressedParallelIvUpdates_.insert(
+            plan.canonicalContinueUpdates.begin(),
+            plan.canonicalContinueUpdates.end());
         workerModReductionVar_.clear();
         workerModulus_ = 0;
         if (!plan.reductions.empty() && plan.reductions.front().modular) {
@@ -1540,6 +1559,7 @@ private:
 
         auto *testLabel = newLabel();
         auto *bodyLabel = newLabel();
+        auto *latchLabel = newLabel();
         auto *doneLabel = newLabel();
         stms->push_back(new tree::LabelStm(testLabel));
         stms->push_back(new tree::Cjump(
@@ -1548,6 +1568,7 @@ private:
         stms->push_back(new tree::LabelStm(bodyLabel));
 
         pushScope();
+        continueLabels_.push_back(latchLabel);
         bool bodyFallsThrough = true;
         for (const Node *stmt : plan.body) {
             if (!bodyFallsThrough) {
@@ -1560,21 +1581,21 @@ private:
                 bodyFallsThrough = lowerStmt(*stmt, stms);
             }
         }
+        continueLabels_.pop_back();
         popScope();
 
-        if (bodyFallsThrough) {
+        stms->push_back(new tree::LabelStm(latchLabel));
+        stms->push_back(new tree::Move(
+            tempExp(ivTemp),
+            new tree::Binop(tree::Type::INT, "+", tempExp(ivTemp),
+                            new tree::Const(plan.step))));
+        if (logicalIvTemp != nullptr) {
             stms->push_back(new tree::Move(
-                tempExp(ivTemp),
-                new tree::Binop(tree::Type::INT, "+", tempExp(ivTemp),
-                                new tree::Const(plan.step))));
-            if (logicalIvTemp != nullptr) {
-                stms->push_back(new tree::Move(
-                    tempExp(logicalIvTemp),
-                    new tree::Binop(tree::Type::INT, "+", tempExp(logicalIvTemp),
-                                    new tree::Const(1))));
-            }
-            stms->push_back(new tree::Jump(testLabel));
+                tempExp(logicalIvTemp),
+                new tree::Binop(tree::Type::INT, "+", tempExp(logicalIvTemp),
+                                new tree::Const(1))));
         }
+        stms->push_back(new tree::Jump(testLabel));
         stms->push_back(new tree::LabelStm(doneLabel));
         stms->push_back(new tree::Return(reductionTemp == nullptr ? new tree::Const(0) : tempExp(reductionTemp)));
         popScope();
@@ -1588,6 +1609,8 @@ private:
         continueLabels_ = std::move(savedContinueLabels);
         currentReturnType_ = savedReturnType;
         suppressParallelLowering_ = savedSuppress;
+        suppressedParallelIvUpdates_ =
+            std::move(savedSuppressedIvUpdates);
         workerModReductionVar_ = std::move(savedModVar);
         workerModulus_ = savedModulus;
         return worker;
@@ -1788,6 +1811,10 @@ private:
         case NodeKind::Block:
             return lowerBlock(node, stms, true);
         case NodeKind::AssignStmt: {
+            if (suppressedParallelIvUpdates_.find(&node) !=
+                suppressedParallelIvUpdates_.end()) {
+                return true;
+            }
             if (const Node *addend = workerModularAddend(node)) {
                 // SysY integer addition wraps, so modular reassociation is
                 // valid only while the source addition cannot overflow.  A

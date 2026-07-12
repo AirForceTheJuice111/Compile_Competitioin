@@ -61,6 +61,17 @@ struct ParallelLoopPlan {
     int initialIv = 0;
     int finalIv = 0;
     std::vector<const Node *> body;
+    // Candidate-loop continues are admitted only in the source shape
+    //
+    //   i = i + step;
+    //   continue;
+    //
+    // where the assignment is the immediately preceding sibling and refers
+    // to the unshadowed canonical induction variable.  Lowering suppresses
+    // these source assignments and routes their continues through the same
+    // latch as ordinary fallthrough, so both the source and logical IVs move
+    // exactly once.
+    std::vector<const Node *> canonicalContinueUpdates;
     bool hasArrayWrite = false;
     bool hasNestedLoop = false;
     int estimatedCost = 0;
