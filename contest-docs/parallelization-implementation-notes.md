@@ -176,8 +176,10 @@ Remaining work is broader parallel coverage and backend performance:
 - define whether floating-point reductions may change association, then either
   implement an explicit fast-math mode or keep them sequential;
 - improve alias analysis for different-rank parameter/global interactions;
-- replace the AArch64 stack-code backend with register allocation;
-- add AArch64 addressing-mode and peephole optimizations;
+- extend the current ten-register injective hot-temp residency into a
+  liveness-based allocator with FP-register residency;
+- add scaled-index/pointer-induction addressing and post-allocation peepholes;
+- amortize repeatedly invoked workers with a persistent two-core runtime;
 - tune loop profitability on Cortex-A53 contest hardware;
 - investigate NEON/vector lowering for array-heavy kernels;
 - broaden reductions only when floating-point reproducibility requirements are

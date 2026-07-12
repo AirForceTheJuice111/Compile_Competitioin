@@ -114,11 +114,21 @@ integer/pointer arguments use `w/x` registers, scalar floats use `s` registers,
 and `%f` varargs are promoted to `double` in `d` registers. SysY globals and
 arrays use the official `sylib.c/.h` runtime interface.
 
-The hardened integer algebra simplifier can be evaluated independently with
-`SYSY_EXPERIMENTAL_PASSES=algebrasimp` in an optimized mode. It folds only
-operations proven to use SysY `int` values, uses defined 32-bit wrapping for
-constant arithmetic, and leaves floating-point identities and comparisons
-unchanged so signed zero and NaN behavior are preserved.
+Optimized modes run the hardened integer AlgebraSimp, typed GVN,
+CopyProp/conservative DCE, and restricted scalar-int inliner by default. The
+passes rebuild and verify Quad metadata before final flow analysis and register
+residency. AlgebraSimp uses defined 32-bit wrapping and leaves floating-point
+identities/comparisons unchanged; GVN excludes loads/calls and keys values by
+type; the inliner accepts only straight-line, leaf, single-return scalar-int
+functions. `SYSY_DISABLE_PASSES=gvn,copyprop` can isolate a stable pass for
+debugging. The imported FuncSpec and MemOpt prototypes remain disabled unless
+named explicitly in `SYSY_EXPERIMENTAL_PASSES` because their general forms are
+not yet correctness-hardened.
+
+The AArch64 emitter assigns up to ten hot, loop-weighted Quad temps injectively
+to callee-saved `x19`-`x28` homes, including pointer values and raw float bits.
+It preserves those registers under AAPCS64, snapshots parallel PHI copies, and
+uses direct frame-relative addressing for nearby spills.
 
 Native loop parallelization is enabled automatically for optimized modes unless
 `--no-parallel-native` is passed. The lowering stage uses the shared loop plan

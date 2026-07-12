@@ -102,7 +102,18 @@ Tree -> canonical Tree -> Quad -> basic blocks -> flow -> SSA
 ```
 
 The old ARM32 instruction selection and graph-coloring backend has been
-removed. The remaining backend emits AArch64 stack code directly from Quad.
+removed. The native AArch64 emitter now combines conservative stack slots with
+injective hot-temp residency in callee-saved `x19`-`x28`. Loop depth,
+cross-block use, and parameters influence residency; PHI edge copies are
+snapshotted before assignment and nearby spills use direct `ldur`/`stur`
+addressing.
+
+The default optimized pipeline is SCCP, hardened integer AlgebraSimp, loop
+passes, typed GVN, CopyProp/conservative DCE, and restricted straight-line
+scalar-int inlining. Mutating passes rebuild and verify Quad def/use, CFG,
+extent, SSA uniqueness, type, dominance, and PHI-edge metadata. The imported
+FuncSpec and MemOpt prototypes stay experimental until their call-arity and
+alias/join behavior is fully hardened.
 
 Implemented ABI behavior:
 
@@ -221,8 +232,11 @@ output against sibling `.out` files.
 The branch is now correctness-oriented AArch64 native. The main remaining work
 is performance:
 
-- implement an AArch64 register allocator;
-- add AArch64 peephole and addressing-mode optimizations;
+- extend injective register residency into liveness-based allocation and keep
+  float values in FP registers;
+- add scaled-index, pointer-induction, and post-allocation peepholes;
 - support multi-reduction loops with a richer native runtime ABI;
+- support decrement/non-unit-step loops and safe loop-local control flow;
+- amortize repeated parallel dispatch with a persistent two-core worker;
 - tune the remaining dynamic profitability model on Cortex-A53 hardware;
-- consider inlining, GVN/MemSSA, loop unrolling, and NEON lowering.
+- consider loop unrolling and NEON lowering.
