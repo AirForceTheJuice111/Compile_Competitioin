@@ -1,5 +1,7 @@
 #include "backend_driver.hh"
 
+#include "aarch64_block_layout.hh"
+#include "aarch64_peephole.hh"
 #include "algebrasimp.hh"
 #include "blocking.hh"
 #include "canon.hh"
@@ -11,9 +13,12 @@
 #include "loopheader.hh"
 #include "loopinductionopt.hh"
 #include "looplicm.hh"
+#include "loopsimplify.hh"
+#include "loopunroll.hh"
 #include "memopt.hh"
 #include "opt.hh"
 #include "quad.hh"
+#include "quad_metadata.hh"
 #include "quadssa.hh"
 #include "tree2quad.hh"
 
@@ -312,7 +317,7 @@ bool optimizationPassEnabled(const std::string &name) {
         return false;
     }
     if (name == "algebrasimp" || name == "gvn" || name == "copyprop" ||
-        name == "inline") {
+        name == "inline" || name == "peephole") {
         return true;
     }
     return passListContains("SYSY_EXPERIMENTAL_PASSES", name);
@@ -437,6 +442,38 @@ quad::QuadProgram *runLicmPass(quad::QuadProgram *program) {
     return licm;
 }
 
+quad::QuadProgram *runLoopSimplifyPass(quad::QuadProgram *program) {
+    quad::LoopSimplifyStats stats;
+    auto *result = quad::loopSimplifyProg(program, &stats);
+    if (result == nullptr) return program;
+    refreshQuadExtents(result);
+    if (std::getenv("BACKEND_PROFILE") != nullptr) {
+        std::cerr << "BACKEND_PROFILE loopsimplify functions="
+                  << stats.functionsChanged
+                  << " preheaders=" << stats.preheadersCreated
+                  << " latches=" << stats.latchesCreated
+                  << " exit_splits=" << stats.exitEdgesSplit << "\n";
+    }
+    return result;
+}
+
+quad::QuadProgram *runLoopUnrollPass(quad::QuadProgram *program,
+                                     bool *changedOut = nullptr) {
+    quad::LoopUnrollStats stats;
+    quad::LoopUnrollOptions options;
+    auto *result = quad::loopUnrollProg(program, options, &stats);
+    if (result == nullptr) return program;
+    if (changedOut != nullptr) *changedOut = stats.functionsChanged != 0;
+    refreshQuadExtents(result);
+    if (std::getenv("BACKEND_PROFILE") != nullptr) {
+        std::cerr << "BACKEND_PROFILE loopunroll functions="
+                  << stats.functionsChanged
+                  << " loops=" << stats.loopsUnrolled
+                  << " cloned=" << stats.instructionsCloned << "\n";
+    }
+    return result;
+}
+
 quad::QuadProgram *runIvPass(quad::QuadProgram *program) {
     auto *flow = computeFlow(program);
     if (flow == nullptr) {
@@ -535,6 +572,16 @@ std::string aarch64BranchMnemonic(const std::string &relop) {
     return "b";
 }
 
+std::string invertAarch64BranchMnemonic(const std::string &mnemonic) {
+    if (mnemonic == "b.gt") return "b.le";
+    if (mnemonic == "b.ge") return "b.lt";
+    if (mnemonic == "b.lt") return "b.ge";
+    if (mnemonic == "b.le") return "b.gt";
+    if (mnemonic == "b.eq") return "b.ne";
+    if (mnemonic == "b.ne") return "b.eq";
+    return {};
+}
+
 int alignUpInt(int value, int align) {
     if (align <= 1) return value;
     int rem = value % align;
@@ -543,6 +590,9 @@ int alignUpInt(int value, int align) {
 
 class Aarch64StackEmitter {
 public:
+    explicit Aarch64StackEmitter(bool traceBlockEnabled = false)
+        : traceBlockEnabled_(traceBlockEnabled) {}
+
     std::string emit(quad::QuadProgram *program) {
         out_.str("");
         out_.clear();
@@ -582,6 +632,7 @@ private:
     int frameSize_ = 0;
     int edgeLabelId_ = 0;
     bool needsParallelRuntime_ = false;
+    bool traceBlockEnabled_ = false;
 
     static bool isRuntimeParallelSymbol(const std::string &name) {
         return name == "__sysy_parallel_for_range" ||
@@ -1268,8 +1319,13 @@ private:
         emitPrologueParams();
 
         if (func_->quadblocklist != nullptr) {
-            for (auto *block : *func_->quadblocklist) {
-                emitBlock(block);
+            std::vector<quad::QuadBlock *> layout = traceBlockEnabled_
+                ? buildAarch64TraceLayout(func_)
+                : *func_->quadblocklist;
+            for (std::size_t i = 0; i < layout.size(); ++i) {
+                tree::Label *next = i + 1 < layout.size() && layout[i + 1] != nullptr
+                    ? layout[i + 1]->entry_label : nullptr;
+                emitBlock(layout[i], next);
             }
         }
         out_ << ".size " << funcName_ << ", .-" << funcName_ << "\n";
@@ -1282,7 +1338,7 @@ private:
         emitLine("ret");
     }
 
-    void emitBlock(quad::QuadBlock *block) {
+    void emitBlock(quad::QuadBlock *block, tree::Label *nextLabel) {
         if (block == nullptr || block->entry_label == nullptr || block->quadlist == nullptr) {
             return;
         }
@@ -1310,17 +1366,22 @@ private:
         if (last->kind == quad::QuadKind::JUMP) {
             auto *jump = static_cast<quad::QuadJump *>(last);
             emitPhiCopies(findBlock(jump->label), block->entry_label);
-            emitLine("b " + labelName(jump->label));
+            if (!traceBlockEnabled_ || !sameLabel(jump->label, nextLabel)) {
+                emitLine("b " + labelName(jump->label));
+            }
             return;
         }
         if (last->kind == quad::QuadKind::CJUMP) {
-            emitCJump(static_cast<quad::QuadCJump *>(last), block->entry_label);
+            emitCJump(static_cast<quad::QuadCJump *>(last), block->entry_label,
+                      nextLabel);
             return;
         }
         if (block->exit_labels != nullptr && block->exit_labels->size() == 1) {
             tree::Label *target = block->exit_labels->front();
             emitPhiCopies(findBlock(target), block->entry_label);
-            emitLine("b " + labelName(target));
+            if (!traceBlockEnabled_ || !sameLabel(target, nextLabel)) {
+                emitLine("b " + labelName(target));
+            }
         }
     }
 
@@ -1392,7 +1453,8 @@ private:
         }
     }
 
-    void emitCJump(quad::QuadCJump *cjump, tree::Label *fromLabel) {
+    void emitCJump(quad::QuadCJump *cjump, tree::Label *fromLabel,
+                   tree::Label *nextLabel) {
         if (cjump == nullptr) {
             return;
         }
@@ -1400,6 +1462,9 @@ private:
         quad::QuadType rightType = termType(cjump->right);
         bool pointerCompare = leftType == quad::QuadType::PTR ||
                               rightType == quad::QuadType::PTR;
+        bool rightIsZero = cjump->right != nullptr &&
+                           cjump->right->kind == quad::QuadTermKind::CONST &&
+                           cjump->right->get_const() == 0;
         if (pointerCompare) {
             if (leftType == quad::QuadType::PTR) {
                 loadTerm(cjump->left, leftType, "x9");
@@ -1407,7 +1472,11 @@ private:
                 loadTerm(cjump->left, leftType, "w9");
                 emitLine("uxtw x9, w9");
             }
-            if (rightType == quad::QuadType::PTR) {
+            if (rightIsZero) {
+                // AArch64 cmp accepts an immediate zero directly.  Emitting it
+                // here is safe because x9/x10 lifetimes are owned by this
+                // selector; a textual peephole cannot prove the same fact.
+            } else if (rightType == quad::QuadType::PTR) {
                 loadTerm(cjump->right, rightType, "x10");
             } else {
                 loadTerm(cjump->right, rightType, "w10");
@@ -1415,18 +1484,46 @@ private:
             }
         } else {
             loadTerm(cjump->left, leftType, "w9");
-            loadTerm(cjump->right, rightType, "w10");
+            if (!rightIsZero) {
+                loadTerm(cjump->right, rightType, "w10");
+            }
         }
-        emitLine(pointerCompare ? "cmp x9, x10" : "cmp w9, w10");
+        if (rightIsZero) {
+            emitLine(pointerCompare ? "cmp x9, #0" : "cmp w9, #0");
+        } else {
+            emitLine(pointerCompare ? "cmp x9, x10" : "cmp w9, w10");
+        }
+        std::string branch = aarch64BranchMnemonic(cjump->relop);
+        bool falseFallsThrough = traceBlockEnabled_ && sameLabel(cjump->f, nextLabel);
+        bool trueFallsThrough = traceBlockEnabled_ && sameLabel(cjump->t, nextLabel);
+        if (falseFallsThrough) {
+            std::string inverse = invertAarch64BranchMnemonic(branch);
+            if (!inverse.empty()) {
+                std::string falseEdge = freshEdgeLabel();
+                emitLine(inverse + " " + falseEdge);
+                emitPhiCopies(findBlock(cjump->t), fromLabel);
+                emitLine("b " + labelName(cjump->t));
+                out_ << falseEdge << ":\n";
+                emitPhiCopies(findBlock(cjump->f), fromLabel);
+                return;
+            }
+        }
+        if (trueFallsThrough) {
+            std::string trueEdge = freshEdgeLabel();
+            emitLine(branch + " " + trueEdge);
+            emitPhiCopies(findBlock(cjump->f), fromLabel);
+            emitLine("b " + labelName(cjump->f));
+            out_ << trueEdge << ":\n";
+            emitPhiCopies(findBlock(cjump->t), fromLabel);
+            return;
+        }
         std::string trueEdge = freshEdgeLabel();
-        std::string doneEdge = freshEdgeLabel();
-        emitLine(aarch64BranchMnemonic(cjump->relop) + " " + trueEdge);
+        emitLine(branch + " " + trueEdge);
         emitPhiCopies(findBlock(cjump->f), fromLabel);
         emitLine("b " + labelName(cjump->f));
         out_ << trueEdge << ":\n";
         emitPhiCopies(findBlock(cjump->t), fromLabel);
         emitLine("b " + labelName(cjump->t));
-        out_ << doneEdge << ":\n";
     }
 
     void emitReturn(quad::QuadReturn *ret) {
@@ -1549,8 +1646,7 @@ private:
         }
         loadTerm(ptrCalc->ptr, quad::QuadType::PTR, "x9");
         loadTerm(ptrCalc->offset, quad::QuadType::INT, "w10");
-        emitLine("sxtw x10, w10");
-        emitLine("add x11, x9, x10");
+        emitLine("add x11, x9, w10, sxtw");
         storeTemp(dst->temp, quad::QuadType::PTR, "x11");
     }
 
@@ -2516,6 +2612,17 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
         }
         profile.mark("algebrasimp-r2");
     }
+    if ((optModeUsesLicm(options.optMode) || optModeUsesIv(options.optMode) ||
+         options.optMode == OptMode::AllOpt) &&
+        optimizationPassEnabled("loopsimplify")) {
+        optimizedSsa = runLoopSimplifyPass(optimizedSsa);
+        if (optimizedSsa == nullptr) {
+            result.error = "LoopSimplify optimization failed";
+            return result;
+        }
+        profile.mark("loopsimplify");
+        maybeWriteQuad(options, ".4-loopsimplify.quad", optimizedSsa);
+    }
     if (optModeUsesLicm(options.optMode)) {
         optimizedSsa = runLicmPass(optimizedSsa);
         if (optimizedSsa == nullptr) {
@@ -2523,6 +2630,30 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
             return result;
         }
         profile.mark("licm");
+    }
+    if ((options.optMode == OptMode::AllOpt ||
+         options.optMode == OptMode::AllLoop) &&
+        optimizationPassEnabled("loopunroll")) {
+        bool unrolled = false;
+        optimizedSsa = runLoopUnrollPass(optimizedSsa, &unrolled);
+        if (optimizedSsa == nullptr) {
+            result.error = "LoopUnroll optimization failed";
+            return result;
+        }
+        profile.mark("loopunroll");
+        maybeWriteQuad(options, ".4-loopunroll.quad", optimizedSsa);
+        if (unrolled) {
+            optimizedSsa = optProg(optimizedSsa);
+            if (optimizedSsa == nullptr) {
+                result.error = "LoopUnroll SCCP cleanup failed";
+                return result;
+            }
+            refreshQuadExtents(optimizedSsa);
+            optimizedSsa = runAlgebraSimpPass(optimizedSsa);
+            quad::rebuildQuadProgramMetadata(optimizedSsa);
+            profile.mark("loopunroll-cleanup");
+            maybeWriteQuad(options, ".4-loopunroll-clean.quad", optimizedSsa);
+        }
     }
     if (optModeUsesIv(options.optMode)) {
         optimizedSsa = runIvPass(optimizedSsa);
@@ -2583,10 +2714,25 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
         profile.mark("optimized-flow-skipped");
     }
 
-    Aarch64StackEmitter emitter;
+    bool traceBlockEnabled = options.optMode != OptMode::None &&
+                             optimizationPassEnabled("traceblock");
+    Aarch64StackEmitter emitter(traceBlockEnabled);
     result.ok = true;
     result.assembly = emitter.emit(ssaProgramForInstr);
-    profile.mark("aarch64-stack-asm");
+    profile.mark(traceBlockEnabled ? "aarch64-stack-asm-traceblock"
+                                   : "aarch64-stack-asm");
+    if (options.optMode != OptMode::None && optimizationPassEnabled("peephole")) {
+        Aarch64PeepholeStats stats;
+        result.assembly = optimizeAarch64Assembly(result.assembly, &stats);
+        if (std::getenv("BACKEND_PROFILE") != nullptr) {
+            std::cerr << "BACKEND_PROFILE peephole removed_or_combined="
+                      << stats.redundantMoves + stats.zeroArithmetic +
+                             stats.branchesToNextLabel + stats.extendedAdds +
+                             stats.zeroCompares
+                      << " extended_adds=" << stats.extendedAdds << "\n";
+        }
+        profile.mark("aarch64-peephole");
+    }
     return result;
 }
 
