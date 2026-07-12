@@ -1,0 +1,96 @@
+// Differential coverage for the AArch64 signed constant div/mod selector.
+// check_one keeps the reference divisor dynamic, so it lowers to sdiv/msub;
+// the caller-side expressions use literal divisors and lower to magic-number
+// or power-of-two sequences.  The dense int16 sweep is exhaustive and the
+// LCG adds broad 32-bit coverage, including explicit signed endpoints.
+
+int check_one(int x, int d, int quotient, int remainder) {
+    int reference_quotient = x / d;
+    int reference_remainder = x % d;
+    if (quotient != reference_quotient) {
+        return 1;
+    }
+    if (remainder != reference_remainder) {
+        return 1;
+    }
+    return 0;
+}
+
+int check_all(int x) {
+    int bad = 0;
+    bad = bad + check_one(x, 1, x / 1, x % 1);
+    bad = bad + check_one(x, -1, x / -1, x % -1);
+    bad = bad + check_one(x, 2, x / 2, x % 2);
+    bad = bad + check_one(x, -2, x / -2, x % -2);
+    bad = bad + check_one(x, 4, x / 4, x % 4);
+    bad = bad + check_one(x, -4, x / -4, x % -4);
+    bad = bad + check_one(x, 8, x / 8, x % 8);
+    bad = bad + check_one(x, -8, x / -8, x % -8);
+    bad = bad + check_one(x, 32, x / 32, x % 32);
+    bad = bad + check_one(x, -32, x / -32, x % -32);
+    bad = bad + check_one(x, 1024, x / 1024, x % 1024);
+    bad = bad + check_one(x, -1024, x / -1024, x % -1024);
+    bad = bad + check_one(x, 1073741824, x / 1073741824,
+                          x % 1073741824);
+    bad = bad + check_one(x, -1073741824, x / -1073741824,
+                          x % -1073741824);
+    bad = bad + check_one(x, -2147483647 - 1, x / (-2147483647 - 1),
+                          x % (-2147483647 - 1));
+
+    bad = bad + check_one(x, 3, x / 3, x % 3);
+    bad = bad + check_one(x, -3, x / -3, x % -3);
+    bad = bad + check_one(x, 5, x / 5, x % 5);
+    bad = bad + check_one(x, -5, x / -5, x % -5);
+    bad = bad + check_one(x, 7, x / 7, x % 7);
+    bad = bad + check_one(x, -7, x / -7, x % -7);
+    bad = bad + check_one(x, 10, x / 10, x % 10);
+    bad = bad + check_one(x, -10, x / -10, x % -10);
+    bad = bad + check_one(x, 31, x / 31, x % 31);
+    bad = bad + check_one(x, -31, x / -31, x % -31);
+    bad = bad + check_one(x, 37, x / 37, x % 37);
+    bad = bad + check_one(x, -37, x / -37, x % -37);
+    bad = bad + check_one(x, 1000, x / 1000, x % 1000);
+    bad = bad + check_one(x, -1000, x / -1000, x % -1000);
+    bad = bad + check_one(x, 19491001, x / 19491001, x % 19491001);
+    bad = bad + check_one(x, -19491001, x / -19491001, x % -19491001);
+    bad = bad + check_one(x, 998244853, x / 998244853, x % 998244853);
+    bad = bad + check_one(x, -998244853, x / -998244853, x % -998244853);
+    bad = bad + check_one(x, 2147483647, x / 2147483647,
+                          x % 2147483647);
+    bad = bad + check_one(x, -2147483647, x / -2147483647,
+                          x % -2147483647);
+    return bad;
+}
+
+int main() {
+    int bad = 0;
+    bad = bad + check_all(-2147483647 - 1);
+    bad = bad + check_all(-2147483647);
+    bad = bad + check_all(-1073741825);
+    bad = bad + check_all(-1);
+    bad = bad + check_all(0);
+    bad = bad + check_all(1);
+    bad = bad + check_all(1073741824);
+    bad = bad + check_all(2147483646);
+    bad = bad + check_all(2147483647);
+
+    int x = -32768;
+    while (x <= 32767) {
+        bad = bad + check_all(x);
+        x = x + 1;
+    }
+
+    int seed = 123456789;
+    int count = 0;
+    while (count < 131072) {
+        seed = seed * 1103515245 + 12345;
+        bad = bad + check_all(seed);
+        count = count + 1;
+    }
+    putint(bad);
+    putch(10);
+    if (bad != 0) {
+        return 1;
+    }
+    return 0;
+}

@@ -1,0 +1,26 @@
+int readback[4];
+int escaped[4];
+int effect_only[4];
+int effects;
+
+int read_first(int values[]) {
+  return values[0];
+}
+
+int bump() {
+  effects = effects + 1;
+  return 31;
+}
+
+int main() {
+  readback[1] = 17;
+  escaped[0] = 23;
+  effect_only[2] = bump();
+  putint(readback[1]);
+  putch(10);
+  putint(read_first(escaped));
+  putch(10);
+  putint(effects);
+  putch(10);
+  return 0;
+}

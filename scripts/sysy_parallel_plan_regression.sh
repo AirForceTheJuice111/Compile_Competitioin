@@ -110,6 +110,34 @@ assert_plan 114_parallel_impure_calls 22 false "unsafe call in loop body"
 assert_plan 114_parallel_impure_calls 30 false "unsafe call in loop body"
 assert_plan 115_parallel_cost_expensive 5 true
 assert_plan 116_parallel_cost_cheap 4 true
+assert_plan 117_parallel_step 4 true
+assert_plan 118_parallel_decrement 4 true
+assert_plan 119_parallel_ne 4 true
+assert_plan 119_parallel_ne 18 false "!= endpoint is not reached exactly"
+assert_plan 119_parallel_ne 28 false "generalized loop needs constant endpoints"
+assert_plan 119_parallel_ne 38 false "may overflow"
+assert_plan 127_parallel_general_alias 3 true
+assert_plan 129_parallel_mod_reduction 10 true
+assert_plan 129_parallel_mod_reduction 20 true
+assert_plan 130_parallel_mod_reject 18 false "unsafe scalar write"
+assert_plan 130_parallel_mod_reject 23 false "unsafe scalar write"
+assert_plan 130_parallel_mod_reject 28 false "array-free"
+assert_plan 130_parallel_mod_reject 33 false "unsafe call"
+assert_plan 130_parallel_mod_reject 38 false "call reads loop-written scalar"
+assert_plan 133_parallel_local_partition_overlap 5 false "non-affine array write"
+assert_plan 134_parallel_affine_partition_control 5 true
+assert_plan 135_parallel_continue 6 true
+assert_plan 135_parallel_continue 23 true
+assert_plan 135_parallel_continue 37 true
+assert_plan 136_parallel_continue_reject 5 false "canonical induction update"
+assert_plan 136_parallel_continue_reject 17 false "canonical induction update"
+assert_plan 136_parallel_continue_reject 30 false "canonical induction update"
+assert_plan 136_parallel_continue_reject 44 false "break exits candidate loop"
+assert_plan 136_parallel_continue_reject 56 false "return in loop body"
+assert_plan 136_parallel_continue_reject 68 false "return in loop body"
+assert_plan 137_write_only_global 6 true
+assert_plan 2025-O30-49 24 true "" "" "" \
+  "$TEST_ROOT/../performance_final/2025-O30-49.sy"
 assert_plan 2025-MYO-20 92 false "unsafe scalar write" "" "" \
   "$TEST_ROOT/../performance_final/2025-MYO-20.sy"
 assert_plan 2025-680-52 76 false "unsafe scalar write" "" "" \
@@ -134,7 +162,21 @@ assert_workers 112_parallel_scratch_iv_reject 0
 assert_workers 113_parallel_pure_calls 1
 assert_workers 114_parallel_impure_calls 0
 assert_workers 115_parallel_cost_expensive 1
-assert_workers 116_parallel_cost_cheap 1
+assert_workers 116_parallel_cost_cheap 2
+assert_workers 117_parallel_step 1
+assert_workers 118_parallel_decrement 1
+assert_workers 119_parallel_ne 1
+assert_workers 127_parallel_general_alias 2
+assert_workers 129_parallel_mod_reduction 2
+assert_workers 130_parallel_mod_reject 0
+assert_workers 133_parallel_local_partition_overlap 0
+assert_workers 134_parallel_affine_partition_control 1
+assert_workers 135_parallel_continue 3
+assert_workers 136_parallel_continue_reject 0
+assert_workers 137_write_only_global 0
+assert_workers 138_write_only_global_reject 0
+assert_workers 2025-O30-49 1 \
+  "$TEST_ROOT/../performance_final/2025-O30-49.sy"
 assert_workers 2025-D6H-55 2 \
   "$TEST_ROOT/../performance_final/2025-D6H-55.sy"
 assert_workers 2025-4W1-32 3 \
@@ -157,6 +199,24 @@ if ! grep -Eq 'umull[[:space:]]+x[0-9]+, w[0-9]+, w[0-9]+' \
   echo "parallel work gate: missing 64-bit product/threshold" >&2
   exit 1
 fi
+
+# Fully-indexed, effect-free stores to an otherwise unobserved global array
+# must disappear before parallel worker capture, together with the storage.
+# Reads, address escapes, and effectful store expressions retain their arrays.
+if grep -q '__sysy_global_write_only' \
+      "$WORK_DIR/137_write_only_global.s" ||
+   grep -q '__sysy_parallel_worker_' \
+      "$WORK_DIR/137_write_only_global.s"; then
+  echo "137_write_only_global: dead storage or worker survived" >&2
+  exit 1
+fi
+for symbol in readback escaped effect_only; do
+  if ! grep -Eq "^[[:space:]]*\\.global[[:space:]]+__sysy_global_${symbol}$" \
+        "$WORK_DIR/138_write_only_global_reject.s"; then
+    echo "138_write_only_global_reject: eliminated live/effectful $symbol" >&2
+    exit 1
+  fi
+done
 
 # Exact emitted costs cover both the boosted depth-0 model and discounting for
 # helpers repeatedly invoked inside sequential loops.

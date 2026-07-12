@@ -3,8 +3,10 @@
 #include "ast.hh"
 
 #include <functional>
+#include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace sysy {
@@ -20,6 +22,12 @@ struct ParallelLoopInit {
 struct ParallelReduction {
     std::string var;
     const Node *addend = nullptr;
+    // A modular reduction is the exact recurrence
+    //   var = (var + addend) % modulus
+    // with a positive, sufficiently small constant modulus.  Lowering proves
+    // the initial value/addends safe at runtime and otherwise falls back.
+    bool modular = false;
+    int modulus = 0;
 };
 
 struct ParallelCapture {
@@ -43,7 +51,27 @@ struct ParallelLoopPlan {
     ParallelLoopInit init;
     const Node *endExpr = nullptr;
     bool inclusiveEnd = false;
+    // Source induction update and comparison.  The original canonical form
+    // uses step == 1 and comparison "<"/"<=".  Other forms are admitted only
+    // when the planner can prove a finite, overflow-free constant iteration
+    // space, represented as the logical half-open range [0, logicalTripCount).
+    int step = 1;
+    std::string comparison = "<";
+    int logicalTripCount = -1;
+    int initialIv = 0;
+    int finalIv = 0;
     std::vector<const Node *> body;
+    // Candidate-loop continues are admitted only in the source shape
+    //
+    //   i = i + step;
+    //   continue;
+    //
+    // where the assignment is the immediately preceding sibling and refers
+    // to the unshadowed canonical induction variable.  Lowering suppresses
+    // these source assignments and routes their continues through the same
+    // latch as ordinary fallthrough, so both the source and logical IVs move
+    // exactly once.
+    std::vector<const Node *> canonicalContinueUpdates;
     bool hasArrayWrite = false;
     bool hasNestedLoop = false;
     int estimatedCost = 0;
@@ -55,11 +83,14 @@ struct ParallelLoopPlan {
 };
 
 using ParallelTypeLookup = std::function<std::string(const std::string &)>;
+using ParallelConstIntLookup =
+    std::function<std::optional<int>(const std::string &)>;
 
 struct ParallelScalarFunctionSummary {
     bool pure = false;
     std::string returnType;
     std::vector<std::string> parameters;
+    std::unordered_set<std::string> globalScalarReads;
     // Present only for a direct, single-expression return.  The expression is
     // owned by the source AST and can be substituted into affine index checks.
     const Node *affineReturnExpr = nullptr;
@@ -75,7 +106,8 @@ const Node *parallelReductionAddend(const Node &assign, const std::string &var);
 ParallelFunctionSummaries summarizeParallelScalarFunctions(const Node &root);
 ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopStmt,
                                          const ParallelTypeLookup &lookupType,
-                                         const ParallelFunctionSummaryLookup &lookupFunction = {});
+                                         const ParallelFunctionSummaryLookup &lookupFunction = {},
+                                         const ParallelConstIntLookup &lookupConstInt = {});
 std::string dumpParallelPlansJsonl(const Node &root);
 
 } // namespace sysy

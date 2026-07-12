@@ -8,6 +8,7 @@ add_compile_options(-w)
 set(BACKEND_SOURCES
     lib/backend/aarch64_block_layout.cc
     lib/backend/aarch64_peephole.cc
+    lib/backend/aarch64_regalloc.cc
     lib/backend/backend_driver.cc
     lib/ir/canon.cc
     lib/ir/treep.cc
@@ -20,6 +21,7 @@ set(BACKEND_SOURCES
     lib/quadflow/dataflowinfo.cc
     lib/quadflow/flowinfo.cc
     lib/opt/algebrasimp.cc
+    lib/opt/bitwise_idiom.cc
     lib/opt/copyprop.cc
     lib/opt/cfg_transform.cc
     lib/opt/defusechain.cc

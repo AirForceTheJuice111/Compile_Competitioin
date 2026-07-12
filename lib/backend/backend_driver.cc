@@ -2,7 +2,9 @@
 
 #include "aarch64_block_layout.hh"
 #include "aarch64_peephole.hh"
+#include "aarch64_regalloc.hh"
 #include "algebrasimp.hh"
+#include "bitwise_idiom.hh"
 #include "blocking.hh"
 #include "canon.hh"
 #include "copyprop.hh"
@@ -316,10 +318,8 @@ bool optimizationPassEnabled(const std::string &name) {
     if (passListContains("SYSY_DISABLE_PASSES", name)) {
         return false;
     }
-    if (name == "algebrasimp" || name == "gvn" || name == "copyprop" ||
-        name == "inline" || name == "loopsimplify" ||
-        name == "loopunroll" || name == "traceblock" ||
-        name == "peephole") {
+    if (name == "algebrasimp" || name == "bitwise" || name == "gvn" ||
+        name == "copyprop" || name == "inline") {
         return true;
     }
     return passListContains("SYSY_EXPERIMENTAL_PASSES", name);
@@ -626,6 +626,11 @@ private:
     quad::QuadFuncDecl *func_ = nullptr;
     std::string funcName_;
     std::unordered_map<int, quad::QuadType> tempTypes_;
+    // Constants are recorded only for SSA temporaries with exactly one
+    // definition. This lets lowered remainder expressions, which copy their
+    // divisor to a temporary, share the literal constant-division selector.
+    std::unordered_map<int, std::int32_t> constantTemps_;
+    std::unordered_map<int, int> tempUseStatementCounts_;
     std::unordered_map<std::string, std::vector<quad::QuadType>> functionParamTypes_;
     std::map<int, int> slots_;
     std::unordered_map<int, int> residentRegs_;
@@ -638,7 +643,8 @@ private:
 
     static bool isRuntimeParallelSymbol(const std::string &name) {
         return name == "__sysy_parallel_for_range" ||
-               name == "__sysy_parallel_reduce_int_range";
+               name == "__sysy_parallel_reduce_int_range" ||
+               name == "__sysy_parallel_reduce_mod_int_range";
     }
 
     static bool isFloatHelper(const std::string &name) {
@@ -734,7 +740,7 @@ private:
         noteTempType(termTemp(term));
     }
 
-    void selectResidentTemps(int tempSlotBytes) {
+    void selectLegacyResidentTemps(int tempSlotBytes) {
         residentRegs_.clear();
         calleeSaveSlots_.clear();
         phiScratchSlots_.clear();
@@ -826,6 +832,9 @@ private:
         ranked.reserve(candidates.size());
         for (const auto &entry : candidates) {
             const Candidate &candidate = entry.second;
+            if (constantTemps_.find(candidate.temp) != constantTemps_.end()) {
+                continue;
+            }
             if ((candidate.inLoop && candidate.accesses >= 2) || candidate.accesses >= 6) {
                 ranked.push_back(candidate);
             }
@@ -860,17 +869,86 @@ private:
         frameSize_ = alignUpInt(tempSlotBytes + phiScratchBytes + static_cast<int>(count) * 8, 16);
     }
 
+    void selectResidentTemps(int tempSlotBytes) {
+        const char *modeEnvironment = std::getenv("SYSY_AARCH64_REGALLOC");
+        std::string mode = modeEnvironment == nullptr ? "" : modeEnvironment;
+        if (mode == "legacy") {
+            selectLegacyResidentTemps(tempSlotBytes);
+            return;
+        }
+
+        residentRegs_.clear();
+        calleeSaveSlots_.clear();
+        phiScratchSlots_.clear();
+        if (mode == "off" || func_ == nullptr) {
+            frameSize_ = alignUpInt(tempSlotBytes, 16);
+            return;
+        }
+
+        std::unordered_set<int> rematerializedTemps;
+        for (const auto &constant : constantTemps_) {
+            rematerializedTemps.insert(constant.first);
+        }
+        Aarch64RegisterAllocation allocation = allocateAarch64Gprs(
+            func_, tempTypes_, rematerializedTemps);
+        residentRegs_ = std::move(allocation.tempToRegister);
+
+        // x12-x15 remain dedicated PHI snapshot registers.  Overflow inputs
+        // are staged in frame slots so arbitrary parallel-copy cycles are safe
+        // even when a source and destination reuse the same allocated GPR.
+        static constexpr std::size_t kPhiRegisterScratchCount = 4;
+        std::size_t maxPhiCopies = 0;
+        if (func_->quadblocklist != nullptr) {
+            for (auto *block : *func_->quadblocklist) {
+                if (block == nullptr || block->quadlist == nullptr) continue;
+                std::size_t phiCopies = 0;
+                for (auto *statement : *block->quadlist) {
+                    if (statement != nullptr &&
+                        statement->kind == quad::QuadKind::PHI) {
+                        ++phiCopies;
+                    }
+                }
+                maxPhiCopies = std::max(maxPhiCopies, phiCopies);
+            }
+        }
+        int phiScratchBytes = static_cast<int>(
+            maxPhiCopies > kPhiRegisterScratchCount
+                ? maxPhiCopies - kPhiRegisterScratchCount
+                : 0) * 8;
+        for (int distance = tempSlotBytes + 8;
+             distance <= tempSlotBytes + phiScratchBytes; distance += 8) {
+            phiScratchSlots_.push_back(distance);
+        }
+        for (std::size_t index = 0;
+             index < allocation.usedCalleeSavedRegisters.size(); ++index) {
+            calleeSaveSlots_.push_back(
+                {allocation.usedCalleeSavedRegisters[index],
+                 tempSlotBytes + phiScratchBytes +
+                     static_cast<int>(index + 1) * 8});
+        }
+        frameSize_ = alignUpInt(
+            tempSlotBytes + phiScratchBytes +
+                static_cast<int>(calleeSaveSlots_.size()) * 8,
+            16);
+    }
+
     void collectTypesAndSlots() {
         tempTypes_.clear();
+        constantTemps_.clear();
+        tempUseStatementCounts_.clear();
         slots_.clear();
         if (func_ == nullptr || func_->quadblocklist == nullptr) {
             return;
         }
+        std::unordered_map<int, int> tempDefinitionCounts;
+        std::unordered_map<int, std::int32_t> constantCandidates;
+        std::vector<quad::QuadStm *> allStatements;
         if (func_->params != nullptr) {
             for (auto *param : *func_->params) {
                 if (param != nullptr && tempTypes_.find(param->num) == tempTypes_.end()) {
                     tempTypes_[param->num] = quad::QuadType::INT;
                 }
+                if (param != nullptr) ++tempDefinitionCounts[param->num];
             }
         }
         for (auto *block : *func_->quadblocklist) {
@@ -881,11 +959,28 @@ private:
                 if (stm == nullptr) {
                     continue;
                 }
+                allStatements.push_back(stm);
+                if (stm->def != nullptr) {
+                    for (auto *temp : *stm->def) {
+                        if (temp != nullptr) ++tempDefinitionCounts[temp->num];
+                    }
+                }
+                if (stm->use != nullptr) {
+                    for (auto *temp : *stm->use) {
+                        if (temp != nullptr) ++tempUseStatementCounts_[temp->num];
+                    }
+                }
                 switch (stm->kind) {
                 case quad::QuadKind::MOVE: {
                     auto *s = static_cast<quad::QuadMove *>(stm);
                     noteTempType(s->dst);
                     noteTermType(s->src);
+                    if (s->dst != nullptr && s->dst->temp != nullptr &&
+                        s->dst->type == quad::QuadType::INT && s->src != nullptr &&
+                        s->src->kind == quad::QuadTermKind::CONST) {
+                        constantCandidates[s->dst->temp->num] =
+                            static_cast<std::int32_t>(s->src->get_const());
+                    }
                     break;
                 }
                 case quad::QuadKind::LOAD: {
@@ -979,6 +1074,53 @@ private:
                 }
             }
         }
+        for (const auto &candidate : constantCandidates) {
+            auto count = tempDefinitionCounts.find(candidate.first);
+            if (count != tempDefinitionCounts.end() && count->second == 1) {
+                constantTemps_.emplace(candidate.first, candidate.second);
+            }
+        }
+        // Fold unique SSA definitions to a fixed point.  This deliberately
+        // uses modulo-2^32 arithmetic for +,-,* and handles INT_MIN/-1
+        // explicitly, avoiding the host-language UB that a naive evaluator
+        // would introduce.  Negative source literals arrive as 0-C quads, so
+        // this step is also what exposes negative constant divisors.
+        bool constantsChanged = true;
+        while (constantsChanged) {
+            constantsChanged = false;
+            for (auto *statement : allStatements) {
+                if (statement == nullptr) continue;
+                quad::QuadTemp *destination = nullptr;
+                std::int32_t value = 0;
+                bool known = false;
+                if (statement->kind == quad::QuadKind::MOVE) {
+                    auto *move = static_cast<quad::QuadMove *>(statement);
+                    destination = move->dst;
+                    known = constantIntValue(move->src, &value);
+                } else if (statement->kind == quad::QuadKind::MOVE_BINOP) {
+                    auto *binop = static_cast<quad::QuadMoveBinop *>(statement);
+                    destination = binop->dst;
+                    std::int32_t left = 0;
+                    std::int32_t right = 0;
+                    known = constantIntValue(binop->left, &left) &&
+                            constantIntValue(binop->right, &right) &&
+                            evaluateConstantIntBinop(binop->binop, left, right,
+                                                     &value);
+                }
+                if (!known || destination == nullptr ||
+                    destination->temp == nullptr ||
+                    destination->type != quad::QuadType::INT ||
+                    constantTemps_.find(destination->temp->num) !=
+                        constantTemps_.end()) {
+                    continue;
+                }
+                auto count = tempDefinitionCounts.find(destination->temp->num);
+                if (count != tempDefinitionCounts.end() && count->second == 1) {
+                    constantTemps_.emplace(destination->temp->num, value);
+                    constantsChanged = true;
+                }
+            }
+        }
         int offset = 0;
         for (const auto &entry : tempTypes_) {
             offset += 8;
@@ -995,6 +1137,8 @@ private:
         auto *savedFunc = func_;
         std::string savedName = funcName_;
         auto savedTypes = tempTypes_;
+        auto savedConstants = constantTemps_;
+        auto savedUseCounts = tempUseStatementCounts_;
         auto savedSlots = slots_;
         auto savedResidentRegs = residentRegs_;
         auto savedCalleeSaveSlots = calleeSaveSlots_;
@@ -1020,6 +1164,8 @@ private:
         func_ = savedFunc;
         funcName_ = savedName;
         tempTypes_ = std::move(savedTypes);
+        constantTemps_ = std::move(savedConstants);
+        tempUseStatementCounts_ = std::move(savedUseCounts);
         slots_ = std::move(savedSlots);
         residentRegs_ = std::move(savedResidentRegs);
         calleeSaveSlots_ = std::move(savedCalleeSaveSlots);
@@ -1049,6 +1195,104 @@ private:
         return tempType(qt->temp, qt->type);
     }
 
+    bool constantIntValue(quad::QuadTerm *term, std::int32_t *value) const {
+        if (term == nullptr) return false;
+        if (term->kind == quad::QuadTermKind::CONST) {
+            if (value != nullptr) {
+                *value = static_cast<std::int32_t>(term->get_const());
+            }
+            return true;
+        }
+        auto *temp = termTemp(term);
+        if (temp == nullptr || temp->temp == nullptr ||
+            tempType(temp->temp, temp->type) != quad::QuadType::INT) {
+            return false;
+        }
+        auto found = constantTemps_.find(temp->temp->num);
+        if (found == constantTemps_.end()) return false;
+        if (value != nullptr) *value = found->second;
+        return true;
+    }
+
+    bool sameIntTerm(quad::QuadTerm *left, quad::QuadTerm *right) const {
+        if (left == nullptr || right == nullptr) return left == right;
+        std::int32_t leftConstant = 0;
+        std::int32_t rightConstant = 0;
+        bool leftIsConstant = constantIntValue(left, &leftConstant);
+        bool rightIsConstant = constantIntValue(right, &rightConstant);
+        if (leftIsConstant || rightIsConstant) {
+            return leftIsConstant && rightIsConstant &&
+                   leftConstant == rightConstant;
+        }
+        if (left->kind != right->kind) return false;
+        if (left->kind == quad::QuadTermKind::TEMP) {
+            auto *leftTemp = termTemp(left);
+            auto *rightTemp = termTemp(right);
+            return leftTemp != nullptr && rightTemp != nullptr &&
+                   leftTemp->temp != nullptr && rightTemp->temp != nullptr &&
+                   leftTemp->temp->num == rightTemp->temp->num;
+        }
+        if (left->kind == quad::QuadTermKind::NAME) {
+            return left->get_name() == right->get_name();
+        }
+        return false;
+    }
+
+    bool hasOneUseStatement(tree::Temp *temp) const {
+        if (temp == nullptr) return false;
+        auto found = tempUseStatementCounts_.find(temp->num);
+        return found != tempUseStatementCounts_.end() && found->second == 1;
+    }
+
+    static std::int32_t signed32FromBits(std::uint32_t bits) {
+        std::int64_t value = static_cast<std::int64_t>(bits);
+        if ((bits & 0x80000000u) != 0) value -= (std::int64_t{1} << 32);
+        return static_cast<std::int32_t>(value);
+    }
+
+    static bool evaluateConstantIntBinop(const std::string &op,
+                                         std::int32_t left,
+                                         std::int32_t right,
+                                         std::int32_t *result) {
+        if (result == nullptr) return false;
+        std::uint32_t leftBits = static_cast<std::uint32_t>(left);
+        std::uint32_t rightBits = static_cast<std::uint32_t>(right);
+        if (op == "+") {
+            *result = signed32FromBits(leftBits + rightBits);
+            return true;
+        }
+        if (op == "-") {
+            *result = signed32FromBits(leftBits - rightBits);
+            return true;
+        }
+        if (op == "*") {
+            *result = signed32FromBits(leftBits * rightBits);
+            return true;
+        }
+        if (op == "/") {
+            if (right == 0) return false;
+            if (left == (-2147483647 - 1) && right == -1) {
+                *result = (-2147483647 - 1);
+            } else {
+                *result = static_cast<std::int32_t>(left / right);
+            }
+            return true;
+        }
+        if (op == "&") {
+            *result = signed32FromBits(leftBits & rightBits);
+            return true;
+        }
+        if (op == "|") {
+            *result = signed32FromBits(leftBits | rightBits);
+            return true;
+        }
+        if (op == "xor" || op == "^") {
+            *result = signed32FromBits(leftBits ^ rightBits);
+            return true;
+        }
+        return false;
+    }
+
     quad::QuadType expectedArgType(const std::string &name, std::size_t index,
                                    quad::QuadType fallback) const {
         auto found = functionParamTypes_.find(cleanAsmFunctionName(name));
@@ -1060,9 +1304,13 @@ private:
         if ((name == "putarray" || name == "putfarray") && index == 1) return quad::QuadType::PTR;
         if (name == "free" && index == 0) return quad::QuadType::PTR;
         if (name == "memset" && index == 0) return quad::QuadType::PTR;
-        if (name == "__sysy_parallel_for_range" || name == "__sysy_parallel_reduce_int_range") {
+        if (name == "__sysy_parallel_for_range" ||
+            name == "__sysy_parallel_reduce_int_range" ||
+            name == "__sysy_parallel_reduce_mod_int_range") {
             if (index == 2 || index == 3) return quad::QuadType::PTR;
-            if (index == 0 || index == 1 || index == 4) return quad::QuadType::INT;
+            if (index == 0 || index == 1 || index == 4 || index == 5) {
+                return quad::QuadType::INT;
+            }
         }
         return fallback;
     }
@@ -1083,6 +1331,125 @@ private:
                 out_ << "\tmovk " << reg << ", #" << part << ", lsl #" << shift << "\n";
             }
         }
+    }
+
+    struct SignedDivisionMagic {
+        std::uint32_t multiplier = 0;
+        int shift = 0;
+        bool addDividend = false;
+        bool subtractDividend = false;
+    };
+
+    // Hacker's Delight, 2nd ed., figure 10-1.  All generator arithmetic is
+    // explicitly unsigned/wide, including abs(INT_MIN), so selecting a magic
+    // number never relies on host signed overflow or implementation-defined
+    // narrowing.  Powers of two and +/-1 use their shorter exact sequences.
+    static SignedDivisionMagic signedDivisionMagic(std::int32_t divisor) {
+        std::uint64_t absolute = divisor < 0
+            ? static_cast<std::uint64_t>(0u - static_cast<std::uint32_t>(divisor))
+            : static_cast<std::uint32_t>(divisor);
+        constexpr std::uint64_t two31 = std::uint64_t{1} << 31;
+        std::uint64_t t = two31 + (static_cast<std::uint32_t>(divisor) >> 31);
+        std::uint64_t anc = t - 1 - t % absolute;
+        int p = 31;
+        std::uint64_t q1 = two31 / anc;
+        std::uint64_t r1 = two31 - q1 * anc;
+        std::uint64_t q2 = two31 / absolute;
+        std::uint64_t r2 = two31 - q2 * absolute;
+        std::uint64_t delta = 0;
+        do {
+            ++p;
+            q1 *= 2;
+            r1 *= 2;
+            if (r1 >= anc) {
+                ++q1;
+                r1 -= anc;
+            }
+            q2 *= 2;
+            r2 *= 2;
+            if (r2 >= absolute) {
+                ++q2;
+                r2 -= absolute;
+            }
+            delta = absolute - r2;
+        } while (q1 < delta || (q1 == delta && r1 == 0));
+
+        std::uint32_t multiplier = static_cast<std::uint32_t>(q2 + 1);
+        if (divisor < 0) multiplier = 0u - multiplier;
+        std::int64_t signedMultiplier = (multiplier & 0x80000000u) != 0
+            ? static_cast<std::int64_t>(multiplier) - (std::int64_t{1} << 32)
+            : static_cast<std::int64_t>(multiplier);
+        SignedDivisionMagic result;
+        result.multiplier = multiplier;
+        result.shift = p - 32;
+        result.addDividend = divisor > 0 && signedMultiplier < 0;
+        result.subtractDividend = divisor < 0 && signedMultiplier > 0;
+        return result;
+    }
+
+    // Emit quotient = dividend / divisor with AArch64's signed 32-bit
+    // semantics (truncation toward zero and INT_MIN/-1 wrapping to INT_MIN).
+    // dividendReg is preserved; scratchReg may be clobbered.
+    void emitSignedConstantQuotient(std::int32_t divisor,
+                                    const std::string &dividendReg,
+                                    const std::string &quotientReg,
+                                    const std::string &scratchReg) {
+        if (divisor == 0) {
+            loadImm32(scratchReg, 0);
+            emitLine("sdiv " + quotientReg + ", " + dividendReg + ", " +
+                     scratchReg);
+            return;
+        }
+        if (divisor == 1) {
+            emitLine("mov " + quotientReg + ", " + dividendReg);
+            return;
+        }
+        if (divisor == -1) {
+            emitLine("neg " + quotientReg + ", " + dividendReg);
+            return;
+        }
+
+        std::uint32_t magnitude = divisor < 0
+            ? 0u - static_cast<std::uint32_t>(divisor)
+            : static_cast<std::uint32_t>(divisor);
+        if ((magnitude & (magnitude - 1)) == 0) {
+            int shift = 0;
+            for (std::uint32_t value = magnitude; value > 1; value >>= 1) {
+                ++shift;
+            }
+            emitLine("asr " + scratchReg + ", " + dividendReg + ", #31");
+            emitLine("add " + quotientReg + ", " + dividendReg + ", " +
+                     scratchReg + ", lsr #" + std::to_string(32 - shift));
+            emitLine("asr " + quotientReg + ", " + quotientReg + ", #" +
+                     std::to_string(shift));
+            if (divisor < 0) {
+                emitLine("neg " + quotientReg + ", " + quotientReg);
+            }
+            return;
+        }
+
+        SignedDivisionMagic magic = signedDivisionMagic(divisor);
+        loadImm32(scratchReg, magic.multiplier);
+        // smull forms the exact signed 32x32 product.  After shifting its high
+        // half into w<quotient>, subsequent 32-bit adds deliberately wrap just
+        // like sdiv's architectural result.
+        std::string wideQuotient = "x" + quotientReg.substr(1);
+        emitLine("smull " + wideQuotient + ", " + dividendReg + ", " +
+                 scratchReg);
+        emitLine("asr " + wideQuotient + ", " + wideQuotient + ", #32");
+        if (magic.addDividend) {
+            emitLine("add " + quotientReg + ", " + quotientReg + ", " +
+                     dividendReg);
+        } else if (magic.subtractDividend) {
+            emitLine("sub " + quotientReg + ", " + quotientReg + ", " +
+                     dividendReg);
+        }
+        if (magic.shift != 0) {
+            emitLine("asr " + quotientReg + ", " + quotientReg + ", #" +
+                     std::to_string(magic.shift));
+        }
+        emitLine("add " + quotientReg + ", " + quotientReg + ", " +
+                 quotientReg + ", lsr #31");
     }
 
     void emitAddSubImm64(const std::string &op, const std::string &dst,
@@ -1233,6 +1600,13 @@ private:
         if (qt == nullptr || qt->temp == nullptr) {
             return;
         }
+        if (type == quad::QuadType::INT) {
+            auto constant = constantTemps_.find(qt->temp->num);
+            if (constant != constantTemps_.end()) {
+                loadImm32(reg, static_cast<std::uint32_t>(constant->second));
+                return;
+            }
+        }
         loadTemp(qt->temp, type, reg);
     }
 
@@ -1335,12 +1709,112 @@ private:
         emitLine("ret");
     }
 
+    struct ConstantRemainderMatch {
+        quad::QuadTerm *dividend = nullptr;
+        quad::QuadTemp *destination = nullptr;
+        std::int32_t divisor = 0;
+    };
+
+    static bool termReferencesTemp(quad::QuadTerm *term, tree::Temp *temp) {
+        auto *quadTemp = termTemp(term);
+        return quadTemp != nullptr && quadTemp->temp != nullptr && temp != nullptr &&
+               quadTemp->temp->num == temp->num;
+    }
+
+    bool matchConstantRemainder(const std::vector<quad::QuadStm *> &statements,
+                                std::size_t offset,
+                                ConstantRemainderMatch *match) const {
+        if (match == nullptr || offset + 2 >= statements.size()) return false;
+        auto *divisionStatement = statements[offset];
+        auto *productStatement = statements[offset + 1];
+        auto *remainderStatement = statements[offset + 2];
+        if (divisionStatement == nullptr || productStatement == nullptr ||
+            remainderStatement == nullptr ||
+            divisionStatement->kind != quad::QuadKind::MOVE_BINOP ||
+            productStatement->kind != quad::QuadKind::MOVE_BINOP ||
+            remainderStatement->kind != quad::QuadKind::MOVE_BINOP) {
+            return false;
+        }
+        auto *division = static_cast<quad::QuadMoveBinop *>(divisionStatement);
+        auto *product = static_cast<quad::QuadMoveBinop *>(productStatement);
+        auto *remainder = static_cast<quad::QuadMoveBinop *>(remainderStatement);
+        if (division->binop != "/" || product->binop != "*" ||
+            remainder->binop != "-" || division->dst == nullptr ||
+            product->dst == nullptr || remainder->dst == nullptr ||
+            division->dst->temp == nullptr || product->dst->temp == nullptr ||
+            remainder->dst->temp == nullptr ||
+            division->dst->type != quad::QuadType::INT ||
+            product->dst->type != quad::QuadType::INT ||
+            remainder->dst->type != quad::QuadType::INT) {
+            return false;
+        }
+
+        std::int32_t divisor = 0;
+        if (!constantIntValue(division->right, &divisor) || divisor == 0 ||
+            !sameIntTerm(division->left, remainder->left) ||
+            !termReferencesTemp(remainder->right, product->dst->temp) ||
+            !hasOneUseStatement(division->dst->temp) ||
+            !hasOneUseStatement(product->dst->temp)) {
+            return false;
+        }
+        bool quotientOnLeft = termReferencesTemp(product->left,
+                                                 division->dst->temp);
+        bool quotientOnRight = termReferencesTemp(product->right,
+                                                  division->dst->temp);
+        quad::QuadTerm *productDivisor = quotientOnLeft ? product->right
+                                      : quotientOnRight ? product->left
+                                                        : nullptr;
+        std::int32_t productDivisorValue = 0;
+        if (quotientOnLeft == quotientOnRight || productDivisor == nullptr ||
+            !constantIntValue(productDivisor, &productDivisorValue) ||
+            productDivisorValue != divisor) {
+            return false;
+        }
+
+        int quotientTemp = division->dst->temp->num;
+        int productTemp = product->dst->temp->num;
+        int remainderTemp = remainder->dst->temp->num;
+        if (quotientTemp == productTemp || quotientTemp == remainderTemp ||
+            productTemp == remainderTemp) {
+            return false;
+        }
+        match->dividend = division->left;
+        match->destination = remainder->dst;
+        match->divisor = divisor;
+        return true;
+    }
+
+    void emitConstantRemainder(const ConstantRemainderMatch &match) {
+        if (match.destination == nullptr || match.destination->temp == nullptr) {
+            return;
+        }
+        if (match.divisor == 1 || match.divisor == -1) {
+            emitLine("mov w11, wzr");
+            storeTemp(match.destination->temp, quad::QuadType::INT, "w11");
+            return;
+        }
+        loadTerm(match.dividend, quad::QuadType::INT, "w9");
+        emitSignedConstantQuotient(match.divisor, "w9", "w11", "w10");
+        loadImm32("w10", static_cast<std::uint32_t>(match.divisor));
+        emitLine("msub w11, w11, w10, w9");
+        storeTemp(match.destination->temp, quad::QuadType::INT, "w11");
+    }
+
     void emitBlock(quad::QuadBlock *block, tree::Label *nextLabel) {
         if (block == nullptr || block->entry_label == nullptr || block->quadlist == nullptr) {
             return;
         }
         out_ << labelName(block->entry_label) << ":\n";
-        for (auto *stm : *block->quadlist) {
+        for (std::size_t statementIndex = 0;
+             statementIndex < block->quadlist->size(); ++statementIndex) {
+            ConstantRemainderMatch remainderMatch;
+            if (matchConstantRemainder(*block->quadlist, statementIndex,
+                                       &remainderMatch)) {
+                emitConstantRemainder(remainderMatch);
+                statementIndex += 2;
+                continue;
+            }
+            auto *stm = block->quadlist->at(statementIndex);
             if (stm == nullptr) {
                 continue;
             }
@@ -1459,6 +1933,9 @@ private:
         quad::QuadType rightType = termType(cjump->right);
         bool pointerCompare = leftType == quad::QuadType::PTR ||
                               rightType == quad::QuadType::PTR;
+        bool rightIsZero = cjump->right != nullptr &&
+                           cjump->right->kind == quad::QuadTermKind::CONST &&
+                           cjump->right->get_const() == 0;
         if (pointerCompare) {
             if (leftType == quad::QuadType::PTR) {
                 loadTerm(cjump->left, leftType, "x9");
@@ -1466,7 +1943,11 @@ private:
                 loadTerm(cjump->left, leftType, "w9");
                 emitLine("uxtw x9, w9");
             }
-            if (rightType == quad::QuadType::PTR) {
+            if (rightIsZero) {
+                // AArch64 cmp accepts an immediate zero directly.  Emitting it
+                // here is safe because x9/x10 lifetimes are owned by this
+                // selector; a textual peephole cannot prove the same fact.
+            } else if (rightType == quad::QuadType::PTR) {
                 loadTerm(cjump->right, rightType, "x10");
             } else {
                 loadTerm(cjump->right, rightType, "w10");
@@ -1474,9 +1955,15 @@ private:
             }
         } else {
             loadTerm(cjump->left, leftType, "w9");
-            loadTerm(cjump->right, rightType, "w10");
+            if (!rightIsZero) {
+                loadTerm(cjump->right, rightType, "w10");
+            }
         }
-        emitLine(pointerCompare ? "cmp x9, x10" : "cmp w9, w10");
+        if (rightIsZero) {
+            emitLine(pointerCompare ? "cmp x9, #0" : "cmp w9, #0");
+        } else {
+            emitLine(pointerCompare ? "cmp x9, x10" : "cmp w9, w10");
+        }
         std::string branch = aarch64BranchMnemonic(cjump->relop);
         bool falseFallsThrough = traceBlockEnabled_ && sameLabel(cjump->f, nextLabel);
         bool trueFallsThrough = traceBlockEnabled_ && sameLabel(cjump->t, nextLabel);
@@ -1532,10 +2019,16 @@ private:
 
     void emitStatement(quad::QuadStm *stm) {
         switch (stm->kind) {
-        case quad::QuadKind::MOVE:
-            storeTermToTemp(static_cast<quad::QuadMove *>(stm)->dst,
-                            static_cast<quad::QuadMove *>(stm)->src);
+        case quad::QuadKind::MOVE: {
+            auto *move = static_cast<quad::QuadMove *>(stm);
+            bool propagatedConstant = move->dst != nullptr &&
+                move->dst->temp != nullptr &&
+                constantTemps_.find(move->dst->temp->num) != constantTemps_.end();
+            if (!propagatedConstant) {
+                storeTermToTemp(move->dst, move->src);
+            }
             break;
+        }
         case quad::QuadKind::LOAD:
             emitLoad(static_cast<quad::QuadLoad *>(stm));
             break;
@@ -1543,7 +2036,12 @@ private:
             emitStore(static_cast<quad::QuadStore *>(stm));
             break;
         case quad::QuadKind::MOVE_BINOP:
-            emitBinop(static_cast<quad::QuadMoveBinop *>(stm));
+            if (auto *binop = static_cast<quad::QuadMoveBinop *>(stm);
+                binop->dst == nullptr || binop->dst->temp == nullptr ||
+                constantTemps_.find(binop->dst->temp->num) ==
+                    constantTemps_.end()) {
+                emitBinop(binop);
+            }
             break;
         case quad::QuadKind::PTR_CALC:
             emitPtrCalc(static_cast<quad::QuadPtrCalc *>(stm));
@@ -1603,6 +2101,14 @@ private:
             return;
         }
         loadTerm(binop->left, quad::QuadType::INT, "w9");
+        if (binop->binop == "/") {
+            std::int32_t divisor = 0;
+            if (constantIntValue(binop->right, &divisor) && divisor != 0) {
+                emitSignedConstantQuotient(divisor, "w9", "w11", "w10");
+                storeTemp(binop->dst->temp, binop->dst->type, "w11");
+                return;
+            }
+        }
         loadTerm(binop->right, quad::QuadType::INT, "w10");
         if (binop->binop == "+") {
             emitLine("add w11, w9, w10");
@@ -1613,6 +2119,12 @@ private:
         } else if (binop->binop == "/") {
             emitLine("sdiv w11, w9, w10");
         } else if (binop->binop == "xor") {
+            emitLine("eor w11, w9, w10");
+        } else if (binop->binop == "&") {
+            emitLine("and w11, w9, w10");
+        } else if (binop->binop == "|") {
+            emitLine("orr w11, w9, w10");
+        } else if (binop->binop == "^") {
             emitLine("eor w11, w9, w10");
         } else {
             emitLine("add w11, w9, w10");
@@ -1630,8 +2142,7 @@ private:
         }
         loadTerm(ptrCalc->ptr, quad::QuadType::PTR, "x9");
         loadTerm(ptrCalc->offset, quad::QuadType::INT, "w10");
-        emitLine("sxtw x10, w10");
-        emitLine("add x11, x9, x10");
+        emitLine("add x11, x9, w10, sxtw");
         storeTemp(dst->temp, quad::QuadType::PTR, "x11");
     }
 
@@ -1851,40 +2362,183 @@ private:
     }
 
     void emitParallelRuntime() {
+        // One process-local helper thread amortizes pthread_create across the
+        // small range jobs emitted inside sequential loops.  The busy word is
+        // also the recursion/concurrency guard: a helper reached from either
+        // half of an active job executes directly, so the single job slot can
+        // never be overwritten and nested parallel calls cannot deadlock.
+        // Short acquire-load spins cover dense dispatches; condition variables
+        // keep the helper dormant between unrelated parallel regions.
         out_ << R"(
+.bss
+.balign 16
+.type __sysy_parallel_pool_mutex, %object
+__sysy_parallel_pool_mutex:
+	.zero 64
+.type __sysy_parallel_pool_work_cond, %object
+__sysy_parallel_pool_work_cond:
+	.zero 64
+.type __sysy_parallel_pool_done_cond, %object
+__sysy_parallel_pool_done_cond:
+	.zero 64
+.balign 8
+.type __sysy_parallel_pool_thread, %object
+__sysy_parallel_pool_thread:
+	.zero 8
+.type __sysy_parallel_pool_job, %object
+__sysy_parallel_pool_job:
+	.zero 48
+.type __sysy_parallel_pool_started, %object
+__sysy_parallel_pool_started:
+	.zero 4
+.type __sysy_parallel_pool_busy, %object
+__sysy_parallel_pool_busy:
+	.zero 4
+.type __sysy_parallel_pool_pending, %object
+__sysy_parallel_pool_pending:
+	.zero 4
+
 .text
 .balign 4
-.type __sysy_parallel_for_entry, %function
-__sysy_parallel_for_entry:
+.type __sysy_parallel_pool_entry, %function
+__sysy_parallel_pool_entry:
 	stp x29, x30, [sp, #-16]!
 	mov x29, sp
-	mov x4, x0
-	ldr w0, [x4, #0]
-	ldr w1, [x4, #4]
-	ldr x2, [x4, #8]
-	ldr x3, [x4, #16]
+	stp x19, x20, [sp, #-16]!
+	stp x21, x22, [sp, #-16]!
+	stp x23, x24, [sp, #-16]!
+.Lsysy_parallel_pool_wait:
+	adrp x9, __sysy_parallel_pool_pending
+	add x9, x9, :lo12:__sysy_parallel_pool_pending
+	mov w8, #65535
+.Lsysy_parallel_pool_spin:
+	ldar w10, [x9]
+	cbnz w10, .Lsysy_parallel_pool_run_fast
+	subs w8, w8, #1
+	bne .Lsysy_parallel_pool_spin
+	adrp x0, __sysy_parallel_pool_mutex
+	add x0, x0, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_mutex_lock
+.Lsysy_parallel_pool_check:
+	adrp x9, __sysy_parallel_pool_pending
+	add x9, x9, :lo12:__sysy_parallel_pool_pending
+	ldr w10, [x9]
+	cbnz w10, .Lsysy_parallel_pool_run
+	adrp x0, __sysy_parallel_pool_work_cond
+	add x0, x0, :lo12:__sysy_parallel_pool_work_cond
+	adrp x1, __sysy_parallel_pool_mutex
+	add x1, x1, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_cond_wait
+	b .Lsysy_parallel_pool_check
+.Lsysy_parallel_pool_run:
+	adrp x9, __sysy_parallel_pool_job
+	add x9, x9, :lo12:__sysy_parallel_pool_job
+	ldr w19, [x9, #0]
+	ldr w20, [x9, #4]
+	ldr x21, [x9, #8]
+	ldr x22, [x9, #16]
+	ldr w23, [x9, #24]
+	adrp x0, __sysy_parallel_pool_mutex
+	add x0, x0, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_mutex_unlock
+	b .Lsysy_parallel_pool_invoke
+.Lsysy_parallel_pool_run_fast:
+	adrp x9, __sysy_parallel_pool_job
+	add x9, x9, :lo12:__sysy_parallel_pool_job
+	ldr w19, [x9, #0]
+	ldr w20, [x9, #4]
+	ldr x21, [x9, #8]
+	ldr x22, [x9, #16]
+	ldr w23, [x9, #24]
+.Lsysy_parallel_pool_invoke:
+	cmp w23, #2
+	b.eq .Lsysy_parallel_pool_invoke_mod
+	mov w0, w19
+	mov w1, w20
+	mov x2, x21
+	mov x3, x22
 	blr x3
-	mov x0, xzr
-	ldp x29, x30, [sp], #16
-	ret
-.size __sysy_parallel_for_entry, .-__sysy_parallel_for_entry
+	b .Lsysy_parallel_pool_invoke_done
+.Lsysy_parallel_pool_invoke_mod:
+	bl __sysy_parallel_mod_consume
+.Lsysy_parallel_pool_invoke_done:
+	mov w24, w0
+	adrp x0, __sysy_parallel_pool_mutex
+	add x0, x0, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_mutex_lock
+	cbz w23, .Lsysy_parallel_pool_publish_done
+	adrp x9, __sysy_parallel_pool_job
+	add x9, x9, :lo12:__sysy_parallel_pool_job
+	str w24, [x9, #28]
+.Lsysy_parallel_pool_publish_done:
+	adrp x9, __sysy_parallel_pool_pending
+	add x9, x9, :lo12:__sysy_parallel_pool_pending
+	stlr wzr, [x9]
+	adrp x0, __sysy_parallel_pool_done_cond
+	add x0, x0, :lo12:__sysy_parallel_pool_done_cond
+	bl pthread_cond_signal
+	adrp x0, __sysy_parallel_pool_mutex
+	add x0, x0, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_mutex_unlock
+	b .Lsysy_parallel_pool_wait
+.size __sysy_parallel_pool_entry, .-__sysy_parallel_pool_entry
 
 .balign 4
-.type __sysy_parallel_reduce_int_entry, %function
-__sysy_parallel_reduce_int_entry:
+.type __sysy_parallel_mod_consume, %function
+__sysy_parallel_mod_consume:
 	stp x29, x30, [sp, #-16]!
 	mov x29, sp
-	mov x4, x0
-	ldr w0, [x4, #0]
-	ldr w1, [x4, #4]
-	ldr x2, [x4, #8]
-	ldr x3, [x4, #16]
+	stp x19, x20, [sp, #-16]!
+	stp x21, x22, [sp, #-16]!
+	stp x23, x24, [sp, #-16]!
+	mov w19, wzr
+	adrp x24, __sysy_parallel_pool_job
+	add x24, x24, :lo12:__sysy_parallel_pool_job
+.Lsysy_parallel_mod_consume_next:
+	add x9, x24, #40
+	ldar w10, [x9]
+	cbnz w10, .Lsysy_parallel_mod_consume_unsafe
+	ldr w23, [x24, #36]
+.Lsysy_parallel_mod_consume_claim:
+	ldaxr w20, [x24]
+	ldr w10, [x24, #4]
+	cmp w20, w10
+	b.lt .Lsysy_parallel_mod_consume_have
+	clrex
+	b .Lsysy_parallel_mod_consume_done
+.Lsysy_parallel_mod_consume_have:
+	add w21, w20, w23
+	cmp w21, w10
+	csel w21, w10, w21, gt
+	stlxr w11, w21, [x24]
+	cbnz w11, .Lsysy_parallel_mod_consume_claim
+	mov w0, w20
+	mov w1, w21
+	ldr x2, [x24, #8]
+	ldr x3, [x24, #16]
 	blr x3
-	str w0, [x4, #24]
-	mov x0, xzr
+	movz w10, #32768, lsl #16
+	cmp w0, w10
+	b.eq .Lsysy_parallel_mod_consume_mark_unsafe
+	ldr w22, [x24, #32]
+	add w19, w19, w0
+	sdiv w10, w19, w22
+	msub w19, w10, w22, w19
+	b .Lsysy_parallel_mod_consume_next
+.Lsysy_parallel_mod_consume_mark_unsafe:
+	mov w10, #1
+	add x9, x24, #40
+	stlr w10, [x9]
+.Lsysy_parallel_mod_consume_unsafe:
+	movz w19, #32768, lsl #16
+.Lsysy_parallel_mod_consume_done:
+	mov w0, w19
+	ldp x23, x24, [sp], #16
+	ldp x21, x22, [sp], #16
+	ldp x19, x20, [sp], #16
 	ldp x29, x30, [sp], #16
 	ret
-.size __sysy_parallel_reduce_int_entry, .-__sysy_parallel_reduce_int_entry
+.size __sysy_parallel_mod_consume, .-__sysy_parallel_mod_consume
 
 .balign 4
 .global __sysy_parallel_for_range
@@ -1895,7 +2549,6 @@ __sysy_parallel_for_range:
 	stp x19, x20, [sp, #-16]!
 	stp x21, x22, [sp, #-16]!
 	stp x23, x24, [sp, #-16]!
-	sub sp, sp, #48
 	mov w19, w0
 	mov w20, w1
 	mov x21, x2
@@ -1909,29 +2562,102 @@ __sysy_parallel_for_range:
 	movz x11, #16384
 	cmp x10, x11
 	blt .Lsysy_parallel_for_direct
+	adrp x24, __sysy_parallel_pool_busy
+	add x24, x24, :lo12:__sysy_parallel_pool_busy
+.Lsysy_parallel_for_claim:
+	ldaxr w10, [x24]
+	cbnz w10, .Lsysy_parallel_for_direct
+	mov w11, #1
+	stlxr w12, w11, [x24]
+	cbnz w12, .Lsysy_parallel_for_claim
+	adrp x9, __sysy_parallel_pool_started
+	add x9, x9, :lo12:__sysy_parallel_pool_started
+	ldr w10, [x9]
+	cmp w10, #1
+	beq .Lsysy_parallel_for_dispatch
+	cmn w10, #1
+	beq .Lsysy_parallel_for_release_direct
+	adrp x0, __sysy_parallel_pool_thread
+	add x0, x0, :lo12:__sysy_parallel_pool_thread
+	mov x1, xzr
+	adrp x2, __sysy_parallel_pool_entry
+	add x2, x2, :lo12:__sysy_parallel_pool_entry
+	mov x3, xzr
+	bl pthread_create
+	cbnz w0, .Lsysy_parallel_for_start_failed
+	adrp x9, __sysy_parallel_pool_started
+	add x9, x9, :lo12:__sysy_parallel_pool_started
+	mov w10, #1
+	str w10, [x9]
+	b .Lsysy_parallel_for_dispatch
+.Lsysy_parallel_for_start_failed:
+	adrp x9, __sysy_parallel_pool_started
+	add x9, x9, :lo12:__sysy_parallel_pool_started
+	mov w10, #-1
+	str w10, [x9]
+	b .Lsysy_parallel_for_release_direct
+.Lsysy_parallel_for_dispatch:
+	sub w9, w20, w19
 	asr w23, w9, #1
 	add w23, w19, w23
-	add x24, sp, #0
-	str w23, [x24, #0]
-	str w20, [x24, #4]
-	str x21, [x24, #8]
-	str x22, [x24, #16]
-	add x0, sp, #32
-	mov x1, xzr
-	adrp x2, __sysy_parallel_for_entry
-	add x2, x2, :lo12:__sysy_parallel_for_entry
-	mov x3, x24
-	bl pthread_create
-	cbnz w0, .Lsysy_parallel_for_direct
+	adrp x0, __sysy_parallel_pool_mutex
+	add x0, x0, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_mutex_lock
+	adrp x9, __sysy_parallel_pool_job
+	add x9, x9, :lo12:__sysy_parallel_pool_job
+	str w23, [x9, #0]
+	str w20, [x9, #4]
+	str x21, [x9, #8]
+	str x22, [x9, #16]
+	str wzr, [x9, #24]
+	adrp x9, __sysy_parallel_pool_pending
+	add x9, x9, :lo12:__sysy_parallel_pool_pending
+	mov w10, #1
+	stlr w10, [x9]
+	adrp x0, __sysy_parallel_pool_work_cond
+	add x0, x0, :lo12:__sysy_parallel_pool_work_cond
+	bl pthread_cond_signal
+	adrp x0, __sysy_parallel_pool_mutex
+	add x0, x0, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_mutex_unlock
 	mov w0, w19
 	mov w1, w23
 	mov x2, x21
 	mov x3, x22
 	blr x3
-	ldr x0, [sp, #32]
-	mov x1, xzr
-	bl pthread_join
+	adrp x9, __sysy_parallel_pool_pending
+	add x9, x9, :lo12:__sysy_parallel_pool_pending
+	mov w11, #65535
+.Lsysy_parallel_for_spin_done:
+	ldar w10, [x9]
+	cbz w10, .Lsysy_parallel_for_joined_fast
+	subs w11, w11, #1
+	bne .Lsysy_parallel_for_spin_done
+	adrp x0, __sysy_parallel_pool_mutex
+	add x0, x0, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_mutex_lock
+.Lsysy_parallel_for_wait_done:
+	adrp x9, __sysy_parallel_pool_pending
+	add x9, x9, :lo12:__sysy_parallel_pool_pending
+	ldr w10, [x9]
+	cbz w10, .Lsysy_parallel_for_joined
+	adrp x0, __sysy_parallel_pool_done_cond
+	add x0, x0, :lo12:__sysy_parallel_pool_done_cond
+	adrp x1, __sysy_parallel_pool_mutex
+	add x1, x1, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_cond_wait
+	b .Lsysy_parallel_for_wait_done
+.Lsysy_parallel_for_joined:
+	adrp x0, __sysy_parallel_pool_mutex
+	add x0, x0, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_mutex_unlock
+	stlr wzr, [x24]
 	b .Lsysy_parallel_for_done
+.Lsysy_parallel_for_joined_fast:
+	stlr wzr, [x24]
+	b .Lsysy_parallel_for_done
+.Lsysy_parallel_for_release_direct:
+	stlr wzr, [x24]
 .Lsysy_parallel_for_direct:
 	mov w0, w19
 	mov w1, w20
@@ -1939,7 +2665,6 @@ __sysy_parallel_for_range:
 	mov x3, x22
 	blr x3
 .Lsysy_parallel_for_done:
-	add sp, sp, #48
 	ldp x23, x24, [sp], #16
 	ldp x21, x22, [sp], #16
 	ldp x19, x20, [sp], #16
@@ -1956,7 +2681,6 @@ __sysy_parallel_reduce_int_range:
 	stp x19, x20, [sp, #-16]!
 	stp x21, x22, [sp, #-16]!
 	stp x23, x24, [sp, #-16]!
-	sub sp, sp, #48
 	mov w19, w0
 	mov w20, w1
 	mov x21, x2
@@ -1970,33 +2694,113 @@ __sysy_parallel_reduce_int_range:
 	movz x11, #16384
 	cmp x10, x11
 	blt .Lsysy_parallel_reduce_direct
+	adrp x24, __sysy_parallel_pool_busy
+	add x24, x24, :lo12:__sysy_parallel_pool_busy
+.Lsysy_parallel_reduce_claim:
+	ldaxr w10, [x24]
+	cbnz w10, .Lsysy_parallel_reduce_direct
+	mov w11, #1
+	stlxr w12, w11, [x24]
+	cbnz w12, .Lsysy_parallel_reduce_claim
+	adrp x9, __sysy_parallel_pool_started
+	add x9, x9, :lo12:__sysy_parallel_pool_started
+	ldr w10, [x9]
+	cmp w10, #1
+	beq .Lsysy_parallel_reduce_dispatch
+	cmn w10, #1
+	beq .Lsysy_parallel_reduce_release_direct
+	adrp x0, __sysy_parallel_pool_thread
+	add x0, x0, :lo12:__sysy_parallel_pool_thread
+	mov x1, xzr
+	adrp x2, __sysy_parallel_pool_entry
+	add x2, x2, :lo12:__sysy_parallel_pool_entry
+	mov x3, xzr
+	bl pthread_create
+	cbnz w0, .Lsysy_parallel_reduce_start_failed
+	adrp x9, __sysy_parallel_pool_started
+	add x9, x9, :lo12:__sysy_parallel_pool_started
+	mov w10, #1
+	str w10, [x9]
+	b .Lsysy_parallel_reduce_dispatch
+.Lsysy_parallel_reduce_start_failed:
+	adrp x9, __sysy_parallel_pool_started
+	add x9, x9, :lo12:__sysy_parallel_pool_started
+	mov w10, #-1
+	str w10, [x9]
+	b .Lsysy_parallel_reduce_release_direct
+.Lsysy_parallel_reduce_dispatch:
+	sub w9, w20, w19
 	asr w23, w9, #1
 	add w23, w19, w23
-	add x24, sp, #0
-	str w23, [x24, #0]
-	str w20, [x24, #4]
-	str x21, [x24, #8]
-	str x22, [x24, #16]
-	str wzr, [x24, #24]
-	add x0, sp, #32
-	mov x1, xzr
-	adrp x2, __sysy_parallel_reduce_int_entry
-	add x2, x2, :lo12:__sysy_parallel_reduce_int_entry
-	mov x3, x24
-	bl pthread_create
-	cbnz w0, .Lsysy_parallel_reduce_direct
+	adrp x0, __sysy_parallel_pool_mutex
+	add x0, x0, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_mutex_lock
+	adrp x9, __sysy_parallel_pool_job
+	add x9, x9, :lo12:__sysy_parallel_pool_job
+	str w23, [x9, #0]
+	str w20, [x9, #4]
+	str x21, [x9, #8]
+	str x22, [x9, #16]
+	mov w10, #1
+	str w10, [x9, #24]
+	str wzr, [x9, #28]
+	adrp x9, __sysy_parallel_pool_pending
+	add x9, x9, :lo12:__sysy_parallel_pool_pending
+	stlr w10, [x9]
+	adrp x0, __sysy_parallel_pool_work_cond
+	add x0, x0, :lo12:__sysy_parallel_pool_work_cond
+	bl pthread_cond_signal
+	adrp x0, __sysy_parallel_pool_mutex
+	add x0, x0, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_mutex_unlock
 	mov w0, w19
 	mov w1, w23
 	mov x2, x21
 	mov x3, x22
 	blr x3
 	mov w19, w0
-	ldr x0, [sp, #32]
-	mov x1, xzr
-	bl pthread_join
-	ldr w0, [sp, #24]
+	adrp x9, __sysy_parallel_pool_pending
+	add x9, x9, :lo12:__sysy_parallel_pool_pending
+	mov w11, #65535
+.Lsysy_parallel_reduce_spin_done:
+	ldar w10, [x9]
+	cbz w10, .Lsysy_parallel_reduce_joined_fast
+	subs w11, w11, #1
+	bne .Lsysy_parallel_reduce_spin_done
+	adrp x0, __sysy_parallel_pool_mutex
+	add x0, x0, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_mutex_lock
+.Lsysy_parallel_reduce_wait_done:
+	adrp x9, __sysy_parallel_pool_pending
+	add x9, x9, :lo12:__sysy_parallel_pool_pending
+	ldr w10, [x9]
+	cbz w10, .Lsysy_parallel_reduce_joined
+	adrp x0, __sysy_parallel_pool_done_cond
+	add x0, x0, :lo12:__sysy_parallel_pool_done_cond
+	adrp x1, __sysy_parallel_pool_mutex
+	add x1, x1, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_cond_wait
+	b .Lsysy_parallel_reduce_wait_done
+.Lsysy_parallel_reduce_joined:
+	adrp x9, __sysy_parallel_pool_job
+	add x9, x9, :lo12:__sysy_parallel_pool_job
+	ldr w23, [x9, #28]
+	adrp x0, __sysy_parallel_pool_mutex
+	add x0, x0, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_mutex_unlock
+	mov w0, w23
 	add w0, w19, w0
+	stlr wzr, [x24]
 	b .Lsysy_parallel_reduce_done
+.Lsysy_parallel_reduce_joined_fast:
+	adrp x9, __sysy_parallel_pool_job
+	add x9, x9, :lo12:__sysy_parallel_pool_job
+	ldr w23, [x9, #28]
+	add w0, w19, w23
+	stlr wzr, [x24]
+	b .Lsysy_parallel_reduce_done
+.Lsysy_parallel_reduce_release_direct:
+	stlr wzr, [x24]
 .Lsysy_parallel_reduce_direct:
 	mov w0, w19
 	mov w1, w20
@@ -2004,13 +2808,175 @@ __sysy_parallel_reduce_int_range:
 	mov x3, x22
 	blr x3
 .Lsysy_parallel_reduce_done:
-	add sp, sp, #48
 	ldp x23, x24, [sp], #16
 	ldp x21, x22, [sp], #16
 	ldp x19, x20, [sp], #16
 	ldp x29, x30, [sp], #16
 	ret
 .size __sysy_parallel_reduce_int_range, .-__sysy_parallel_reduce_int_range
+
+.balign 4
+.global __sysy_parallel_reduce_mod_int_range
+.type __sysy_parallel_reduce_mod_int_range, %function
+__sysy_parallel_reduce_mod_int_range:
+	stp x29, x30, [sp, #-16]!
+	mov x29, sp
+	stp x19, x20, [sp, #-16]!
+	stp x21, x22, [sp, #-16]!
+	stp x23, x24, [sp, #-16]!
+	stp x25, x26, [sp, #-16]!
+	mov w19, w0
+	mov w20, w1
+	mov x21, x2
+	mov x22, x3
+	mov w25, w4
+	mov w26, w5
+	sub w9, w20, w19
+	cmp w9, #1
+	blt .Lsysy_parallel_mod_direct
+	cmp w25, #1
+	blt .Lsysy_parallel_mod_direct
+	umull x10, w9, w25
+	movz x11, #16384
+	cmp x10, x11
+	blt .Lsysy_parallel_mod_direct
+	adrp x24, __sysy_parallel_pool_busy
+	add x24, x24, :lo12:__sysy_parallel_pool_busy
+.Lsysy_parallel_mod_claim:
+	ldaxr w10, [x24]
+	cbnz w10, .Lsysy_parallel_mod_direct
+	mov w11, #1
+	stlxr w12, w11, [x24]
+	cbnz w12, .Lsysy_parallel_mod_claim
+	adrp x9, __sysy_parallel_pool_started
+	add x9, x9, :lo12:__sysy_parallel_pool_started
+	ldr w10, [x9]
+	cmp w10, #1
+	beq .Lsysy_parallel_mod_dispatch
+	cmn w10, #1
+	beq .Lsysy_parallel_mod_release_direct
+	adrp x0, __sysy_parallel_pool_thread
+	add x0, x0, :lo12:__sysy_parallel_pool_thread
+	mov x1, xzr
+	adrp x2, __sysy_parallel_pool_entry
+	add x2, x2, :lo12:__sysy_parallel_pool_entry
+	mov x3, xzr
+	bl pthread_create
+	cbnz w0, .Lsysy_parallel_mod_start_failed
+	adrp x9, __sysy_parallel_pool_started
+	add x9, x9, :lo12:__sysy_parallel_pool_started
+	mov w10, #1
+	str w10, [x9]
+	b .Lsysy_parallel_mod_dispatch
+.Lsysy_parallel_mod_start_failed:
+	adrp x9, __sysy_parallel_pool_started
+	add x9, x9, :lo12:__sysy_parallel_pool_started
+	mov w10, #-1
+	str w10, [x9]
+	b .Lsysy_parallel_mod_release_direct
+.Lsysy_parallel_mod_dispatch:
+	// Aim for roughly 8192 estimated operations per claim.  Bounds avoid
+	// excessive atomic traffic and retain enough chunks for skewed recursion.
+	mov w10, #8192
+	udiv w23, w10, w25
+	cmp w23, #16
+	mov w11, #16
+	csel w23, w11, w23, lt
+	cmp w23, #1024
+	mov w11, #1024
+	csel w23, w11, w23, gt
+	adrp x0, __sysy_parallel_pool_mutex
+	add x0, x0, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_mutex_lock
+	adrp x9, __sysy_parallel_pool_job
+	add x9, x9, :lo12:__sysy_parallel_pool_job
+	str w19, [x9, #0]
+	str w20, [x9, #4]
+	str x21, [x9, #8]
+	str x22, [x9, #16]
+	mov w10, #2
+	str w10, [x9, #24]
+	str wzr, [x9, #28]
+	str w26, [x9, #32]
+	str w23, [x9, #36]
+	str wzr, [x9, #40]
+	adrp x9, __sysy_parallel_pool_pending
+	add x9, x9, :lo12:__sysy_parallel_pool_pending
+	mov w10, #1
+	stlr w10, [x9]
+	adrp x0, __sysy_parallel_pool_work_cond
+	add x0, x0, :lo12:__sysy_parallel_pool_work_cond
+	bl pthread_cond_signal
+	adrp x0, __sysy_parallel_pool_mutex
+	add x0, x0, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_mutex_unlock
+	bl __sysy_parallel_mod_consume
+	mov w19, w0
+	adrp x9, __sysy_parallel_pool_pending
+	add x9, x9, :lo12:__sysy_parallel_pool_pending
+	mov w11, #65535
+.Lsysy_parallel_mod_spin_done:
+	ldar w10, [x9]
+	cbz w10, .Lsysy_parallel_mod_joined_fast
+	subs w11, w11, #1
+	bne .Lsysy_parallel_mod_spin_done
+	adrp x0, __sysy_parallel_pool_mutex
+	add x0, x0, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_mutex_lock
+.Lsysy_parallel_mod_wait_done:
+	adrp x9, __sysy_parallel_pool_pending
+	add x9, x9, :lo12:__sysy_parallel_pool_pending
+	ldr w10, [x9]
+	cbz w10, .Lsysy_parallel_mod_joined
+	adrp x0, __sysy_parallel_pool_done_cond
+	add x0, x0, :lo12:__sysy_parallel_pool_done_cond
+	adrp x1, __sysy_parallel_pool_mutex
+	add x1, x1, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_cond_wait
+	b .Lsysy_parallel_mod_wait_done
+.Lsysy_parallel_mod_joined:
+	adrp x9, __sysy_parallel_pool_job
+	add x9, x9, :lo12:__sysy_parallel_pool_job
+	ldr w23, [x9, #28]
+	adrp x0, __sysy_parallel_pool_mutex
+	add x0, x0, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_mutex_unlock
+	b .Lsysy_parallel_mod_combine
+.Lsysy_parallel_mod_joined_fast:
+	adrp x9, __sysy_parallel_pool_job
+	add x9, x9, :lo12:__sysy_parallel_pool_job
+	ldr w23, [x9, #28]
+.Lsysy_parallel_mod_combine:
+	adrp x9, __sysy_parallel_pool_job
+	add x9, x9, :lo12:__sysy_parallel_pool_job
+	add x9, x9, #40
+	ldar w10, [x9]
+	cbnz w10, .Lsysy_parallel_mod_unsafe
+	add w19, w19, w23
+	sdiv w10, w19, w26
+	msub w0, w10, w26, w19
+	stlr wzr, [x24]
+	b .Lsysy_parallel_mod_done
+.Lsysy_parallel_mod_unsafe:
+	movz w0, #32768, lsl #16
+	stlr wzr, [x24]
+	b .Lsysy_parallel_mod_done
+.Lsysy_parallel_mod_release_direct:
+	stlr wzr, [x24]
+.Lsysy_parallel_mod_direct:
+	mov w0, w19
+	mov w1, w20
+	mov x2, x21
+	mov x3, x22
+	blr x3
+.Lsysy_parallel_mod_done:
+	ldp x25, x26, [sp], #16
+	ldp x23, x24, [sp], #16
+	ldp x21, x22, [sp], #16
+	ldp x19, x20, [sp], #16
+	ldp x29, x30, [sp], #16
+	ret
+.size __sysy_parallel_reduce_mod_int_range, .-__sysy_parallel_reduce_mod_int_range
 )";
     }
 };
@@ -2060,6 +3026,15 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
         return result;
     }
     profile.mark("blocking");
+    if (options.optMode != OptMode::None &&
+        optimizationPassEnabled("bitwise")) {
+        blocked = quad::specializeBitwiseIdioms(blocked);
+        if (blocked == nullptr) {
+            result.error = "bitwise idiom specialization failed";
+            return result;
+        }
+        profile.mark("bitwise-idiom");
+    }
     maybeWriteQuad(options, ".4-block.quad", blocked);
 
     auto *blockedFlow = computeFlow(blocked);

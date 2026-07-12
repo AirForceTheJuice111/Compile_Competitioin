@@ -1,0 +1,15 @@
+int live[4];
+int write_only[200000];
+
+int main() {
+  int i = 0;
+  while (i < 200000) {
+    write_only[i] = ((i * 3 + 1) * (i + 7) + (i * 11 - 5)) *
+                    ((i + 13) * (i - 17) + (i * 19 + 23)) + i * 29;
+    i = i + 1;
+  }
+  live[0] = 17;
+  putint(live[0]);
+  putch(10);
+  return 0;
+}

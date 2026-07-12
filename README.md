@@ -37,14 +37,14 @@ Useful frontend/debug commands:
 build/compiler --dump-tokens test/functional/95_float.sy
 build/compiler --dump-ast test/functional/95_float.sy
 build/compiler --check-sysy test/functional/95_float.sy
-build/compiler --dump-parallel-plan test/performance_final/2025-MYO-20.sy
+build/compiler --dump-parallel-plan test/performance/01_mm1.sy
 ```
 
 ## Run One Program
 
 ```sh
 make run-one test/functional/95_float.sy
-SYSY_OPT='-O1' make run-one test/performance_final/2025-3Z0-43.sy
+SYSY_OPT='-O1' make run-one test/performance/03_sort2.sy
 ```
 
 `make run-one` compiles the selected `.sy` file to AArch64 assembly, links it
@@ -90,12 +90,15 @@ make sysy-parse-regression
 make sysy-semantic-regression
 ```
 
-Run performance archive regression:
+Run the canonical preliminary performance regression:
 
 ```sh
-make sysy-performance-regression SYSY_PERF_ARCHIVE=/tmp/compiler2025/ARM-性能.zip
+make sysy-performance-regression
 MAX_CASES=3 make sysy-performance-regression
 ```
+
+An older archive can still be selected explicitly with
+`SYSY_PERF_ARCHIVE=/path/to/archive.zip`.
 
 ## AArch64 Backend
 
@@ -114,23 +117,62 @@ integer/pointer arguments use `w/x` registers, scalar floats use `s` registers,
 and `%f` varargs are promoted to `double` in `d` registers. SysY globals and
 arrays use the official `sylib.c/.h` runtime interface.
 
-The hardened integer algebra simplifier can be evaluated independently with
-`SYSY_EXPERIMENTAL_PASSES=algebrasimp` in an optimized mode. It folds only
-operations proven to use SysY `int` values, uses defined 32-bit wrapping for
-constant arithmetic, and leaves floating-point identities and comparisons
-unchanged so signed zero and NaN behavior are preserved.
+Optimized modes run the hardened integer AlgebraSimp, guarded bitwise-helper
+specialization, typed GVN, CopyProp/conservative DCE, and restricted scalar-int
+inliner by default. The passes rebuild and verify Quad metadata before final
+flow analysis and register residency. AlgebraSimp uses defined 32-bit wrapping
+and leaves floating-point identities/comparisons unchanged; GVN excludes
+loads/calls and keys values by type; the inliner accepts only straight-line,
+leaf, single-return scalar-int functions. The bitwise pass matches the complete
+32-iteration software `and`/`or`/`xor` helper CFG, emits a native operation only
+for nonnegative operands, and preserves the original helper as the signed
+fallback. `SYSY_DISABLE_PASSES=bitwise,gvn,copyprop` can isolate stable passes
+for debugging.
+
+Imported FuncSpec, MemOpt, LoopSimplify, LoopUnroll, trace block layout, and
+the textual AArch64 peephole remain disabled unless named explicitly in
+`SYSY_EXPERIMENTAL_PASSES` as `funcspec`, `memopt`, `loopsimplify`,
+`loopunroll`, `traceblock`, or `peephole`. Their general correctness or
+profitability is not yet strong enough for the default pipeline; in particular,
+measured loop simplification and text-peephole regressions outweighed wins on
+other cases.
+
+The AArch64 emitter assigns up to ten hot, loop-weighted Quad temps injectively
+to callee-saved `x19`-`x28` homes, including pointer values and raw float bits.
+It preserves those registers under AAPCS64, snapshots parallel PHI copies, and
+uses direct frame-relative addressing for nearby spills. Address forms whose
+scratch lifetimes are known are selected directly: pointer-plus-signed-32-bit
+byte offsets use `add xD, xN, wM, sxtw`, and comparisons against zero use an
+immediate operand. Signed division and remainder by compile-time constants use
+exact AArch64 magic-number, power-of-two, and `msub` sequences, including
+negative divisors and the `INT_MIN / -1` wrapping boundary. Broader scaled-index
+and pointer-induction folding remains future work.
 
 Native loop parallelization is enabled automatically for optimized modes unless
 `--no-parallel-native` is passed. The lowering stage uses the shared loop plan
-analysis in `lib/sysy/parallel_plan.cc`; current canonical loops may use either
-`while (i < end)` or `while (i <= end)` with unit increments. When a loop is
-parallelized, the AArch64 assembly embeds worker functions, 8-byte pointer-safe
-context structs, and a small pthread runtime in the same `.s` file. Parameter
-array aliasing is handled with a runtime guard for same-rank array parameters:
-aliasing calls take a generated sequential fallback, while non-aliasing calls
-use the parallel worker. Loop endpoints must be invariant integer expressions;
-dynamic inclusive endpoints guard `INT_MAX` and use the original sequential
-comparison on the overflow path.
+analysis in `lib/sysy/parallel_plan.cc`. Dynamic invariant integer bounds retain
+the common unit-step `<` and `<=` path. When the initializer, endpoint, and
+nonzero step are compile-time integers, the planner also proves finite,
+overflow-free `<`, `<=`, `>`, `>=`, and exactly reachable `!=` loops, maps them
+to a logical half-open iteration range, and restores the source IV's exact final
+value. This covers descending and non-unit-step while/for-like patterns without
+changing signed-overflow behavior.
+
+When a loop is parallelized, the AArch64 assembly embeds worker functions,
+8-byte pointer-safe context structs, and a small pthread runtime in the same
+`.s` file. Parameter array aliasing is handled with a runtime guard for
+same-rank array parameters: aliasing calls take a generated sequential
+fallback, while non-aliasing calls use the parallel worker. Loop endpoints
+must be invariant integer expressions; dynamic inclusive endpoints guard
+`INT_MAX` and use the original sequential comparison on the overflow path.
+Partition checks reject first-index expressions that depend on loop-local
+scalars, even when a superficial coefficient in the outer IV is nonzero,
+because such expressions can overlap between workers.
+Candidate-loop early `continue` is accepted only when its immediately preceding
+sibling is the exact unshadowed source-IV update. Worker and sequential fallback
+lowering suppress that source update and route the transfer through one shared
+latch, so source and logical IVs advance exactly once. Outer `break`, returns,
+bare continues, and wrong-step/shadowed updates remain sequential.
 Loop bodies may call user helpers proven transitively scalar-only and pure,
 including self-recursive helpers and reads of immutable scalar constants.
 Runtime/unknown calls, mutable globals, and every hidden array access remain
@@ -145,10 +187,22 @@ compile-time constant below the pthread threshold; dynamic or large inner
 ranges retain the simpler inner-loop worker selected by measurements.
 Native profitability uses a fifth runtime argument containing a conservative
 per-iteration work estimate. Nested bodies are boosted, helpers emitted inside
-sequential enclosing loops are depth-discounted, and the two-core runtime
-creates a pthread only when the overflow-safe 64-bit `trip_count * work_cost`
-reaches 16384. Cheap dynamic reductions therefore retain direct execution,
-while sufficiently coarse short ranges can parallelize.
+sequential enclosing loops are depth-discounted. The exact integer recurrence
+`sum = (sum + addend) % MOD` can additionally use a striped modular-reduction
+worker when `MOD` is a positive constant no greater than `INT_MAX/2`, the loop
+has no replay-visible effects, and the ordinary reduction constraints hold.
+Runtime checks reject an unsafe initial residue, negative addend, or possible
+signed-add overflow and retry the original sequential loop, preserving SysY
+signed remainder behavior.
+
+The embedded two-core runtime lazily creates one persistent helper thread and
+reuses it across range calls. A short atomic rendezvous keeps dense dispatches
+fast, condition variables provide the sleeping fallback, and an atomic busy
+guard makes nested or concurrent re-entry run directly instead of corrupting
+the shared job slot or deadlocking. The overflow-safe 64-bit
+`trip_count * work_cost` gate requires a total estimated cost of 16384. Cheap
+dynamic reductions therefore retain direct execution, while sufficiently
+coarse short ranges can parallelize.
 
 ## Native Parallel Check
 
@@ -157,6 +211,16 @@ The production native parallel path can be checked with:
 ```sh
 THREADS=2 make sysy-parallel-native-regression
 make sysy-parallel-plan-regression
+```
+
+Mac two-core measurements, including compiler revisions and comparability
+notes, are maintained in `contest-docs/performance-timings.md`.
+The canonical preliminary performance suite is `test/performance`. A cached
+16-worker native Mac regression is available as:
+
+```bash
+scripts/sysy_mac_distributed_regression.sh \
+  --test-root test/performance --workers 16
 ```
 
 ## Runtime Files

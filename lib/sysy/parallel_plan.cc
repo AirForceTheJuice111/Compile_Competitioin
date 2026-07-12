@@ -81,6 +81,33 @@ bool exprContainsAnyCall(const Node &node) {
     });
 }
 
+bool callReadsWrittenScalar(
+    const Node &node, const std::unordered_set<std::string> &writes,
+    const ParallelFunctionSummaryLookup &lookupFunction) {
+    if (node.kind == NodeKind::CallExpr) {
+        const ParallelScalarFunctionSummary *summary =
+            lookupPureFunction(lookupFunction, node.text);
+        if (summary == nullptr) {
+            return true;
+        }
+        for (const std::string &read : summary->globalScalarReads) {
+            if (writes.find(read) != writes.end()) {
+                return true;
+            }
+        }
+    }
+    return std::any_of(node.children.begin(), node.children.end(), [&](const auto &child) {
+        return callReadsWrittenScalar(*child, writes, lookupFunction);
+    });
+}
+
+bool isStartTimingStmt(const Node &node) {
+    return node.kind == NodeKind::ExprStmt && node.children.size() == 1 &&
+           node.children.front()->kind == NodeKind::CallExpr &&
+           (node.children.front()->text == "starttime" ||
+            node.children.front()->text == "_sysy_starttime");
+}
+
 int estimateExprCost(const Node &node) {
     switch (node.kind) {
     case NodeKind::Number:
@@ -363,11 +390,25 @@ bool affineCoeff(const Node &node, const std::string &var,
                            activeFunctions, coeff);
 }
 
+bool containsLocalLVal(const Node &node,
+                       const std::unordered_set<const Node *> &localLvals) {
+    if (node.kind == NodeKind::LVal && localLvals.find(&node) != localLvals.end()) {
+        return true;
+    }
+    return std::any_of(node.children.begin(), node.children.end(),
+                       [&](const auto &child) {
+                           return containsLocalLVal(*child, localLvals);
+                       });
+}
+
 bool lvalFirstIndexIsPartitionedByLoopVar(
     const Node &lval, const std::string &var,
     const std::unordered_set<const Node *> &localLvals,
     const ParallelFunctionSummaryLookup &lookupFunction) {
     if (lval.kind != NodeKind::LVal || lval.children.empty()) {
+        return false;
+    }
+    if (containsLocalLVal(*lval.children.front(), localLvals)) {
         return false;
     }
     int coeff = 0;
@@ -392,6 +433,10 @@ bool sameFirstPartitionIndex(const Node &lhs, const Node &rhs, const std::string
         lhs.children.empty() || rhs.children.empty()) {
         return false;
     }
+    if (containsLocalLVal(*lhs.children.front(), localLvals) ||
+        containsLocalLVal(*rhs.children.front(), localLvals)) {
+        return false;
+    }
     int lhsCoeff = 0;
     int rhsCoeff = 0;
     if (!affineCoeff(*lhs.children.front(), var, localLvals, lookupFunction, lhsCoeff) ||
@@ -402,32 +447,174 @@ bool sameFirstPartitionIndex(const Node &lhs, const Node &rhs, const std::string
     return nodeKey(*lhs.children.front()) == nodeKey(*rhs.children.front());
 }
 
-bool isIncrementOf(const Node &stmt, const std::string &var) {
+bool signedIntConstValue(const Node &node, int &value) {
+    if (intConstValue(node, value)) {
+        return true;
+    }
+    if (node.kind != NodeKind::UnaryExpr || node.children.size() != 1 ||
+        (node.text != "+" && node.text != "-")) {
+        return false;
+    }
+    int inner = 0;
+    if (!intConstValue(*node.children.front(), inner) ||
+        (node.text == "-" && inner == INT_MIN)) {
+        return false;
+    }
+    value = node.text == "-" ? -inner : inner;
+    return true;
+}
+
+bool inductionStepOf(const Node &stmt, const std::string &var, int &step) {
     if (stmt.kind != NodeKind::AssignStmt || stmt.children.size() != 2) {
         return false;
     }
     const Node &lhs = *stmt.children.at(0);
     const Node &rhs = *stmt.children.at(1);
-    if (!isScalarLVal(lhs) || lhs.text != var || rhs.kind != NodeKind::BinaryExpr ||
-        rhs.text != "+") {
+    if (!isScalarLVal(lhs) || lhs.text != var || rhs.kind != NodeKind::BinaryExpr) {
         return false;
     }
     int c = 0;
-    return ((rhs.children.at(0)->kind == NodeKind::LVal &&
-             rhs.children.at(0)->text == var &&
-             intConstValue(*rhs.children.at(1), c) && c == 1) ||
-            (rhs.children.at(1)->kind == NodeKind::LVal &&
-             rhs.children.at(1)->text == var &&
-             intConstValue(*rhs.children.at(0), c) && c == 1));
+    if (rhs.text == "+") {
+        if (rhs.children.at(0)->kind == NodeKind::LVal &&
+            rhs.children.at(0)->text == var && rhs.children.at(0)->children.empty() &&
+            signedIntConstValue(*rhs.children.at(1), c)) {
+            step = c;
+        } else if (rhs.children.at(1)->kind == NodeKind::LVal &&
+                   rhs.children.at(1)->text == var && rhs.children.at(1)->children.empty() &&
+                   signedIntConstValue(*rhs.children.at(0), c)) {
+            step = c;
+        } else {
+            return false;
+        }
+    } else if (rhs.text == "-" &&
+               rhs.children.at(0)->kind == NodeKind::LVal &&
+               rhs.children.at(0)->text == var && rhs.children.at(0)->children.empty() &&
+               signedIntConstValue(*rhs.children.at(1), c) && c != INT_MIN) {
+        step = -c;
+    } else {
+        return false;
+    }
+    return step != 0;
+}
+
+bool isCanonicalContinueUpdate(
+    const Node &stmt, const ParallelLoopPlan &plan,
+    const std::unordered_set<const Node *> &localLvals) {
+    int step = 0;
+    if (!inductionStepOf(stmt, plan.init.var, step) || step != plan.step) {
+        return false;
+    }
+    // Every IV reference in the update must resolve to the candidate loop's
+    // binding.  In particular, an assignment to a block-local shadow must not
+    // make an outer-loop continue appear finite.
+    return !containsLocalLVal(stmt, localLvals);
+}
+
+bool validateControlTransfers(
+    const Node &node, int nestedLoopDepth,
+    const std::unordered_set<const Node *> &localLvals,
+    ParallelLoopPlan &plan) {
+    if (node.kind == NodeKind::ReturnStmt) {
+        plan.rejectReason = "return in loop body";
+        return false;
+    }
+    if (node.kind == NodeKind::BreakStmt) {
+        if (nestedLoopDepth == 0) {
+            plan.rejectReason = "break exits candidate loop";
+            return false;
+        }
+        return true;
+    }
+    if (node.kind == NodeKind::ContinueStmt) {
+        // Candidate-loop continues are handled by the Block case below, where
+        // their immediately preceding sibling is available.  Continues owned
+        // by a nested loop retain their ordinary lowering.
+        if (nestedLoopDepth == 0) {
+            plan.rejectReason =
+                "continue lacks canonical induction update";
+            return false;
+        }
+        return true;
+    }
+    if (node.kind == NodeKind::WhileStmt) {
+        if (!node.children.empty() &&
+            !validateControlTransfers(*node.children.front(), nestedLoopDepth,
+                                      localLvals, plan)) {
+            return false;
+        }
+        return node.children.size() < 2 ||
+               validateControlTransfers(*node.children.at(1),
+                                        nestedLoopDepth + 1,
+                                        localLvals, plan);
+    }
+    if (node.kind == NodeKind::Block) {
+        for (std::size_t index = 0; index < node.children.size(); ++index) {
+            const Node &child = *node.children[index];
+            if (child.kind == NodeKind::ContinueStmt && nestedLoopDepth == 0) {
+                if (index == 0 ||
+                    !isCanonicalContinueUpdate(*node.children[index - 1], plan,
+                                               localLvals)) {
+                    plan.rejectReason =
+                        "continue lacks canonical induction update";
+                    return false;
+                }
+                plan.canonicalContinueUpdates.push_back(
+                    node.children[index - 1].get());
+                continue;
+            }
+            if (!validateControlTransfers(child, nestedLoopDepth, localLvals,
+                                          plan)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    for (const auto &child : node.children) {
+        if (!validateControlTransfers(*child, nestedLoopDepth, localLvals,
+                                      plan)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool validateCandidateBodyControlTransfers(
+    const std::vector<const Node *> &body,
+    const std::unordered_set<const Node *> &localLvals,
+    ParallelLoopPlan &plan) {
+    // canonicalWhile strips the final latch update and stores the remaining
+    // top-level siblings directly in plan.body, so validate that sequence just
+    // like an AST Block rather than visiting each statement in isolation.
+    for (std::size_t index = 0; index < body.size(); ++index) {
+        const Node &stmt = *body[index];
+        if (stmt.kind == NodeKind::ContinueStmt) {
+            if (index == 0 ||
+                !isCanonicalContinueUpdate(*body[index - 1], plan,
+                                           localLvals)) {
+                plan.rejectReason =
+                    "continue lacks canonical induction update";
+                return false;
+            }
+            plan.canonicalContinueUpdates.push_back(body[index - 1]);
+            continue;
+        }
+        if (!validateControlTransfers(stmt, 0, localLvals, plan)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 bool canonicalWhile(const Node &loop, const ParallelLoopInit &init, const Node *&endExpr,
-                    bool &inclusiveEnd, std::vector<const Node *> &body) {
+                    bool &inclusiveEnd, int &step, std::string &comparison,
+                    std::vector<const Node *> &body) {
     if (!init.valid || loop.kind != NodeKind::WhileStmt || loop.children.size() != 2) {
         return false;
     }
     const Node &cond = *loop.children.at(0);
-    if (cond.kind != NodeKind::BinaryExpr || (cond.text != "<" && cond.text != "<=") ||
+    if (cond.kind != NodeKind::BinaryExpr ||
+        (cond.text != "<" && cond.text != "<=" && cond.text != ">" &&
+         cond.text != ">=" && cond.text != "!=") ||
         cond.children.at(0)->kind != NodeKind::LVal ||
         cond.children.at(0)->text != init.var ||
         !cond.children.at(0)->children.empty()) {
@@ -438,11 +625,12 @@ bool canonicalWhile(const Node &loop, const ParallelLoopInit &init, const Node *
         return false;
     }
     const Node &last = *bodyNode.children.back();
-    if (!isIncrementOf(last, init.var)) {
+    if (!inductionStepOf(last, init.var, step)) {
         return false;
     }
     endExpr = cond.children.at(1).get();
-    inclusiveEnd = cond.text == "<=";
+    comparison = cond.text;
+    inclusiveEnd = cond.text == "<=" || cond.text == ">=";
     body.clear();
     for (std::size_t i = 0; i + 1 < bodyNode.children.size(); ++i) {
         body.push_back(bodyNode.children[i].get());
@@ -557,9 +745,13 @@ std::optional<ParallelPrivatizedScalar> recognizeCanonicalScratchScalar(
 
     const Node *scratchEnd = nullptr;
     bool scratchInclusive = false;
+    int scratchStep = 1;
+    std::string scratchComparison;
     std::vector<const Node *> scratchBody;
     if (!canonicalWhile(*plan.body.back(), scratchInit, scratchEnd,
-                        scratchInclusive, scratchBody) || scratchEnd == nullptr) {
+                        scratchInclusive, scratchStep, scratchComparison, scratchBody) ||
+        scratchEnd == nullptr || scratchStep != 1 ||
+        (scratchComparison != "<" && scratchComparison != "<=")) {
         return std::nullopt;
     }
 
@@ -626,7 +818,14 @@ bool containsExternalScalarReference(
 
 void collectExternalScalarWrites(
     const Node &node, const std::unordered_set<const Node *> &localLvals,
-    std::unordered_set<std::string> &writes) {
+    std::unordered_set<std::string> &writes,
+    const ParallelLoopPlan *plan = nullptr) {
+    if (plan != nullptr &&
+        std::find(plan->canonicalContinueUpdates.begin(),
+                  plan->canonicalContinueUpdates.end(), &node) !=
+            plan->canonicalContinueUpdates.end()) {
+        return;
+    }
     if (node.kind == NodeKind::AssignStmt && node.children.size() == 2) {
         const Node &lhs = *node.children.at(0);
         if (isScalarLVal(lhs) && localLvals.find(&lhs) == localLvals.end()) {
@@ -634,7 +833,7 @@ void collectExternalScalarWrites(
         }
     }
     for (const auto &child : node.children) {
-        collectExternalScalarWrites(*child, localLvals, writes);
+        collectExternalScalarWrites(*child, localLvals, writes, plan);
     }
 }
 
@@ -662,6 +861,56 @@ bool exprIsProvablyInt(const Node &node, const ParallelTypeLookup &lookupType,
                exprIsProvablyInt(*node.children.at(1), lookupType, lookupFunction);
     }
     return false;
+}
+
+std::optional<int> reductionConstInt(const Node &node,
+                                     const ParallelConstIntLookup &lookupConstInt) {
+    int literal = 0;
+    if (intConstValue(node, literal)) {
+        return literal;
+    }
+    if (node.kind == NodeKind::LVal && node.children.empty() && lookupConstInt) {
+        return lookupConstInt(node.text);
+    }
+    return std::nullopt;
+}
+
+std::optional<ParallelReduction> modularReduction(
+    const Node &assign, const std::string &var,
+    const ParallelConstIntLookup &lookupConstInt) {
+    if (assign.kind != NodeKind::AssignStmt || assign.children.size() != 2) {
+        return std::nullopt;
+    }
+    const Node &lhs = *assign.children.at(0);
+    const Node &rhs = *assign.children.at(1);
+    if (!isScalarLVal(lhs) || lhs.text != var || rhs.kind != NodeKind::BinaryExpr ||
+        rhs.text != "%" || rhs.children.size() != 2) {
+        return std::nullopt;
+    }
+    std::optional<int> modulus =
+        reductionConstInt(*rhs.children.at(1), lookupConstInt);
+    // Keeping both signed residues in (-m,m) makes their sum overflow-free.
+    // m <= INT_MAX/2 is deliberately a little stricter than necessary.
+    if (!modulus || *modulus <= 0 || *modulus > INT_MAX / 2) {
+        return std::nullopt;
+    }
+    const Node &sum = *rhs.children.at(0);
+    if (sum.kind != NodeKind::BinaryExpr || sum.text != "+" ||
+        sum.children.size() != 2) {
+        return std::nullopt;
+    }
+    const Node *left = sum.children.at(0).get();
+    const Node *right = sum.children.at(1).get();
+    const Node *addend = nullptr;
+    if (isScalarLVal(*left) && left->text == var) {
+        addend = right;
+    } else if (isScalarLVal(*right) && right->text == var) {
+        addend = left;
+    }
+    if (addend == nullptr) {
+        return std::nullopt;
+    }
+    return ParallelReduction{var, addend, true, *modulus};
 }
 
 void addReduction(std::vector<ParallelReduction> &reductions, ParallelReduction info) {
@@ -803,17 +1052,44 @@ bool analyzeNode(const Node &node, const std::string &loopVar,
                  const std::unordered_set<const Node *> &localLvals,
                  const ParallelTypeLookup &lookupType,
                  const ParallelFunctionSummaryLookup &lookupFunction,
-                 ParallelLoopPlan &plan) {
+                 const ParallelConstIntLookup &lookupConstInt,
+                 ParallelLoopPlan &plan, int nestedLoopDepth = 0) {
+    if (std::find(plan.canonicalContinueUpdates.begin(),
+                  plan.canonicalContinueUpdates.end(), &node) !=
+        plan.canonicalContinueUpdates.end()) {
+        return true;
+    }
     if (exprContainsUnsafeCall(node, lookupFunction)) {
         plan.rejectReason = "unsafe call in loop body";
         return false;
     }
     switch (node.kind) {
-    case NodeKind::BreakStmt:
-    case NodeKind::ContinueStmt:
     case NodeKind::ReturnStmt:
         plan.rejectReason = "control transfer in loop body";
         return false;
+    case NodeKind::BreakStmt:
+        if (nestedLoopDepth == 0) {
+            plan.rejectReason = "break exits candidate loop";
+            return false;
+        }
+        return true;
+    case NodeKind::ContinueStmt:
+        if (nestedLoopDepth == 0 && plan.canonicalContinueUpdates.empty()) {
+            plan.rejectReason = "continue lacks canonical induction update";
+            return false;
+        }
+        return true;
+    case NodeKind::WhileStmt:
+        if (!node.children.empty() &&
+            !analyzeNode(*node.children.front(), loopVar, localLvals,
+                         lookupType, lookupFunction, lookupConstInt, plan,
+                         nestedLoopDepth)) {
+            return false;
+        }
+        return node.children.size() < 2 ||
+               analyzeNode(*node.children.at(1), loopVar, localLvals,
+                           lookupType, lookupFunction, lookupConstInt, plan,
+                           nestedLoopDepth + 1);
     case NodeKind::VarDecl:
     case NodeKind::ConstDecl:
         for (const auto &def : node.children) {
@@ -834,6 +1110,14 @@ bool analyzeNode(const Node &node, const std::string &loopVar,
                 return false;
             }
             if (lookupType && lookupType(lhs.text) == "int") {
+                if (std::optional<ParallelReduction> reduction =
+                        modularReduction(node, lhs.text, lookupConstInt)) {
+                    if (!containsExternalScalarReference(*reduction->addend, lhs.text,
+                                                         localLvals)) {
+                        addReduction(plan.reductions, *reduction);
+                        return true;
+                    }
+                }
                 const Node *add = parallelReductionAddend(node, lhs.text);
                 if (add != nullptr &&
                     !containsExternalScalarReference(*add, lhs.text, localLvals)) {
@@ -860,7 +1144,8 @@ bool analyzeNode(const Node &node, const std::string &loopVar,
     default:
         for (const auto &child : node.children) {
             if (!analyzeNode(*child, loopVar, localLvals, lookupType,
-                             lookupFunction, plan)) {
+                             lookupFunction, lookupConstInt, plan,
+                             nestedLoopDepth)) {
                 return false;
             }
         }
@@ -869,23 +1154,34 @@ bool analyzeNode(const Node &node, const std::string &loopVar,
 }
 
 bool validateReductionUses(
-    const Node &node, const std::string &var,
-    const std::unordered_set<const Node *> &localLvals) {
+    const Node &node, const ParallelReduction &reduction,
+    const std::unordered_set<const Node *> &localLvals,
+    const ParallelConstIntLookup &lookupConstInt) {
     if (node.kind == NodeKind::AssignStmt && node.children.size() == 2) {
         const Node &lhs = *node.children.at(0);
-        if (isScalarLVal(lhs) && lhs.text == var &&
+        if (isScalarLVal(lhs) && lhs.text == reduction.var &&
             localLvals.find(&lhs) == localLvals.end()) {
-            const Node *addend = parallelReductionAddend(node, var);
+            const Node *addend = nullptr;
+            if (reduction.modular) {
+                std::optional<ParallelReduction> current =
+                    modularReduction(node, reduction.var, lookupConstInt);
+                if (current && current->modulus == reduction.modulus) {
+                    addend = current->addend;
+                }
+            } else {
+                addend = parallelReductionAddend(node, reduction.var);
+            }
             return addend != nullptr &&
-                   !containsExternalScalarReference(*addend, var, localLvals);
+                   !containsExternalScalarReference(*addend, reduction.var, localLvals);
         }
     }
-    if (node.kind == NodeKind::LVal && node.children.empty() && node.text == var &&
+    if (node.kind == NodeKind::LVal && node.children.empty() &&
+        node.text == reduction.var &&
         localLvals.find(&node) == localLvals.end()) {
         return false;
     }
     return std::all_of(node.children.begin(), node.children.end(), [&](const auto &child) {
-        return validateReductionUses(*child, var, localLvals);
+        return validateReductionUses(*child, reduction, localLvals, lookupConstInt);
     });
 }
 
@@ -929,7 +1225,7 @@ bool validateLoopBound(ParallelLoopPlan &plan, const LexicalInfo &lexical,
     }
     std::unordered_set<std::string> writes;
     for (const Node *stmt : plan.body) {
-        collectExternalScalarWrites(*stmt, lexical.localLvals, writes);
+        collectExternalScalarWrites(*stmt, lexical.localLvals, writes, &plan);
     }
     if (boundReferencesWrittenScalar(*plan.endExpr, writes)) {
         plan.rejectReason = "loop endpoint is modified in body";
@@ -939,7 +1235,7 @@ bool validateLoopBound(ParallelLoopPlan &plan, const LexicalInfo &lexical,
         plan.rejectReason = "non-int loop endpoint";
         return false;
     }
-    if (plan.inclusiveEnd) {
+    if (plan.comparison == "<=") {
         int endpoint = 0;
         if (intConstValue(*plan.endExpr, endpoint) && endpoint == INT_MAX) {
             plan.rejectReason = "inclusive endpoint may overflow";
@@ -949,7 +1245,83 @@ bool validateLoopBound(ParallelLoopPlan &plan, const LexicalInfo &lexical,
     return true;
 }
 
+bool comparisonHolds(long long lhs, long long rhs, const std::string &comparison) {
+    if (comparison == "<") return lhs < rhs;
+    if (comparison == "<=") return lhs <= rhs;
+    if (comparison == ">") return lhs > rhs;
+    if (comparison == ">=") return lhs >= rhs;
+    return comparison == "!=" && lhs != rhs;
+}
+
+bool deriveLogicalIterationSpace(ParallelLoopPlan &plan) {
+    // Preserve the established dynamic unit-stride lowering.  It has runtime
+    // overflow handling for <= and does not need a logical-IV mapping.
+    if (plan.step == 1 && (plan.comparison == "<" || plan.comparison == "<=")) {
+        return true;
+    }
+
+    int initial = 0;
+    int endpoint = 0;
+    if (plan.init.initExpr == nullptr || plan.endExpr == nullptr ||
+        !signedIntConstValue(*plan.init.initExpr, initial) ||
+        !signedIntConstValue(*plan.endExpr, endpoint)) {
+        plan.rejectReason = "generalized loop needs constant endpoints";
+        return false;
+    }
+
+    const long long begin = initial;
+    const long long end = endpoint;
+    long long trips = 0;
+    if (!comparisonHolds(begin, end, plan.comparison)) {
+        trips = 0;
+    } else if (plan.comparison == "<" || plan.comparison == "<=") {
+        if (plan.step <= 0) {
+            plan.rejectReason = "loop step does not approach endpoint";
+            return false;
+        }
+        const long long distance = end - begin;
+        trips = plan.comparison == "<"
+                    ? (distance + static_cast<long long>(plan.step) - 1) / plan.step
+                    : distance / plan.step + 1;
+    } else if (plan.comparison == ">" || plan.comparison == ">=") {
+        if (plan.step >= 0) {
+            plan.rejectReason = "loop step does not approach endpoint";
+            return false;
+        }
+        const long long magnitude = -static_cast<long long>(plan.step);
+        const long long distance = begin - end;
+        trips = plan.comparison == ">"
+                    ? (distance + magnitude - 1) / magnitude
+                    : distance / magnitude + 1;
+    } else {
+        const long long distance = end - begin;
+        if ((distance > 0 && plan.step <= 0) ||
+            (distance < 0 && plan.step >= 0) ||
+            distance % static_cast<long long>(plan.step) != 0) {
+            plan.rejectReason = "!= endpoint is not reached exactly";
+            return false;
+        }
+        trips = distance / static_cast<long long>(plan.step);
+    }
+
+    const long long offset = trips * static_cast<long long>(plan.step);
+    const long long finalValue = begin + offset;
+    if (trips < 0 || trips > INT_MAX || offset < -static_cast<long long>(INT_MAX) ||
+        offset > INT_MAX || finalValue < INT_MIN || finalValue > INT_MAX ||
+        comparisonHolds(finalValue, end, plan.comparison)) {
+        plan.rejectReason = "generalized loop may overflow or not terminate";
+        return false;
+    }
+    plan.logicalTripCount = static_cast<int>(trips);
+    plan.initialIv = initial;
+    plan.finalIv = static_cast<int>(finalValue);
+    return true;
+}
+
 std::optional<int> constantTripCount(const ParallelLoopPlan &plan) {
+    if (plan.logicalTripCount >= 0) {
+        return plan.logicalTripCount;
+    }
     if (plan.init.initExpr == nullptr || plan.endExpr == nullptr) {
         return std::nullopt;
     }
@@ -1146,8 +1518,15 @@ private:
                 candidate_.structurallyPure = false;
             } else if (!local(node.text)) {
                 auto found = globals_.find(node.text);
-                if (found == globals_.end() || !found->second.immutableScalar) {
+                // Reading a scalar global has no call effect.  Such a value is
+                // stable for the duration of a parallel region because the
+                // planner separately rejects every non-reduction scalar write
+                // in its body.  Array/global writes and unknown symbols remain
+                // impure.
+                if (found == globals_.end()) {
                     candidate_.structurallyPure = false;
+                } else {
+                    candidate_.summary.globalScalarReads.insert(node.text);
                 }
             }
             for (const auto &index : node.children) {
@@ -1271,6 +1650,30 @@ ParallelFunctionSummaries summarizeParallelScalarFunctions(const Node &root) {
             }
         }
     }
+    // Carry transitive scalar reads through pure call chains and recursive
+    // SCCs.  The loop planner uses this to reject a seemingly pure helper that
+    // observes a scalar concurrently reduced by the loop.
+    changed = true;
+    while (changed) {
+        changed = false;
+        for (const auto &entry : candidates) {
+            auto summary = summaries.find(entry.first);
+            if (summary == summaries.end() || !summary->second.pure) {
+                continue;
+            }
+            for (const std::string &callee : entry.second.callees) {
+                auto calleeSummary = summaries.find(callee);
+                if (calleeSummary == summaries.end() || !calleeSummary->second.pure) {
+                    continue;
+                }
+                for (const std::string &read : calleeSummary->second.globalScalarReads) {
+                    if (summary->second.globalScalarReads.insert(read).second) {
+                        changed = true;
+                    }
+                }
+            }
+        }
+    }
     return summaries;
 }
 
@@ -1283,6 +1686,22 @@ public:
         loopDepth_ = 0;
         out_.str("");
         out_.clear();
+        globalConstInts_.clear();
+        for (const auto &child : root.children) {
+            if (child->kind != NodeKind::ConstDecl || child->text != "int") {
+                continue;
+            }
+            for (const auto &def : child->children) {
+                if (!isScalarDef(*def)) {
+                    continue;
+                }
+                const Node *init = initializerOf(*def);
+                int value = 0;
+                if (init != nullptr && intConstValue(*init, value)) {
+                    globalConstInts_[def->text] = value;
+                }
+            }
+        }
         pushScope();
         visitRoot(root);
         popScope();
@@ -1351,18 +1770,29 @@ private:
     void visitBlock(const Node &node) {
         pushScope();
         for (std::size_t i = 0; i < node.children.size(); ++i) {
-            if (i + 1 < node.children.size() &&
+            std::size_t loopIndex = i + 1;
+            if (i + 2 < node.children.size() &&
+                isStartTimingStmt(*node.children[i + 1])) {
+                loopIndex = i + 2;
+            }
+            if (loopIndex < node.children.size() &&
                 parseParallelLoopInit(*node.children[i]).valid &&
-                node.children[i + 1]->kind == NodeKind::WhileStmt) {
+                node.children[loopIndex]->kind == NodeKind::WhileStmt) {
                 ParallelLoopPlan plan = analyzeParallelLoopPair(
-                    *node.children[i], *node.children[i + 1],
+                    *node.children[i], *node.children[loopIndex],
                     [this](const std::string &name) { return lookupType(name); },
                     [this](const std::string &name)
                         -> const ParallelScalarFunctionSummary * {
                         auto found = functionSummaries_.find(name);
                         return found == functionSummaries_.end() ? nullptr : &found->second;
+                    },
+                    [this](const std::string &name) -> std::optional<int> {
+                        auto found = globalConstInts_.find(name);
+                        return found == globalConstInts_.end()
+                                   ? std::nullopt
+                                   : std::optional<int>(found->second);
                     });
-                emitPlan(plan, node.children[i]->loc, node.children[i + 1]->loc);
+                emitPlan(plan, node.children[i]->loc, node.children[loopIndex]->loc);
             }
             visitStmt(*node.children[i]);
         }
@@ -1405,6 +1835,9 @@ private:
             if (plan.reductions.empty()) {
                 loweringKind = "parallel_for";
                 runtimeSymbol = "__sysy_parallel_for_range";
+            } else if (plan.reductions.front().modular) {
+                loweringKind = "parallel_reduce_mod_int_dynamic";
+                runtimeSymbol = "__sysy_parallel_reduce_mod_int_range";
             } else {
                 loweringKind = "parallel_reduce_int";
                 runtimeSymbol = "__sysy_parallel_reduce_int_range";
@@ -1421,6 +1854,9 @@ private:
              << ",\"init_decl\":" << (plan.init.declaration ? "true" : "false")
              << ",\"init_type\":\"" << jsonEscape(plan.init.type) << "\""
              << ",\"inclusive_end\":" << (plan.inclusiveEnd ? "true" : "false")
+             << ",\"comparison\":\"" << jsonEscape(plan.comparison) << "\""
+             << ",\"step\":" << plan.step
+             << ",\"logical_trip_count\":" << plan.logicalTripCount
              << ",\"estimated_cost\":" << plan.estimatedCost
              << ",\"runtime_work_cost\":" << plan.runtimeWorkCost
              << ",\"has_nested_loop\":" << (plan.hasNestedLoop ? "true" : "false")
@@ -1451,7 +1887,10 @@ private:
             if (i != 0) {
                 out_ << ",";
             }
-            out_ << "{\"var\":\"" << jsonEscape(plan.reductions[i].var) << "\"}";
+            out_ << "{\"var\":\"" << jsonEscape(plan.reductions[i].var)
+                 << "\",\"modular\":"
+                 << (plan.reductions[i].modular ? "true" : "false")
+                 << ",\"modulus\":" << plan.reductions[i].modulus << "}";
         }
         out_ << "],\"privatized_scalars\":[";
         for (std::size_t i = 0; i < plan.privatizedScalars.size(); ++i) {
@@ -1470,6 +1909,7 @@ private:
 
     std::vector<std::unordered_map<std::string, std::string>> scopes_;
     ParallelFunctionSummaries functionSummaries_;
+    std::unordered_map<std::string, int> globalConstInts_;
     int nextId_ = 0;
     int loopDepth_ = 0;
     std::ostringstream out_;
@@ -1521,14 +1961,16 @@ const Node *parallelReductionAddend(const Node &assign, const std::string &var) 
 
 ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopStmt,
                                          const ParallelTypeLookup &lookupType,
-                                         const ParallelFunctionSummaryLookup &lookupFunction) {
+                                         const ParallelFunctionSummaryLookup &lookupFunction,
+                                         const ParallelConstIntLookup &lookupConstInt) {
     ParallelLoopPlan plan;
     plan.init = parseParallelLoopInit(initStmt);
     if (!plan.init.valid) {
         plan.rejectReason = "not a canonical loop initializer";
         return plan;
     }
-    if (!canonicalWhile(loopStmt, plan.init, plan.endExpr, plan.inclusiveEnd, plan.body)) {
+    if (!canonicalWhile(loopStmt, plan.init, plan.endExpr, plan.inclusiveEnd,
+                        plan.step, plan.comparison, plan.body)) {
         plan.rejectReason = "not a canonical while loop";
         return plan;
     }
@@ -1538,6 +1980,11 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
     if (lexical.bodyScopeNames.find(plan.init.var) != lexical.bodyScopeNames.end()) {
         plan.valid = false;
         plan.rejectReason = "loop increment is shadowed";
+        return plan;
+    }
+    if (!validateCandidateBodyControlTransfers(plan.body, lexical.localLvals,
+                                               plan)) {
+        plan.valid = false;
         return plan;
     }
     if (std::optional<ParallelPrivatizedScalar> scratch =
@@ -1557,20 +2004,37 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
         plan.valid = false;
         return plan;
     }
+    if (!deriveLogicalIterationSpace(plan)) {
+        plan.valid = false;
+        return plan;
+    }
     for (const Node *stmt : plan.body) {
         if (!analyzeNode(*stmt, plan.init.var, lexical.localLvals, lookupType,
-                         lookupFunction, plan)) {
+                         lookupFunction, lookupConstInt, plan)) {
             plan.valid = false;
             return plan;
         }
     }
     for (const ParallelReduction &reduction : plan.reductions) {
         for (const Node *stmt : plan.body) {
-            if (!validateReductionUses(*stmt, reduction.var, lexical.localLvals)) {
+            if (!validateReductionUses(*stmt, reduction, lexical.localLvals,
+                                       lookupConstInt)) {
                 plan.valid = false;
                 plan.rejectReason = "reduction variable has non-reduction use";
                 return plan;
             }
+        }
+    }
+    std::unordered_set<std::string> scalarWrites;
+    for (const Node *stmt : plan.body) {
+        collectExternalScalarWrites(*stmt, lexical.localLvals, scalarWrites,
+                                    &plan);
+    }
+    for (const Node *stmt : plan.body) {
+        if (callReadsWrittenScalar(*stmt, scalarWrites, lookupFunction)) {
+            plan.valid = false;
+            plan.rejectReason = "call reads loop-written scalar";
+            return plan;
         }
     }
     for (const Node *stmt : plan.body) {
@@ -1582,6 +2046,12 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
     for (const Node *stmt : plan.body) {
         collectArrayReads(*stmt, reads);
         collectArrayWrites(*stmt, writes);
+    }
+    if (!plan.reductions.empty() && plan.reductions.front().modular &&
+        (!reads.empty() || !writes.empty())) {
+        plan.valid = false;
+        plan.rejectReason = "dynamic modular reduction requires an array-free body";
+        return plan;
     }
     for (const ArrayAccess &write : writes) {
         for (const ArrayAccess &otherWrite : writes) {

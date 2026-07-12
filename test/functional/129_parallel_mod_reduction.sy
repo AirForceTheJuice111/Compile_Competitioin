@@ -1,0 +1,27 @@
+const int MOD = 1009;
+
+int signed_term(int i) {
+  return i % 17 - 8;
+}
+
+int main() {
+  int sum = 0;
+  int i = 0;
+  while (i < 20000) {
+    sum = (sum + signed_term(i)) % MOD;
+    i = i + 1;
+  }
+  putint(sum);
+  putch(10);
+
+  int untouched = 5000;
+  int limit = 2;
+  i = 2;
+  while (i < limit) {
+    untouched = (untouched + signed_term(i)) % MOD;
+    i = i + 1;
+  }
+  putint(untouched);
+  putch(10);
+  return 0;
+}

@@ -79,18 +79,6 @@ bool isRegister(const std::string &operand) {
                        [](unsigned char ch) { return std::isdigit(ch) != 0; });
 }
 
-bool sameNumberedRegister(const std::string &wide, const std::string &narrow) {
-    return wide.size() > 1 && narrow.size() > 1 && wide[0] == 'x' &&
-           narrow[0] == 'w' && wide.substr(1) == narrow.substr(1);
-}
-
-bool isScratchRegister(const std::string &operand) {
-    if (!isRegister(operand) || operand.size() < 2 ||
-        (operand[0] != 'w' && operand[0] != 'x')) return false;
-    int number = std::stoi(operand.substr(1));
-    return number >= 9 && number <= 17;
-}
-
 std::string labelText(const AsmLine &line) {
     std::string text = trim(line.original);
     return !text.empty() && text.back() == ':' ? text.substr(0, text.size() - 1) : text;
@@ -162,48 +150,6 @@ std::string optimizeAarch64Assembly(const std::string &assembly,
                     ++stats.branchesToNextLabel;
                     changed = true;
                     continue;
-                }
-            }
-            if (line.opcode == "sxtw" && line.operands.size() == 2 &&
-                sameNumberedRegister(line.operands[0], line.operands[1])) {
-                std::size_t next = nextNonEmpty(lines, i);
-                if (next == i + 1 && next < lines.size()) {
-                    AsmLine &add = lines[next];
-                    if (!add.removed && add.kind == LineKind::Instruction &&
-                        add.opcode == "add" && add.operands.size() == 3 &&
-                        add.operands[2] == line.operands[0] &&
-                        !add.operands[0].empty() && add.operands[0][0] == 'x' &&
-                        !add.operands[1].empty() && add.operands[1][0] == 'x') {
-                        rewrite(add, "add", {add.operands[0], add.operands[1],
-                                             line.operands[1], "sxtw"});
-                        line.removed = true;
-                        ++stats.extendedAdds;
-                        changed = true;
-                        continue;
-                    }
-                }
-            }
-            if ((line.opcode == "mov" || line.opcode == "movz") &&
-                line.operands.size() == 2 && line.operands[1] == "#0" &&
-                isScratchRegister(line.operands[0])) {
-                std::size_t compareIndex = nextNonEmpty(lines, i);
-                std::size_t branchIndex = compareIndex < lines.size()
-                    ? nextNonEmpty(lines, compareIndex) : lines.size();
-                if (compareIndex == i + 1 && branchIndex == compareIndex + 1 &&
-                    branchIndex < lines.size()) {
-                    AsmLine &compare = lines[compareIndex];
-                    AsmLine &branch = lines[branchIndex];
-                    if (compare.kind == LineKind::Instruction &&
-                        compare.opcode == "cmp" && compare.operands.size() == 2 &&
-                        compare.operands[1] == line.operands[0] &&
-                        branch.kind == LineKind::Instruction &&
-                        branch.opcode.rfind("b.", 0) == 0) {
-                        compare.operands[1] = "#0";
-                        compare.rewritten = true;
-                        line.removed = true;
-                        ++stats.zeroCompares;
-                        changed = true;
-                    }
                 }
             }
         }

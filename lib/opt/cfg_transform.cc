@@ -86,7 +86,10 @@ std::vector<NaturalLoopInfo> findNaturalLoopInfo(QuadFuncDecl *func,
             loop.blocks.insert(header);
             loop.blocks.insert(tail);
             std::stack<int> work;
-            work.push(tail);
+            // A self-loop already consists of its header.  Walking the
+            // header's predecessors here would incorrectly absorb entry-side
+            // predecessors into the natural loop.
+            if (tail != header) work.push(tail);
             while (!work.empty()) {
                 int block = work.top();
                 work.pop();
@@ -218,11 +221,28 @@ bool verifyQuadSsaCfg(QuadFuncDecl *func, std::string *reason) {
         }
     }
     for (auto *block : *func->quadblocklist) {
+        QuadStm *last = block->quadlist->empty()
+                            ? nullptr
+                            : block->quadlist->back();
+        std::set<int> exits = exitNumbers(block);
+        if (last != nullptr && last->kind == QuadKind::RETURN && !exits.empty()) {
+            return fail("return block has cached successors");
+        }
+        if (last != nullptr && last->kind == QuadKind::JUMP &&
+            static_cast<QuadJump *>(last)->label == nullptr) {
+            return fail("jump has no target");
+        }
+        if (last != nullptr && last->kind == QuadKind::CJUMP) {
+            auto *jump = static_cast<QuadCJump *>(last);
+            if (jump->t == nullptr || jump->f == nullptr) {
+                return fail("conditional jump has a missing target");
+            }
+        }
         for (int target : exitNumbers(block)) {
             if (labels.count(target) == 0) return fail("edge targets a missing block");
         }
         std::set<int> targets = terminatorTargets(block);
-        if (!targets.empty() && targets != exitNumbers(block)) {
+        if (!targets.empty() && targets != exits) {
             return fail("terminator and exit labels disagree");
         }
         if (targets.empty() && block->exit_labels != nullptr &&
