@@ -8,6 +8,7 @@ add_compile_options(-w)
 set(BACKEND_SOURCES
     lib/backend/aarch64_block_layout.cc
     lib/backend/aarch64_peephole.cc
+    lib/backend/aarch64_regalloc.cc
     lib/backend/backend_driver.cc
     lib/ir/canon.cc
     lib/ir/treep.cc

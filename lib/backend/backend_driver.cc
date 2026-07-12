@@ -2,6 +2,7 @@
 
 #include "aarch64_block_layout.hh"
 #include "aarch64_peephole.hh"
+#include "aarch64_regalloc.hh"
 #include "algebrasimp.hh"
 #include "bitwise_idiom.hh"
 #include "blocking.hh"
@@ -739,7 +740,7 @@ private:
         noteTempType(termTemp(term));
     }
 
-    void selectResidentTemps(int tempSlotBytes) {
+    void selectLegacyResidentTemps(int tempSlotBytes) {
         residentRegs_.clear();
         calleeSaveSlots_.clear();
         phiScratchSlots_.clear();
@@ -866,6 +867,69 @@ private:
                 {reg, tempSlotBytes + phiScratchBytes + static_cast<int>(i + 1) * 8});
         }
         frameSize_ = alignUpInt(tempSlotBytes + phiScratchBytes + static_cast<int>(count) * 8, 16);
+    }
+
+    void selectResidentTemps(int tempSlotBytes) {
+        const char *modeEnvironment = std::getenv("SYSY_AARCH64_REGALLOC");
+        std::string mode = modeEnvironment == nullptr ? "" : modeEnvironment;
+        if (mode == "legacy") {
+            selectLegacyResidentTemps(tempSlotBytes);
+            return;
+        }
+
+        residentRegs_.clear();
+        calleeSaveSlots_.clear();
+        phiScratchSlots_.clear();
+        if (mode == "off" || func_ == nullptr) {
+            frameSize_ = alignUpInt(tempSlotBytes, 16);
+            return;
+        }
+
+        std::unordered_set<int> rematerializedTemps;
+        for (const auto &constant : constantTemps_) {
+            rematerializedTemps.insert(constant.first);
+        }
+        Aarch64RegisterAllocation allocation = allocateAarch64Gprs(
+            func_, tempTypes_, rematerializedTemps);
+        residentRegs_ = std::move(allocation.tempToRegister);
+
+        // x12-x15 remain dedicated PHI snapshot registers.  Overflow inputs
+        // are staged in frame slots so arbitrary parallel-copy cycles are safe
+        // even when a source and destination reuse the same allocated GPR.
+        static constexpr std::size_t kPhiRegisterScratchCount = 4;
+        std::size_t maxPhiCopies = 0;
+        if (func_->quadblocklist != nullptr) {
+            for (auto *block : *func_->quadblocklist) {
+                if (block == nullptr || block->quadlist == nullptr) continue;
+                std::size_t phiCopies = 0;
+                for (auto *statement : *block->quadlist) {
+                    if (statement != nullptr &&
+                        statement->kind == quad::QuadKind::PHI) {
+                        ++phiCopies;
+                    }
+                }
+                maxPhiCopies = std::max(maxPhiCopies, phiCopies);
+            }
+        }
+        int phiScratchBytes = static_cast<int>(
+            maxPhiCopies > kPhiRegisterScratchCount
+                ? maxPhiCopies - kPhiRegisterScratchCount
+                : 0) * 8;
+        for (int distance = tempSlotBytes + 8;
+             distance <= tempSlotBytes + phiScratchBytes; distance += 8) {
+            phiScratchSlots_.push_back(distance);
+        }
+        for (std::size_t index = 0;
+             index < allocation.usedCalleeSavedRegisters.size(); ++index) {
+            calleeSaveSlots_.push_back(
+                {allocation.usedCalleeSavedRegisters[index],
+                 tempSlotBytes + phiScratchBytes +
+                     static_cast<int>(index + 1) * 8});
+        }
+        frameSize_ = alignUpInt(
+            tempSlotBytes + phiScratchBytes +
+                static_cast<int>(calleeSaveSlots_.size()) * 8,
+            16);
     }
 
     void collectTypesAndSlots() {
