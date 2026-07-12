@@ -368,6 +368,72 @@ bool exprContainsCall(const Node &node) {
     return false;
 }
 
+// Find global arrays whose storage is never observed.  A candidate survives
+// only when every source-level use is a fully-indexed assignment destination
+// and evaluating that assignment cannot have side effects.  This deliberately
+// treats reads, partially-indexed values (including array arguments), and
+// calls in either the index or value expression as escapes.  The analysis is
+// whole-program and name-conservative; local shadowing can therefore cause a
+// missed opportunity, but never makes a global use disappear.
+std::unordered_set<std::string> findWriteOnlyGlobalArrays(const Node &root) {
+    std::unordered_map<std::string, std::size_t> candidates;
+    if (root.kind != NodeKind::CompUnit) {
+        return {};
+    }
+    for (const auto &decl : root.children) {
+        if (decl->kind != NodeKind::ConstDecl && decl->kind != NodeKind::VarDecl) {
+            continue;
+        }
+        for (const auto &def : decl->children) {
+            std::size_t dimensions = static_cast<std::size_t>(std::count_if(
+                def->children.begin(), def->children.end(), [](const auto &child) {
+                    return child->kind == NodeKind::ArrayDim;
+                }));
+            if (dimensions != 0) {
+                candidates[def->text] = dimensions;
+            }
+        }
+    }
+
+    std::unordered_set<std::string> observed;
+    std::function<void(const Node &)> visit = [&](const Node &node) {
+        if (node.kind == NodeKind::AssignStmt && node.children.size() == 2 &&
+            node.children.front()->kind == NodeKind::LVal) {
+            const Node &lhs = *node.children.front();
+            auto candidate = candidates.find(lhs.text);
+            if (candidate != candidates.end()) {
+                if (lhs.children.size() != candidate->second ||
+                    exprContainsCall(node)) {
+                    observed.insert(lhs.text);
+                }
+                // The outer LVal is the permitted store destination.  Its
+                // index expressions and the RHS can still read/escape a
+                // same-named global, so inspect those normally.
+                for (const auto &index : lhs.children) {
+                    visit(*index);
+                }
+                visit(*node.children.at(1));
+                return;
+            }
+        }
+        if (node.kind == NodeKind::LVal && candidates.count(node.text) != 0) {
+            observed.insert(node.text);
+        }
+        for (const auto &child : node.children) {
+            visit(*child);
+        }
+    };
+    visit(root);
+
+    std::unordered_set<std::string> writeOnly;
+    for (const auto &candidate : candidates) {
+        if (observed.count(candidate.first) == 0) {
+            writeOnly.insert(candidate.first);
+        }
+    }
+    return writeOnly;
+}
+
 void appendStringBytes(std::string &out, const std::vector<unsigned char> &bytes) {
     std::vector<unsigned char> withNull = bytes;
     withNull.push_back(0);
@@ -489,6 +555,7 @@ public:
 
         collectFunctions(root);
         collectGlobals(root);
+        writeOnlyGlobalArrays_ = findWriteOnlyGlobalArrays(root);
         parallelFunctionSummaries_ = summarizeParallelScalarFunctions(root);
         generatedFunctions_.clear();
         parallelWorkerId_ = 0;
@@ -509,45 +576,67 @@ public:
         }
         collectFunctions(root);
         collectGlobals(root);
+        writeOnlyGlobalArrays_ = findWriteOnlyGlobalArrays(root);
 
         std::string out;
         std::set<std::string> stringLiterals;
         collectStringLiterals(root, stringLiterals);
+        std::string currentSection;
         if (!stringLiterals.empty()) {
             out += "\n.section .rodata\n.balign 4\n";
+            currentSection = ".rodata";
             for (const auto &literal : stringLiterals) {
                 out += stringLiteralLabel(literal) + ":\n";
                 appendStringBytes(out, decodeStringLiteral(literal));
             }
         }
+        auto selectSection = [&](const std::string &section) {
+            if (currentSection == section) {
+                return;
+            }
+            out += "\n.section " + section + "\n.balign 4\n";
+            currentSection = section;
+        };
 
         for (const auto &child : root.children) {
             if (child->kind != NodeKind::ConstDecl && child->kind != NodeKind::VarDecl) {
                 continue;
             }
             BaseType base = baseTypeFromText(child->text);
-            if (out.empty()) {
-                out += "\n.section .data\n.balign 4\n";
-            }
             for (const auto &def : child->children) {
+                if (writeOnlyGlobalArrays_.count(def->text) != 0) {
+                    continue;
+                }
                 std::vector<int> dims = arrayDims(*def);
+                const Node *initNode = initializerNode(*def);
+                if (initNode == nullptr) {
+                    // Uninitialized SysY objects are zero-filled.  Put them in
+                    // NOBITS storage and avoid materializing a vector with one
+                    // host integer per target element; the preliminary stencil
+                    // cases contain arrays with hundreds of millions of words.
+                    selectSection(".bss");
+                    out += ".global " + globalLabel(def->text) + "\n";
+                    out += globalLabel(def->text) + ":\n";
+                    std::int64_t words = dims.empty()
+                        ? 1
+                        : std::accumulate(dims.begin(), dims.end(),
+                                          std::int64_t{1}, std::multiplies<std::int64_t>());
+                    out += "    .zero " + std::to_string(words * 4) + "\n";
+                    continue;
+                }
+
+                selectSection(".data");
                 out += ".global " + globalLabel(def->text) + "\n";
                 out += globalLabel(def->text) + ":\n";
                 if (dims.empty()) {
                     ConstScalar init{base, base == BaseType::Float ? floatBits(0.0f) : 0};
-                    const Node *initNode = initializerNode(*def);
-                    if (initNode != nullptr) {
-                        init = evalConstScalar(*initNode, base);
-                    }
+                    init = evalConstScalar(*initNode, base);
                     out += "    .word " + std::to_string(init.raw) + "\n";
                 } else {
                     std::vector<int> values(dimProduct(dims), 0);
-                    const Node *init = initializerNode(*def);
-                    if (init != nullptr) {
-                        fillArrayInitializer(*init, dims, values, [this, base](const Node &scalar) {
-                            return evalConstScalar(scalar, base).raw;
-                        });
-                    }
+                    fillArrayInitializer(*initNode, dims, values, [this, base](const Node &scalar) {
+                        return evalConstScalar(scalar, base).raw;
+                    });
                     appendCompressedWords(out, values);
                 }
             }
@@ -571,6 +660,7 @@ private:
 
     LoweringOptions options_;
     std::map<std::string, Symbol> globalSymbols_;
+    std::unordered_set<std::string> writeOnlyGlobalArrays_;
     std::map<std::string, FunctionSignature> functions_;
     ParallelFunctionSummaries parallelFunctionSummaries_;
     std::vector<std::unordered_map<std::string, Symbol>> scopes_;
@@ -1673,6 +1763,19 @@ private:
             }
         }
 
+        // A planner capture turns a global array into a worker parameter.  Do
+        // not generate that worker when the source stores are about to be
+        // removed, or it would retain a store to an omitted global symbol.
+        for (const ParallelCapture &capture : plan.captures) {
+            if (writeOnlyGlobalArrays_.count(capture.name) == 0) {
+                continue;
+            }
+            Symbol captured = lookup(capture.name, plan.init.initExpr->loc);
+            if (captured.global && captured.label == globalLabel(capture.name)) {
+                return false;
+            }
+        }
+
         std::vector<ParallelContextField> fields;
         std::vector<ParallelAliasPair> aliasPairs;
         std::vector<Symbol> scratchSymbols;
@@ -1814,6 +1917,19 @@ private:
             if (suppressedParallelIvUpdates_.find(&node) !=
                 suppressedParallelIvUpdates_.end()) {
                 return true;
+            }
+            if (node.children.size() == 2 &&
+                node.children.front()->kind == NodeKind::LVal &&
+                writeOnlyGlobalArrays_.count(node.children.front()->text) != 0) {
+                Symbol destination = lookup(node.children.front()->text,
+                                            node.children.front()->loc);
+                if (destination.global &&
+                    destination.label == globalLabel(node.children.front()->text)) {
+                    // Candidate discovery proved that the indices and RHS are
+                    // call-free, so removing the entire assignment preserves
+                    // all source-visible effects.
+                    return true;
+                }
             }
             if (const Node *addend = workerModularAddend(node)) {
                 // SysY integer addition wraps, so modular reassociation is

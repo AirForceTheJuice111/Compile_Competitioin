@@ -135,6 +135,7 @@ assert_plan 136_parallel_continue_reject 30 false "canonical induction update"
 assert_plan 136_parallel_continue_reject 44 false "break exits candidate loop"
 assert_plan 136_parallel_continue_reject 56 false "return in loop body"
 assert_plan 136_parallel_continue_reject 68 false "return in loop body"
+assert_plan 137_write_only_global 6 true
 assert_plan 2025-O30-49 24 true "" "" "" \
   "$TEST_ROOT/../performance_final/2025-O30-49.sy"
 assert_plan 2025-MYO-20 92 false "unsafe scalar write" "" "" \
@@ -172,6 +173,8 @@ assert_workers 133_parallel_local_partition_overlap 0
 assert_workers 134_parallel_affine_partition_control 1
 assert_workers 135_parallel_continue 3
 assert_workers 136_parallel_continue_reject 0
+assert_workers 137_write_only_global 0
+assert_workers 138_write_only_global_reject 0
 assert_workers 2025-O30-49 1 \
   "$TEST_ROOT/../performance_final/2025-O30-49.sy"
 assert_workers 2025-D6H-55 2 \
@@ -196,6 +199,24 @@ if ! grep -Eq 'umull[[:space:]]+x[0-9]+, w[0-9]+, w[0-9]+' \
   echo "parallel work gate: missing 64-bit product/threshold" >&2
   exit 1
 fi
+
+# Fully-indexed, effect-free stores to an otherwise unobserved global array
+# must disappear before parallel worker capture, together with the storage.
+# Reads, address escapes, and effectful store expressions retain their arrays.
+if grep -q '__sysy_global_write_only' \
+      "$WORK_DIR/137_write_only_global.s" ||
+   grep -q '__sysy_parallel_worker_' \
+      "$WORK_DIR/137_write_only_global.s"; then
+  echo "137_write_only_global: dead storage or worker survived" >&2
+  exit 1
+fi
+for symbol in readback escaped effect_only; do
+  if ! grep -Eq "^[[:space:]]*\\.global[[:space:]]+__sysy_global_${symbol}$" \
+        "$WORK_DIR/138_write_only_global_reject.s"; then
+    echo "138_write_only_global_reject: eliminated live/effectful $symbol" >&2
+    exit 1
+  fi
+done
 
 # Exact emitted costs cover both the boosted depth-0 model and discounting for
 # helpers repeatedly invoked inside sequential loops.
