@@ -625,6 +625,11 @@ private:
     quad::QuadFuncDecl *func_ = nullptr;
     std::string funcName_;
     std::unordered_map<int, quad::QuadType> tempTypes_;
+    // Constants are recorded only for SSA temporaries with exactly one
+    // definition. This lets lowered remainder expressions, which copy their
+    // divisor to a temporary, share the literal constant-division selector.
+    std::unordered_map<int, std::int32_t> constantTemps_;
+    std::unordered_map<int, int> tempUseStatementCounts_;
     std::unordered_map<std::string, std::vector<quad::QuadType>> functionParamTypes_;
     std::map<int, int> slots_;
     std::unordered_map<int, int> residentRegs_;
@@ -826,6 +831,9 @@ private:
         ranked.reserve(candidates.size());
         for (const auto &entry : candidates) {
             const Candidate &candidate = entry.second;
+            if (constantTemps_.find(candidate.temp) != constantTemps_.end()) {
+                continue;
+            }
             if ((candidate.inLoop && candidate.accesses >= 2) || candidate.accesses >= 6) {
                 ranked.push_back(candidate);
             }
@@ -862,15 +870,21 @@ private:
 
     void collectTypesAndSlots() {
         tempTypes_.clear();
+        constantTemps_.clear();
+        tempUseStatementCounts_.clear();
         slots_.clear();
         if (func_ == nullptr || func_->quadblocklist == nullptr) {
             return;
         }
+        std::unordered_map<int, int> tempDefinitionCounts;
+        std::unordered_map<int, std::int32_t> constantCandidates;
+        std::vector<quad::QuadStm *> allStatements;
         if (func_->params != nullptr) {
             for (auto *param : *func_->params) {
                 if (param != nullptr && tempTypes_.find(param->num) == tempTypes_.end()) {
                     tempTypes_[param->num] = quad::QuadType::INT;
                 }
+                if (param != nullptr) ++tempDefinitionCounts[param->num];
             }
         }
         for (auto *block : *func_->quadblocklist) {
@@ -881,11 +895,28 @@ private:
                 if (stm == nullptr) {
                     continue;
                 }
+                allStatements.push_back(stm);
+                if (stm->def != nullptr) {
+                    for (auto *temp : *stm->def) {
+                        if (temp != nullptr) ++tempDefinitionCounts[temp->num];
+                    }
+                }
+                if (stm->use != nullptr) {
+                    for (auto *temp : *stm->use) {
+                        if (temp != nullptr) ++tempUseStatementCounts_[temp->num];
+                    }
+                }
                 switch (stm->kind) {
                 case quad::QuadKind::MOVE: {
                     auto *s = static_cast<quad::QuadMove *>(stm);
                     noteTempType(s->dst);
                     noteTermType(s->src);
+                    if (s->dst != nullptr && s->dst->temp != nullptr &&
+                        s->dst->type == quad::QuadType::INT && s->src != nullptr &&
+                        s->src->kind == quad::QuadTermKind::CONST) {
+                        constantCandidates[s->dst->temp->num] =
+                            static_cast<std::int32_t>(s->src->get_const());
+                    }
                     break;
                 }
                 case quad::QuadKind::LOAD: {
@@ -979,6 +1010,53 @@ private:
                 }
             }
         }
+        for (const auto &candidate : constantCandidates) {
+            auto count = tempDefinitionCounts.find(candidate.first);
+            if (count != tempDefinitionCounts.end() && count->second == 1) {
+                constantTemps_.emplace(candidate.first, candidate.second);
+            }
+        }
+        // Fold unique SSA definitions to a fixed point.  This deliberately
+        // uses modulo-2^32 arithmetic for +,-,* and handles INT_MIN/-1
+        // explicitly, avoiding the host-language UB that a naive evaluator
+        // would introduce.  Negative source literals arrive as 0-C quads, so
+        // this step is also what exposes negative constant divisors.
+        bool constantsChanged = true;
+        while (constantsChanged) {
+            constantsChanged = false;
+            for (auto *statement : allStatements) {
+                if (statement == nullptr) continue;
+                quad::QuadTemp *destination = nullptr;
+                std::int32_t value = 0;
+                bool known = false;
+                if (statement->kind == quad::QuadKind::MOVE) {
+                    auto *move = static_cast<quad::QuadMove *>(statement);
+                    destination = move->dst;
+                    known = constantIntValue(move->src, &value);
+                } else if (statement->kind == quad::QuadKind::MOVE_BINOP) {
+                    auto *binop = static_cast<quad::QuadMoveBinop *>(statement);
+                    destination = binop->dst;
+                    std::int32_t left = 0;
+                    std::int32_t right = 0;
+                    known = constantIntValue(binop->left, &left) &&
+                            constantIntValue(binop->right, &right) &&
+                            evaluateConstantIntBinop(binop->binop, left, right,
+                                                     &value);
+                }
+                if (!known || destination == nullptr ||
+                    destination->temp == nullptr ||
+                    destination->type != quad::QuadType::INT ||
+                    constantTemps_.find(destination->temp->num) !=
+                        constantTemps_.end()) {
+                    continue;
+                }
+                auto count = tempDefinitionCounts.find(destination->temp->num);
+                if (count != tempDefinitionCounts.end() && count->second == 1) {
+                    constantTemps_.emplace(destination->temp->num, value);
+                    constantsChanged = true;
+                }
+            }
+        }
         int offset = 0;
         for (const auto &entry : tempTypes_) {
             offset += 8;
@@ -995,6 +1073,8 @@ private:
         auto *savedFunc = func_;
         std::string savedName = funcName_;
         auto savedTypes = tempTypes_;
+        auto savedConstants = constantTemps_;
+        auto savedUseCounts = tempUseStatementCounts_;
         auto savedSlots = slots_;
         auto savedResidentRegs = residentRegs_;
         auto savedCalleeSaveSlots = calleeSaveSlots_;
@@ -1020,6 +1100,8 @@ private:
         func_ = savedFunc;
         funcName_ = savedName;
         tempTypes_ = std::move(savedTypes);
+        constantTemps_ = std::move(savedConstants);
+        tempUseStatementCounts_ = std::move(savedUseCounts);
         slots_ = std::move(savedSlots);
         residentRegs_ = std::move(savedResidentRegs);
         calleeSaveSlots_ = std::move(savedCalleeSaveSlots);
@@ -1047,6 +1129,104 @@ private:
             return fallback;
         }
         return tempType(qt->temp, qt->type);
+    }
+
+    bool constantIntValue(quad::QuadTerm *term, std::int32_t *value) const {
+        if (term == nullptr) return false;
+        if (term->kind == quad::QuadTermKind::CONST) {
+            if (value != nullptr) {
+                *value = static_cast<std::int32_t>(term->get_const());
+            }
+            return true;
+        }
+        auto *temp = termTemp(term);
+        if (temp == nullptr || temp->temp == nullptr ||
+            tempType(temp->temp, temp->type) != quad::QuadType::INT) {
+            return false;
+        }
+        auto found = constantTemps_.find(temp->temp->num);
+        if (found == constantTemps_.end()) return false;
+        if (value != nullptr) *value = found->second;
+        return true;
+    }
+
+    bool sameIntTerm(quad::QuadTerm *left, quad::QuadTerm *right) const {
+        if (left == nullptr || right == nullptr) return left == right;
+        std::int32_t leftConstant = 0;
+        std::int32_t rightConstant = 0;
+        bool leftIsConstant = constantIntValue(left, &leftConstant);
+        bool rightIsConstant = constantIntValue(right, &rightConstant);
+        if (leftIsConstant || rightIsConstant) {
+            return leftIsConstant && rightIsConstant &&
+                   leftConstant == rightConstant;
+        }
+        if (left->kind != right->kind) return false;
+        if (left->kind == quad::QuadTermKind::TEMP) {
+            auto *leftTemp = termTemp(left);
+            auto *rightTemp = termTemp(right);
+            return leftTemp != nullptr && rightTemp != nullptr &&
+                   leftTemp->temp != nullptr && rightTemp->temp != nullptr &&
+                   leftTemp->temp->num == rightTemp->temp->num;
+        }
+        if (left->kind == quad::QuadTermKind::NAME) {
+            return left->get_name() == right->get_name();
+        }
+        return false;
+    }
+
+    bool hasOneUseStatement(tree::Temp *temp) const {
+        if (temp == nullptr) return false;
+        auto found = tempUseStatementCounts_.find(temp->num);
+        return found != tempUseStatementCounts_.end() && found->second == 1;
+    }
+
+    static std::int32_t signed32FromBits(std::uint32_t bits) {
+        std::int64_t value = static_cast<std::int64_t>(bits);
+        if ((bits & 0x80000000u) != 0) value -= (std::int64_t{1} << 32);
+        return static_cast<std::int32_t>(value);
+    }
+
+    static bool evaluateConstantIntBinop(const std::string &op,
+                                         std::int32_t left,
+                                         std::int32_t right,
+                                         std::int32_t *result) {
+        if (result == nullptr) return false;
+        std::uint32_t leftBits = static_cast<std::uint32_t>(left);
+        std::uint32_t rightBits = static_cast<std::uint32_t>(right);
+        if (op == "+") {
+            *result = signed32FromBits(leftBits + rightBits);
+            return true;
+        }
+        if (op == "-") {
+            *result = signed32FromBits(leftBits - rightBits);
+            return true;
+        }
+        if (op == "*") {
+            *result = signed32FromBits(leftBits * rightBits);
+            return true;
+        }
+        if (op == "/") {
+            if (right == 0) return false;
+            if (left == (-2147483647 - 1) && right == -1) {
+                *result = (-2147483647 - 1);
+            } else {
+                *result = static_cast<std::int32_t>(left / right);
+            }
+            return true;
+        }
+        if (op == "&") {
+            *result = signed32FromBits(leftBits & rightBits);
+            return true;
+        }
+        if (op == "|") {
+            *result = signed32FromBits(leftBits | rightBits);
+            return true;
+        }
+        if (op == "xor" || op == "^") {
+            *result = signed32FromBits(leftBits ^ rightBits);
+            return true;
+        }
+        return false;
     }
 
     quad::QuadType expectedArgType(const std::string &name, std::size_t index,
@@ -1087,6 +1267,125 @@ private:
                 out_ << "\tmovk " << reg << ", #" << part << ", lsl #" << shift << "\n";
             }
         }
+    }
+
+    struct SignedDivisionMagic {
+        std::uint32_t multiplier = 0;
+        int shift = 0;
+        bool addDividend = false;
+        bool subtractDividend = false;
+    };
+
+    // Hacker's Delight, 2nd ed., figure 10-1.  All generator arithmetic is
+    // explicitly unsigned/wide, including abs(INT_MIN), so selecting a magic
+    // number never relies on host signed overflow or implementation-defined
+    // narrowing.  Powers of two and +/-1 use their shorter exact sequences.
+    static SignedDivisionMagic signedDivisionMagic(std::int32_t divisor) {
+        std::uint64_t absolute = divisor < 0
+            ? static_cast<std::uint64_t>(0u - static_cast<std::uint32_t>(divisor))
+            : static_cast<std::uint32_t>(divisor);
+        constexpr std::uint64_t two31 = std::uint64_t{1} << 31;
+        std::uint64_t t = two31 + (static_cast<std::uint32_t>(divisor) >> 31);
+        std::uint64_t anc = t - 1 - t % absolute;
+        int p = 31;
+        std::uint64_t q1 = two31 / anc;
+        std::uint64_t r1 = two31 - q1 * anc;
+        std::uint64_t q2 = two31 / absolute;
+        std::uint64_t r2 = two31 - q2 * absolute;
+        std::uint64_t delta = 0;
+        do {
+            ++p;
+            q1 *= 2;
+            r1 *= 2;
+            if (r1 >= anc) {
+                ++q1;
+                r1 -= anc;
+            }
+            q2 *= 2;
+            r2 *= 2;
+            if (r2 >= absolute) {
+                ++q2;
+                r2 -= absolute;
+            }
+            delta = absolute - r2;
+        } while (q1 < delta || (q1 == delta && r1 == 0));
+
+        std::uint32_t multiplier = static_cast<std::uint32_t>(q2 + 1);
+        if (divisor < 0) multiplier = 0u - multiplier;
+        std::int64_t signedMultiplier = (multiplier & 0x80000000u) != 0
+            ? static_cast<std::int64_t>(multiplier) - (std::int64_t{1} << 32)
+            : static_cast<std::int64_t>(multiplier);
+        SignedDivisionMagic result;
+        result.multiplier = multiplier;
+        result.shift = p - 32;
+        result.addDividend = divisor > 0 && signedMultiplier < 0;
+        result.subtractDividend = divisor < 0 && signedMultiplier > 0;
+        return result;
+    }
+
+    // Emit quotient = dividend / divisor with AArch64's signed 32-bit
+    // semantics (truncation toward zero and INT_MIN/-1 wrapping to INT_MIN).
+    // dividendReg is preserved; scratchReg may be clobbered.
+    void emitSignedConstantQuotient(std::int32_t divisor,
+                                    const std::string &dividendReg,
+                                    const std::string &quotientReg,
+                                    const std::string &scratchReg) {
+        if (divisor == 0) {
+            loadImm32(scratchReg, 0);
+            emitLine("sdiv " + quotientReg + ", " + dividendReg + ", " +
+                     scratchReg);
+            return;
+        }
+        if (divisor == 1) {
+            emitLine("mov " + quotientReg + ", " + dividendReg);
+            return;
+        }
+        if (divisor == -1) {
+            emitLine("neg " + quotientReg + ", " + dividendReg);
+            return;
+        }
+
+        std::uint32_t magnitude = divisor < 0
+            ? 0u - static_cast<std::uint32_t>(divisor)
+            : static_cast<std::uint32_t>(divisor);
+        if ((magnitude & (magnitude - 1)) == 0) {
+            int shift = 0;
+            for (std::uint32_t value = magnitude; value > 1; value >>= 1) {
+                ++shift;
+            }
+            emitLine("asr " + scratchReg + ", " + dividendReg + ", #31");
+            emitLine("add " + quotientReg + ", " + dividendReg + ", " +
+                     scratchReg + ", lsr #" + std::to_string(32 - shift));
+            emitLine("asr " + quotientReg + ", " + quotientReg + ", #" +
+                     std::to_string(shift));
+            if (divisor < 0) {
+                emitLine("neg " + quotientReg + ", " + quotientReg);
+            }
+            return;
+        }
+
+        SignedDivisionMagic magic = signedDivisionMagic(divisor);
+        loadImm32(scratchReg, magic.multiplier);
+        // smull forms the exact signed 32x32 product.  After shifting its high
+        // half into w<quotient>, subsequent 32-bit adds deliberately wrap just
+        // like sdiv's architectural result.
+        std::string wideQuotient = "x" + quotientReg.substr(1);
+        emitLine("smull " + wideQuotient + ", " + dividendReg + ", " +
+                 scratchReg);
+        emitLine("asr " + wideQuotient + ", " + wideQuotient + ", #32");
+        if (magic.addDividend) {
+            emitLine("add " + quotientReg + ", " + quotientReg + ", " +
+                     dividendReg);
+        } else if (magic.subtractDividend) {
+            emitLine("sub " + quotientReg + ", " + quotientReg + ", " +
+                     dividendReg);
+        }
+        if (magic.shift != 0) {
+            emitLine("asr " + quotientReg + ", " + quotientReg + ", #" +
+                     std::to_string(magic.shift));
+        }
+        emitLine("add " + quotientReg + ", " + quotientReg + ", " +
+                 quotientReg + ", lsr #31");
     }
 
     void emitAddSubImm64(const std::string &op, const std::string &dst,
@@ -1237,6 +1536,13 @@ private:
         if (qt == nullptr || qt->temp == nullptr) {
             return;
         }
+        if (type == quad::QuadType::INT) {
+            auto constant = constantTemps_.find(qt->temp->num);
+            if (constant != constantTemps_.end()) {
+                loadImm32(reg, static_cast<std::uint32_t>(constant->second));
+                return;
+            }
+        }
         loadTemp(qt->temp, type, reg);
     }
 
@@ -1339,12 +1645,112 @@ private:
         emitLine("ret");
     }
 
+    struct ConstantRemainderMatch {
+        quad::QuadTerm *dividend = nullptr;
+        quad::QuadTemp *destination = nullptr;
+        std::int32_t divisor = 0;
+    };
+
+    static bool termReferencesTemp(quad::QuadTerm *term, tree::Temp *temp) {
+        auto *quadTemp = termTemp(term);
+        return quadTemp != nullptr && quadTemp->temp != nullptr && temp != nullptr &&
+               quadTemp->temp->num == temp->num;
+    }
+
+    bool matchConstantRemainder(const std::vector<quad::QuadStm *> &statements,
+                                std::size_t offset,
+                                ConstantRemainderMatch *match) const {
+        if (match == nullptr || offset + 2 >= statements.size()) return false;
+        auto *divisionStatement = statements[offset];
+        auto *productStatement = statements[offset + 1];
+        auto *remainderStatement = statements[offset + 2];
+        if (divisionStatement == nullptr || productStatement == nullptr ||
+            remainderStatement == nullptr ||
+            divisionStatement->kind != quad::QuadKind::MOVE_BINOP ||
+            productStatement->kind != quad::QuadKind::MOVE_BINOP ||
+            remainderStatement->kind != quad::QuadKind::MOVE_BINOP) {
+            return false;
+        }
+        auto *division = static_cast<quad::QuadMoveBinop *>(divisionStatement);
+        auto *product = static_cast<quad::QuadMoveBinop *>(productStatement);
+        auto *remainder = static_cast<quad::QuadMoveBinop *>(remainderStatement);
+        if (division->binop != "/" || product->binop != "*" ||
+            remainder->binop != "-" || division->dst == nullptr ||
+            product->dst == nullptr || remainder->dst == nullptr ||
+            division->dst->temp == nullptr || product->dst->temp == nullptr ||
+            remainder->dst->temp == nullptr ||
+            division->dst->type != quad::QuadType::INT ||
+            product->dst->type != quad::QuadType::INT ||
+            remainder->dst->type != quad::QuadType::INT) {
+            return false;
+        }
+
+        std::int32_t divisor = 0;
+        if (!constantIntValue(division->right, &divisor) || divisor == 0 ||
+            !sameIntTerm(division->left, remainder->left) ||
+            !termReferencesTemp(remainder->right, product->dst->temp) ||
+            !hasOneUseStatement(division->dst->temp) ||
+            !hasOneUseStatement(product->dst->temp)) {
+            return false;
+        }
+        bool quotientOnLeft = termReferencesTemp(product->left,
+                                                 division->dst->temp);
+        bool quotientOnRight = termReferencesTemp(product->right,
+                                                  division->dst->temp);
+        quad::QuadTerm *productDivisor = quotientOnLeft ? product->right
+                                      : quotientOnRight ? product->left
+                                                        : nullptr;
+        std::int32_t productDivisorValue = 0;
+        if (quotientOnLeft == quotientOnRight || productDivisor == nullptr ||
+            !constantIntValue(productDivisor, &productDivisorValue) ||
+            productDivisorValue != divisor) {
+            return false;
+        }
+
+        int quotientTemp = division->dst->temp->num;
+        int productTemp = product->dst->temp->num;
+        int remainderTemp = remainder->dst->temp->num;
+        if (quotientTemp == productTemp || quotientTemp == remainderTemp ||
+            productTemp == remainderTemp) {
+            return false;
+        }
+        match->dividend = division->left;
+        match->destination = remainder->dst;
+        match->divisor = divisor;
+        return true;
+    }
+
+    void emitConstantRemainder(const ConstantRemainderMatch &match) {
+        if (match.destination == nullptr || match.destination->temp == nullptr) {
+            return;
+        }
+        if (match.divisor == 1 || match.divisor == -1) {
+            emitLine("mov w11, wzr");
+            storeTemp(match.destination->temp, quad::QuadType::INT, "w11");
+            return;
+        }
+        loadTerm(match.dividend, quad::QuadType::INT, "w9");
+        emitSignedConstantQuotient(match.divisor, "w9", "w11", "w10");
+        loadImm32("w10", static_cast<std::uint32_t>(match.divisor));
+        emitLine("msub w11, w11, w10, w9");
+        storeTemp(match.destination->temp, quad::QuadType::INT, "w11");
+    }
+
     void emitBlock(quad::QuadBlock *block, tree::Label *nextLabel) {
         if (block == nullptr || block->entry_label == nullptr || block->quadlist == nullptr) {
             return;
         }
         out_ << labelName(block->entry_label) << ":\n";
-        for (auto *stm : *block->quadlist) {
+        for (std::size_t statementIndex = 0;
+             statementIndex < block->quadlist->size(); ++statementIndex) {
+            ConstantRemainderMatch remainderMatch;
+            if (matchConstantRemainder(*block->quadlist, statementIndex,
+                                       &remainderMatch)) {
+                emitConstantRemainder(remainderMatch);
+                statementIndex += 2;
+                continue;
+            }
+            auto *stm = block->quadlist->at(statementIndex);
             if (stm == nullptr) {
                 continue;
             }
@@ -1549,10 +1955,16 @@ private:
 
     void emitStatement(quad::QuadStm *stm) {
         switch (stm->kind) {
-        case quad::QuadKind::MOVE:
-            storeTermToTemp(static_cast<quad::QuadMove *>(stm)->dst,
-                            static_cast<quad::QuadMove *>(stm)->src);
+        case quad::QuadKind::MOVE: {
+            auto *move = static_cast<quad::QuadMove *>(stm);
+            bool propagatedConstant = move->dst != nullptr &&
+                move->dst->temp != nullptr &&
+                constantTemps_.find(move->dst->temp->num) != constantTemps_.end();
+            if (!propagatedConstant) {
+                storeTermToTemp(move->dst, move->src);
+            }
             break;
+        }
         case quad::QuadKind::LOAD:
             emitLoad(static_cast<quad::QuadLoad *>(stm));
             break;
@@ -1560,7 +1972,12 @@ private:
             emitStore(static_cast<quad::QuadStore *>(stm));
             break;
         case quad::QuadKind::MOVE_BINOP:
-            emitBinop(static_cast<quad::QuadMoveBinop *>(stm));
+            if (auto *binop = static_cast<quad::QuadMoveBinop *>(stm);
+                binop->dst == nullptr || binop->dst->temp == nullptr ||
+                constantTemps_.find(binop->dst->temp->num) ==
+                    constantTemps_.end()) {
+                emitBinop(binop);
+            }
             break;
         case quad::QuadKind::PTR_CALC:
             emitPtrCalc(static_cast<quad::QuadPtrCalc *>(stm));
@@ -1620,6 +2037,14 @@ private:
             return;
         }
         loadTerm(binop->left, quad::QuadType::INT, "w9");
+        if (binop->binop == "/") {
+            std::int32_t divisor = 0;
+            if (constantIntValue(binop->right, &divisor) && divisor != 0) {
+                emitSignedConstantQuotient(divisor, "w9", "w11", "w10");
+                storeTemp(binop->dst->temp, binop->dst->type, "w11");
+                return;
+            }
+        }
         loadTerm(binop->right, quad::QuadType::INT, "w10");
         if (binop->binop == "+") {
             emitLine("add w11, w9, w10");
