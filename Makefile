@@ -9,7 +9,8 @@ QEMU_AARCH64 ?= qemu-aarch64
 SYSY_AARCH64_SYSROOT ?= /usr/aarch64-linux-gnu
 LIBSYSY_AARCH64_C ?= $(CURDIR)/vendor/libsysy/sylib.c
 SYSY_TEST_ROOT ?= $(CURDIR)/test
-SYSY_PERF_ARCHIVE ?= /tmp/compiler2025/ARM-性能.zip
+SYSY_PERFORMANCE_ROOT ?= $(CURDIR)/test/performance
+SYSY_PERF_ARCHIVE ?=
 SYSY_OPT ?=
 OUT_DIR ?= $(CURDIR)/output
 RUN_WORK ?= /tmp/sysy_run_one
@@ -62,7 +63,8 @@ sysy-functional-regression: build
 sysy-performance-regression: build
 	@COMPILER="$(COMPILER)" AARCH64_CC="$(AARCH64_CC)" AARCH64_CC_FLAGS="$(AARCH64_CC_FLAGS)" \
 		QEMU_AARCH64="$(QEMU_AARCH64)" SYSY_AARCH64_SYSROOT="$(SYSY_AARCH64_SYSROOT)" \
-		LIBSYSY_AARCH64_C="$(LIBSYSY_AARCH64_C)" SYSY_PERF_ARCHIVE="$(SYSY_PERF_ARCHIVE)" SYSY_OPT="$(SYSY_OPT)" \
+		LIBSYSY_AARCH64_C="$(LIBSYSY_AARCH64_C)" SYSY_TEST_ROOT="$(SYSY_PERFORMANCE_ROOT)" \
+		SYSY_PERF_ARCHIVE="$(SYSY_PERF_ARCHIVE)" SYSY_OPT="$(SYSY_OPT)" \
 		bash scripts/sysy_performance_regression.sh
 
 sysy-parallel-native-regression: build
