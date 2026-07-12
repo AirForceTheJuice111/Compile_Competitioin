@@ -89,6 +89,16 @@ propagation, loop-invariant code motion, induction-variable analysis, strength
 reduction, and cleanup. Unsupported or unsafe cases are handled conservatively;
 correctness is prioritized over applying a transformation.
 
+The safe default additions are integer AlgebraSimp, a complete-CFG guarded
+bitwise-helper recognizer, typed GVN, CopyProp/conservative DCE, and restricted
+straight-line scalar-int inlining. The bitwise recognizer replaces the exact
+32-round software `and`/`or`/`xor` idiom only after both operands pass a
+nonnegative runtime guard; signed inputs execute the untouched original CFG.
+Imported FuncSpec, MemOpt, LoopSimplify, LoopUnroll, and trace layout exist for
+continued development but are selected only through
+`SYSY_EXPERIMENTAL_PASSES` (`funcspec`, `memopt`, `loopsimplify`, `loopunroll`,
+or `traceblock`).
+
 ## AArch64 Backend
 
 The backend interface is `include/backend/backend_driver.hh`; the implementation
@@ -106,14 +116,23 @@ removed. The native AArch64 emitter now combines conservative stack slots with
 injective hot-temp residency in callee-saved `x19`-`x28`. Loop depth,
 cross-block use, and parameters influence residency; PHI edge copies are
 snapshotted before assignment and nearby spills use direct `ldur`/`stur`
-addressing.
+addressing. Pointer calculation directly selects
+`add xD, xN, wM, sxtw`, and zero comparisons use an immediate, because the
+instruction selector owns the scratch-register lifetimes at those points.
+Signed division and remainder by an SSA-proven integer constant use exact
+power-of-two or magic-number sequences; canonical remainder chains fuse the
+quotient with `msub`. The selector preserves truncation toward zero and the
+architectural `INT_MIN / -1` wrapped result.
 
-The default optimized pipeline is SCCP, hardened integer AlgebraSimp, loop
-passes, typed GVN, CopyProp/conservative DCE, and restricted straight-line
-scalar-int inlining. Mutating passes rebuild and verify Quad def/use, CFG,
-extent, SSA uniqueness, type, dominance, and PHI-edge metadata. The imported
-FuncSpec and MemOpt prototypes stay experimental until their call-arity and
-alias/join behavior is fully hardened.
+The default optimized pipeline is SCCP, hardened integer AlgebraSimp, the
+guarded bitwise idiom pass, the established LICM/induction passes selected by
+the optimization mode, typed GVN, CopyProp/conservative DCE, and restricted
+straight-line scalar-int inlining. Mutating passes rebuild and verify Quad
+def/use, CFG, extent, SSA uniqueness, type, dominance, and PHI-edge metadata.
+The imported textual AArch64 peephole is also experimental: although it helped
+some cases, controlled profiling found repeatable MYO and 680 regressions.
+Construction-time address and compare forms above remain enabled because they
+do not depend on textual liveness guesses.
 
 Implemented ABI behavior:
 
@@ -145,29 +164,58 @@ Loop analysis is shared by native lowering and the plan dump interface:
 - `include/sysy/parallel_plan.hh`
 - `lib/sysy/parallel_plan.cc`
 
-The analysis recognizes affine `while` loops with `<` or `<=` invariant integer
-upper bounds, disjoint array writes, and strict integer sum reductions. The
-inclusive `<=` form is normalized to the half-open AArch64 runtime interval by
-evaluating the end expression once and passing `end + 1` to the helper; dynamic
-endpoints equal to `INT_MAX` take a generated sequential path with the original
-comparison. Bounds containing calls, arrays, the induction variable, or
-scalars modified by the loop are rejected. Same-array accesses are
-kept parallel only when reads and writes stay in the same first-index partition;
-cross-iteration patterns such as `a[i] = a[i + 1]` are rejected. Same-rank
-array parameter aliasing no longer forces a static rejection: lowering emits a
-runtime pointer guard and falls back to the original sequential loop when the
-captured array bases alias. An interprocedural fixed-point summary permits
-user helpers proven scalar-only and side-effect-free, including recursion and
-immutable scalar constants. Runtime/unknown calls, arrays, mutable globals,
-nonlocal writes, and I/O remain impure. Direct pure return expressions are
-substituted conservatively into affine index checks, exposing helpers such as
-`idx(r, c, n)`. The pass still rejects endpoint calls, control-flow exits,
-unsafe scalar writes, unguardable array disjointness, multiple reductions, and
-float reductions.
+The analysis recognizes affine `while` loops with disjoint array writes and
+strict integer reductions. Dynamic invariant integer endpoints use the common
+unit-step `<` or `<=` path. The inclusive form is normalized to a half-open
+AArch64 runtime interval by evaluating the endpoint once and passing `end + 1`;
+`INT_MAX` takes a generated sequential path with the original comparison.
+
+Generalized loops are accepted when the initializer, endpoint, and nonzero
+step are compile-time integers. The planner proves a finite, overflow-free
+logical iteration count for `<`, `<=`, `>`, `>=`, or exactly reachable `!=`,
+then workers map logical iteration `k` back to `initial + k * step`. The caller
+restores the source induction variable's exact canonical final value. Dynamic
+non-unit steps and endpoints remain sequential.
+
+Bounds containing calls, arrays, the induction variable, or scalars modified
+by the loop are rejected. Same-array accesses are kept parallel only when reads
+and writes stay in the same first-index partition; cross-iteration patterns
+such as `a[i] = a[i + 1]` are rejected. A first index that refers to any
+loop-local scalar is also rejected even if it contains a nonzero affine
+coefficient in the outer IV, closing the overlapping pattern represented by
+`a[i + j]`. Same-rank array parameter aliasing no longer forces a static
+rejection: lowering emits a runtime pointer guard and falls back to the
+original sequential loop when the captured array bases alias.
+
+A candidate-loop early `continue` is accepted only when the immediately
+preceding sibling is the exact, unshadowed canonical IV update. The update is
+suppressed in the cloned body and both ordinary fallthrough and continue target
+one generated latch, which advances source and logical IVs exactly once.
+Nested-loop-local break/continue retain their normal targets; outer break,
+returns, and unproven continues are rejected.
+
+An interprocedural fixed-point summary permits user helpers proven scalar-only
+and side-effect-free, including recursion and immutable scalar constants.
+Runtime/unknown calls, arrays, mutable globals, nonlocal writes, and I/O remain
+impure. Direct pure return expressions are substituted conservatively into
+affine index checks, exposing helpers such as `idx(r, c, n)`. The pass still
+rejects endpoint calls, unsafe scalar writes, unguardable array disjointness,
+multiple reductions, float reductions, and control transfers not proven local
+to a safe worker iteration.
 
 Nested-loop profitability detection is recursive through blocks and
 conditionals. Reduction validation also rejects self-dependent accumulators and
 uses of a partial accumulator value elsewhere in the loop body.
+
+In addition to plain integer sums, the exact recurrence
+`sum = (sum + addend) % MOD` has a dedicated modular worker. `MOD` must resolve
+to a positive integer constant no greater than `INT_MAX/2`; the body must be
+array-free and replay-safe, and all uses of `sum` must be the same recurrence.
+A striped dynamic schedule balances O30/SFX's recursive addend cost. The caller
+uses the parallel result only when the initial accumulator is a canonical
+residue and every worker observes a nonnegative addend that cannot overflow the
+source signed addition. Otherwise an `INT_MIN` sentinel triggers the original
+sequential loop, preserving exact SysY remainder and overflow behavior.
 
 Pure outer integer reductions may also privatize one canonical nested-loop
 scratch IV when the complete outer body is an unconditional constant reset
@@ -180,12 +228,18 @@ range, avoiding any assumption that the scalar is dead.
 
 Optimized modes enable native parallel lowering by default. The generated
 AArch64 assembly contains worker functions, 8-byte pointer-safe context
-layouts, and runtime helper implementations when needed. Each helper receives
-a conservative per-iteration work estimate. Nested bodies are boosted and
-helpers inside sequential enclosing loops are depth-discounted; compile-time
-and dynamic profitability use an overflow-safe 64-bit `trip_count * work_cost`
-threshold of 16384. This admits coarse short ranges without spawning threads
-for cheap dynamic reductions or repeatedly invoked inner workers.
+layouts, and runtime helper implementations when needed. The runtime lazily
+creates one persistent helper pthread and reuses it for later range calls.
+Short atomic spinning handles dense dispatch, condition variables are the
+sleeping fallback, and a busy guard routes nested or concurrent re-entry to
+direct execution so the shared slot cannot deadlock or be overwritten.
+
+Each helper receives a conservative per-iteration work estimate. Nested bodies
+are boosted and helpers inside sequential enclosing loops are depth-discounted;
+compile-time and dynamic profitability use an overflow-safe 64-bit
+`trip_count * work_cost` threshold of 16384. This admits coarse short ranges
+without dispatching cheap dynamic reductions or repeatedly invoked inner
+workers.
 
 ## Build And Test
 
@@ -227,6 +281,15 @@ The run scripts compile to AArch64 assembly, link with
 /usr/aarch64-linux-gnu`, append the process return code, and compare exact
 output against sibling `.out` files.
 
+Mac/Linux-ARM timing history is kept in
+`contest-docs/performance-timings.md`. That ledger records revision, affinity,
+raw samples, and session boundaries so unrelated host-load samples are not
+presented as optimization speedups.
+`test/performance` is the canonical preliminary performance root. The Mac
+distributed regression script builds once, deterministically shards cases into
+16 isolated workers inside the 32-vCPU ARM64 VM, and merges exact-output logs;
+this avoids both repeated builds and shared `/tmp` collisions.
+
 ## Remaining Work
 
 The branch is now correctness-oriented AArch64 native. The main remaining work
@@ -236,7 +299,14 @@ is performance:
   float values in FP registers;
 - add scaled-index, pointer-induction, and post-allocation peepholes;
 - support multi-reduction loops with a richer native runtime ABI;
-- support decrement/non-unit-step loops and safe loop-local control flow;
-- amortize repeated parallel dispatch with a persistent two-core worker;
+- define an explicit reassociation mode before parallelizing floating-point
+  reductions; exact-output mode keeps them sequential;
+- generalize non-unit-step lowering beyond compile-time iteration spaces and
+  broaden safe loop-local control flow beyond canonical early continue without
+  admitting candidate-loop exits;
+- improve range/alias reasoning for different-rank parameters, globals, and
+  provably disjoint affine partitions;
+- harden and profitably select the imported loop transforms, trace layout, and
+  textual peepholes before enabling any of them by default;
 - tune the remaining dynamic profitability model on Cortex-A53 hardware;
 - consider loop unrolling and NEON lowering.
