@@ -3,6 +3,7 @@
 #include "aarch64_block_layout.hh"
 #include "aarch64_peephole.hh"
 #include "algebrasimp.hh"
+#include "bitwise_idiom.hh"
 #include "blocking.hh"
 #include "canon.hh"
 #include "copyprop.hh"
@@ -316,8 +317,8 @@ bool optimizationPassEnabled(const std::string &name) {
     if (passListContains("SYSY_DISABLE_PASSES", name)) {
         return false;
     }
-    if (name == "algebrasimp" || name == "gvn" || name == "copyprop" ||
-        name == "inline" || name == "peephole") {
+    if (name == "algebrasimp" || name == "bitwise" || name == "gvn" ||
+        name == "copyprop" || name == "inline") {
         return true;
     }
     return passListContains("SYSY_EXPERIMENTAL_PASSES", name);
@@ -1630,6 +1631,12 @@ private:
             emitLine("sdiv w11, w9, w10");
         } else if (binop->binop == "xor") {
             emitLine("eor w11, w9, w10");
+        } else if (binop->binop == "&") {
+            emitLine("and w11, w9, w10");
+        } else if (binop->binop == "|") {
+            emitLine("orr w11, w9, w10");
+        } else if (binop->binop == "^") {
+            emitLine("eor w11, w9, w10");
         } else {
             emitLine("add w11, w9, w10");
         }
@@ -2530,6 +2537,15 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
         return result;
     }
     profile.mark("blocking");
+    if (options.optMode != OptMode::None &&
+        optimizationPassEnabled("bitwise")) {
+        blocked = quad::specializeBitwiseIdioms(blocked);
+        if (blocked == nullptr) {
+            result.error = "bitwise idiom specialization failed";
+            return result;
+        }
+        profile.mark("bitwise-idiom");
+    }
     maybeWriteQuad(options, ".4-block.quad", blocked);
 
     auto *blockedFlow = computeFlow(blocked);

@@ -20,6 +20,7 @@ set(BACKEND_SOURCES
     lib/quadflow/dataflowinfo.cc
     lib/quadflow/flowinfo.cc
     lib/opt/algebrasimp.cc
+    lib/opt/bitwise_idiom.cc
     lib/opt/copyprop.cc
     lib/opt/cfg_transform.cc
     lib/opt/defusechain.cc

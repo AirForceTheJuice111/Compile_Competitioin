@@ -1,0 +1,41 @@
+int almost_and(int lhs, int rhs) {
+    int left_bit, right_bit;
+    int count = 31, answer = 0, place = 1;
+    while (count) {
+        left_bit = lhs % 2;
+        right_bit = rhs % 2;
+        lhs = lhs / 2;
+        rhs = rhs / 2;
+        if (left_bit == 1 && right_bit == 1) {
+            answer = answer + place;
+        }
+        place = place * 2;
+        count = count - 1;
+    }
+    return answer;
+}
+
+int almost_xor(int lhs, int rhs) {
+    int left_bit, right_bit;
+    int count = 32, answer = 0, place = 1;
+    while (count) {
+        left_bit = lhs % 2;
+        right_bit = rhs % 2;
+        lhs = lhs / 2;
+        rhs = rhs / 2;
+        if (left_bit == right_bit) {
+            answer = answer + place;
+        }
+        place = place * 2;
+        count = count - 1;
+    }
+    return answer;
+}
+
+int main() {
+    putint(almost_and(13, 11));
+    putch(32);
+    putint(almost_xor(13, 11));
+    putch(10);
+    return 0;
+}
