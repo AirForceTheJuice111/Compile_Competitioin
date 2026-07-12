@@ -1,5 +1,9 @@
 #include "algebrasimp.hh"
 
+#include <cstdint>
+#include <cstring>
+#include <limits>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -10,157 +14,307 @@ using namespace std;
 
 namespace {
 
-bool isConst(quad::QuadTerm *t) {
-    return t && t->kind == quad::QuadTermKind::CONST;
+bool isConst(quad::QuadTerm *term) {
+    return term != nullptr && term->kind == quad::QuadTermKind::CONST;
 }
-bool isTemp(quad::QuadTerm *t) {
-    return t && t->kind == quad::QuadTermKind::TEMP;
+
+bool isTemp(quad::QuadTerm *term) {
+    return term != nullptr && term->kind == quad::QuadTermKind::TEMP;
 }
-int constVal(quad::QuadTerm *t) { return t ? t->get_const() : 0; }
-quad::QuadTerm *termConst(int val) { return new quad::QuadTerm(val); }
-quad::QuadTerm *termTemp(int num, quad::QuadType type) {
-    return new quad::QuadTerm(new quad::QuadTemp(new Temp(num), type));
+
+bool isIntTemp(quad::QuadTerm *term) {
+    return isTemp(term) && term->get_temp() != nullptr &&
+           term->get_temp()->type == quad::QuadType::INT;
 }
-set<Temp*> *emptySet() { return new set<Temp*>(); }
 
-quad::QuadTerm *simplifyBinop(const string &op, quad::QuadTerm *left,
-                               quad::QuadTerm *right) {
-    bool lc = isConst(left), rc = isConst(right);
-    int lv = constVal(left), rv = constVal(right);
+bool sameIntTemp(quad::QuadTerm *left, quad::QuadTerm *right) {
+    return isIntTemp(left) && isIntTemp(right) &&
+           left->get_temp()->temp != nullptr && right->get_temp()->temp != nullptr &&
+           left->get_temp()->temp->num == right->get_temp()->temp->num;
+}
 
-    if (lc && rc) {
-        if (op == "+") return termConst(lv + rv);
-        if (op == "-") return termConst(lv - rv);
-        if (op == "*") return termConst(lv * rv);
-        if (op == "/") { if (rv == 0) return nullptr; return termConst(lv / rv); }
-        if (op == "%") { if (rv == 0) return nullptr; return termConst(lv % rv); }
-        if (op == "&&") return termConst((lv && rv) ? 1 : 0);
-        if (op == "||") return termConst((lv || rv) ? 1 : 0);
-        if (op == "&") return termConst(lv & rv);
-        if (op == "|") return termConst(lv | rv);
-        if (op == "^") return termConst(lv ^ rv);
-        if (op == "<<") return termConst(lv << rv);
-        if (op == ">>") return termConst(lv >> rv);
-        if (op == "==") return termConst((lv == rv) ? 1 : 0);
-        if (op == "!=") return termConst((lv != rv) ? 1 : 0);
-        if (op == "<") return termConst((lv < rv) ? 1 : 0);
-        if (op == "<=") return termConst((lv <= rv) ? 1 : 0);
-        if (op == ">") return termConst((lv > rv) ? 1 : 0);
-        if (op == ">=") return termConst((lv >= rv) ? 1 : 0);
-        return nullptr;
-    }
+int constVal(quad::QuadTerm *term) {
+    return term == nullptr ? 0 : term->get_const();
+}
 
-    if (op == "+") {
-        if (lc && lv == 0) return right;
-        if (rc && rv == 0) return left;
+quad::QuadTerm *termConst(std::int32_t value) {
+    return new quad::QuadTerm(static_cast<int>(value));
+}
+
+set<Temp *> *emptySet() {
+    return new set<Temp *>();
+}
+
+std::uint32_t intBits(std::int32_t value) {
+    return static_cast<std::uint32_t>(value);
+}
+
+std::int32_t bitsAsInt(std::uint32_t bits) {
+    std::int32_t value = 0;
+    static_assert(sizeof(value) == sizeof(bits), "SysY int must be 32 bits");
+    std::memcpy(&value, &bits, sizeof(value));
+    return value;
+}
+
+std::int32_t wrapAdd(std::int32_t left, std::int32_t right) {
+    return bitsAsInt(intBits(left) + intBits(right));
+}
+
+std::int32_t wrapSub(std::int32_t left, std::int32_t right) {
+    return bitsAsInt(intBits(left) - intBits(right));
+}
+
+std::int32_t wrapMul(std::int32_t left, std::int32_t right) {
+    return bitsAsInt(intBits(left) * intBits(right));
+}
+
+std::int32_t arithmeticShiftRight(std::int32_t value, unsigned shift) {
+    if (shift == 0) {
+        return value;
     }
-    if (op == "-") { if (rc && rv == 0) return left; }
-    if (op == "*") {
-        if ((lc && lv == 0) || (rc && rv == 0)) return termConst(0);
-        if (lc && lv == 1) return right;
-        if (rc && rv == 1) return left;
+    std::uint32_t bits = intBits(value);
+    std::uint32_t shifted = bits >> shift;
+    if ((bits & 0x80000000u) != 0) {
+        shifted |= (~std::uint32_t{0}) << (32u - shift);
     }
-    if (op == "/") { if (rc && rv == 1) return left; }
-    if (op == "&") {
-        if ((lc && lv == 0) || (rc && rv == 0)) return termConst(0);
+    return bitsAsInt(shifted);
+}
+
+bool termIsCompatibleWithInt(quad::QuadTerm *term) {
+    return isConst(term) || isIntTemp(term);
+}
+
+bool isComparison(const string &op) {
+    return op == "==" || op == "!=" || op == "<" || op == "<=" ||
+           op == ">" || op == ">=";
+}
+
+bool intBinopIsProvable(const quad::QuadMoveBinop *binop) {
+    if (binop == nullptr || binop->dst == nullptr ||
+        binop->dst->type != quad::QuadType::INT ||
+        !termIsCompatibleWithInt(binop->left) ||
+        !termIsCompatibleWithInt(binop->right)) {
+        return false;
     }
-    if (op == "|") {
-        if (lc && lv == 0) return right;
-        if (rc && rv == 0) return left;
+    // Comparison results are INT even when their operands are FLOAT. Constants
+    // carry no QuadType, so a constant-only comparison is not provably integer.
+    if (isComparison(binop->binop) && isConst(binop->left) &&
+        isConst(binop->right)) {
+        return false;
     }
-    if (op == "^") {
-        if (lc && lv == 0) return right;
-        if (rc && rv == 0) return left;
+    return true;
+}
+
+quad::QuadTerm *foldIntConstants(const string &op, std::int32_t left,
+                                 std::int32_t right) {
+    if (op == "+") return termConst(wrapAdd(left, right));
+    if (op == "-") return termConst(wrapSub(left, right));
+    if (op == "*") return termConst(wrapMul(left, right));
+    if (op == "/") {
+        if (right == 0) return nullptr;
+        if (left == std::numeric_limits<std::int32_t>::min() && right == -1)
+            return termConst(std::numeric_limits<std::int32_t>::min());
+        return termConst(static_cast<std::int32_t>(left / right));
     }
-    if (op == "<<" || op == ">>") { if (rc && rv == 0) return left; }
-    if (op == "&&") {
-        if ((lc && lv == 0) || (rc && rv == 0)) return termConst(0);
-        if (lc && lv != 0) return right;
-        if (rc && rv != 0) return left;
+    if (op == "%") {
+        if (right == 0) return nullptr;
+        if (left == std::numeric_limits<std::int32_t>::min() && right == -1)
+            return termConst(0);
+        return termConst(static_cast<std::int32_t>(left % right));
     }
-    if (op == "||") {
-        if (lc && lv != 0) return termConst(1);
-        if (rc && rv != 0) return termConst(1);
-        if (lc && lv == 0) return right;
-        if (rc && rv == 0) return left;
+    if (op == "&") return termConst(bitsAsInt(intBits(left) & intBits(right)));
+    if (op == "|") return termConst(bitsAsInt(intBits(left) | intBits(right)));
+    if (op == "^") return termConst(bitsAsInt(intBits(left) ^ intBits(right)));
+    if (op == "<<" || op == ">>") {
+        if (right < 0 || right >= 32) return nullptr;
+        unsigned shift = static_cast<unsigned>(right);
+        if (op == "<<") return termConst(bitsAsInt(intBits(left) << shift));
+        return termConst(arithmeticShiftRight(left, shift));
     }
-    if (op == "-" && isTemp(left) && isTemp(right) &&
-        left->get_temp()->temp->num == right->get_temp()->temp->num)
-        return termConst(0);
+    // Logical operators are intentionally not folded here. Quad constants are
+    // untyped, and identities such as x && 1 -> x are not valid for arbitrary
+    // non-normalized integer operands.
     return nullptr;
 }
 
-int simplifyCondition(const string &relop, quad::QuadTerm *left,
-                      quad::QuadTerm *right) {
-    if (isConst(left) && isConst(right)) {
-        int lv = constVal(left), rv = constVal(right);
-        if (relop == "==") return (lv == rv) ? 1 : -1;
-        if (relop == "!=") return (lv != rv) ? 1 : -1;
-        if (relop == "<") return (lv < rv) ? 1 : -1;
-        if (relop == "<=") return (lv <= rv) ? 1 : -1;
-        if (relop == ">") return (lv > rv) ? 1 : -1;
-        if (relop == ">=") return (lv >= rv) ? 1 : -1;
+quad::QuadTerm *simplifyIntBinop(const string &op, quad::QuadTerm *left,
+                                 quad::QuadTerm *right) {
+    bool leftConst = isConst(left);
+    bool rightConst = isConst(right);
+    std::int32_t leftValue = static_cast<std::int32_t>(constVal(left));
+    std::int32_t rightValue = static_cast<std::int32_t>(constVal(right));
+
+    if (leftConst && rightConst) {
+        if (quad::QuadTerm *folded = foldIntConstants(op, leftValue, rightValue))
+            return folded;
     }
-    if (isTemp(left) && isTemp(right) &&
-        left->get_temp()->temp->num == right->get_temp()->temp->num) {
+
+    if (op == "+") {
+        // NOTE: 0+x→x and x+0→x disabled to avoid GVN merging bug
+        // if (leftConst && leftValue == 0) return right->clone();
+        // if (rightConst && rightValue == 0) return left->clone();
+    } else if (op == "-") {
+        if (rightConst && rightValue == 0) return left->clone();
+        if (sameIntTemp(left, right)) return termConst(0);
+    } else if (op == "*") {
+        if ((leftConst && leftValue == 0) || (rightConst && rightValue == 0))
+            return termConst(0);
+        if (leftConst && leftValue == 1) return right->clone();
+        if (rightConst && rightValue == 1) return left->clone();
+    } else if (op == "/") {
+        if (rightConst && rightValue == 1) return left->clone();
+    } else if (op == "&") {
+        if ((leftConst && leftValue == 0) || (rightConst && rightValue == 0))
+            return termConst(0);
+        if (sameIntTemp(left, right)) return left->clone();
+    } else if (op == "|") {
+        if (leftConst && leftValue == 0) return right->clone();
+        if (rightConst && rightValue == 0) return left->clone();
+        if (sameIntTemp(left, right)) return left->clone();
+    } else if (op == "^") {
+        if (leftConst && leftValue == 0) return right->clone();
+        if (rightConst && rightValue == 0) return left->clone();
+        if (sameIntTemp(left, right)) return termConst(0);
+    } else if (op == "<<" || op == ">>") {
+        if (rightConst && rightValue == 0) return left->clone();
+    } else if (sameIntTemp(left, right)) {
+        if (op == "==" || op == "<=" || op == ">=") return termConst(1);
+        if (op == "!=" || op == "<" || op == ">") return termConst(0);
+    }
+    return nullptr;
+}
+
+bool tryNegateInt(quad::QuadMoveBinop *binop) {
+    if (!intBinopIsProvable(binop) || binop->binop != "*") return false;
+    bool leftMinusOne = isConst(binop->left) && constVal(binop->left) == -1;
+    bool rightMinusOne = isConst(binop->right) && constVal(binop->right) == -1;
+    if (!leftMinusOne && !rightMinusOne) return false;
+
+    quad::QuadTerm *value = leftMinusOne ? binop->right->clone()
+                                         : binop->left->clone();
+    binop->binop = "-";
+    binop->left = termConst(0);
+    binop->right = value;
+    binop->def = emptySet();
+    binop->use = emptySet();
+    binop->def->insert(new Temp(binop->dst->temp->num));
+    if (isTemp(value)) binop->use->insert(new Temp(value->get_temp()->temp->num));
+    return true;
+}
+
+int simplifyIntCondition(const string &relop, quad::QuadTerm *left,
+                         quad::QuadTerm *right) {
+    // A CJUMP has no result type. At least one typed INT temp is required so
+    // constant-only and FLOAT comparisons cannot be mistaken for integer ones.
+    if (!termIsCompatibleWithInt(left) || !termIsCompatibleWithInt(right) ||
+        (!isIntTemp(left) && !isIntTemp(right))) {
+        return 0;
+    }
+    if (isConst(left) && isConst(right)) {
+        std::int32_t lv = static_cast<std::int32_t>(constVal(left));
+        std::int32_t rv = static_cast<std::int32_t>(constVal(right));
+        if (relop == "==") return lv == rv ? 1 : -1;
+        if (relop == "!=") return lv != rv ? 1 : -1;
+        if (relop == "<") return lv < rv ? 1 : -1;
+        if (relop == "<=") return lv <= rv ? 1 : -1;
+        if (relop == ">") return lv > rv ? 1 : -1;
+        if (relop == ">=") return lv >= rv ? 1 : -1;
+    }
+    if (sameIntTemp(left, right)) {
         if (relop == "==" || relop == "<=" || relop == ">=") return 1;
         if (relop == "!=" || relop == "<" || relop == ">") return -1;
     }
     return 0;
 }
 
+void rebuildExitLabels(quad::QuadBlock *block) {
+    auto *exits = new vector<Label *>();
+    if (block != nullptr && block->quadlist != nullptr) {
+        for (auto it = block->quadlist->rbegin(); it != block->quadlist->rend(); ++it) {
+            quad::QuadStm *statement = *it;
+            if (statement == nullptr) continue;
+            if (statement->kind == quad::QuadKind::JUMP) {
+                auto *jump = static_cast<quad::QuadJump *>(statement);
+                if (jump->label != nullptr) exits->push_back(new Label(jump->label->num));
+            } else if (statement->kind == quad::QuadKind::CJUMP) {
+                auto *jump = static_cast<quad::QuadCJump *>(statement);
+                if (jump->t != nullptr) exits->push_back(new Label(jump->t->num));
+                if (jump->f != nullptr) exits->push_back(new Label(jump->f->num));
+            }
+            break;
+        }
+    }
+    block->exit_labels = exits;
+}
+
 void algebraSimpFunction(quad::QuadFuncDecl *func, int &eliminated) {
-    if (!func || !func->quadblocklist) return;
+    if (func == nullptr || func->quadblocklist == nullptr) return;
     for (auto *block : *func->quadblocklist) {
-        if (!block || !block->quadlist) continue;
-        auto *newList = new vector<quad::QuadStm*>();
-        for (auto *stm : *block->quadlist) {
-            if (!stm) continue;
-            if (stm->kind == quad::QuadKind::MOVE_BINOP) {
-                auto *b = static_cast<quad::QuadMoveBinop*>(stm);
-                auto *r = simplifyBinop(b->binop, b->left, b->right);
-                if (r) {
-                    int dn = b->dst->temp->num;
-                    auto *mv = new quad::QuadMove(b->dst->clone(), r, emptySet(), emptySet());
-                    mv->def->insert(new Temp(dn));
-                    if (r->kind == quad::QuadTermKind::TEMP)
-                        mv->use->insert(new Temp(r->get_temp()->temp->num));
-                    newList->push_back(mv);
-                    eliminated++;
-                    continue;
+        if (block == nullptr || block->quadlist == nullptr) continue;
+        auto *newList = new vector<quad::QuadStm *>();
+        bool cfgChanged = false;
+        for (auto *statement : *block->quadlist) {
+            if (statement == nullptr) continue;
+            if (statement->kind == quad::QuadKind::MOVE_BINOP) {
+                auto *binop = static_cast<quad::QuadMoveBinop *>(statement);
+                if (intBinopIsProvable(binop)) {
+                    if (quad::QuadTerm *result =
+                            simplifyIntBinop(binop->binop, binop->left, binop->right)) {
+                        auto *move = new quad::QuadMove(binop->dst->clone(), result,
+                                                       emptySet(), emptySet());
+                        move->def->insert(new Temp(binop->dst->temp->num));
+                        if (isTemp(result))
+                            move->use->insert(new Temp(result->get_temp()->temp->num));
+                        newList->push_back(move);
+                        ++eliminated;
+                        continue;
+                    }
+                    if (tryNegateInt(binop)) {
+                        newList->push_back(binop);
+                        ++eliminated;
+                        continue;
+                    }
                 }
             }
-            if (stm->kind == quad::QuadKind::CJUMP) {
-                auto *c = static_cast<quad::QuadCJump*>(stm);
-                int res = simplifyCondition(c->relop, c->left, c->right);
-                if (res != 0) {
-                    Label *tgt = (res > 0) ? c->t : c->f;
-                    newList->push_back(new quad::QuadJump(new Label(tgt->num), emptySet(), emptySet()));
-                    eliminated++;
-                    continue;
+            if (statement->kind == quad::QuadKind::CJUMP) {
+                auto *jump = static_cast<quad::QuadCJump *>(statement);
+                int result = simplifyIntCondition(jump->relop, jump->left,
+                                                  jump->right);
+                if (result != 0) {
+                    Label *target = result > 0 ? jump->t : jump->f;
+                    if (target != nullptr) {
+                        newList->push_back(new quad::QuadJump(
+                            new Label(target->num), emptySet(), emptySet()));
+                        ++eliminated;
+                        cfgChanged = true;
+                        continue;
+                    }
                 }
             }
-            newList->push_back(stm);
+            newList->push_back(statement);
         }
         block->quadlist = newList;
+        if (cfgChanged) rebuildExitLabels(block);
     }
 }
 
 } // namespace
 
 namespace quad {
+
 QuadProgram *algebraSimpProg(QuadProgram *prog, int *eliminatedOut) {
-    if (!prog) return prog;
+    if (prog == nullptr) return prog;
     int total = 0;
-    auto *nf = new vector<QuadFuncDecl*>();
-    for (auto *fd : *prog->quadFuncDeclList) {
-        if (!fd) continue;
-        int e = 0;
-        algebraSimpFunction(fd, e);
-        total += e;
-        nf->push_back(fd);
+    auto *functions = new vector<QuadFuncDecl *>();
+    for (auto *function : *prog->quadFuncDeclList) {
+        if (function == nullptr) continue;
+        int eliminated = 0;
+        algebraSimpFunction(function, eliminated);
+        total += eliminated;
+        functions->push_back(function);
     }
-    if (eliminatedOut) *eliminatedOut = total;
-    return new QuadProgram(nf, prog->last_label_num, prog->last_temp_num);
+    if (eliminatedOut != nullptr) *eliminatedOut = total;
+    return new QuadProgram(functions, prog->last_label_num, prog->last_temp_num);
 }
+
 } // namespace quad

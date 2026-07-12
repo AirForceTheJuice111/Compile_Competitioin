@@ -11,6 +11,7 @@
 #include "loopheader.hh"
 #include "loopinductionopt.hh"
 #include "looplicm.hh"
+#include "memopt.hh"
 #include "opt.hh"
 #include "quad.hh"
 #include "quadssa.hh"
@@ -285,6 +286,38 @@ bool optModeUsesIv(OptMode mode) {
     return mode == OptMode::Loop2 || mode == OptMode::AllLoop || mode == OptMode::AllOpt;
 }
 
+bool passListContains(const char *environment, const std::string &name) {
+    const char *env = std::getenv(environment);
+    if (env == nullptr || env[0] == '\0') {
+        return false;
+    }
+    std::string enabled(env);
+    std::size_t begin = 0;
+    while (begin < enabled.size()) {
+        begin = enabled.find_first_not_of(" ,;:", begin);
+        if (begin == std::string::npos) {
+            break;
+        }
+        std::size_t end = enabled.find_first_of(" ,;:", begin);
+        if (enabled.substr(begin, end - begin) == name) {
+            return true;
+        }
+        begin = end == std::string::npos ? enabled.size() : end + 1;
+    }
+    return false;
+}
+
+bool optimizationPassEnabled(const std::string &name) {
+    if (passListContains("SYSY_DISABLE_PASSES", name)) {
+        return false;
+    }
+    if (name == "algebrasimp" || name == "gvn" || name == "copyprop" ||
+        name == "inline" || name == "funcspec") {
+        return true;
+    }
+    return passListContains("SYSY_EXPERIMENTAL_PASSES", name);
+}
+
 quad::QuadProgram *runGvnPass(quad::QuadProgram *program) {
     auto *flow = computeFlow(program);
     if (flow == nullptr) {
@@ -296,37 +329,36 @@ quad::QuadProgram *runGvnPass(quad::QuadProgram *program) {
         return program;
     }
     refreshQuadExtents(result);
-
-    const char *env = std::getenv("BACKEND_PROFILE");
-    if (env != nullptr && env[0] != '\0' && std::string(env) != "0") {
-        std::cerr << "BACKEND_PROFILE gvn eliminated " << eliminated
-                  << " instructions\n";
-        std::cerr.flush();
+    if (std::getenv("BACKEND_PROFILE") != nullptr) {
+        std::cerr << "BACKEND_PROFILE gvn eliminated " << eliminated << " instructions\n";
     }
     return result;
 }
 
 quad::QuadProgram *runInlinePass(quad::QuadProgram *program) {
-    int eliminated = 0;
-    auto *result = quad::inlineProg(program, &eliminated);
-    if (result == nullptr) return program;
+    int inlined = 0;
+    auto *result = quad::inlineProg(program, &inlined);
+    if (result == nullptr) {
+        return program;
+    }
     refreshQuadExtents(result);
-    const char *env = std::getenv("BACKEND_PROFILE");
-    if (env && env[0] && std::string(env) != "0")
-        std::cerr << "BACKEND_PROFILE inline inlined " << eliminated
-                  << " calls\n";
+    if (std::getenv("BACKEND_PROFILE") != nullptr) {
+        std::cerr << "BACKEND_PROFILE inline inlined " << inlined << " calls\n";
+    }
     return result;
 }
 
 quad::QuadProgram *runAlgebraSimpPass(quad::QuadProgram *program) {
     int eliminated = 0;
     auto *result = quad::algebraSimpProg(program, &eliminated);
-    if (result == nullptr) return program;
+    if (result == nullptr) {
+        return program;
+    }
     refreshQuadExtents(result);
-    const char *env = std::getenv("BACKEND_PROFILE");
-    if (env && env[0] && std::string(env) != "0")
-        std::cerr << "BACKEND_PROFILE algebrasimp eliminated "
-                  << eliminated << " instructions\n";
+    if (std::getenv("BACKEND_PROFILE") != nullptr) {
+        std::cerr << "BACKEND_PROFILE algebrasimp eliminated " << eliminated
+                  << " instructions\n";
+    }
     return result;
 }
 
@@ -337,25 +369,42 @@ quad::QuadProgram *runCopyPropPass(quad::QuadProgram *program) {
         return program;
     }
     refreshQuadExtents(result);
-
-    const char *env = std::getenv("BACKEND_PROFILE");
-    if (env != nullptr && env[0] != '\0' && std::string(env) != "0") {
+    if (std::getenv("BACKEND_PROFILE") != nullptr) {
         std::cerr << "BACKEND_PROFILE copyprop eliminated " << eliminated
                   << " instructions\n";
-        std::cerr.flush();
+    }
+    return result;
+}
+
+quad::QuadProgram *runMemOptPass(quad::QuadProgram *program) {
+    auto *flow = computeFlow(program);
+    if (flow == nullptr) {
+        return program;
+    }
+    int eliminated = 0;
+    auto *result = quad::memOptProg(program, flow, &eliminated);
+    if (result == nullptr) {
+        return program;
+    }
+    refreshQuadExtents(result);
+    if (std::getenv("BACKEND_PROFILE") != nullptr) {
+        std::cerr << "BACKEND_PROFILE memopt eliminated " << eliminated
+                  << " instructions\n";
     }
     return result;
 }
 
 quad::QuadProgram *runFuncSpecPass(quad::QuadProgram *program) {
-    int eliminated = 0;
-    auto *result = quad::funcSpecProg(program, &eliminated);
-    if (result == nullptr) return program;
+    int specialized = 0;
+    auto *result = quad::funcSpecProg(program, &specialized);
+    if (result == nullptr) {
+        return program;
+    }
     refreshQuadExtents(result);
-    const char *env = std::getenv("BACKEND_PROFILE");
-    if (env && env[0] && std::string(env) != "0")
-        std::cerr << "BACKEND_PROFILE funcspec created " << eliminated
+    if (std::getenv("BACKEND_PROFILE") != nullptr) {
+        std::cerr << "BACKEND_PROFILE funcspec created " << specialized
                   << " specializations\n";
+    }
     return result;
 }
 
@@ -527,6 +576,9 @@ private:
     std::unordered_map<int, quad::QuadType> tempTypes_;
     std::unordered_map<std::string, std::vector<quad::QuadType>> functionParamTypes_;
     std::map<int, int> slots_;
+    std::unordered_map<int, int> residentRegs_;
+    std::vector<std::pair<int, int>> calleeSaveSlots_;
+    std::vector<int> phiScratchSlots_;
     int frameSize_ = 0;
     int edgeLabelId_ = 0;
     bool needsParallelRuntime_ = false;
@@ -627,6 +679,132 @@ private:
 
     void noteTermType(quad::QuadTerm *term) {
         noteTempType(termTemp(term));
+    }
+
+    void selectResidentTemps(int tempSlotBytes) {
+        residentRegs_.clear();
+        calleeSaveSlots_.clear();
+        phiScratchSlots_.clear();
+        if (func_ == nullptr || func_->quadblocklist == nullptr) {
+            frameSize_ = alignUpInt(tempSlotBytes, 16);
+            return;
+        }
+
+        // A function-level assignment to callee-saved GPRs is deliberately
+        // conservative: each selected temp owns one register for the entire
+        // function.  Float values live here as their raw 32-bit representation.
+        // This avoids liveness/interference mistakes and keeps values valid over
+        // arbitrary calls.  Edge copies snapshot phi inputs before assigning
+        // destinations, so phi-carried induction/reduction temps are eligible.
+        std::unordered_map<int, std::size_t> blockIndex;
+        std::size_t maxPhiCopies = 0;
+        for (std::size_t i = 0; i < func_->quadblocklist->size(); ++i) {
+            auto *block = func_->quadblocklist->at(i);
+            if (block != nullptr && block->entry_label != nullptr) {
+                blockIndex[block->entry_label->num] = i;
+            }
+            if (block == nullptr || block->quadlist == nullptr) continue;
+            std::size_t phiCopies = 0;
+            for (auto *stm : *block->quadlist) {
+                if (stm == nullptr || stm->kind != quad::QuadKind::PHI) continue;
+                ++phiCopies;
+            }
+            maxPhiCopies = std::max(maxPhiCopies, phiCopies);
+        }
+
+        // Structured lowering emits backward CFG edges for loops.  Weight the
+        // blocks spanned by those edges so register residency favors dynamic hot
+        // code, including generated parallel workers and their nested loops.
+        std::vector<int> loopDepth(func_->quadblocklist->size(), 0);
+        for (std::size_t i = 0; i < func_->quadblocklist->size(); ++i) {
+            auto *block = func_->quadblocklist->at(i);
+            if (block == nullptr || block->exit_labels == nullptr) continue;
+            for (auto *target : *block->exit_labels) {
+                if (target == nullptr) continue;
+                auto found = blockIndex.find(target->num);
+                if (found == blockIndex.end() || found->second > i) continue;
+                for (std::size_t j = found->second; j <= i; ++j) ++loopDepth[j];
+            }
+        }
+
+        struct Candidate {
+            int temp = -1;
+            int weighted = 0;
+            int accesses = 0;
+            bool inLoop = false;
+            bool isParam = false;
+            std::unordered_set<std::size_t> blocks;
+        };
+        std::unordered_map<int, Candidate> candidates;
+        auto countTemp = [&](tree::Temp *temp, int weight, int depth,
+                             std::size_t blockIndexValue) {
+            if (temp == nullptr) return;
+            auto &candidate = candidates[temp->num];
+            candidate.temp = temp->num;
+            candidate.weighted += weight;
+            ++candidate.accesses;
+            candidate.inLoop = candidate.inLoop || depth > 0;
+            if (blockIndexValue < func_->quadblocklist->size()) {
+                candidate.blocks.insert(blockIndexValue);
+            }
+        };
+        if (func_->params != nullptr) {
+            for (auto *param : *func_->params) {
+                countTemp(param, 1, 0, func_->quadblocklist->size());
+                if (param != nullptr) candidates[param->num].isParam = true;
+            }
+        }
+        for (std::size_t i = 0; i < func_->quadblocklist->size(); ++i) {
+            auto *block = func_->quadblocklist->at(i);
+            if (block == nullptr || block->quadlist == nullptr) continue;
+            int weight = loopDepth[i] >= 2 ? 64 : (loopDepth[i] == 1 ? 8 : 1);
+            for (auto *stm : *block->quadlist) {
+                if (stm == nullptr) continue;
+                if (stm->def != nullptr) {
+                    for (auto *temp : *stm->def) countTemp(temp, weight, loopDepth[i], i);
+                }
+                if (stm->use != nullptr) {
+                    for (auto *temp : *stm->use) countTemp(temp, weight, loopDepth[i], i);
+                }
+            }
+        }
+
+        std::vector<Candidate> ranked;
+        ranked.reserve(candidates.size());
+        for (const auto &entry : candidates) {
+            const Candidate &candidate = entry.second;
+            if ((candidate.inLoop && candidate.accesses >= 2) || candidate.accesses >= 6) {
+                ranked.push_back(candidate);
+            }
+        }
+        std::sort(ranked.begin(), ranked.end(), [](const Candidate &left, const Candidate &right) {
+            int leftScore = left.weighted + (left.blocks.size() > 1 ? 160 : 0) +
+                            (left.isParam ? 128 : 0);
+            int rightScore = right.weighted + (right.blocks.size() > 1 ? 160 : 0) +
+                             (right.isParam ? 128 : 0);
+            if (leftScore != rightScore) return leftScore > rightScore;
+            if (left.accesses != right.accesses) return left.accesses > right.accesses;
+            return left.temp < right.temp;
+        });
+
+        static constexpr int kCalleeSavedRegs[] = {19, 20, 21, 22, 23, 24, 25, 26, 27, 28};
+        std::size_t count = std::min(ranked.size(), std::size(kCalleeSavedRegs));
+        // x16/x17 are reserved by frame/address materialization, so phi edge
+        // snapshots use only caller-scratch x12-x15 before spilling overflow.
+        static constexpr std::size_t kPhiRegisterScratchCount = 4;
+        int phiScratchBytes = static_cast<int>(
+            maxPhiCopies > kPhiRegisterScratchCount ? maxPhiCopies - kPhiRegisterScratchCount : 0) * 8;
+        for (int distance = tempSlotBytes + 8;
+             distance <= tempSlotBytes + phiScratchBytes; distance += 8) {
+            phiScratchSlots_.push_back(distance);
+        }
+        for (std::size_t i = 0; i < count; ++i) {
+            int reg = kCalleeSavedRegs[i];
+            residentRegs_[ranked[i].temp] = reg;
+            calleeSaveSlots_.push_back(
+                {reg, tempSlotBytes + phiScratchBytes + static_cast<int>(i + 1) * 8});
+        }
+        frameSize_ = alignUpInt(tempSlotBytes + phiScratchBytes + static_cast<int>(count) * 8, 16);
     }
 
     void collectTypesAndSlots() {
@@ -753,7 +931,7 @@ private:
             offset += 8;
             slots_[entry.first] = -offset;
         }
-        frameSize_ = alignUpInt(offset, 16);
+        selectResidentTemps(offset);
     }
 
     void collectFunctionSignatures(quad::QuadProgram *program) {
@@ -765,6 +943,9 @@ private:
         std::string savedName = funcName_;
         auto savedTypes = tempTypes_;
         auto savedSlots = slots_;
+        auto savedResidentRegs = residentRegs_;
+        auto savedCalleeSaveSlots = calleeSaveSlots_;
+        auto savedPhiScratchSlots = phiScratchSlots_;
         int savedFrameSize = frameSize_;
 
         for (auto *func : *program->quadFuncDeclList) {
@@ -787,6 +968,9 @@ private:
         funcName_ = savedName;
         tempTypes_ = std::move(savedTypes);
         slots_ = std::move(savedSlots);
+        residentRegs_ = std::move(savedResidentRegs);
+        calleeSaveSlots_ = std::move(savedCalleeSaveSlots);
+        phiScratchSlots_ = std::move(savedPhiScratchSlots);
         frameSize_ = savedFrameSize;
     }
 
@@ -825,7 +1009,7 @@ private:
         if (name == "memset" && index == 0) return quad::QuadType::PTR;
         if (name == "__sysy_parallel_for_range" || name == "__sysy_parallel_reduce_int_range") {
             if (index == 2 || index == 3) return quad::QuadType::PTR;
-            return quad::QuadType::INT;
+            if (index == 0 || index == 1 || index == 4) return quad::QuadType::INT;
         }
         return fallback;
     }
@@ -869,20 +1053,100 @@ private:
     }
 
     void loadTemp(tree::Temp *temp, quad::QuadType type, const std::string &reg) {
-        slotAddress(temp);
-        if (type == quad::QuadType::PTR) {
-            out_ << "\tldr " << reg << ", [x16]\n";
-        } else {
-            out_ << "\tldr " << reg << ", [x16]\n";
+        auto resident = residentRegs_.find(temp->num);
+        if (resident != residentRegs_.end()) {
+            std::string source = (type == quad::QuadType::PTR ? "x" : "w") +
+                                 std::to_string(resident->second);
+            if (source != reg) out_ << "\tmov " << reg << ", " << source << "\n";
+            return;
         }
+        int distance = -slots_[temp->num];
+        if (distance <= 256) {
+            out_ << "\tldur " << reg << ", [x29, #-" << distance << "]\n";
+            return;
+        }
+        slotAddress(temp);
+        out_ << "\tldr " << reg << ", [x16]\n";
     }
 
     void storeTemp(tree::Temp *temp, quad::QuadType type, const std::string &reg) {
+        auto resident = residentRegs_.find(temp->num);
+        if (resident != residentRegs_.end()) {
+            std::string destination = (type == quad::QuadType::PTR ? "x" : "w") +
+                                      std::to_string(resident->second);
+            if (destination != reg) out_ << "\tmov " << destination << ", " << reg << "\n";
+            return;
+        }
+        int distance = -slots_[temp->num];
+        if (distance <= 256) {
+            out_ << "\tstur " << reg << ", [x29, #-" << distance << "]\n";
+            return;
+        }
         slotAddress(temp);
-        if (type == quad::QuadType::PTR) {
-            out_ << "\tstr " << reg << ", [x16]\n";
+        out_ << "\tstr " << reg << ", [x16]\n";
+    }
+
+    void saveResidentRegisters() {
+        for (std::size_t i = 0; i < calleeSaveSlots_.size();) {
+            if (i + 1 < calleeSaveSlots_.size() &&
+                calleeSaveSlots_[i + 1].second == calleeSaveSlots_[i].second + 8 &&
+                calleeSaveSlots_[i + 1].second <= 512) {
+                out_ << "\tstp x" << calleeSaveSlots_[i + 1].first << ", x"
+                     << calleeSaveSlots_[i].first << ", [x29, #-"
+                     << calleeSaveSlots_[i + 1].second << "]\n";
+                i += 2;
+                continue;
+            }
+            int reg = calleeSaveSlots_[i].first;
+            int distance = calleeSaveSlots_[i].second;
+            if (distance <= 256) {
+                out_ << "\tstur x" << reg << ", [x29, #-" << distance << "]\n";
+            } else {
+                emitAddSubImm64("sub", "x16", "x29", distance);
+                out_ << "\tstr x" << reg << ", [x16]\n";
+            }
+            ++i;
+        }
+    }
+
+    void restoreResidentRegisters() {
+        for (std::size_t end = calleeSaveSlots_.size(); end > 0;) {
+            if (end >= 2 &&
+                calleeSaveSlots_[end - 1].second == calleeSaveSlots_[end - 2].second + 8 &&
+                calleeSaveSlots_[end - 1].second <= 512) {
+                out_ << "\tldp x" << calleeSaveSlots_[end - 1].first << ", x"
+                     << calleeSaveSlots_[end - 2].first << ", [x29, #-"
+                     << calleeSaveSlots_[end - 1].second << "]\n";
+                end -= 2;
+                continue;
+            }
+            int reg = calleeSaveSlots_[end - 1].first;
+            int distance = calleeSaveSlots_[end - 1].second;
+            if (distance <= 256) {
+                out_ << "\tldur x" << reg << ", [x29, #-" << distance << "]\n";
+            } else {
+                emitAddSubImm64("sub", "x16", "x29", distance);
+                out_ << "\tldr x" << reg << ", [x16]\n";
+            }
+            --end;
+        }
+    }
+
+    void storeRawFrameValue(int distance, quad::QuadType type, const std::string &reg) {
+        if (distance <= 256) {
+            out_ << "\tstur " << reg << ", [x29, #-" << distance << "]\n";
         } else {
+            emitAddSubImm64("sub", "x16", "x29", distance);
             out_ << "\tstr " << reg << ", [x16]\n";
+        }
+    }
+
+    void loadRawFrameValue(int distance, quad::QuadType type, const std::string &reg) {
+        if (distance <= 256) {
+            out_ << "\tldur " << reg << ", [x29, #-" << distance << "]\n";
+        } else {
+            emitAddSubImm64("sub", "x16", "x29", distance);
+            out_ << "\tldr " << reg << ", [x16]\n";
         }
     }
 
@@ -995,6 +1259,7 @@ private:
         if (frameSize_ > 0) {
             emitAddSubImm64("sub", "sp", "sp", frameSize_);
         }
+        saveResidentRegisters();
         emitPrologueParams();
 
         if (func_->quadblocklist != nullptr) {
@@ -1006,6 +1271,7 @@ private:
     }
 
     void emitEpilogue() {
+        restoreResidentRegisters();
         emitLine("mov sp, x29");
         emitLine("ldp x29, x30, [sp], #16");
         emitLine("ret");
@@ -1070,6 +1336,12 @@ private:
         if (target == nullptr || target->quadlist == nullptr || fromLabel == nullptr) {
             return;
         }
+        struct PhiCopy {
+            quad::QuadTemp *dst = nullptr;
+            tree::Temp *src = nullptr;
+            quad::QuadType type = quad::QuadType::INT;
+        };
+        std::vector<PhiCopy> copies;
         for (auto *stm : *target->quadlist) {
             if (stm == nullptr || stm->kind == quad::QuadKind::LABEL) {
                 continue;
@@ -1083,10 +1355,34 @@ private:
             }
             for (auto &arg : *phi->args) {
                 if (arg.first != nullptr && sameLabel(arg.second, fromLabel)) {
-                    quad::QuadTerm src(new quad::QuadTemp(arg.first, phi->temp_exp->type));
-                    storeTermToTemp(phi->temp_exp, &src);
+                    copies.push_back(PhiCopy{phi->temp_exp, arg.first, phi->temp_exp->type});
                     break;
                 }
+            }
+        }
+        static constexpr int kPhiScratchRegs[] = {12, 13, 14, 15};
+        for (std::size_t i = 0; i < copies.size(); ++i) {
+            const auto &copy = copies[i];
+            quad::QuadTerm src(new quad::QuadTemp(copy.src, copy.type));
+            std::string width = copy.type == quad::QuadType::PTR ? "x" : "w";
+            if (i < std::size(kPhiScratchRegs)) {
+                loadTerm(&src, copy.type, width + std::to_string(kPhiScratchRegs[i]));
+            } else {
+                loadTerm(&src, copy.type, width + "9");
+                storeRawFrameValue(phiScratchSlots_[i - std::size(kPhiScratchRegs)], copy.type,
+                                   width + "9");
+            }
+        }
+        for (std::size_t i = 0; i < copies.size(); ++i) {
+            const auto &copy = copies[i];
+            std::string width = copy.type == quad::QuadType::PTR ? "x" : "w";
+            if (i < std::size(kPhiScratchRegs)) {
+                storeTemp(copy.dst->temp, copy.type,
+                          width + std::to_string(kPhiScratchRegs[i]));
+            } else {
+                loadRawFrameValue(phiScratchSlots_[i - std::size(kPhiScratchRegs)], copy.type,
+                                  width + "9");
+                storeTemp(copy.dst->temp, copy.type, width + "9");
             }
         }
     }
@@ -1095,9 +1391,28 @@ private:
         if (cjump == nullptr) {
             return;
         }
-        loadTerm(cjump->left, termType(cjump->left), "w9");
-        loadTerm(cjump->right, termType(cjump->right), "w10");
-        emitLine("cmp w9, w10");
+        quad::QuadType leftType = termType(cjump->left);
+        quad::QuadType rightType = termType(cjump->right);
+        bool pointerCompare = leftType == quad::QuadType::PTR ||
+                              rightType == quad::QuadType::PTR;
+        if (pointerCompare) {
+            if (leftType == quad::QuadType::PTR) {
+                loadTerm(cjump->left, leftType, "x9");
+            } else {
+                loadTerm(cjump->left, leftType, "w9");
+                emitLine("uxtw x9, w9");
+            }
+            if (rightType == quad::QuadType::PTR) {
+                loadTerm(cjump->right, rightType, "x10");
+            } else {
+                loadTerm(cjump->right, rightType, "w10");
+                emitLine("uxtw x10, w10");
+            }
+        } else {
+            loadTerm(cjump->left, leftType, "w9");
+            loadTerm(cjump->right, rightType, "w10");
+        }
+        emitLine(pointerCompare ? "cmp x9, x10" : "cmp w9, w10");
         std::string trueEdge = freshEdgeLabel();
         std::string doneEdge = freshEdgeLabel();
         emitLine(aarch64BranchMnemonic(cjump->relop) + " " + trueEdge);
@@ -1111,7 +1426,12 @@ private:
 
     void emitReturn(quad::QuadReturn *ret) {
         if (ret != nullptr && ret->exp != nullptr) {
-            quad::QuadType type = termType(ret->exp);
+            // Constants do not carry a QuadType, so the function's declared
+            // return type is the authoritative ABI type here.  In particular,
+            // a float literal such as `return 0.0` must be returned in s0, not
+            // w0 with a stale value left in s0.
+            quad::QuadType type = func_ == nullptr ? termType(ret->exp)
+                                                   : func_->return_type;
             if (type == quad::QuadType::FLOAT) {
                 loadTerm(ret->exp, type, "w9");
                 emitLine("fmov s0, w9");
@@ -1495,7 +1815,13 @@ __sysy_parallel_for_range:
 	mov x21, x2
 	mov x22, x3
 	sub w9, w20, w19
-	cmp w9, #512
+	cmp w9, #1
+	blt .Lsysy_parallel_for_direct
+	cmp w4, #1
+	blt .Lsysy_parallel_for_direct
+	umull x10, w9, w4
+	movz x11, #16384
+	cmp x10, x11
 	blt .Lsysy_parallel_for_direct
 	asr w23, w9, #1
 	add w23, w19, w23
@@ -1550,7 +1876,13 @@ __sysy_parallel_reduce_int_range:
 	mov x21, x2
 	mov x22, x3
 	sub w9, w20, w19
-	cmp w9, #512
+	cmp w9, #1
+	blt .Lsysy_parallel_reduce_direct
+	cmp w4, #1
+	blt .Lsysy_parallel_reduce_direct
+	umull x10, w9, w4
+	movz x11, #16384
+	cmp x10, x11
 	blt .Lsysy_parallel_reduce_direct
 	asr w23, w9, #1
 	add w23, w19, w23
@@ -1673,58 +2005,52 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
         refreshQuadExtents(optimizedSsa);
         profile.mark("sccp");
     }
-    if (optModeUsesSccp(options.optMode)) {
+    // Round 1: AlgebraSimp → GVN → CopyProp (ref: AlgebraSimp+GVNPass+CopyProp)
+    if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("algebrasimp")) {
         optimizedSsa = runAlgebraSimpPass(optimizedSsa);
-        if (optimizedSsa == nullptr) {
-            result.error = "AlgebraSimp optimization failed";
-            return result;
-        }
+        if (!optimizedSsa) { result.error="AlgebraSimp r1 failed"; return result; }
         profile.mark("algebrasimp");
     }
-    if (optModeUsesGvn(options.optMode)) {
+    if (optModeUsesGvn(options.optMode) && optimizationPassEnabled("gvn")) {
         optimizedSsa = runGvnPass(optimizedSsa);
-        if (optimizedSsa == nullptr) {
-            result.error = "GVN optimization failed";
-            return result;
-        }
-        profile.mark("gvn");
+        if (!optimizedSsa) { result.error="GVN r1 failed"; return result; }
+        profile.mark("gvn-r1");
     }
-    if (optModeUsesSccp(options.optMode)) {
+    if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("copyprop")) {
         optimizedSsa = runCopyPropPass(optimizedSsa);
-        if (optimizedSsa == nullptr) {
-            result.error = "CopyProp optimization failed";
-            return result;
-        }
-        profile.mark("copyprop");
+        if (!optimizedSsa) { result.error="CopyProp r1 failed"; return result; }
+        profile.mark("copyprop-r1");
     }
-    // Round 1b: GVN(2) after CopyProp, before Inline (ref: GVNPass R2)
-    if (optModeUsesGvn(options.optMode)) {
+    // GVN R2 after CopyProp, before Inline (ref: second GVNPass)
+    if (optModeUsesGvn(options.optMode) && optimizationPassEnabled("gvn")) {
         optimizedSsa = runGvnPass(optimizedSsa);
-        if (optimizedSsa == nullptr) { result.error="GVN r2 failed"; return result; }
+        if (!optimizedSsa) { result.error="GVN r2 failed"; return result; }
         profile.mark("gvn-r2");
     }
-    if (optModeUsesSccp(options.optMode)) {
+
+    if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("inline")) {
         optimizedSsa = runInlinePass(optimizedSsa);
-        if (optimizedSsa == nullptr) { result.error="Inline failed"; return result; }
+        if (!optimizedSsa) { result.error="Inline failed"; return result; }
         profile.mark("inline");
     }
-    if (optModeUsesSccp(options.optMode)) {
+
+    if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("funcspec")) {
         optimizedSsa = runFuncSpecPass(optimizedSsa);
-        if (optimizedSsa == nullptr) { result.error="FuncSpec failed"; return result; }
+        if (!optimizedSsa) { result.error="FuncSpec failed"; return result; }
         profile.mark("funcspec");
     }
-    // Round 2: CopyProp → AlgebraSimp → GVN after Inline/FuncSpec (ref: R3)
-    if (optModeUsesSccp(options.optMode)) {
+    // Round 2: CopyProp → AlgebraSimp → GVN after Inline/FuncSpec (ref: 2nd round)
+    if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("copyprop")) {
         optimizedSsa = runCopyPropPass(optimizedSsa);
         if (!optimizedSsa) { result.error="CopyProp r2 failed"; return result; }
         profile.mark("copyprop-r2");
     }
-    if (optModeUsesSccp(options.optMode)) {
+    if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("algebrasimp")) {
         optimizedSsa = runAlgebraSimpPass(optimizedSsa);
         if (!optimizedSsa) { result.error="AlgebraSimp r2 failed"; return result; }
         profile.mark("algebrasimp-r2");
     }
-    if (optModeUsesGvn(options.optMode)) {
+    if (optModeUsesGvn(options.optMode) && optimizationPassEnabled("gvn")) {
         optimizedSsa = runGvnPass(optimizedSsa);
         if (!optimizedSsa) { result.error="GVN r3 failed"; return result; }
         profile.mark("gvn-r3");
@@ -1744,6 +2070,17 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
             return result;
         }
         profile.mark("iv");
+    }
+    // Final cleanup: GVN(R4) + CopyProp(R3) after loop transforms (ref: GVNPass R4)
+    if (optModeUsesGvn(options.optMode) && optimizationPassEnabled("gvn")) {
+        optimizedSsa = runGvnPass(optimizedSsa);
+        if (!optimizedSsa) { result.error="GVN r4 failed"; return result; }
+        profile.mark("gvn-r4");
+    }
+    if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("copyprop")) {
+        optimizedSsa = runCopyPropPass(optimizedSsa);
+        if (!optimizedSsa) { result.error="CopyProp r3 failed"; return result; }
+        profile.mark("copyprop-r3");
     }
     maybeWriteQuad(options, ".4-ssa-final.quad", optimizedSsa);
 
