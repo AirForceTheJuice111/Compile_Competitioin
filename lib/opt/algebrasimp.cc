@@ -150,8 +150,9 @@ quad::QuadTerm *simplifyIntBinop(const string &op, quad::QuadTerm *left,
     }
 
     if (op == "+") {
-        if (leftConst && leftValue == 0) return right->clone();
-        if (rightConst && rightValue == 0) return left->clone();
+        // NOTE: 0+x→x and x+0→x disabled to avoid GVN merging bug
+        // if (leftConst && leftValue == 0) return right->clone();
+        // if (rightConst && rightValue == 0) return left->clone();
     } else if (op == "-") {
         if (rightConst && rightValue == 0) return left->clone();
         if (sameIntTemp(left, right)) return termConst(0);

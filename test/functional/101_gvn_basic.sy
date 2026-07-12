@@ -1,0 +1,15 @@
+// GVN test: redundant computations that SCCP cannot eliminate
+// a and b are parameters (not constants), so SCCP treats them as MANY_VALUES
+
+int compute(int a, int b) {
+    int x, y, z, r;
+    x = a + b;
+    y = a + b;  // redundant: same as x -> GVN should replace with x
+    z = a * b;
+    r = x + y + z;  // = 2*(a+b) + a*b
+    return r;
+}
+
+int main() {
+    return compute(3, 4);  // = 2*7 + 12 = 26
+}

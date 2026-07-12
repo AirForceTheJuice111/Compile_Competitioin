@@ -1,0 +1,9 @@
+// Algebra Simplification: absorbing zero + constant folding
+int calc(int x) {
+    int a, b, c;
+    a = x * 0;
+    b = 3 + 5;
+    c = 10 * 2;
+    return a + b + c;
+}
+int main() { return calc(99); }  // 28

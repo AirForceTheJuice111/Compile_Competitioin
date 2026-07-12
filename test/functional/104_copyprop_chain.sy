@@ -1,0 +1,12 @@
+// Copy Propagation test: multi-level copy chain
+int chain(int a) {
+    int b, c, d;
+    b = a;        // copy
+    c = b;        // copy chain
+    d = c;        // deeper chain
+    return a + b + c + d;  // all same, should be 4*a
+}
+
+int main() {
+    return chain(7);  // 28
+}

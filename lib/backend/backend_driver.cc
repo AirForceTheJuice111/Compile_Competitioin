@@ -312,7 +312,7 @@ bool optimizationPassEnabled(const std::string &name) {
         return false;
     }
     if (name == "algebrasimp" || name == "gvn" || name == "copyprop" ||
-        name == "inline") {
+        name == "inline" || name == "funcspec") {
         return true;
     }
     return passListContains("SYSY_EXPERIMENTAL_PASSES", name);
@@ -2005,56 +2005,55 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
         refreshQuadExtents(optimizedSsa);
         profile.mark("sccp");
     }
+    // Round 1: AlgebraSimp → GVN → CopyProp (ref: AlgebraSimp+GVNPass+CopyProp)
     if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("algebrasimp")) {
         optimizedSsa = runAlgebraSimpPass(optimizedSsa);
-        if (optimizedSsa == nullptr) {
-            result.error = "AlgebraSimp optimization failed";
-            return result;
-        }
+        if (!optimizedSsa) { result.error="AlgebraSimp r1 failed"; return result; }
         profile.mark("algebrasimp");
     }
-    if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("memopt")) {
-        optimizedSsa = runMemOptPass(optimizedSsa);
-        if (optimizedSsa == nullptr) {
-            result.error = "MemOpt optimization failed";
-            return result;
-        }
-        profile.mark("memopt");
+    if (optModeUsesGvn(options.optMode) && optimizationPassEnabled("gvn")) {
+        optimizedSsa = runGvnPass(optimizedSsa);
+        if (!optimizedSsa) { result.error="GVN r1 failed"; return result; }
+        profile.mark("gvn-r1");
+    }
+    if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("copyprop")) {
+        optimizedSsa = runCopyPropPass(optimizedSsa);
+        if (!optimizedSsa) { result.error="CopyProp r1 failed"; return result; }
+        profile.mark("copyprop-r1");
+    }
+    // GVN R2 after CopyProp, before Inline (ref: second GVNPass)
+    if (optModeUsesGvn(options.optMode) && optimizationPassEnabled("gvn")) {
+        optimizedSsa = runGvnPass(optimizedSsa);
+        if (!optimizedSsa) { result.error="GVN r2 failed"; return result; }
+        profile.mark("gvn-r2");
     }
 
     if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("inline")) {
         optimizedSsa = runInlinePass(optimizedSsa);
-        if (optimizedSsa == nullptr) {
-            result.error = "Inlining optimization failed";
-            return result;
-        }
+        if (!optimizedSsa) { result.error="Inline failed"; return result; }
         profile.mark("inline");
     }
 
     if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("funcspec")) {
         optimizedSsa = runFuncSpecPass(optimizedSsa);
-        if (optimizedSsa == nullptr) {
-            result.error = "FuncSpec optimization failed";
-            return result;
-        }
+        if (!optimizedSsa) { result.error="FuncSpec failed"; return result; }
         profile.mark("funcspec");
     }
-
-    if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("memopt")) {
-        optimizedSsa = runMemOptPass(optimizedSsa);
-        if (optimizedSsa == nullptr) {
-            result.error = "MemOpt round 2 failed";
-            return result;
-        }
-        profile.mark("memopt-r2");
+    // Round 2: CopyProp → AlgebraSimp → GVN after Inline/FuncSpec (ref: 2nd round)
+    if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("copyprop")) {
+        optimizedSsa = runCopyPropPass(optimizedSsa);
+        if (!optimizedSsa) { result.error="CopyProp r2 failed"; return result; }
+        profile.mark("copyprop-r2");
     }
     if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("algebrasimp")) {
         optimizedSsa = runAlgebraSimpPass(optimizedSsa);
-        if (optimizedSsa == nullptr) {
-            result.error = "AlgebraSimp round 2 failed";
-            return result;
-        }
+        if (!optimizedSsa) { result.error="AlgebraSimp r2 failed"; return result; }
         profile.mark("algebrasimp-r2");
+    }
+    if (optModeUsesGvn(options.optMode) && optimizationPassEnabled("gvn")) {
+        optimizedSsa = runGvnPass(optimizedSsa);
+        if (!optimizedSsa) { result.error="GVN r3 failed"; return result; }
+        profile.mark("gvn-r3");
     }
     if (optModeUsesLicm(options.optMode)) {
         optimizedSsa = runLicmPass(optimizedSsa);
@@ -2072,25 +2071,16 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
         }
         profile.mark("iv");
     }
-    // Run SSA substitution passes after loop transforms. Besides keeping their
-    // rebuilt metadata fresh for final flow/RA, this prevents value-numbering
-    // simplifications from changing the pattern language consumed by the
-    // legacy induction pass.
+    // Final cleanup: GVN(R4) + CopyProp(R3) after loop transforms (ref: GVNPass R4)
     if (optModeUsesGvn(options.optMode) && optimizationPassEnabled("gvn")) {
         optimizedSsa = runGvnPass(optimizedSsa);
-        if (optimizedSsa == nullptr) {
-            result.error = "GVN optimization failed";
-            return result;
-        }
-        profile.mark("gvn");
+        if (!optimizedSsa) { result.error="GVN r4 failed"; return result; }
+        profile.mark("gvn-r4");
     }
     if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("copyprop")) {
         optimizedSsa = runCopyPropPass(optimizedSsa);
-        if (optimizedSsa == nullptr) {
-            result.error = "CopyProp optimization failed";
-            return result;
-        }
-        profile.mark("copyprop");
+        if (!optimizedSsa) { result.error="CopyProp r3 failed"; return result; }
+        profile.mark("copyprop-r3");
     }
     maybeWriteQuad(options, ".4-ssa-final.quad", optimizedSsa);
 

@@ -1,0 +1,16 @@
+// Function Specialization: constant parameter should be specialized
+int power(int base, int exp) {
+    // exp is usually 2, specialization can unroll this
+    int result;
+    result = 1;
+    while (exp > 0) {
+        result = result * base;
+        exp = exp - 1;
+    }
+    return result;
+}
+int main() {
+    int a = power(5, 2);   // called with constant exp=2 → can specialize
+    int b = power(3, 3);   // called with constant exp=3 → can specialize
+    return a + b;           // 25 + 27 = 52
+}

@@ -1,0 +1,9 @@
+// Function Inlining test: small leaf function should be inlined
+int add(int a, int b) {
+    return a + b;
+}
+int main() {
+    int x = add(3, 4);  // should become x = 7 after inlining+constant fold
+    int y = add(x, 1);  // should become y = 8
+    return y;
+}

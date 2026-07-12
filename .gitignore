@@ -49,6 +49,6 @@ output/
 
 **/*.quad
 tmp
-
-AGENTS.md
-handoff.md
+contest-docs/
+test/performance_final/*.in
+test/performance_final/*.out
