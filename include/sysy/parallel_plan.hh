@@ -43,6 +43,15 @@ struct ParallelLoopPlan {
     ParallelLoopInit init;
     const Node *endExpr = nullptr;
     bool inclusiveEnd = false;
+    // Source induction update and comparison.  The original canonical form
+    // uses step == 1 and comparison "<"/"<=".  Other forms are admitted only
+    // when the planner can prove a finite, overflow-free constant iteration
+    // space, represented as the logical half-open range [0, logicalTripCount).
+    int step = 1;
+    std::string comparison = "<";
+    int logicalTripCount = -1;
+    int initialIv = 0;
+    int finalIv = 0;
     std::vector<const Node *> body;
     bool hasArrayWrite = false;
     bool hasNestedLoop = false;

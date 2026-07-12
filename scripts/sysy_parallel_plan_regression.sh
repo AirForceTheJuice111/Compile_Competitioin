@@ -110,6 +110,13 @@ assert_plan 114_parallel_impure_calls 22 false "unsafe call in loop body"
 assert_plan 114_parallel_impure_calls 30 false "unsafe call in loop body"
 assert_plan 115_parallel_cost_expensive 5 true
 assert_plan 116_parallel_cost_cheap 4 true
+assert_plan 117_parallel_step 4 true
+assert_plan 118_parallel_decrement 4 true
+assert_plan 119_parallel_ne 4 true
+assert_plan 119_parallel_ne 18 false "!= endpoint is not reached exactly"
+assert_plan 119_parallel_ne 28 false "generalized loop needs constant endpoints"
+assert_plan 119_parallel_ne 38 false "may overflow"
+assert_plan 127_parallel_general_alias 3 true
 assert_plan 2025-MYO-20 92 false "unsafe scalar write" "" "" \
   "$TEST_ROOT/../performance_final/2025-MYO-20.sy"
 assert_plan 2025-680-52 76 false "unsafe scalar write" "" "" \
@@ -134,7 +141,11 @@ assert_workers 112_parallel_scratch_iv_reject 0
 assert_workers 113_parallel_pure_calls 1
 assert_workers 114_parallel_impure_calls 0
 assert_workers 115_parallel_cost_expensive 1
-assert_workers 116_parallel_cost_cheap 1
+assert_workers 116_parallel_cost_cheap 2
+assert_workers 117_parallel_step 1
+assert_workers 118_parallel_decrement 1
+assert_workers 119_parallel_ne 1
+assert_workers 127_parallel_general_alias 2
 assert_workers 2025-D6H-55 2 \
   "$TEST_ROOT/../performance_final/2025-D6H-55.sy"
 assert_workers 2025-4W1-32 3 \

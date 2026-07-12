@@ -402,32 +402,66 @@ bool sameFirstPartitionIndex(const Node &lhs, const Node &rhs, const std::string
     return nodeKey(*lhs.children.front()) == nodeKey(*rhs.children.front());
 }
 
-bool isIncrementOf(const Node &stmt, const std::string &var) {
+bool signedIntConstValue(const Node &node, int &value) {
+    if (intConstValue(node, value)) {
+        return true;
+    }
+    if (node.kind != NodeKind::UnaryExpr || node.children.size() != 1 ||
+        (node.text != "+" && node.text != "-")) {
+        return false;
+    }
+    int inner = 0;
+    if (!intConstValue(*node.children.front(), inner) ||
+        (node.text == "-" && inner == INT_MIN)) {
+        return false;
+    }
+    value = node.text == "-" ? -inner : inner;
+    return true;
+}
+
+bool inductionStepOf(const Node &stmt, const std::string &var, int &step) {
     if (stmt.kind != NodeKind::AssignStmt || stmt.children.size() != 2) {
         return false;
     }
     const Node &lhs = *stmt.children.at(0);
     const Node &rhs = *stmt.children.at(1);
-    if (!isScalarLVal(lhs) || lhs.text != var || rhs.kind != NodeKind::BinaryExpr ||
-        rhs.text != "+") {
+    if (!isScalarLVal(lhs) || lhs.text != var || rhs.kind != NodeKind::BinaryExpr) {
         return false;
     }
     int c = 0;
-    return ((rhs.children.at(0)->kind == NodeKind::LVal &&
-             rhs.children.at(0)->text == var &&
-             intConstValue(*rhs.children.at(1), c) && c == 1) ||
-            (rhs.children.at(1)->kind == NodeKind::LVal &&
-             rhs.children.at(1)->text == var &&
-             intConstValue(*rhs.children.at(0), c) && c == 1));
+    if (rhs.text == "+") {
+        if (rhs.children.at(0)->kind == NodeKind::LVal &&
+            rhs.children.at(0)->text == var && rhs.children.at(0)->children.empty() &&
+            signedIntConstValue(*rhs.children.at(1), c)) {
+            step = c;
+        } else if (rhs.children.at(1)->kind == NodeKind::LVal &&
+                   rhs.children.at(1)->text == var && rhs.children.at(1)->children.empty() &&
+                   signedIntConstValue(*rhs.children.at(0), c)) {
+            step = c;
+        } else {
+            return false;
+        }
+    } else if (rhs.text == "-" &&
+               rhs.children.at(0)->kind == NodeKind::LVal &&
+               rhs.children.at(0)->text == var && rhs.children.at(0)->children.empty() &&
+               signedIntConstValue(*rhs.children.at(1), c) && c != INT_MIN) {
+        step = -c;
+    } else {
+        return false;
+    }
+    return step != 0;
 }
 
 bool canonicalWhile(const Node &loop, const ParallelLoopInit &init, const Node *&endExpr,
-                    bool &inclusiveEnd, std::vector<const Node *> &body) {
+                    bool &inclusiveEnd, int &step, std::string &comparison,
+                    std::vector<const Node *> &body) {
     if (!init.valid || loop.kind != NodeKind::WhileStmt || loop.children.size() != 2) {
         return false;
     }
     const Node &cond = *loop.children.at(0);
-    if (cond.kind != NodeKind::BinaryExpr || (cond.text != "<" && cond.text != "<=") ||
+    if (cond.kind != NodeKind::BinaryExpr ||
+        (cond.text != "<" && cond.text != "<=" && cond.text != ">" &&
+         cond.text != ">=" && cond.text != "!=") ||
         cond.children.at(0)->kind != NodeKind::LVal ||
         cond.children.at(0)->text != init.var ||
         !cond.children.at(0)->children.empty()) {
@@ -438,11 +472,12 @@ bool canonicalWhile(const Node &loop, const ParallelLoopInit &init, const Node *
         return false;
     }
     const Node &last = *bodyNode.children.back();
-    if (!isIncrementOf(last, init.var)) {
+    if (!inductionStepOf(last, init.var, step)) {
         return false;
     }
     endExpr = cond.children.at(1).get();
-    inclusiveEnd = cond.text == "<=";
+    comparison = cond.text;
+    inclusiveEnd = cond.text == "<=" || cond.text == ">=";
     body.clear();
     for (std::size_t i = 0; i + 1 < bodyNode.children.size(); ++i) {
         body.push_back(bodyNode.children[i].get());
@@ -557,9 +592,13 @@ std::optional<ParallelPrivatizedScalar> recognizeCanonicalScratchScalar(
 
     const Node *scratchEnd = nullptr;
     bool scratchInclusive = false;
+    int scratchStep = 1;
+    std::string scratchComparison;
     std::vector<const Node *> scratchBody;
     if (!canonicalWhile(*plan.body.back(), scratchInit, scratchEnd,
-                        scratchInclusive, scratchBody) || scratchEnd == nullptr) {
+                        scratchInclusive, scratchStep, scratchComparison, scratchBody) ||
+        scratchEnd == nullptr || scratchStep != 1 ||
+        (scratchComparison != "<" && scratchComparison != "<=")) {
         return std::nullopt;
     }
 
@@ -939,7 +978,7 @@ bool validateLoopBound(ParallelLoopPlan &plan, const LexicalInfo &lexical,
         plan.rejectReason = "non-int loop endpoint";
         return false;
     }
-    if (plan.inclusiveEnd) {
+    if (plan.comparison == "<=") {
         int endpoint = 0;
         if (intConstValue(*plan.endExpr, endpoint) && endpoint == INT_MAX) {
             plan.rejectReason = "inclusive endpoint may overflow";
@@ -949,7 +988,83 @@ bool validateLoopBound(ParallelLoopPlan &plan, const LexicalInfo &lexical,
     return true;
 }
 
+bool comparisonHolds(long long lhs, long long rhs, const std::string &comparison) {
+    if (comparison == "<") return lhs < rhs;
+    if (comparison == "<=") return lhs <= rhs;
+    if (comparison == ">") return lhs > rhs;
+    if (comparison == ">=") return lhs >= rhs;
+    return comparison == "!=" && lhs != rhs;
+}
+
+bool deriveLogicalIterationSpace(ParallelLoopPlan &plan) {
+    // Preserve the established dynamic unit-stride lowering.  It has runtime
+    // overflow handling for <= and does not need a logical-IV mapping.
+    if (plan.step == 1 && (plan.comparison == "<" || plan.comparison == "<=")) {
+        return true;
+    }
+
+    int initial = 0;
+    int endpoint = 0;
+    if (plan.init.initExpr == nullptr || plan.endExpr == nullptr ||
+        !signedIntConstValue(*plan.init.initExpr, initial) ||
+        !signedIntConstValue(*plan.endExpr, endpoint)) {
+        plan.rejectReason = "generalized loop needs constant endpoints";
+        return false;
+    }
+
+    const long long begin = initial;
+    const long long end = endpoint;
+    long long trips = 0;
+    if (!comparisonHolds(begin, end, plan.comparison)) {
+        trips = 0;
+    } else if (plan.comparison == "<" || plan.comparison == "<=") {
+        if (plan.step <= 0) {
+            plan.rejectReason = "loop step does not approach endpoint";
+            return false;
+        }
+        const long long distance = end - begin;
+        trips = plan.comparison == "<"
+                    ? (distance + static_cast<long long>(plan.step) - 1) / plan.step
+                    : distance / plan.step + 1;
+    } else if (plan.comparison == ">" || plan.comparison == ">=") {
+        if (plan.step >= 0) {
+            plan.rejectReason = "loop step does not approach endpoint";
+            return false;
+        }
+        const long long magnitude = -static_cast<long long>(plan.step);
+        const long long distance = begin - end;
+        trips = plan.comparison == ">"
+                    ? (distance + magnitude - 1) / magnitude
+                    : distance / magnitude + 1;
+    } else {
+        const long long distance = end - begin;
+        if ((distance > 0 && plan.step <= 0) ||
+            (distance < 0 && plan.step >= 0) ||
+            distance % static_cast<long long>(plan.step) != 0) {
+            plan.rejectReason = "!= endpoint is not reached exactly";
+            return false;
+        }
+        trips = distance / static_cast<long long>(plan.step);
+    }
+
+    const long long offset = trips * static_cast<long long>(plan.step);
+    const long long finalValue = begin + offset;
+    if (trips < 0 || trips > INT_MAX || offset < -static_cast<long long>(INT_MAX) ||
+        offset > INT_MAX || finalValue < INT_MIN || finalValue > INT_MAX ||
+        comparisonHolds(finalValue, end, plan.comparison)) {
+        plan.rejectReason = "generalized loop may overflow or not terminate";
+        return false;
+    }
+    plan.logicalTripCount = static_cast<int>(trips);
+    plan.initialIv = initial;
+    plan.finalIv = static_cast<int>(finalValue);
+    return true;
+}
+
 std::optional<int> constantTripCount(const ParallelLoopPlan &plan) {
+    if (plan.logicalTripCount >= 0) {
+        return plan.logicalTripCount;
+    }
     if (plan.init.initExpr == nullptr || plan.endExpr == nullptr) {
         return std::nullopt;
     }
@@ -1421,6 +1536,9 @@ private:
              << ",\"init_decl\":" << (plan.init.declaration ? "true" : "false")
              << ",\"init_type\":\"" << jsonEscape(plan.init.type) << "\""
              << ",\"inclusive_end\":" << (plan.inclusiveEnd ? "true" : "false")
+             << ",\"comparison\":\"" << jsonEscape(plan.comparison) << "\""
+             << ",\"step\":" << plan.step
+             << ",\"logical_trip_count\":" << plan.logicalTripCount
              << ",\"estimated_cost\":" << plan.estimatedCost
              << ",\"runtime_work_cost\":" << plan.runtimeWorkCost
              << ",\"has_nested_loop\":" << (plan.hasNestedLoop ? "true" : "false")
@@ -1528,7 +1646,8 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
         plan.rejectReason = "not a canonical loop initializer";
         return plan;
     }
-    if (!canonicalWhile(loopStmt, plan.init, plan.endExpr, plan.inclusiveEnd, plan.body)) {
+    if (!canonicalWhile(loopStmt, plan.init, plan.endExpr, plan.inclusiveEnd,
+                        plan.step, plan.comparison, plan.body)) {
         plan.rejectReason = "not a canonical while loop";
         return plan;
     }
@@ -1554,6 +1673,10 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
         plan.hasNestedLoop = plan.hasNestedLoop || containsWhile(*stmt);
     }
     if (!validateLoopBound(plan, lexical, lookupType, lookupFunction)) {
+        plan.valid = false;
+        return plan;
+    }
+    if (!deriveLogicalIterationSpace(plan)) {
         plan.valid = false;
         return plan;
     }

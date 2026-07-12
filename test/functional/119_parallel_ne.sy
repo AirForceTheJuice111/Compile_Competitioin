@@ -1,0 +1,43 @@
+int main() {
+  int sum = 0;
+  int i = 2;
+  while (i != 60002) {
+    sum = sum + ((i % 73) * (i % 67) + i % 23);
+    i = 5 + i;
+  }
+  putint(sum);
+  putch(10);
+  putint(i);
+  putch(10);
+  return 0;
+}
+
+int unreachable_ne() {
+  int sum = 0;
+  int i = 0;
+  while (i != 10) {
+    sum = sum + i;
+    i = i + 3;
+  }
+  return sum;
+}
+
+int dynamic_nonunit(int n) {
+  int sum = 0;
+  int i = 0;
+  while (i < n) {
+    sum = sum + i;
+    i = i + 2;
+  }
+  return sum;
+}
+
+int overflowing_step() {
+  int sum = 0;
+  int i = 2147483646;
+  while (i <= 2147483646) {
+    sum = sum + i;
+    i = i + 2;
+  }
+  return sum;
+}

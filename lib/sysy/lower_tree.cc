@@ -1263,7 +1263,8 @@ private:
         if (bodyFallsThrough) {
             stms->push_back(new tree::Move(
                 tempExp(ivTemp),
-                new tree::Binop(tree::Type::INT, "+", tempExp(ivTemp), new tree::Const(1))));
+                new tree::Binop(tree::Type::INT, "+", tempExp(ivTemp),
+                                new tree::Const(plan.step))));
             stms->push_back(new tree::Jump(testLabel));
         }
         stms->push_back(new tree::LabelStm(doneLabel));
@@ -1339,10 +1340,16 @@ private:
         }
     }
 
-    void emitParallelFinalIvUpdate(tree::Temp *ivTemp,
+    void emitParallelFinalIvUpdate(const ParallelLoopPlan &plan,
+                                   tree::Temp *ivTemp,
                                    tree::Temp *beginTemp,
                                    tree::Temp *endTemp,
                                    std::vector<tree::Stm *> *stms) {
+        if (plan.logicalTripCount >= 0) {
+            stms->push_back(new tree::Move(tempExp(ivTemp),
+                                           new tree::Const(plan.finalIv)));
+            return;
+        }
         auto *setEndLabel = newLabel();
         auto *doneLabel = newLabel();
         stms->push_back(new tree::Cjump("<", tempExp(beginTemp), tempExp(endTemp),
@@ -1423,13 +1430,27 @@ private:
 
         auto *ivTemp = newTemp();
         declareLocal(plan.init.var, ivTemp, BaseType::Int, plan.init.initExpr->loc);
-        stms->push_back(new tree::Move(tempExp(ivTemp), tempExp(beginParam)));
+        tree::Temp *logicalIvTemp = nullptr;
+        if (plan.logicalTripCount >= 0) {
+            logicalIvTemp = newTemp();
+            stms->push_back(new tree::Move(tempExp(logicalIvTemp), tempExp(beginParam)));
+            stms->push_back(new tree::Move(
+                tempExp(ivTemp),
+                new tree::Binop(
+                    tree::Type::INT, "+", new tree::Const(plan.initialIv),
+                    new tree::Binop(tree::Type::INT, "*", tempExp(beginParam),
+                                    new tree::Const(plan.step)))));
+        } else {
+            stms->push_back(new tree::Move(tempExp(ivTemp), tempExp(beginParam)));
+        }
 
         auto *testLabel = newLabel();
         auto *bodyLabel = newLabel();
         auto *doneLabel = newLabel();
         stms->push_back(new tree::LabelStm(testLabel));
-        stms->push_back(new tree::Cjump("<", tempExp(ivTemp), tempExp(endParam), bodyLabel, doneLabel));
+        stms->push_back(new tree::Cjump(
+            "<", plan.logicalTripCount >= 0 ? tempExp(logicalIvTemp) : tempExp(ivTemp),
+            tempExp(endParam), bodyLabel, doneLabel));
         stms->push_back(new tree::LabelStm(bodyLabel));
 
         pushScope();
@@ -1450,7 +1471,14 @@ private:
         if (bodyFallsThrough) {
             stms->push_back(new tree::Move(
                 tempExp(ivTemp),
-                new tree::Binop(tree::Type::INT, "+", tempExp(ivTemp), new tree::Const(1))));
+                new tree::Binop(tree::Type::INT, "+", tempExp(ivTemp),
+                                new tree::Const(plan.step))));
+            if (logicalIvTemp != nullptr) {
+                stms->push_back(new tree::Move(
+                    tempExp(logicalIvTemp),
+                    new tree::Binop(tree::Type::INT, "+", tempExp(logicalIvTemp),
+                                    new tree::Const(1))));
+            }
             stms->push_back(new tree::Jump(testLabel));
         }
         stms->push_back(new tree::LabelStm(doneLabel));
@@ -1523,12 +1551,18 @@ private:
         auto *beginTemp = newTemp();
         auto *rawEndTemp = newTemp();
         auto *endTemp = newTemp();
-        stms->push_back(new tree::Move(tempExp(beginTemp), tempExp(ivTemp)));
+        stms->push_back(new tree::Move(
+            tempExp(beginTemp), plan.logicalTripCount >= 0
+                                    ? static_cast<tree::Exp *>(new tree::Const(0))
+                                    : static_cast<tree::Exp *>(tempExp(ivTemp))));
         stms->push_back(new tree::Move(
             tempExp(rawEndTemp), lowerExprAs(*plan.endExpr, BaseType::Int)));
 
         tree::Label *inclusiveDoneLabel = nullptr;
-        if (plan.inclusiveEnd) {
+        if (plan.logicalTripCount >= 0) {
+            stms->push_back(new tree::Move(tempExp(endTemp),
+                                           new tree::Const(plan.logicalTripCount)));
+        } else if (plan.inclusiveEnd) {
             // Normalizing <= to a half-open range needs end + 1.  Preserve the
             // original wrapping-loop behavior when a dynamic endpoint is
             // INT_MAX by taking a sequential path that uses the source <=
@@ -1562,20 +1596,22 @@ private:
 
             stms->push_back(new tree::LabelStm(sequentialLabel));
             lowerParallelSequentialFallback(plan, ivTemp,
-                                            plan.inclusiveEnd ? rawEndTemp : endTemp,
-                                            plan.inclusiveEnd ? "<=" : "<", stms);
+                                            plan.logicalTripCount >= 0 || plan.inclusiveEnd
+                                                ? rawEndTemp
+                                                : endTemp,
+                                            plan.comparison, stms);
             stms->push_back(new tree::Jump(doneLabel));
 
             stms->push_back(new tree::LabelStm(parallelLabel));
             emitParallelRuntimeCall(plan, fields, workerName, beginTemp, endTemp, stms);
-            emitParallelFinalIvUpdate(ivTemp, beginTemp, endTemp, stms);
+            emitParallelFinalIvUpdate(plan, ivTemp, beginTemp, endTemp, stms);
             emitParallelScratchWritebacks(scratchWritebacks, beginTemp, endTemp, stms);
             stms->push_back(new tree::Jump(doneLabel));
 
             stms->push_back(new tree::LabelStm(doneLabel));
         } else {
             emitParallelRuntimeCall(plan, fields, workerName, beginTemp, endTemp, stms);
-            emitParallelFinalIvUpdate(ivTemp, beginTemp, endTemp, stms);
+            emitParallelFinalIvUpdate(plan, ivTemp, beginTemp, endTemp, stms);
             emitParallelScratchWritebacks(scratchWritebacks, beginTemp, endTemp, stms);
         }
 

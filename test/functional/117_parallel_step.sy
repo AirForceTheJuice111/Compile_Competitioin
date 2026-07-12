@@ -1,0 +1,13 @@
+int main() {
+  int sum = 0;
+  int i = 1;
+  while (i < 60001) {
+    sum = sum + ((i % 97) * (i % 89) + i % 31);
+    i = i + 3;
+  }
+  putint(sum);
+  putch(10);
+  putint(i);
+  putch(10);
+  return 0;
+}
