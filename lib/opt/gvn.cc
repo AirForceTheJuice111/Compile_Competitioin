@@ -31,20 +31,33 @@ int canonicalTemp(const map<int, int> &vn, int tempNum) {
 // names with the actual name string.  Using the name string avoids
 // incorrectly merging different global symbols (e.g. two distinct
 // string constants).
-string termHash(const map<int, int> &vn, quad::QuadTerm *term) {
+string termHash(const map<int, int> &vn, quad::QuadTerm *term,
+                const map<int, int> &redefGen) {
     if (!term) return "N";
     if (term->kind == quad::QuadTermKind::CONST)
         return "C" + to_string(term->get_const());
-    if (term->kind == quad::QuadTermKind::TEMP)
-        return "T" + to_string(canonicalTemp(vn, term->get_temp()->temp->num));
+    if (term->kind == quad::QuadTermKind::TEMP) {
+        int tn = term->get_temp()->temp->num;
+        int cn = canonicalTemp(vn, tn);
+        auto it = redefGen.find(tn);
+        if (it != redefGen.end() && it->second > 0)
+            return "T" + to_string(cn) + ".g" + to_string(it->second);
+        return "T" + to_string(cn);
+    }
     // NAME: include the actual name to distinguish different symbols
     return "N:" + term->get_name();
 }
 
 // Produce a string representation of a Temp (canonicalised through vn).
-string tempHash(const map<int, int> &vn, Temp *temp) {
+string tempHash(const map<int, int> &vn, Temp *temp,
+                const map<int, int> &redefGen) {
     if (!temp) return "N";
-    return "T" + to_string(canonicalTemp(vn, temp->num));
+    int tn = temp->num;
+    int cn = canonicalTemp(vn, tn);
+    auto it = redefGen.find(tn);
+    if (it != redefGen.end() && it->second > 0)
+        return "T" + to_string(cn) + ".g" + to_string(it->second);
+    return "T" + to_string(cn);
 }
 
 // ---------------------------------------------------------------------------
@@ -68,6 +81,9 @@ void gvnFunction(quad::QuadFuncDecl *func, ControlFlowInfo *cfi,
     // later re-defined (SCCP may break SSA single-def property), we must
     // treat the redefinition as unique to avoid incorrect merging.
     set<int> usedTemps;
+    // Track redefinition generations.  When a temp is redefined, its
+    // generation is bumped so that future uses get distinct hashes.
+    map<int, int> redefGen;
 
     // Helper: collect all operand temp numbers from a statement
     auto collectUses = [&](quad::QuadStm *stm) {
@@ -96,15 +112,15 @@ void gvnFunction(quad::QuadFuncDecl *func, ControlFlowInfo *cfi,
             case quad::QuadKind::MOVE: {
                 auto *move = static_cast<quad::QuadMove *>(stm);
                 dstNum = move->dst->temp->num;
-                hash = "MV:" + termHash(vn, move->src);
+                hash = "MV:" + termHash(vn, move->src, redefGen);
                 canDedup = true;
                 break;
             }
             case quad::QuadKind::MOVE_BINOP: {
                 auto *binop = static_cast<quad::QuadMoveBinop *>(stm);
                 dstNum = binop->dst->temp->num;
-                string lh = termHash(vn, binop->left);
-                string rh = termHash(vn, binop->right);
+                string lh = termHash(vn, binop->left, redefGen);
+                string rh = termHash(vn, binop->right, redefGen);
 
                 // Normalize commutative operations
                 bool comm = (binop->binop == "+" || binop->binop == "*" ||
@@ -126,7 +142,7 @@ void gvnFunction(quad::QuadFuncDecl *func, ControlFlowInfo *cfi,
                 if (phi->args) {
                     for (auto &arg : *phi->args) {
                         int predLabel = arg.second ? arg.second->num : -1;
-                        string argHash = tempHash(vn, arg.first);
+                        string argHash = tempHash(vn, arg.first, redefGen);
                         pairs.emplace_back(predLabel, argHash);
                     }
                     sort(pairs.begin(), pairs.end());
@@ -143,8 +159,8 @@ void gvnFunction(quad::QuadFuncDecl *func, ControlFlowInfo *cfi,
                 auto *pc = static_cast<quad::QuadPtrCalc *>(stm);
                 if (pc->dst && pc->dst->kind == quad::QuadTermKind::TEMP) {
                     dstNum = pc->dst->get_temp()->temp->num;
-                    hash = "PTRC:" + termHash(vn, pc->ptr) + ":" +
-                           termHash(vn, pc->offset);
+                    hash = "PTRC:" + termHash(vn, pc->ptr, redefGen) + ":" +
+                           termHash(vn, pc->offset, redefGen);
                     canDedup = true;
                 }
                 break;
@@ -186,9 +202,12 @@ void gvnFunction(quad::QuadFuncDecl *func, ControlFlowInfo *cfi,
             // instruction, we are seeing a redefinition (SCCP may break SSA
             // single-def property).  Treat redefinitions as unique so that
             // they are never incorrectly merged with earlier definitions.
+            // Also bump the redefinition generation so that subsequent uses
+            // of this temp get distinct hashes.
             if (canDedup && usedTemps.count(dstNum)) {
                 canDedup = false;
                 hash = "R" + to_string(dstNum);
+                redefGen[dstNum]++;
             }
 
             // Record operand temps BEFORE updating vn, so that the
