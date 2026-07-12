@@ -99,8 +99,15 @@ quad::QuadFuncDecl* specializeFunc(quad::QuadFuncDecl* original,
     // Build new name
     ostringstream oss;
     oss << original->funcname << "$spec";
-    for (size_t i = 0; i < constIdx.size(); i++)
-        oss << "$" << constIdx[i] << "$" << constVal[i];
+    for (size_t i = 0; i < constIdx.size(); i++) {
+        int val = constVal[i];
+        // Avoid negative-number labels (e.g. "$-123") which break
+        // assemblers that treat '$' as a numeric-prefix symbol.
+        if (val < 0)
+            oss << "$" << constIdx[i] << "$n" << -val;
+        else
+            oss << "$" << constIdx[i] << "$" << val;
+    }
     clone->funcname = oss.str();
 
     // Replace constant params with their values in the body
@@ -282,8 +289,13 @@ void funcSpecProgram(quad::QuadProgram* prog, int& specialized) {
         // Build a signature string for dedup
         ostringstream sig;
         sig << cs.calleeName;
-        for (size_t i = 0; i < cs.constArgIdx.size(); i++)
-            sig << "$" << cs.constArgIdx[i] << "$" << cs.constArgVal[i];
+        for (size_t i = 0; i < cs.constArgIdx.size(); i++) {
+            int val = cs.constArgVal[i];
+            if (val < 0)
+                sig << "$" << cs.constArgIdx[i] << "$n" << -val;
+            else
+                sig << "$" << cs.constArgIdx[i] << "$" << val;
+        }
 
         if (generatedSpecs.count(sig.str())) continue;
         generatedSpecs.insert(sig.str());
