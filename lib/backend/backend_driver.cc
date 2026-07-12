@@ -1697,21 +1697,37 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
         }
         profile.mark("copyprop");
     }
-    if (optModeUsesSccp(options.optMode)) {
-        optimizedSsa = runFuncSpecPass(optimizedSsa);
-        if (optimizedSsa == nullptr) {
-            result.error = "FuncSpec optimization failed";
-            return result;
-        }
-        profile.mark("funcspec");
+    // Round 1b: GVN(2) after CopyProp, before Inline (ref: GVNPass R2)
+    if (optModeUsesGvn(options.optMode)) {
+        optimizedSsa = runGvnPass(optimizedSsa);
+        if (optimizedSsa == nullptr) { result.error="GVN r2 failed"; return result; }
+        profile.mark("gvn-r2");
     }
     if (optModeUsesSccp(options.optMode)) {
         optimizedSsa = runInlinePass(optimizedSsa);
-        if (optimizedSsa == nullptr) {
-            result.error = "Inlining optimization failed";
-            return result;
-        }
+        if (optimizedSsa == nullptr) { result.error="Inline failed"; return result; }
         profile.mark("inline");
+    }
+    if (optModeUsesSccp(options.optMode)) {
+        optimizedSsa = runFuncSpecPass(optimizedSsa);
+        if (optimizedSsa == nullptr) { result.error="FuncSpec failed"; return result; }
+        profile.mark("funcspec");
+    }
+    // Round 2: CopyProp → AlgebraSimp → GVN after Inline/FuncSpec (ref: R3)
+    if (optModeUsesSccp(options.optMode)) {
+        optimizedSsa = runCopyPropPass(optimizedSsa);
+        if (!optimizedSsa) { result.error="CopyProp r2 failed"; return result; }
+        profile.mark("copyprop-r2");
+    }
+    if (optModeUsesSccp(options.optMode)) {
+        optimizedSsa = runAlgebraSimpPass(optimizedSsa);
+        if (!optimizedSsa) { result.error="AlgebraSimp r2 failed"; return result; }
+        profile.mark("algebrasimp-r2");
+    }
+    if (optModeUsesGvn(options.optMode)) {
+        optimizedSsa = runGvnPass(optimizedSsa);
+        if (!optimizedSsa) { result.error="GVN r3 failed"; return result; }
+        profile.mark("gvn-r3");
     }
     if (optModeUsesLicm(options.optMode)) {
         optimizedSsa = runLicmPass(optimizedSsa);
