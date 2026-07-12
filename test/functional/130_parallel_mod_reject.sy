@@ -1,0 +1,45 @@
+const int TOO_LARGE = 1500000000;
+const int NEGATIVE = -1009;
+int data[32];
+int side;
+
+int impure(int x) {
+  side = side + 1;
+  return x;
+}
+
+int read_side() {
+  return side;
+}
+
+int main() {
+  int sum = 0;
+  int i = 0;
+  while (i < 32) {
+    sum = (sum + i) % TOO_LARGE;
+    i = i + 1;
+  }
+  i = 0;
+  while (i < 32) {
+    sum = (sum + i) % NEGATIVE;
+    i = i + 1;
+  }
+  i = 0;
+  while (i < 32) {
+    sum = (sum + data[i]) % 1009;
+    i = i + 1;
+  }
+  i = 0;
+  while (i < 32) {
+    sum = (sum + impure(i)) % 1009;
+    i = i + 1;
+  }
+  i = 0;
+  while (i < 8) {
+    side = (side + read_side()) % 1009;
+    i = i + 1;
+  }
+  putint(sum);
+  putch(10);
+  return 0;
+}

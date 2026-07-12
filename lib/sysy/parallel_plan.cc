@@ -81,6 +81,33 @@ bool exprContainsAnyCall(const Node &node) {
     });
 }
 
+bool callReadsWrittenScalar(
+    const Node &node, const std::unordered_set<std::string> &writes,
+    const ParallelFunctionSummaryLookup &lookupFunction) {
+    if (node.kind == NodeKind::CallExpr) {
+        const ParallelScalarFunctionSummary *summary =
+            lookupPureFunction(lookupFunction, node.text);
+        if (summary == nullptr) {
+            return true;
+        }
+        for (const std::string &read : summary->globalScalarReads) {
+            if (writes.find(read) != writes.end()) {
+                return true;
+            }
+        }
+    }
+    return std::any_of(node.children.begin(), node.children.end(), [&](const auto &child) {
+        return callReadsWrittenScalar(*child, writes, lookupFunction);
+    });
+}
+
+bool isStartTimingStmt(const Node &node) {
+    return node.kind == NodeKind::ExprStmt && node.children.size() == 1 &&
+           node.children.front()->kind == NodeKind::CallExpr &&
+           (node.children.front()->text == "starttime" ||
+            node.children.front()->text == "_sysy_starttime");
+}
+
 int estimateExprCost(const Node &node) {
     switch (node.kind) {
     case NodeKind::Number:
@@ -703,6 +730,56 @@ bool exprIsProvablyInt(const Node &node, const ParallelTypeLookup &lookupType,
     return false;
 }
 
+std::optional<int> reductionConstInt(const Node &node,
+                                     const ParallelConstIntLookup &lookupConstInt) {
+    int literal = 0;
+    if (intConstValue(node, literal)) {
+        return literal;
+    }
+    if (node.kind == NodeKind::LVal && node.children.empty() && lookupConstInt) {
+        return lookupConstInt(node.text);
+    }
+    return std::nullopt;
+}
+
+std::optional<ParallelReduction> modularReduction(
+    const Node &assign, const std::string &var,
+    const ParallelConstIntLookup &lookupConstInt) {
+    if (assign.kind != NodeKind::AssignStmt || assign.children.size() != 2) {
+        return std::nullopt;
+    }
+    const Node &lhs = *assign.children.at(0);
+    const Node &rhs = *assign.children.at(1);
+    if (!isScalarLVal(lhs) || lhs.text != var || rhs.kind != NodeKind::BinaryExpr ||
+        rhs.text != "%" || rhs.children.size() != 2) {
+        return std::nullopt;
+    }
+    std::optional<int> modulus =
+        reductionConstInt(*rhs.children.at(1), lookupConstInt);
+    // Keeping both signed residues in (-m,m) makes their sum overflow-free.
+    // m <= INT_MAX/2 is deliberately a little stricter than necessary.
+    if (!modulus || *modulus <= 0 || *modulus > INT_MAX / 2) {
+        return std::nullopt;
+    }
+    const Node &sum = *rhs.children.at(0);
+    if (sum.kind != NodeKind::BinaryExpr || sum.text != "+" ||
+        sum.children.size() != 2) {
+        return std::nullopt;
+    }
+    const Node *left = sum.children.at(0).get();
+    const Node *right = sum.children.at(1).get();
+    const Node *addend = nullptr;
+    if (isScalarLVal(*left) && left->text == var) {
+        addend = right;
+    } else if (isScalarLVal(*right) && right->text == var) {
+        addend = left;
+    }
+    if (addend == nullptr) {
+        return std::nullopt;
+    }
+    return ParallelReduction{var, addend, true, *modulus};
+}
+
 void addReduction(std::vector<ParallelReduction> &reductions, ParallelReduction info) {
     auto found = std::find_if(reductions.begin(), reductions.end(),
                               [&](const ParallelReduction &existing) {
@@ -842,6 +919,7 @@ bool analyzeNode(const Node &node, const std::string &loopVar,
                  const std::unordered_set<const Node *> &localLvals,
                  const ParallelTypeLookup &lookupType,
                  const ParallelFunctionSummaryLookup &lookupFunction,
+                 const ParallelConstIntLookup &lookupConstInt,
                  ParallelLoopPlan &plan) {
     if (exprContainsUnsafeCall(node, lookupFunction)) {
         plan.rejectReason = "unsafe call in loop body";
@@ -873,6 +951,14 @@ bool analyzeNode(const Node &node, const std::string &loopVar,
                 return false;
             }
             if (lookupType && lookupType(lhs.text) == "int") {
+                if (std::optional<ParallelReduction> reduction =
+                        modularReduction(node, lhs.text, lookupConstInt)) {
+                    if (!containsExternalScalarReference(*reduction->addend, lhs.text,
+                                                         localLvals)) {
+                        addReduction(plan.reductions, *reduction);
+                        return true;
+                    }
+                }
                 const Node *add = parallelReductionAddend(node, lhs.text);
                 if (add != nullptr &&
                     !containsExternalScalarReference(*add, lhs.text, localLvals)) {
@@ -899,7 +985,7 @@ bool analyzeNode(const Node &node, const std::string &loopVar,
     default:
         for (const auto &child : node.children) {
             if (!analyzeNode(*child, loopVar, localLvals, lookupType,
-                             lookupFunction, plan)) {
+                             lookupFunction, lookupConstInt, plan)) {
                 return false;
             }
         }
@@ -908,23 +994,34 @@ bool analyzeNode(const Node &node, const std::string &loopVar,
 }
 
 bool validateReductionUses(
-    const Node &node, const std::string &var,
-    const std::unordered_set<const Node *> &localLvals) {
+    const Node &node, const ParallelReduction &reduction,
+    const std::unordered_set<const Node *> &localLvals,
+    const ParallelConstIntLookup &lookupConstInt) {
     if (node.kind == NodeKind::AssignStmt && node.children.size() == 2) {
         const Node &lhs = *node.children.at(0);
-        if (isScalarLVal(lhs) && lhs.text == var &&
+        if (isScalarLVal(lhs) && lhs.text == reduction.var &&
             localLvals.find(&lhs) == localLvals.end()) {
-            const Node *addend = parallelReductionAddend(node, var);
+            const Node *addend = nullptr;
+            if (reduction.modular) {
+                std::optional<ParallelReduction> current =
+                    modularReduction(node, reduction.var, lookupConstInt);
+                if (current && current->modulus == reduction.modulus) {
+                    addend = current->addend;
+                }
+            } else {
+                addend = parallelReductionAddend(node, reduction.var);
+            }
             return addend != nullptr &&
-                   !containsExternalScalarReference(*addend, var, localLvals);
+                   !containsExternalScalarReference(*addend, reduction.var, localLvals);
         }
     }
-    if (node.kind == NodeKind::LVal && node.children.empty() && node.text == var &&
+    if (node.kind == NodeKind::LVal && node.children.empty() &&
+        node.text == reduction.var &&
         localLvals.find(&node) == localLvals.end()) {
         return false;
     }
     return std::all_of(node.children.begin(), node.children.end(), [&](const auto &child) {
-        return validateReductionUses(*child, var, localLvals);
+        return validateReductionUses(*child, reduction, localLvals, lookupConstInt);
     });
 }
 
@@ -1261,8 +1358,15 @@ private:
                 candidate_.structurallyPure = false;
             } else if (!local(node.text)) {
                 auto found = globals_.find(node.text);
-                if (found == globals_.end() || !found->second.immutableScalar) {
+                // Reading a scalar global has no call effect.  Such a value is
+                // stable for the duration of a parallel region because the
+                // planner separately rejects every non-reduction scalar write
+                // in its body.  Array/global writes and unknown symbols remain
+                // impure.
+                if (found == globals_.end()) {
                     candidate_.structurallyPure = false;
+                } else {
+                    candidate_.summary.globalScalarReads.insert(node.text);
                 }
             }
             for (const auto &index : node.children) {
@@ -1386,6 +1490,30 @@ ParallelFunctionSummaries summarizeParallelScalarFunctions(const Node &root) {
             }
         }
     }
+    // Carry transitive scalar reads through pure call chains and recursive
+    // SCCs.  The loop planner uses this to reject a seemingly pure helper that
+    // observes a scalar concurrently reduced by the loop.
+    changed = true;
+    while (changed) {
+        changed = false;
+        for (const auto &entry : candidates) {
+            auto summary = summaries.find(entry.first);
+            if (summary == summaries.end() || !summary->second.pure) {
+                continue;
+            }
+            for (const std::string &callee : entry.second.callees) {
+                auto calleeSummary = summaries.find(callee);
+                if (calleeSummary == summaries.end() || !calleeSummary->second.pure) {
+                    continue;
+                }
+                for (const std::string &read : calleeSummary->second.globalScalarReads) {
+                    if (summary->second.globalScalarReads.insert(read).second) {
+                        changed = true;
+                    }
+                }
+            }
+        }
+    }
     return summaries;
 }
 
@@ -1398,6 +1526,22 @@ public:
         loopDepth_ = 0;
         out_.str("");
         out_.clear();
+        globalConstInts_.clear();
+        for (const auto &child : root.children) {
+            if (child->kind != NodeKind::ConstDecl || child->text != "int") {
+                continue;
+            }
+            for (const auto &def : child->children) {
+                if (!isScalarDef(*def)) {
+                    continue;
+                }
+                const Node *init = initializerOf(*def);
+                int value = 0;
+                if (init != nullptr && intConstValue(*init, value)) {
+                    globalConstInts_[def->text] = value;
+                }
+            }
+        }
         pushScope();
         visitRoot(root);
         popScope();
@@ -1466,18 +1610,29 @@ private:
     void visitBlock(const Node &node) {
         pushScope();
         for (std::size_t i = 0; i < node.children.size(); ++i) {
-            if (i + 1 < node.children.size() &&
+            std::size_t loopIndex = i + 1;
+            if (i + 2 < node.children.size() &&
+                isStartTimingStmt(*node.children[i + 1])) {
+                loopIndex = i + 2;
+            }
+            if (loopIndex < node.children.size() &&
                 parseParallelLoopInit(*node.children[i]).valid &&
-                node.children[i + 1]->kind == NodeKind::WhileStmt) {
+                node.children[loopIndex]->kind == NodeKind::WhileStmt) {
                 ParallelLoopPlan plan = analyzeParallelLoopPair(
-                    *node.children[i], *node.children[i + 1],
+                    *node.children[i], *node.children[loopIndex],
                     [this](const std::string &name) { return lookupType(name); },
                     [this](const std::string &name)
                         -> const ParallelScalarFunctionSummary * {
                         auto found = functionSummaries_.find(name);
                         return found == functionSummaries_.end() ? nullptr : &found->second;
+                    },
+                    [this](const std::string &name) -> std::optional<int> {
+                        auto found = globalConstInts_.find(name);
+                        return found == globalConstInts_.end()
+                                   ? std::nullopt
+                                   : std::optional<int>(found->second);
                     });
-                emitPlan(plan, node.children[i]->loc, node.children[i + 1]->loc);
+                emitPlan(plan, node.children[i]->loc, node.children[loopIndex]->loc);
             }
             visitStmt(*node.children[i]);
         }
@@ -1520,6 +1675,9 @@ private:
             if (plan.reductions.empty()) {
                 loweringKind = "parallel_for";
                 runtimeSymbol = "__sysy_parallel_for_range";
+            } else if (plan.reductions.front().modular) {
+                loweringKind = "parallel_reduce_mod_int_dynamic";
+                runtimeSymbol = "__sysy_parallel_reduce_mod_int_range";
             } else {
                 loweringKind = "parallel_reduce_int";
                 runtimeSymbol = "__sysy_parallel_reduce_int_range";
@@ -1569,7 +1727,10 @@ private:
             if (i != 0) {
                 out_ << ",";
             }
-            out_ << "{\"var\":\"" << jsonEscape(plan.reductions[i].var) << "\"}";
+            out_ << "{\"var\":\"" << jsonEscape(plan.reductions[i].var)
+                 << "\",\"modular\":"
+                 << (plan.reductions[i].modular ? "true" : "false")
+                 << ",\"modulus\":" << plan.reductions[i].modulus << "}";
         }
         out_ << "],\"privatized_scalars\":[";
         for (std::size_t i = 0; i < plan.privatizedScalars.size(); ++i) {
@@ -1588,6 +1749,7 @@ private:
 
     std::vector<std::unordered_map<std::string, std::string>> scopes_;
     ParallelFunctionSummaries functionSummaries_;
+    std::unordered_map<std::string, int> globalConstInts_;
     int nextId_ = 0;
     int loopDepth_ = 0;
     std::ostringstream out_;
@@ -1639,7 +1801,8 @@ const Node *parallelReductionAddend(const Node &assign, const std::string &var) 
 
 ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopStmt,
                                          const ParallelTypeLookup &lookupType,
-                                         const ParallelFunctionSummaryLookup &lookupFunction) {
+                                         const ParallelFunctionSummaryLookup &lookupFunction,
+                                         const ParallelConstIntLookup &lookupConstInt) {
     ParallelLoopPlan plan;
     plan.init = parseParallelLoopInit(initStmt);
     if (!plan.init.valid) {
@@ -1682,18 +1845,30 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
     }
     for (const Node *stmt : plan.body) {
         if (!analyzeNode(*stmt, plan.init.var, lexical.localLvals, lookupType,
-                         lookupFunction, plan)) {
+                         lookupFunction, lookupConstInt, plan)) {
             plan.valid = false;
             return plan;
         }
     }
     for (const ParallelReduction &reduction : plan.reductions) {
         for (const Node *stmt : plan.body) {
-            if (!validateReductionUses(*stmt, reduction.var, lexical.localLvals)) {
+            if (!validateReductionUses(*stmt, reduction, lexical.localLvals,
+                                       lookupConstInt)) {
                 plan.valid = false;
                 plan.rejectReason = "reduction variable has non-reduction use";
                 return plan;
             }
+        }
+    }
+    std::unordered_set<std::string> scalarWrites;
+    for (const Node *stmt : plan.body) {
+        collectExternalScalarWrites(*stmt, lexical.localLvals, scalarWrites);
+    }
+    for (const Node *stmt : plan.body) {
+        if (callReadsWrittenScalar(*stmt, scalarWrites, lookupFunction)) {
+            plan.valid = false;
+            plan.rejectReason = "call reads loop-written scalar";
+            return plan;
         }
     }
     for (const Node *stmt : plan.body) {
@@ -1705,6 +1880,12 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
     for (const Node *stmt : plan.body) {
         collectArrayReads(*stmt, reads);
         collectArrayWrites(*stmt, writes);
+    }
+    if (!plan.reductions.empty() && plan.reductions.front().modular &&
+        (!reads.empty() || !writes.empty())) {
+        plan.valid = false;
+        plan.rejectReason = "dynamic modular reduction requires an array-free body";
+        return plan;
     }
     for (const ArrayAccess &write : writes) {
         for (const ArrayAccess &otherWrite : writes) {

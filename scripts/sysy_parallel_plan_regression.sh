@@ -117,6 +117,15 @@ assert_plan 119_parallel_ne 18 false "!= endpoint is not reached exactly"
 assert_plan 119_parallel_ne 28 false "generalized loop needs constant endpoints"
 assert_plan 119_parallel_ne 38 false "may overflow"
 assert_plan 127_parallel_general_alias 3 true
+assert_plan 129_parallel_mod_reduction 10 true
+assert_plan 129_parallel_mod_reduction 20 true
+assert_plan 130_parallel_mod_reject 18 false "unsafe scalar write"
+assert_plan 130_parallel_mod_reject 23 false "unsafe scalar write"
+assert_plan 130_parallel_mod_reject 28 false "array-free"
+assert_plan 130_parallel_mod_reject 33 false "unsafe call"
+assert_plan 130_parallel_mod_reject 38 false "call reads loop-written scalar"
+assert_plan 2025-O30-49 24 true "" "" "" \
+  "$TEST_ROOT/../performance_final/2025-O30-49.sy"
 assert_plan 2025-MYO-20 92 false "unsafe scalar write" "" "" \
   "$TEST_ROOT/../performance_final/2025-MYO-20.sy"
 assert_plan 2025-680-52 76 false "unsafe scalar write" "" "" \
@@ -146,6 +155,10 @@ assert_workers 117_parallel_step 1
 assert_workers 118_parallel_decrement 1
 assert_workers 119_parallel_ne 1
 assert_workers 127_parallel_general_alias 2
+assert_workers 129_parallel_mod_reduction 2
+assert_workers 130_parallel_mod_reject 0
+assert_workers 2025-O30-49 1 \
+  "$TEST_ROOT/../performance_final/2025-O30-49.sy"
 assert_workers 2025-D6H-55 2 \
   "$TEST_ROOT/../performance_final/2025-D6H-55.sy"
 assert_workers 2025-4W1-32 3 \

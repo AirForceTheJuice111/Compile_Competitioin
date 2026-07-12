@@ -585,7 +585,8 @@ private:
 
     static bool isRuntimeParallelSymbol(const std::string &name) {
         return name == "__sysy_parallel_for_range" ||
-               name == "__sysy_parallel_reduce_int_range";
+               name == "__sysy_parallel_reduce_int_range" ||
+               name == "__sysy_parallel_reduce_mod_int_range";
     }
 
     static bool isFloatHelper(const std::string &name) {
@@ -1007,9 +1008,13 @@ private:
         if ((name == "putarray" || name == "putfarray") && index == 1) return quad::QuadType::PTR;
         if (name == "free" && index == 0) return quad::QuadType::PTR;
         if (name == "memset" && index == 0) return quad::QuadType::PTR;
-        if (name == "__sysy_parallel_for_range" || name == "__sysy_parallel_reduce_int_range") {
+        if (name == "__sysy_parallel_for_range" ||
+            name == "__sysy_parallel_reduce_int_range" ||
+            name == "__sysy_parallel_reduce_mod_int_range") {
             if (index == 2 || index == 3) return quad::QuadType::PTR;
-            if (index == 0 || index == 1 || index == 4) return quad::QuadType::INT;
+            if (index == 0 || index == 1 || index == 4 || index == 5) {
+                return quad::QuadType::INT;
+            }
         }
         return fallback;
     }
@@ -1790,7 +1795,7 @@ __sysy_parallel_pool_thread:
 	.zero 8
 .type __sysy_parallel_pool_job, %object
 __sysy_parallel_pool_job:
-	.zero 40
+	.zero 48
 .type __sysy_parallel_pool_started, %object
 __sysy_parallel_pool_started:
 	.zero 4
@@ -1854,11 +1859,17 @@ __sysy_parallel_pool_entry:
 	ldr x22, [x9, #16]
 	ldr w23, [x9, #24]
 .Lsysy_parallel_pool_invoke:
+	cmp w23, #2
+	b.eq .Lsysy_parallel_pool_invoke_mod
 	mov w0, w19
 	mov w1, w20
 	mov x2, x21
 	mov x3, x22
 	blr x3
+	b .Lsysy_parallel_pool_invoke_done
+.Lsysy_parallel_pool_invoke_mod:
+	bl __sysy_parallel_mod_consume
+.Lsysy_parallel_pool_invoke_done:
 	mov w24, w0
 	adrp x0, __sysy_parallel_pool_mutex
 	add x0, x0, :lo12:__sysy_parallel_pool_mutex
@@ -1879,6 +1890,63 @@ __sysy_parallel_pool_entry:
 	bl pthread_mutex_unlock
 	b .Lsysy_parallel_pool_wait
 .size __sysy_parallel_pool_entry, .-__sysy_parallel_pool_entry
+
+.balign 4
+.type __sysy_parallel_mod_consume, %function
+__sysy_parallel_mod_consume:
+	stp x29, x30, [sp, #-16]!
+	mov x29, sp
+	stp x19, x20, [sp, #-16]!
+	stp x21, x22, [sp, #-16]!
+	stp x23, x24, [sp, #-16]!
+	mov w19, wzr
+	adrp x24, __sysy_parallel_pool_job
+	add x24, x24, :lo12:__sysy_parallel_pool_job
+.Lsysy_parallel_mod_consume_next:
+	add x9, x24, #40
+	ldar w10, [x9]
+	cbnz w10, .Lsysy_parallel_mod_consume_unsafe
+	ldr w23, [x24, #36]
+.Lsysy_parallel_mod_consume_claim:
+	ldaxr w20, [x24]
+	ldr w10, [x24, #4]
+	cmp w20, w10
+	b.lt .Lsysy_parallel_mod_consume_have
+	clrex
+	b .Lsysy_parallel_mod_consume_done
+.Lsysy_parallel_mod_consume_have:
+	add w21, w20, w23
+	cmp w21, w10
+	csel w21, w10, w21, gt
+	stlxr w11, w21, [x24]
+	cbnz w11, .Lsysy_parallel_mod_consume_claim
+	mov w0, w20
+	mov w1, w21
+	ldr x2, [x24, #8]
+	ldr x3, [x24, #16]
+	blr x3
+	movz w10, #32768, lsl #16
+	cmp w0, w10
+	b.eq .Lsysy_parallel_mod_consume_mark_unsafe
+	ldr w22, [x24, #32]
+	add w19, w19, w0
+	sdiv w10, w19, w22
+	msub w19, w10, w22, w19
+	b .Lsysy_parallel_mod_consume_next
+.Lsysy_parallel_mod_consume_mark_unsafe:
+	mov w10, #1
+	add x9, x24, #40
+	stlr w10, [x9]
+.Lsysy_parallel_mod_consume_unsafe:
+	movz w19, #32768, lsl #16
+.Lsysy_parallel_mod_consume_done:
+	mov w0, w19
+	ldp x23, x24, [sp], #16
+	ldp x21, x22, [sp], #16
+	ldp x19, x20, [sp], #16
+	ldp x29, x30, [sp], #16
+	ret
+.size __sysy_parallel_mod_consume, .-__sysy_parallel_mod_consume
 
 .balign 4
 .global __sysy_parallel_for_range
@@ -2154,6 +2222,169 @@ __sysy_parallel_reduce_int_range:
 	ldp x29, x30, [sp], #16
 	ret
 .size __sysy_parallel_reduce_int_range, .-__sysy_parallel_reduce_int_range
+
+.balign 4
+.global __sysy_parallel_reduce_mod_int_range
+.type __sysy_parallel_reduce_mod_int_range, %function
+__sysy_parallel_reduce_mod_int_range:
+	stp x29, x30, [sp, #-16]!
+	mov x29, sp
+	stp x19, x20, [sp, #-16]!
+	stp x21, x22, [sp, #-16]!
+	stp x23, x24, [sp, #-16]!
+	stp x25, x26, [sp, #-16]!
+	mov w19, w0
+	mov w20, w1
+	mov x21, x2
+	mov x22, x3
+	mov w25, w4
+	mov w26, w5
+	sub w9, w20, w19
+	cmp w9, #1
+	blt .Lsysy_parallel_mod_direct
+	cmp w25, #1
+	blt .Lsysy_parallel_mod_direct
+	umull x10, w9, w25
+	movz x11, #16384
+	cmp x10, x11
+	blt .Lsysy_parallel_mod_direct
+	adrp x24, __sysy_parallel_pool_busy
+	add x24, x24, :lo12:__sysy_parallel_pool_busy
+.Lsysy_parallel_mod_claim:
+	ldaxr w10, [x24]
+	cbnz w10, .Lsysy_parallel_mod_direct
+	mov w11, #1
+	stlxr w12, w11, [x24]
+	cbnz w12, .Lsysy_parallel_mod_claim
+	adrp x9, __sysy_parallel_pool_started
+	add x9, x9, :lo12:__sysy_parallel_pool_started
+	ldr w10, [x9]
+	cmp w10, #1
+	beq .Lsysy_parallel_mod_dispatch
+	cmn w10, #1
+	beq .Lsysy_parallel_mod_release_direct
+	adrp x0, __sysy_parallel_pool_thread
+	add x0, x0, :lo12:__sysy_parallel_pool_thread
+	mov x1, xzr
+	adrp x2, __sysy_parallel_pool_entry
+	add x2, x2, :lo12:__sysy_parallel_pool_entry
+	mov x3, xzr
+	bl pthread_create
+	cbnz w0, .Lsysy_parallel_mod_start_failed
+	adrp x9, __sysy_parallel_pool_started
+	add x9, x9, :lo12:__sysy_parallel_pool_started
+	mov w10, #1
+	str w10, [x9]
+	b .Lsysy_parallel_mod_dispatch
+.Lsysy_parallel_mod_start_failed:
+	adrp x9, __sysy_parallel_pool_started
+	add x9, x9, :lo12:__sysy_parallel_pool_started
+	mov w10, #-1
+	str w10, [x9]
+	b .Lsysy_parallel_mod_release_direct
+.Lsysy_parallel_mod_dispatch:
+	// Aim for roughly 8192 estimated operations per claim.  Bounds avoid
+	// excessive atomic traffic and retain enough chunks for skewed recursion.
+	mov w10, #8192
+	udiv w23, w10, w25
+	cmp w23, #16
+	mov w11, #16
+	csel w23, w11, w23, lt
+	cmp w23, #1024
+	mov w11, #1024
+	csel w23, w11, w23, gt
+	adrp x0, __sysy_parallel_pool_mutex
+	add x0, x0, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_mutex_lock
+	adrp x9, __sysy_parallel_pool_job
+	add x9, x9, :lo12:__sysy_parallel_pool_job
+	str w19, [x9, #0]
+	str w20, [x9, #4]
+	str x21, [x9, #8]
+	str x22, [x9, #16]
+	mov w10, #2
+	str w10, [x9, #24]
+	str wzr, [x9, #28]
+	str w26, [x9, #32]
+	str w23, [x9, #36]
+	str wzr, [x9, #40]
+	adrp x9, __sysy_parallel_pool_pending
+	add x9, x9, :lo12:__sysy_parallel_pool_pending
+	mov w10, #1
+	stlr w10, [x9]
+	adrp x0, __sysy_parallel_pool_work_cond
+	add x0, x0, :lo12:__sysy_parallel_pool_work_cond
+	bl pthread_cond_signal
+	adrp x0, __sysy_parallel_pool_mutex
+	add x0, x0, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_mutex_unlock
+	bl __sysy_parallel_mod_consume
+	mov w19, w0
+	adrp x9, __sysy_parallel_pool_pending
+	add x9, x9, :lo12:__sysy_parallel_pool_pending
+	mov w11, #65535
+.Lsysy_parallel_mod_spin_done:
+	ldar w10, [x9]
+	cbz w10, .Lsysy_parallel_mod_joined_fast
+	subs w11, w11, #1
+	bne .Lsysy_parallel_mod_spin_done
+	adrp x0, __sysy_parallel_pool_mutex
+	add x0, x0, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_mutex_lock
+.Lsysy_parallel_mod_wait_done:
+	adrp x9, __sysy_parallel_pool_pending
+	add x9, x9, :lo12:__sysy_parallel_pool_pending
+	ldr w10, [x9]
+	cbz w10, .Lsysy_parallel_mod_joined
+	adrp x0, __sysy_parallel_pool_done_cond
+	add x0, x0, :lo12:__sysy_parallel_pool_done_cond
+	adrp x1, __sysy_parallel_pool_mutex
+	add x1, x1, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_cond_wait
+	b .Lsysy_parallel_mod_wait_done
+.Lsysy_parallel_mod_joined:
+	adrp x9, __sysy_parallel_pool_job
+	add x9, x9, :lo12:__sysy_parallel_pool_job
+	ldr w23, [x9, #28]
+	adrp x0, __sysy_parallel_pool_mutex
+	add x0, x0, :lo12:__sysy_parallel_pool_mutex
+	bl pthread_mutex_unlock
+	b .Lsysy_parallel_mod_combine
+.Lsysy_parallel_mod_joined_fast:
+	adrp x9, __sysy_parallel_pool_job
+	add x9, x9, :lo12:__sysy_parallel_pool_job
+	ldr w23, [x9, #28]
+.Lsysy_parallel_mod_combine:
+	adrp x9, __sysy_parallel_pool_job
+	add x9, x9, :lo12:__sysy_parallel_pool_job
+	add x9, x9, #40
+	ldar w10, [x9]
+	cbnz w10, .Lsysy_parallel_mod_unsafe
+	add w19, w19, w23
+	sdiv w10, w19, w26
+	msub w0, w10, w26, w19
+	stlr wzr, [x24]
+	b .Lsysy_parallel_mod_done
+.Lsysy_parallel_mod_unsafe:
+	movz w0, #32768, lsl #16
+	stlr wzr, [x24]
+	b .Lsysy_parallel_mod_done
+.Lsysy_parallel_mod_release_direct:
+	stlr wzr, [x24]
+.Lsysy_parallel_mod_direct:
+	mov w0, w19
+	mov w1, w20
+	mov x2, x21
+	mov x3, x22
+	blr x3
+.Lsysy_parallel_mod_done:
+	ldp x25, x26, [sp], #16
+	ldp x23, x24, [sp], #16
+	ldp x21, x22, [sp], #16
+	ldp x19, x20, [sp], #16
+	ldp x29, x30, [sp], #16
+	ret
+.size __sysy_parallel_reduce_mod_int_range, .-__sysy_parallel_reduce_mod_int_range
 )";
     }
 };

@@ -221,6 +221,13 @@ bool isRuntimeFunction(const std::string &name) {
     return runtime.count(name) != 0;
 }
 
+bool isParallelStartTimingStmt(const Node &node) {
+    return node.kind == NodeKind::ExprStmt && node.children.size() == 1 &&
+           node.children.front()->kind == NodeKind::CallExpr &&
+           (node.children.front()->text == "starttime" ||
+            node.children.front()->text == "_sysy_starttime");
+}
+
 struct Symbol {
     tree::Temp *temp = nullptr;
     bool global = false;
@@ -574,6 +581,8 @@ private:
     std::string currentFunctionName_;
     int parallelWorkerId_ = 0;
     bool suppressParallelLowering_ = false;
+    std::string workerModReductionVar_;
+    int workerModulus_ = 0;
 
     tree::Temp *newTemp() { return temps_.newtemp(); }
     tree::Label *newLabel() { return temps_.newlabel(); }
@@ -591,6 +600,22 @@ private:
             return new tree::Const(floatBits(0.0f), tree::Type::FLOAT);
         }
         return new tree::Const(0);
+    }
+
+    tree::Exp *intRemainder(tree::Exp *lhsValue, tree::Exp *rhsValue) {
+        auto *lhsTemp = newTemp();
+        auto *rhsTemp = newTemp();
+        auto *stms = new std::vector<tree::Stm *>({
+            new tree::Move(tempExp(lhsTemp), lhsValue),
+            new tree::Move(tempExp(rhsTemp), rhsValue)
+        });
+        auto *quotient = new tree::Binop(tree::Type::INT, "/",
+                                         tempExp(lhsTemp), tempExp(rhsTemp));
+        auto *product = new tree::Binop(tree::Type::INT, "*", quotient,
+                                        tempExp(rhsTemp));
+        return new tree::Eseq(
+            tree::Type::INT, new tree::Seq(stms),
+            new tree::Binop(tree::Type::INT, "-", tempExp(lhsTemp), product));
     }
 
     void pushScope() { scopes_.push_back({}); }
@@ -702,6 +727,11 @@ private:
                               {BaseType::Int, BaseType::Int, BaseType::Int, BaseType::Int,
                                BaseType::Int},
                               {0, 0, 0, 0, 0}};
+        functions_["__sysy_parallel_reduce_mod_int_range"] =
+            FunctionSignature{BaseType::Int,
+                              {BaseType::Int, BaseType::Int, BaseType::Int, BaseType::Int,
+                               BaseType::Int, BaseType::Int},
+                              {0, 0, 0, 0, 0, 0}};
         functions_["free"] = FunctionSignature{BaseType::Void, {BaseType::Int}, {0}};
     }
 
@@ -937,12 +967,19 @@ private:
                 break;
             }
             const auto &child = node.children[index];
+            std::size_t loopIndex = index + 1;
+            const Node *betweenInitAndLoop = nullptr;
+            if (index + 2 < node.children.size() &&
+                isParallelStartTimingStmt(*node.children[index + 1])) {
+                loopIndex = index + 2;
+                betweenInitAndLoop = node.children[index + 1].get();
+            }
             if (options_.parallelLoops && !suppressParallelLowering_ &&
-                index + 1 < node.children.size() &&
+                loopIndex < node.children.size() &&
                 parseParallelLoopInit(*node.children[index]).valid &&
-                node.children[index + 1]->kind == NodeKind::WhileStmt) {
+                node.children[loopIndex]->kind == NodeKind::WhileStmt) {
                 ParallelLoopPlan plan = analyzeParallelLoopPair(
-                    *node.children[index], *node.children[index + 1],
+                    *node.children[index], *node.children[loopIndex],
                     [this](const std::string &name) { return parallelTypeName(name); },
                     [this](const std::string &name)
                         -> const ParallelScalarFunctionSummary * {
@@ -950,9 +987,16 @@ private:
                         return found == parallelFunctionSummaries_.end()
                                    ? nullptr
                                    : &found->second;
+                    },
+                    [this](const std::string &name) -> std::optional<int> {
+                        std::optional<ConstScalar> value = lookupConstScalar(name);
+                        if (!value || value->type != BaseType::Int) {
+                            return std::nullopt;
+                        }
+                        return value->raw;
                     });
-                if (lowerParallelLoop(plan, stms)) {
-                    ++index;
+                if (lowerParallelLoop(plan, stms, betweenInitAndLoop)) {
+                    index = loopIndex;
                     continue;
                 }
             }
@@ -1275,7 +1319,8 @@ private:
                                  const std::string &workerName,
                                  tree::Temp *beginTemp,
                                  tree::Temp *endTemp,
-                                 std::vector<tree::Stm *> *stms) {
+                                 std::vector<tree::Stm *> *stms,
+                                 tree::Label *modUnsafeLabel = nullptr) {
         tree::Temp *ctxTemp = nullptr;
         tree::Exp *ctxArg = new tree::Const(0, tree::Type::PTR);
         if (!fields.empty()) {
@@ -1315,10 +1360,51 @@ private:
             new tree::Name(new tree::String_Label(workerName)),
             new tree::Const(emittedWorkCost)
         });
+        if (!plan.reductions.empty() && plan.reductions.front().modular) {
+            runtimeArgs->push_back(new tree::Const(plan.reductions.front().modulus));
+        }
 
         if (plan.reductions.empty()) {
             stms->push_back(new tree::ExpStm(
                 new tree::ExtCall(tree::Type::INT, "__sysy_parallel_for_range", runtimeArgs)));
+        } else if (plan.reductions.front().modular) {
+            auto *partialTemp = newTemp();
+            stms->push_back(new tree::Move(
+                tempExp(partialTemp),
+                new tree::ExtCall(tree::Type::INT,
+                                  "__sysy_parallel_reduce_mod_int_range",
+                                  runtimeArgs)));
+            if (ctxTemp != nullptr) {
+                stms->push_back(new tree::ExpStm(
+                    new tree::ExtCall(tree::Type::INT, "free",
+                                      new std::vector<tree::Exp *>({ptrTempExp(ctxTemp)}))));
+                ctxTemp = nullptr;
+            }
+            if (modUnsafeLabel != nullptr) {
+                auto *safePartialLabel = newLabel();
+                stms->push_back(new tree::Cjump(
+                    "==", tempExp(partialTemp), new tree::Const(INT_MIN),
+                    modUnsafeLabel, safePartialLabel));
+                stms->push_back(new tree::LabelStm(safePartialLabel));
+            }
+            const ParallelReduction &reduction = plan.reductions.front();
+            const std::string &var = reduction.var;
+            auto *combineLabel = newLabel();
+            auto *doneLabel = newLabel();
+            stms->push_back(new tree::Cjump("<", tempExp(beginTemp), tempExp(endTemp),
+                                            combineLabel, doneLabel));
+            stms->push_back(new tree::LabelStm(combineLabel));
+            auto *dst = lowerLValue(
+                Node{NodeKind::LVal, plan.init.initExpr->loc, var});
+            auto *initialResidue = intRemainder(
+                lowerExpr(Node{NodeKind::LVal, plan.init.initExpr->loc, var}),
+                new tree::Const(reduction.modulus));
+            auto *sum = new tree::Binop(tree::Type::INT, "+", initialResidue,
+                                        tempExp(partialTemp));
+            stms->push_back(new tree::Move(
+                dst, intRemainder(sum, new tree::Const(reduction.modulus))));
+            stms->push_back(new tree::Jump(doneLabel));
+            stms->push_back(new tree::LabelStm(doneLabel));
         } else {
             auto *partialTemp = newTemp();
             stms->push_back(new tree::Move(
@@ -1380,12 +1466,20 @@ private:
         auto savedContinueLabels = continueLabels_;
         BaseType savedReturnType = currentReturnType_;
         bool savedSuppress = suppressParallelLowering_;
+        std::string savedModVar = workerModReductionVar_;
+        int savedModulus = workerModulus_;
 
         scopes_.clear();
         breakLabels_.clear();
         continueLabels_.clear();
         currentReturnType_ = BaseType::Int;
         suppressParallelLowering_ = true;
+        workerModReductionVar_.clear();
+        workerModulus_ = 0;
+        if (!plan.reductions.empty() && plan.reductions.front().modular) {
+            workerModReductionVar_ = plan.reductions.front().var;
+            workerModulus_ = plan.reductions.front().modulus;
+        }
 
         auto *beginParam = newTemp();
         auto *endParam = newTemp();
@@ -1494,10 +1588,43 @@ private:
         continueLabels_ = std::move(savedContinueLabels);
         currentReturnType_ = savedReturnType;
         suppressParallelLowering_ = savedSuppress;
+        workerModReductionVar_ = std::move(savedModVar);
+        workerModulus_ = savedModulus;
         return worker;
     }
 
-    bool lowerParallelLoop(const ParallelLoopPlan &plan, std::vector<tree::Stm *> *stms) {
+    const Node *workerModularAddend(const Node &assign) const {
+        if (workerModReductionVar_.empty() || assign.kind != NodeKind::AssignStmt ||
+            assign.children.size() != 2) {
+            return nullptr;
+        }
+        const Node &lhs = *assign.children.at(0);
+        const Node &rhs = *assign.children.at(1);
+        if (lhs.kind != NodeKind::LVal || !lhs.children.empty() ||
+            lhs.text != workerModReductionVar_ || rhs.kind != NodeKind::BinaryExpr ||
+            rhs.text != "%" || rhs.children.size() != 2) {
+            return nullptr;
+        }
+        const Node &sum = *rhs.children.at(0);
+        if (sum.kind != NodeKind::BinaryExpr || sum.text != "+" ||
+            sum.children.size() != 2) {
+            return nullptr;
+        }
+        const Node *left = sum.children.at(0).get();
+        const Node *right = sum.children.at(1).get();
+        if (left->kind == NodeKind::LVal && left->children.empty() &&
+            left->text == workerModReductionVar_) {
+            return right;
+        }
+        if (right->kind == NodeKind::LVal && right->children.empty() &&
+            right->text == workerModReductionVar_) {
+            return left;
+        }
+        return nullptr;
+    }
+
+    bool lowerParallelLoop(const ParallelLoopPlan &plan, std::vector<tree::Stm *> *stms,
+                           const Node *betweenInitAndLoop = nullptr) {
         if (!options_.parallelLoops || suppressParallelLowering_ || !plan.valid ||
             plan.init.initExpr == nullptr || plan.endExpr == nullptr) {
             return false;
@@ -1547,6 +1674,9 @@ private:
             ivTemp = iv.temp;
         }
         stms->push_back(new tree::Move(tempExp(ivTemp), lowerExprAs(*plan.init.initExpr, BaseType::Int)));
+        if (betweenInitAndLoop != nullptr) {
+            lowerStmt(*betweenInitAndLoop, stms);
+        }
 
         auto *beginTemp = newTemp();
         auto *rawEndTemp = newTemp();
@@ -1609,6 +1739,38 @@ private:
             stms->push_back(new tree::Jump(doneLabel));
 
             stms->push_back(new tree::LabelStm(doneLabel));
+        } else if (!plan.reductions.empty() && plan.reductions.front().modular) {
+            const ParallelReduction &reduction = plan.reductions.front();
+            auto *sequentialLabel = newLabel();
+            auto *checkUpperLabel = newLabel();
+            auto *parallelLabel = newLabel();
+            auto *doneLabel = newLabel();
+            tree::Exp *reductionValue = lowerExpr(
+                Node{NodeKind::LVal, plan.init.initExpr->loc, reduction.var});
+            stms->push_back(new tree::Cjump("<", reductionValue,
+                                            new tree::Const(0), sequentialLabel,
+                                            checkUpperLabel));
+            stms->push_back(new tree::LabelStm(checkUpperLabel));
+            stms->push_back(new tree::Cjump(">=", lowerExpr(
+                                                Node{NodeKind::LVal,
+                                                     plan.init.initExpr->loc,
+                                                     reduction.var}),
+                                            new tree::Const(reduction.modulus),
+                                            sequentialLabel, parallelLabel));
+
+            stms->push_back(new tree::LabelStm(parallelLabel));
+            emitParallelRuntimeCall(plan, fields, workerName, beginTemp, endTemp,
+                                    stms, sequentialLabel);
+            emitParallelFinalIvUpdate(plan, ivTemp, beginTemp, endTemp, stms);
+            stms->push_back(new tree::Jump(doneLabel));
+
+            stms->push_back(new tree::LabelStm(sequentialLabel));
+            lowerParallelSequentialFallback(
+                plan, ivTemp,
+                plan.logicalTripCount >= 0 || plan.inclusiveEnd ? rawEndTemp : endTemp,
+                plan.comparison, stms);
+            stms->push_back(new tree::Jump(doneLabel));
+            stms->push_back(new tree::LabelStm(doneLabel));
         } else {
             emitParallelRuntimeCall(plan, fields, workerName, beginTemp, endTemp, stms);
             emitParallelFinalIvUpdate(plan, ivTemp, beginTemp, endTemp, stms);
@@ -1626,6 +1788,40 @@ private:
         case NodeKind::Block:
             return lowerBlock(node, stms, true);
         case NodeKind::AssignStmt: {
+            if (const Node *addend = workerModularAddend(node)) {
+                // SysY integer addition wraps, so modular reassociation is
+                // valid only while the source addition cannot overflow.  A
+                // nonnegative addend no larger than INT_MAX-(m-1), together
+                // with a canonical accumulator, proves that condition.  The
+                // INT_MIN sentinel requests an exact sequential retry.
+                auto *addendTemp = newTemp();
+                stms->push_back(new tree::Move(tempExp(addendTemp),
+                                                lowerExprAs(*addend, BaseType::Int)));
+                auto *checkUpperLabel = newLabel();
+                auto *safeLabel = newLabel();
+                auto *unsafeLabel = newLabel();
+                stms->push_back(new tree::Cjump("<", tempExp(addendTemp),
+                                                new tree::Const(0), unsafeLabel,
+                                                checkUpperLabel));
+                stms->push_back(new tree::LabelStm(checkUpperLabel));
+                stms->push_back(new tree::Cjump(
+                    ">", tempExp(addendTemp),
+                    new tree::Const(INT_MAX - (workerModulus_ - 1)),
+                    unsafeLabel, safeLabel));
+                stms->push_back(new tree::LabelStm(unsafeLabel));
+                stms->push_back(new tree::Return(new tree::Const(INT_MIN)));
+                stms->push_back(new tree::LabelStm(safeLabel));
+                auto *dst = lowerLValue(*node.children.at(0));
+                auto *mod = new tree::Const(workerModulus_);
+                auto *addendResidue = intRemainder(
+                    tempExp(addendTemp), new tree::Const(workerModulus_));
+                auto *sum = new tree::Binop(tree::Type::INT, "+",
+                                            lowerExpr(*node.children.at(0)),
+                                            addendResidue);
+                stms->push_back(new tree::Move(
+                    dst, intRemainder(sum, mod)));
+                return true;
+            }
             auto *dst = lowerLValue(*node.children.at(0));
             BaseType dstBase = dst->type == tree::Type::FLOAT ? BaseType::Float : BaseType::Int;
             stms->push_back(new tree::Move(dst, lowerExprAs(*node.children.at(1), dstBase)));
