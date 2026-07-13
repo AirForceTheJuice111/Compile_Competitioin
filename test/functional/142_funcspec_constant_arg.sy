@@ -1,0 +1,15 @@
+int choose(int value, int mode) {
+  if (mode == 0) {
+    return value + 11;
+  }
+  return value - 7;
+}
+
+int main() {
+  int x = getint();
+  putint(choose(x, 0));
+  putch(10);
+  putint(choose(x, 1));
+  putch(10);
+  return 0;
+}

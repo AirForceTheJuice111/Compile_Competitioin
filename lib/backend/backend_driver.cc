@@ -3099,6 +3099,22 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
             return result;
         }
         profile.mark("funcspec");
+        // Specialization materializes constants inside the clone. Re-run
+        // SCCP and AlgebraSimp so dead branches and constant expressions do
+        // not remain in the emitted clone.
+        optimizedSsa = optProg(optimizedSsa);
+        if (optimizedSsa == nullptr) {
+            result.error = "FuncSpec cleanup failed";
+            return result;
+        }
+        refreshQuadExtents(optimizedSsa);
+        profile.mark("funcspec-sccp");
+        optimizedSsa = runAlgebraSimpPass(optimizedSsa);
+        if (optimizedSsa == nullptr) {
+            result.error = "FuncSpec AlgebraSimp cleanup failed";
+            return result;
+        }
+        profile.mark("funcspec-algebrasimp");
     }
 
     if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("memopt")) {

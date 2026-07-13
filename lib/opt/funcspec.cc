@@ -13,6 +13,9 @@ using namespace std;
 
 namespace {
 
+constexpr std::size_t kMaxSpecializations = 2;
+constexpr std::size_t kMaxSpecializedStatements = 128;
+
 set<Temp*>* es() { return new set<Temp*>(); }
 set<Temp*>* os(int n) { auto* s = new set<Temp*>(); s->insert(new Temp(n)); return s; }
 
@@ -87,6 +90,36 @@ vector<CallSite> findConstCallSites(quad::QuadProgram* prog,
         }
     }
     return sites;
+}
+
+bool functionHasConditionalUse(quad::QuadFuncDecl* function,
+                               const vector<int>& constantIndices) {
+    if (function == nullptr || function->params == nullptr ||
+        !function->quadblocklist) return false;
+    set<int> constantParams;
+    for (int index : constantIndices) {
+        if (index >= 0 && index < static_cast<int>(function->params->size()) &&
+            (*function->params)[index] != nullptr) {
+            constantParams.insert((*function->params)[index]->num);
+        }
+    }
+    if (constantParams.empty()) return false;
+    for (auto* block : *function->quadblocklist) {
+        if (!block || !block->quadlist) continue;
+        for (auto* statement : *block->quadlist) {
+            if (statement == nullptr || statement->kind != quad::QuadKind::CJUMP)
+                continue;
+            auto* jump = static_cast<quad::QuadCJump*>(statement);
+            for (auto* term : {jump->left, jump->right}) {
+                if (term && term->kind == quad::QuadTermKind::TEMP &&
+                    term->get_temp() && term->get_temp()->temp &&
+                    constantParams.count(term->get_temp()->temp->num)) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
 }
 
 // Create a specialized clone of a function with constant args replaced.
@@ -274,10 +307,21 @@ void funcSpecProgram(quad::QuadProgram* prog, int& specialized) {
 
     int gt = prog->last_temp_num;
     set<string> generatedSpecs; // avoid duplicate specializations
+    set<string> specializedOriginals;
+    std::size_t specializedStatements = 0;
 
     for (auto& cs : sites) {
+        if (specialized >= static_cast<int>(kMaxSpecializations)) break;
         auto it = nameMap.find(cs.calleeName);
         if (it == nameMap.end()) continue;
+        if (!functionHasConditionalUse(it->second, cs.constArgIdx)) continue;
+        std::size_t bodySize = 0;
+        if (it->second->quadblocklist) {
+            for (auto* block : *it->second->quadblocklist)
+                if (block && block->quadlist) bodySize += block->quadlist->size();
+        }
+        if (bodySize == 0 || specializedStatements + bodySize >
+                                kMaxSpecializedStatements) continue;
 
         // Build a signature string for dedup
         ostringstream sig;
@@ -287,6 +331,7 @@ void funcSpecProgram(quad::QuadProgram* prog, int& specialized) {
 
         if (generatedSpecs.count(sig.str())) continue;
         generatedSpecs.insert(sig.str());
+        specializedStatements += bodySize;
 
         auto* spec = specializeFunc(it->second, cs.constArgIdx,
                                      cs.constArgVal, gt);
@@ -294,10 +339,14 @@ void funcSpecProgram(quad::QuadProgram* prog, int& specialized) {
         prog->quadFuncDeclList->push_back(spec);
         nameMap[spec->funcname] = spec;
         userFuncs.insert(spec->funcname);
+        specializedOriginals.insert(cs.calleeName);
         specialized++;
     }
 
-    // Replace call sites with specialized versions
+    // Replace call sites with specialized versions. The clone removed the
+    // specialized parameters, so the corresponding constant arguments must
+    // also be removed at every call site. Keep the remaining arguments in
+    // their original order.
     for (auto& cs : sites) {
         ostringstream sig;
         sig << cs.calleeName;
@@ -310,19 +359,71 @@ void funcSpecProgram(quad::QuadProgram* prog, int& specialized) {
         auto* stm = (*cs.block->quadlist)[cs.stmIdx];
         if (!stm) continue;
 
+        auto removeConstantArguments = [&](vector<quad::QuadTerm*>* args) {
+            if (args == nullptr) return;
+            for (auto it = cs.constArgIdx.rbegin();
+                 it != cs.constArgIdx.rend(); ++it) {
+                if (*it >= 0 && *it < static_cast<int>(args->size()))
+                    args->erase(args->begin() + *it);
+            }
+        };
+
         if (stm->kind == quad::QuadKind::MOVE_EXTCALL) {
             auto* me = static_cast<quad::QuadMoveExtCall*>(stm);
-            if (me->extcall) me->extcall->extfun = specName;
+            if (me->extcall) {
+                me->extcall->extfun = specName;
+                removeConstantArguments(me->extcall->args);
+            }
         } else if (stm->kind == quad::QuadKind::EXTCALL) {
             auto* e = static_cast<quad::QuadExtCall*>(stm);
             e->extfun = specName;
+            removeConstantArguments(e->args);
         } else if (stm->kind == quad::QuadKind::MOVE_CALL) {
             auto* mc = static_cast<quad::QuadMoveCall*>(stm);
-            if (mc->call) mc->call->name = specName;
+            if (mc->call) {
+                mc->call->name = specName;
+                removeConstantArguments(mc->call->args);
+            }
         } else if (stm->kind == quad::QuadKind::CALL) {
-            static_cast<quad::QuadCall*>(stm)->name = specName;
+            auto* c = static_cast<quad::QuadCall*>(stm);
+            c->name = specName;
+            removeConstantArguments(c->args);
         }
     }
+
+    // If every direct call to an original was redirected to a clone, the
+    // original is dead. Remove only proven-unreferenced non-entry functions;
+    // recursive or mixed dynamic/constant call patterns retain the original.
+    set<string> referencedFunctions;
+    for (auto* function : *prog->quadFuncDeclList) {
+        if (!function || !function->quadblocklist) continue;
+        for (auto* block : *function->quadblocklist) {
+            if (!block || !block->quadlist) continue;
+            for (auto* statement : *block->quadlist) {
+                string name;
+                vector<quad::QuadTerm*>* unusedArgs = nullptr;
+                quad::QuadTemp* unusedDestination = nullptr;
+                if (statement && statement->kind == quad::QuadKind::MOVE_EXTCALL) {
+                    auto* call = static_cast<quad::QuadMoveExtCall*>(statement);
+                    if (call->extcall) name = call->extcall->extfun;
+                } else if (statement && statement->kind == quad::QuadKind::MOVE_CALL) {
+                    auto* call = static_cast<quad::QuadMoveCall*>(statement);
+                    if (call->call) name = call->call->name;
+                }
+                if (!name.empty()) referencedFunctions.insert(name);
+            }
+        }
+    }
+    auto keptFunctions = new vector<quad::QuadFuncDecl*>();
+    for (auto* function : *prog->quadFuncDeclList) {
+        if (function && function->funcname != "main" &&
+            specializedOriginals.count(function->funcname) &&
+            !referencedFunctions.count(function->funcname)) {
+            continue;
+        }
+        keptFunctions->push_back(function);
+    }
+    prog->quadFuncDeclList = keptFunctions;
 
     prog->last_temp_num = gt;
 }
