@@ -201,16 +201,14 @@ quad::QuadStm *cloneBodyStatement(
     return nullptr;
 }
 
-bool inlineCall(quad::QuadMoveExtCall *callStatement,
+bool inlineCall(quad::QuadTemp *callDestination,
+                std::vector<quad::QuadTerm *> *callArguments,
                 const InlineCandidate &candidate, int &lastTemp,
                 std::vector<quad::QuadStm *> &replacement) {
-    if (callStatement == nullptr || callStatement->dst == nullptr ||
-        callStatement->dst->temp == nullptr ||
-        callStatement->dst->type != quad::QuadType::INT ||
-        callStatement->extcall == nullptr ||
-        callStatement->extcall->args == nullptr ||
-        candidate.function == nullptr || candidate.function->params == nullptr ||
-        callStatement->extcall->args->size() !=
+    if (callDestination == nullptr || callDestination->temp == nullptr ||
+        callDestination->type != quad::QuadType::INT ||
+        callArguments == nullptr || candidate.function == nullptr ||
+        candidate.function->params == nullptr || callArguments->size() !=
             candidate.function->params->size()) {
         return false;
     }
@@ -218,7 +216,7 @@ bool inlineCall(quad::QuadMoveExtCall *callStatement,
     std::map<int, quad::QuadTerm *> parameterValues;
     for (std::size_t index = 0;
          index < candidate.function->params->size(); ++index) {
-        quad::QuadTerm *argument = callStatement->extcall->args->at(index);
+        quad::QuadTerm *argument = callArguments->at(index);
         Temp *parameter = candidate.function->params->at(index);
         if (parameter == nullptr || !isIntCallArgument(argument)) return false;
         parameterValues[parameter->num] = argument;
@@ -239,10 +237,33 @@ bool inlineCall(quad::QuadMoveExtCall *callStatement,
     if (returnValue == nullptr) return false;
     replacement.insert(replacement.end(), clonedBody.begin(), clonedBody.end());
     replacement.push_back(new quad::QuadMove(
-        callStatement->dst->clone(), returnValue, new std::set<Temp *>(),
+        callDestination->clone(), returnValue, new std::set<Temp *>(),
         new std::set<Temp *>()));
     lastTemp = trialLastTemp;
     return true;
+}
+
+bool getInlineCall(quad::QuadStm *statement, std::string &name,
+                   quad::QuadTemp *&destination,
+                   std::vector<quad::QuadTerm *> *&arguments) {
+    if (statement == nullptr) return false;
+    if (statement->kind == quad::QuadKind::MOVE_EXTCALL) {
+        auto *call = static_cast<quad::QuadMoveExtCall *>(statement);
+        if (call->extcall == nullptr) return false;
+        name = call->extcall->extfun;
+        destination = call->dst;
+        arguments = call->extcall->args;
+        return true;
+    }
+    if (statement->kind == quad::QuadKind::MOVE_CALL) {
+        auto *call = static_cast<quad::QuadMoveCall *>(statement);
+        if (call->call == nullptr) return false;
+        name = call->call->name;
+        destination = call->dst;
+        arguments = call->call->args;
+        return true;
+    }
+    return false;
 }
 
 } // namespace
@@ -271,16 +292,14 @@ QuadProgram *inlineProg(QuadProgram *program, int *eliminatedOut) {
             if (block == nullptr || block->quadlist == nullptr) continue;
             auto *rewritten = new std::vector<QuadStm *>();
             for (auto *statement : *block->quadlist) {
-                if (statement != nullptr &&
-                    statement->kind == QuadKind::MOVE_EXTCALL) {
-                    auto *call = static_cast<QuadMoveExtCall *>(statement);
-                    std::string name = call->extcall == nullptr
-                                           ? std::string()
-                                           : call->extcall->extfun;
+                std::string name;
+                QuadTemp *destination = nullptr;
+                std::vector<QuadTerm *> *arguments = nullptr;
+                if (getInlineCall(statement, name, destination, arguments)) {
                     auto candidate = candidates.find(name);
-                    if (candidate != candidates.end() &&
-                        inlineCall(call, candidate->second, lastTemp,
-                                   *rewritten)) {
+                    if (candidate != candidates.end() && inlineCall(
+                            destination, arguments, candidate->second,
+                            lastTemp, *rewritten)) {
                         ++inlined;
                         continue;
                     }
