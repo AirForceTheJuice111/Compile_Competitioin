@@ -12,9 +12,14 @@ WORK_DIR=${WORK_DIR:-/tmp/sysy_functional_regression}
 KEEP_WORK=${KEEP_WORK:-0}
 MAX_CASES=${MAX_CASES:-}
 SYSY_OPT=${SYSY_OPT:-}
+PERF_TIMING=${PERF_TIMING:-0}
+PERF_TIMES_FILE=${PERF_TIMES_FILE:-"$WORK_DIR/times.tsv"}
 
 rm -rf "$WORK_DIR"
 mkdir -p "$WORK_DIR"
+if [[ "$PERF_TIMING" == 1 ]]; then
+  : >"$PERF_TIMES_FILE"
+fi
 
 if [[ ! -x "$COMPILER" ]]; then
   echo "missing compiler: $COMPILER" >&2
@@ -88,9 +93,19 @@ for sy in "${cases[@]}"; do
   fi
 
   if [[ -f "$input_file" ]]; then
-    "$QEMU_AARCH64" -L "$SYSY_AARCH64_SYSROOT" "$exe" <"$input_file" >"$stdout_file" 2>"$stderr_file"
+    if [[ "$PERF_TIMING" == 1 ]]; then
+      /usr/bin/time -f '%e' -o "$WORK_DIR/$safe.time" \
+        "$QEMU_AARCH64" -L "$SYSY_AARCH64_SYSROOT" "$exe" <"$input_file" >"$stdout_file" 2>"$stderr_file"
+    else
+      "$QEMU_AARCH64" -L "$SYSY_AARCH64_SYSROOT" "$exe" <"$input_file" >"$stdout_file" 2>"$stderr_file"
+    fi
   else
-    "$QEMU_AARCH64" -L "$SYSY_AARCH64_SYSROOT" "$exe" >"$stdout_file" 2>"$stderr_file"
+    if [[ "$PERF_TIMING" == 1 ]]; then
+      /usr/bin/time -f '%e' -o "$WORK_DIR/$safe.time" \
+        "$QEMU_AARCH64" -L "$SYSY_AARCH64_SYSROOT" "$exe" >"$stdout_file" 2>"$stderr_file"
+    else
+      "$QEMU_AARCH64" -L "$SYSY_AARCH64_SYSROOT" "$exe" >"$stdout_file" 2>"$stderr_file"
+    fi
   fi
   rc=$?
   if [[ "$rc" -gt 255 ]]; then
@@ -127,6 +142,9 @@ for sy in "${cases[@]}"; do
   if cmp -s "$actual_norm" "$expected_norm"; then
     echo "PASS"
     passed=$((passed + 1))
+    if [[ "$PERF_TIMING" == 1 && -f "$WORK_DIR/$safe.time" ]]; then
+      printf '%s\t%s\n' "$rel" "$(cat "$WORK_DIR/$safe.time")" >>"$PERF_TIMES_FILE"
+    fi
   else
     echo "WRONG"
     wrong=$((wrong + 1))
