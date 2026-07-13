@@ -8,7 +8,7 @@ if [[ -z "$src" ]]; then
 fi
 
 COMPILER=${COMPILER:-"$(pwd)/build/compiler"}
-AARCH64_CC=${AARCH64_CC:-clang}
+AARCH64_CC=${AARCH64_CC:-$(command -v clang || command -v clang-18 || command -v clang-17 || true)}
 AARCH64_CC_FLAGS=${AARCH64_CC_FLAGS:---target=aarch64-linux-gnu}
 QEMU_AARCH64=${QEMU_AARCH64:-qemu-aarch64}
 SYSY_AARCH64_SYSROOT=${SYSY_AARCH64_SYSROOT:-/usr/aarch64-linux-gnu}
@@ -23,6 +23,11 @@ fi
 
 if [[ ! -x "$COMPILER" ]]; then
   echo "missing compiler: $COMPILER" >&2
+  exit 2
+fi
+
+if [[ -z "$AARCH64_CC" || -z "$(command -v "$AARCH64_CC" 2>/dev/null || true)" ]]; then
+  echo "missing AArch64 C compiler: set AARCH64_CC (tried clang, clang-18, clang-17)" >&2
   exit 2
 fi
 

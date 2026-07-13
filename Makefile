@@ -3,7 +3,7 @@ MAKEFLAGS = --no-print-directory
 
 BUILD_DIR = $(CURDIR)/build
 COMPILER = $(BUILD_DIR)/compiler
-AARCH64_CC ?= clang
+AARCH64_CC ?= $(shell command -v clang 2>/dev/null || command -v clang-18 2>/dev/null || command -v clang-17 2>/dev/null)
 AARCH64_CC_FLAGS ?= --target=aarch64-linux-gnu
 QEMU_AARCH64 ?= qemu-aarch64
 SYSY_AARCH64_SYSROOT ?= /usr/aarch64-linux-gnu

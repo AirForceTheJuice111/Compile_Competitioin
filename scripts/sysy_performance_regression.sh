@@ -24,7 +24,7 @@ if [[ -n "$SYSY_PERF_ARCHIVE" ]]; then
 fi
 
 COMPILER=${COMPILER:-"$(pwd)/build/compiler"} \
-AARCH64_CC=${AARCH64_CC:-clang} \
+AARCH64_CC=${AARCH64_CC:-$(command -v clang || command -v clang-18 || command -v clang-17 || true)} \
 AARCH64_CC_FLAGS=${AARCH64_CC_FLAGS:---target=aarch64-linux-gnu} \
 QEMU_AARCH64=${QEMU_AARCH64:-qemu-aarch64} \
 SYSY_AARCH64_SYSROOT=${SYSY_AARCH64_SYSROOT:-/usr/aarch64-linux-gnu} \
