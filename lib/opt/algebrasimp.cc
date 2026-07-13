@@ -165,10 +165,14 @@ quad::QuadTerm *simplifyIntBinop(const string &op, quad::QuadTerm *left,
     } else if (op == "&") {
         if ((leftConst && leftValue == 0) || (rightConst && rightValue == 0))
             return termConst(0);
+        if (leftConst && leftValue == -1) return right->clone();
+        if (rightConst && rightValue == -1) return left->clone();
         if (sameIntTemp(left, right)) return left->clone();
     } else if (op == "|") {
         if (leftConst && leftValue == 0) return right->clone();
         if (rightConst && rightValue == 0) return left->clone();
+        if (leftConst && leftValue == -1) return termConst(-1);
+        if (rightConst && rightValue == -1) return termConst(-1);
         if (sameIntTemp(left, right)) return left->clone();
     } else if (op == "^") {
         if (leftConst && leftValue == 0) return right->clone();
