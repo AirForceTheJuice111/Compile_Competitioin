@@ -1,0 +1,23 @@
+// More than four simultaneous PHI copies require frame-backed snapshots even
+// when register allocation is explicitly disabled.
+int main() {
+  int n = getint();
+  int i = 0;
+  int a = 1;
+  int b = 2;
+  int c = 3;
+  int d = 4;
+  int e = 5;
+  while (i < n) {
+    int old_a = a;
+    a = b + 1;
+    b = c + 2;
+    c = d + 3;
+    d = e + 4;
+    e = old_a + 5;
+    i = i + 1;
+  }
+  putint(a + 10 * b + 100 * c + 1000 * d + 10000 * e + i);
+  putch(10);
+  return 0;
+}

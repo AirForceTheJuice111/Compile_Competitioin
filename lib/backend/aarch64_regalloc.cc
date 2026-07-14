@@ -405,6 +405,11 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
     }
 
     std::unordered_map<int, Interval> byTemp;
+    // Coalescing preferences never override interference or ABI legality.
+    // They merely bias a destination toward a MOVE/PHI input's now-free home,
+    // allowing the emitter to omit the corresponding copy when adjacent live
+    // ranges do not overlap.
+    std::unordered_map<int, std::vector<int>> affinities;
     for (const auto &entry : tempTypes) {
         if (rematerializedTemps.count(entry.first) != 0) continue;
         byTemp[entry.first].temp = entry.first;
@@ -452,10 +457,15 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
             if (position == positions.end()) continue;
             if (statement->kind == quad::QuadKind::PHI) {
                 auto *phi = static_cast<quad::QuadPhi *>(statement);
+                int destination = phi->temp_exp->temp->num;
                 if (Interval *interval = intervalFor(phi->temp_exp->temp->num)) {
                     noteAccess(*interval, blockInfo.start, index, weight, false);
                 }
                 for (const auto &argument : *phi->args) {
+                    if (argument.first != nullptr &&
+                        argument.first->num != destination) {
+                        affinities[destination].push_back(argument.first->num);
+                    }
                     auto predecessor = labelToBlock.find(argument.second->num);
                     if (predecessor == labelToBlock.end()) continue;
                     std::size_t predecessorIndex = predecessor->second;
@@ -467,6 +477,22 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
                     }
                 }
                 continue;
+            }
+            if (statement->kind == quad::QuadKind::MOVE) {
+                auto *move = static_cast<quad::QuadMove *>(statement);
+                auto *source = move == nullptr ? nullptr : move->src;
+                auto *sourceTemp = source != nullptr &&
+                                           source->kind == quad::QuadTermKind::TEMP
+                                       ? source->get_temp()
+                                       : nullptr;
+                if (move != nullptr && move->dst != nullptr &&
+                    move->dst->temp != nullptr && source != nullptr &&
+                    source->kind == quad::QuadTermKind::TEMP &&
+                    sourceTemp != nullptr && sourceTemp->temp != nullptr &&
+                    sourceTemp->temp->num != move->dst->temp->num) {
+                    affinities[move->dst->temp->num].push_back(
+                        sourceTemp->temp->num);
+                }
             }
             for (int temp : statementUses(statement)) {
                 if (Interval *interval = intervalFor(temp)) {
@@ -546,7 +572,22 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
         std::unordered_set<int> occupied;
         for (const Active &entry : active) occupied.insert(entry.reg);
         int selected = -1;
+        auto preferred = affinities.find(current.temp);
+        if (preferred != affinities.end()) {
+            for (int source : preferred->second) {
+                auto sourceHome = result.tempToRegister.find(source);
+                if (sourceHome == result.tempToRegister.end() ||
+                    occupied.count(sourceHome->second) != 0 ||
+                    (current.liveAcrossCall &&
+                     sourceHome->second == kCallerSavedRegister)) {
+                    continue;
+                }
+                selected = sourceHome->second;
+                break;
+            }
+        }
         if (!current.liveAcrossCall &&
+            selected < 0 &&
             occupied.count(kCallerSavedRegister) == 0) {
             selected = kCallerSavedRegister;
         }

@@ -1,0 +1,13 @@
+// A rematerialized constant has no spill slot.  Fused constant-remainder
+// emission must not write it at offset zero and corrupt the caller's x29.
+int folded_remainder() {
+  int value = 3455 % 21;
+  int input = getint();
+  return input + value;
+}
+
+int main() {
+  putint(folded_remainder());
+  putch(10);
+  return 0;
+}

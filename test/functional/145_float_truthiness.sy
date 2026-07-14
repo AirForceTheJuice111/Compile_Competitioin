@@ -1,0 +1,24 @@
+int main() {
+  float negative_zero = -0.0;
+  float nan = 0.0 / 0.0;
+
+  if (negative_zero) {
+    putint(1);
+  }
+  else {
+    putint(0);
+  }
+  putch(10);
+
+  putint(!negative_zero);
+  putch(10);
+
+  if (nan) {
+    putint(1);
+  }
+  else {
+    putint(0);
+  }
+  putch(10);
+  return 0;
+}
