@@ -2114,12 +2114,8 @@ private:
             }
             for (auto &arg : *phi->args) {
                 if (arg.first != nullptr && sameLabel(arg.second, fromLabel)) {
-                    if ((phi->temp_exp->temp != nullptr &&
-                         phi->temp_exp->temp->num == arg.first->num) ||
-                        sameResidentHome(phi->temp_exp->temp, arg.first)) {
-                        // The incoming value is already in the PHI result's
-                        // home.  Omitting it is safe because all remaining
-                        // parallel-copy inputs are snapshotted before writes.
+                    if (phi->temp_exp->temp != nullptr &&
+                        phi->temp_exp->temp->num == arg.first->num) {
                         break;
                     }
                     copies.push_back(PhiCopy{phi->temp_exp, arg.first, phi->temp_exp->type});
@@ -2127,30 +2123,252 @@ private:
                 }
             }
         }
-        static constexpr int kPhiScratchRegs[] = {12, 13, 14, 15};
-        for (std::size_t i = 0; i < copies.size(); ++i) {
-            const auto &copy = copies[i];
-            quad::QuadTerm src(new quad::QuadTemp(copy.src, copy.type));
-            std::string width = copy.type == quad::QuadType::PTR ? "x" : "w";
-            if (i < std::size(kPhiScratchRegs)) {
-                loadTerm(&src, copy.type, width + std::to_string(kPhiScratchRegs[i]));
-            } else {
-                loadTerm(&src, copy.type, width + "9");
-                storeRawFrameValue(phiScratchSlots_[i - std::size(kPhiScratchRegs)], copy.type,
-                                   width + "9");
+        if (copies.empty()) return;
+
+        // Preserve the old snapshot-all implementation as a conservative
+        // fallback for malformed or type-inconsistent Quad graphs.  Valid SSA
+        // reaches the scheduled path below, where acyclic copies go directly
+        // to their destinations and a single reserved register breaks cycles.
+        auto emitSnapshotFallback = [&]() {
+            std::vector<PhiCopy> fallbackCopies;
+            fallbackCopies.reserve(copies.size());
+            for (const auto &copy : copies) {
+                if (copy.dst == nullptr || copy.dst->temp == nullptr ||
+                    copy.src == nullptr ||
+                    sameResidentHome(copy.dst->temp, copy.src)) {
+                    continue;
+                }
+                fallbackCopies.push_back(copy);
+            }
+            static constexpr int kPhiScratchRegs[] = {12, 13, 14, 15};
+            for (std::size_t i = 0; i < fallbackCopies.size(); ++i) {
+                const auto &copy = fallbackCopies[i];
+                quad::QuadTemp source(copy.src, copy.type);
+                quad::QuadTerm sourceTerm(&source);
+                std::string width = copy.type == quad::QuadType::PTR ? "x" : "w";
+                if (i < std::size(kPhiScratchRegs)) {
+                    loadTerm(&sourceTerm, copy.type,
+                             width + std::to_string(kPhiScratchRegs[i]));
+                } else {
+                    loadTerm(&sourceTerm, copy.type, width + "9");
+                    storeRawFrameValue(
+                        phiScratchSlots_[i - std::size(kPhiScratchRegs)],
+                        copy.type, width + "9");
+                }
+            }
+            for (std::size_t i = 0; i < fallbackCopies.size(); ++i) {
+                const auto &copy = fallbackCopies[i];
+                std::string width = copy.type == quad::QuadType::PTR ? "x" : "w";
+                if (i < std::size(kPhiScratchRegs)) {
+                    storeTemp(copy.dst->temp, copy.type,
+                              width + std::to_string(kPhiScratchRegs[i]));
+                } else {
+                    loadRawFrameValue(
+                        phiScratchSlots_[i - std::size(kPhiScratchRegs)],
+                        copy.type, width + "9");
+                    storeTemp(copy.dst->temp, copy.type, width + "9");
+                }
+            }
+        };
+
+        enum class PhiHomeKind {
+            INVALID,
+            GPR,
+            FPR,
+            STACK,
+            REMATERIALIZED,
+        };
+        struct PhiHome {
+            PhiHomeKind kind = PhiHomeKind::INVALID;
+            int number = 0;
+        };
+        auto isStorageHome = [](const PhiHome &home) {
+            return home.kind == PhiHomeKind::GPR ||
+                   home.kind == PhiHomeKind::FPR ||
+                   home.kind == PhiHomeKind::STACK;
+        };
+        auto sameHome = [](const PhiHome &left, const PhiHome &right) {
+            return left.kind == right.kind && left.number == right.number;
+        };
+        auto tempHome = [&](tree::Temp *temp, quad::QuadType type,
+                            bool allowRematerialization) {
+            PhiHome result;
+            if (temp == nullptr) return result;
+            if (type == quad::QuadType::FLOAT) {
+                auto floating = residentFpRegs_.find(temp->num);
+                if (floating != residentFpRegs_.end()) {
+                    result.kind = PhiHomeKind::FPR;
+                    result.number = floating->second;
+                    return result;
+                }
+            }
+            auto general = residentRegs_.find(temp->num);
+            if (general != residentRegs_.end()) {
+                result.kind = PhiHomeKind::GPR;
+                result.number = general->second;
+                return result;
+            }
+            auto slot = slots_.find(temp->num);
+            if (slot != slots_.end()) {
+                result.kind = PhiHomeKind::STACK;
+                result.number = slot->second;
+                return result;
+            }
+            if (allowRematerialization && type == quad::QuadType::INT &&
+                constantTemps_.find(temp->num) != constantTemps_.end()) {
+                result.kind = PhiHomeKind::REMATERIALIZED;
+            }
+            return result;
+        };
+
+        struct PendingPhiCopy {
+            std::size_t copy = 0;
+            PhiHome destination;
+            PhiHome source;
+            bool sourceIsScratch = false;
+        };
+        std::vector<PendingPhiCopy> pending;
+        pending.reserve(copies.size());
+        std::vector<PhiHome> destinationHomes;
+        std::vector<std::pair<PhiHome, quad::QuadType>> typedSourceHomes;
+        bool valid = true;
+        for (std::size_t index = 0; index < copies.size() && valid; ++index) {
+            const auto &copy = copies[index];
+            if (copy.dst == nullptr || copy.dst->temp == nullptr ||
+                copy.src == nullptr) {
+                valid = false;
+                break;
+            }
+            auto knownSourceType = tempTypes_.find(copy.src->num);
+            if (knownSourceType != tempTypes_.end() &&
+                knownSourceType->second != copy.type) {
+                valid = false;
+                break;
+            }
+            PhiHome destination = tempHome(copy.dst->temp, copy.type, false);
+            PhiHome source = tempHome(copy.src, copy.type, true);
+            if (!isStorageHome(destination) ||
+                source.kind == PhiHomeKind::INVALID) {
+                valid = false;
+                break;
+            }
+            for (const PhiHome &seen : destinationHomes) {
+                if (sameHome(seen, destination)) {
+                    valid = false;
+                    break;
+                }
+            }
+            if (!valid) break;
+            destinationHomes.push_back(destination);
+            if (isStorageHome(source)) {
+                for (const auto &seen : typedSourceHomes) {
+                    if (sameHome(seen.first, source) &&
+                        seen.second != copy.type) {
+                        valid = false;
+                        break;
+                    }
+                }
+                if (!valid) break;
+                typedSourceHomes.push_back({source, copy.type});
+            }
+            if (isStorageHome(source) && sameHome(destination, source)) {
+                continue;
+            }
+            pending.push_back(PendingPhiCopy{index, destination, source, false});
+        }
+        if (!valid) {
+            emitSnapshotFallback();
+            return;
+        }
+
+        struct PhiCopyAction {
+            enum class Kind { COPY, SAVE_CYCLE_VALUE } kind = Kind::COPY;
+            std::size_t copy = 0;
+            tree::Temp *source = nullptr;
+            quad::QuadType type = quad::QuadType::INT;
+            bool sourceIsScratch = false;
+        };
+        std::vector<PhiCopyAction> actions;
+        actions.reserve(pending.size() * 2);
+        while (!pending.empty() && valid) {
+            auto ready = pending.end();
+            for (auto candidate = pending.begin(); candidate != pending.end();
+                 ++candidate) {
+                bool oldDestinationIsNeeded = false;
+                for (const auto &other : pending) {
+                    if (!other.sourceIsScratch && isStorageHome(other.source) &&
+                        sameHome(candidate->destination, other.source)) {
+                        oldDestinationIsNeeded = true;
+                        break;
+                    }
+                }
+                if (!oldDestinationIsNeeded) {
+                    ready = candidate;
+                    break;
+                }
+            }
+            if (ready != pending.end()) {
+                actions.push_back(PhiCopyAction{
+                    PhiCopyAction::Kind::COPY, ready->copy, nullptr,
+                    copies[ready->copy].type, ready->sourceIsScratch});
+                pending.erase(ready);
+                continue;
+            }
+
+            // Every remaining destination is still needed as a source, so at
+            // least one cycle remains.  Save the old value occupying the first
+            // destination home, then redirect every fan-out use of that home
+            // to the same reserved scratch register.
+            PhiHome cycleHome = pending.front().destination;
+            auto sourceToSave = pending.end();
+            for (auto candidate = pending.begin(); candidate != pending.end();
+                 ++candidate) {
+                if (!candidate->sourceIsScratch &&
+                    isStorageHome(candidate->source) &&
+                    sameHome(candidate->source, cycleHome)) {
+                    sourceToSave = candidate;
+                    break;
+                }
+            }
+            if (sourceToSave == pending.end()) {
+                valid = false;
+                break;
+            }
+            const auto &savedCopy = copies[sourceToSave->copy];
+            actions.push_back(PhiCopyAction{
+                PhiCopyAction::Kind::SAVE_CYCLE_VALUE, sourceToSave->copy,
+                savedCopy.src, savedCopy.type, false});
+            for (auto &candidate : pending) {
+                if (!candidate.sourceIsScratch &&
+                    isStorageHome(candidate.source) &&
+                    sameHome(candidate.source, cycleHome)) {
+                    candidate.sourceIsScratch = true;
+                }
             }
         }
-        for (std::size_t i = 0; i < copies.size(); ++i) {
-            const auto &copy = copies[i];
-            std::string width = copy.type == quad::QuadType::PTR ? "x" : "w";
-            if (i < std::size(kPhiScratchRegs)) {
-                storeTemp(copy.dst->temp, copy.type,
-                          width + std::to_string(kPhiScratchRegs[i]));
-            } else {
-                loadRawFrameValue(phiScratchSlots_[i - std::size(kPhiScratchRegs)], copy.type,
-                                  width + "9");
-                storeTemp(copy.dst->temp, copy.type, width + "9");
+        if (!valid) {
+            emitSnapshotFallback();
+            return;
+        }
+
+        auto cycleScratch = [](quad::QuadType type) {
+            if (type == quad::QuadType::FLOAT) return std::string("s30");
+            if (type == quad::QuadType::PTR) return std::string("x12");
+            return std::string("w12");
+        };
+        for (const auto &action : actions) {
+            if (action.kind == PhiCopyAction::Kind::SAVE_CYCLE_VALUE) {
+                loadTemp(action.source, action.type, cycleScratch(action.type));
+                continue;
             }
+            const auto &copy = copies[action.copy];
+            if (action.sourceIsScratch) {
+                storeTemp(copy.dst->temp, copy.type, cycleScratch(copy.type));
+                continue;
+            }
+            quad::QuadTemp source(copy.src, copy.type);
+            quad::QuadTerm sourceTerm(&source);
+            storeTermToTemp(copy.dst, &sourceTerm);
         }
     }
 

@@ -483,6 +483,14 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
                     if (argument.first != nullptr &&
                         argument.first->num != destination) {
                         affinities[destination].push_back(argument.first->num);
+                        // PHI backedge inputs are commonly defined after the
+                        // destination interval has ended.  Record the reverse
+                        // preference as well so the later-defined input can
+                        // reuse the PHI home's now-free register.  The scan's
+                        // occupancy and call-crossing checks below still have
+                        // final authority, so this cannot override real
+                        // interference or ABI legality.
+                        affinities[argument.first->num].push_back(destination);
                     }
                     auto predecessor = labelToBlock.find(argument.second->num);
                     if (predecessor == labelToBlock.end()) continue;
@@ -510,6 +518,8 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
                     sourceTemp->temp->num != move->dst->temp->num) {
                     affinities[move->dst->temp->num].push_back(
                         sourceTemp->temp->num);
+                    affinities[sourceTemp->temp->num].push_back(
+                        move->dst->temp->num);
                 }
             }
             for (int temp : statementUses(statement)) {
