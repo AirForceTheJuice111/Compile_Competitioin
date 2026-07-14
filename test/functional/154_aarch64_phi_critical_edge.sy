@@ -1,0 +1,54 @@
+// A loop can finish either through its conditional header or through the
+// break below.  The natural-exit edge therefore goes from a two-successor
+// block directly to an exit block with several PHIs and multiple predecessors:
+// a real critical edge.  Input selects natural exit so those edge copies run.
+int main() {
+  int count = getint();
+  int stop = getint();
+  int a = getint();
+  int b = getint();
+  int c = getint();
+  int d = getint();
+  int e = getint();
+  int checksum = 0;
+
+  while (count > 0) {
+    if (stop != 0) {
+      int break_a = a;
+      int break_b = b;
+      int break_c = c;
+      a = break_c;
+      b = break_a;
+      c = break_b;
+      d = break_b;
+      e = break_c;
+      checksum = checksum + 999;
+      break;
+    }
+
+    int old_a = a;
+    int old_b = b;
+    int old_c = c;
+    a = old_b;
+    b = old_c;
+    c = old_a;
+    d = old_a;
+    e = old_a;
+    checksum = checksum + a + b + c + d + e;
+    count = count - 1;
+  }
+
+  putint(a);
+  putch(32);
+  putint(b);
+  putch(32);
+  putint(c);
+  putch(32);
+  putint(d);
+  putch(32);
+  putint(e);
+  putch(32);
+  putint(checksum);
+  putch(10);
+  return 0;
+}

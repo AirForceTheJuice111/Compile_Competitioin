@@ -1,0 +1,46 @@
+// Pure copies give move coalescing a two-cycle and a three-cycle at the loop
+// backedge.  An invariant source also fans out to two destinations as a
+// separate acyclic component of the same parallel-copy set.
+int main() {
+  int count = getint();
+  int a = getint();
+  int b = getint();
+  int c = getint();
+  int d = getint();
+  int e = getint();
+  int f = getint();
+  int g = getint();
+  int source = getint();
+
+  while (count > 0) {
+    int old_a = a;
+    int old_b = b;
+    int old_c = c;
+    int old_d = d;
+    int old_e = e;
+    a = old_b;
+    b = old_a;
+    c = old_d;
+    d = old_e;
+    e = old_c;
+    f = source;
+    g = source;
+    count = count - 1;
+  }
+
+  putint(a);
+  putch(32);
+  putint(b);
+  putch(32);
+  putint(c);
+  putch(32);
+  putint(d);
+  putch(32);
+  putint(e);
+  putch(32);
+  putint(f);
+  putch(32);
+  putint(g);
+  putch(10);
+  return 0;
+}

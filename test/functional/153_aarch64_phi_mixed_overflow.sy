@@ -1,0 +1,63 @@
+// Eleven simultaneous loop-header PHIs (five integer values, five float
+// values, and the counter) exceed any four-copy special case.  Across the
+// default, legacy, and off allocators their homes include FPRs, GPRs, and
+// frame-backed spills.
+int main() {
+  int count = getint();
+  int a = getint();
+  int b = getint();
+  int c = getint();
+  int d = getint();
+  int e = getint();
+  float p = getfloat();
+  float q = getfloat();
+  float r = getfloat();
+  float s = getfloat();
+  float t = getfloat();
+
+  while (count > 0) {
+    int old_a = a;
+    int old_b = b;
+    int old_c = c;
+    int old_d = d;
+    int old_e = e;
+    float old_p = p;
+    float old_q = q;
+    float old_r = r;
+    float old_s = s;
+    float old_t = t;
+    a = old_b;
+    b = old_c;
+    c = old_d;
+    d = old_e;
+    e = old_a;
+    p = old_q;
+    q = old_r;
+    r = old_s;
+    s = old_t;
+    t = old_p;
+    count = count - 1;
+  }
+
+  putint(a);
+  putch(32);
+  putint(b);
+  putch(32);
+  putint(c);
+  putch(32);
+  putint(d);
+  putch(32);
+  putint(e);
+  putch(10);
+  putfloat(p);
+  putch(32);
+  putfloat(q);
+  putch(32);
+  putfloat(r);
+  putch(32);
+  putfloat(s);
+  putch(32);
+  putfloat(t);
+  putch(10);
+  return 0;
+}

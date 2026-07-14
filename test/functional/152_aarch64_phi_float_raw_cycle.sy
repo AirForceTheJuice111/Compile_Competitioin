@@ -1,0 +1,29 @@
+// Rotate raw float values without arithmetic.  The observable NaN behavior
+// and the distinct spellings of signed zero catch numeric or sequential PHI
+// copies that fail to preserve the original IEEE-754 bits.
+int main() {
+  int count = getint();
+  float a = getfloat();
+  float b = getfloat();
+  float c = getfloat();
+
+  while (count > 0) {
+    float old_a = a;
+    float old_b = b;
+    float old_c = c;
+    a = old_b;
+    b = old_c;
+    c = old_a;
+    count = count - 1;
+  }
+
+  putfloat(a);
+  putch(10);
+  putfloat(b);
+  putch(10);
+  putfloat(c);
+  putch(10);
+  putint(c != c);
+  putch(10);
+  return 0;
+}
