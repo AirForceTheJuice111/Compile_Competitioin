@@ -34,8 +34,8 @@ struct Options {
 void printUsage(std::ostream &os) {
     os << "Usage: compiler -S -o <output.s> <input.sy> [options]\n"
        << "\n"
-       << "Contest-compatible SysY entry. By default this uses the native\n"
-       << "SysY2022 frontend and the migrated Tree/Quad/SSA/AArch64 backend.\n"
+       << "Contest-compatible SysY entry. By default this uses -O0; performance\n"
+       << "testing passes -O1 to enable the full optimizer and native AArch64 backend.\n"
        << "\n"
        << "Debugging:\n"
        << "  compiler --dump-tokens <input.sy>\n"

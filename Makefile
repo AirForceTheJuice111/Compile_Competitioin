@@ -15,7 +15,7 @@ SYSY_OPT ?=
 OUT_DIR ?= $(CURDIR)/output
 RUN_WORK ?= /tmp/sysy_run_one
 
-.PHONY: build clean rebuild compile run run-one sysy-parse-regression sysy-semantic-regression sysy-functional-regression sysy-performance-regression sysy-parallel-native-regression sysy-parallel-plan-regression sysy-param-metadata-regression
+.PHONY: build clean rebuild compile run run-one sysy-parse-regression sysy-semantic-regression sysy-functional-regression sysy-performance-regression sysy-parallel-native-regression sysy-parallel-plan-regression sysy-param-metadata-regression local-static-regression
 
 RUN_ONE_ARG := $(word 2,$(MAKECMDGOALS))
 
@@ -79,3 +79,7 @@ sysy-parallel-plan-regression: build
 sysy-param-metadata-regression: build
 	@COMPILER="$(COMPILER)" SYSY_TEST_ROOT="$(CURDIR)/test/functional" \
 		bash scripts/sysy_param_type_metadata_regression.sh
+
+local-static-regression: build
+	@COMPILER="$(COMPILER)" TEST_ROOT="$(SYSY_TEST_ROOT)" SYSY_OPT="$(if $(SYSY_OPT),$(SYSY_OPT),-O1)" \
+		bash scripts/local_static_optimization_regression.sh
