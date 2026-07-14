@@ -357,6 +357,31 @@ allocating those slots.  A five-PHI loop is the minimal reproducer.  Huffman's
 repeatable roughly 5% default/legacy regression remains an allocator/codegen
 tuning target.
 
+## Direct allocated-register code generation (`6589a5de`)
+
+The initial allocator still loaded every resident operand into `w9-w11` and
+moved each result back to its home.  This phase made moves, binops, loads,
+stores, pointer calculations, calls, returns, float-bit intrinsics, comparisons,
+and PHI copies consume allocated homes directly; it also added legal MOVE/PHI
+affinity and compacted spill frames.  Clean `6d6b856a` default is the baseline.
+
+| Program | Baseline samples (s) | Direct-home samples (s) | Median speedup |
+|---|---:|---:|---:|
+| `huffman-01` | 39.27, 39.28, 39.28 | 26.90, 27.03, 27.18 | 1.45x |
+| `01_mm1` | 5.26, 5.31, 5.45 | 2.24, 2.15, 2.15 | 2.47x |
+| `matmul1` | 11.51, 11.53, 11.51 | 5.95, 4.61, 5.98 | 1.93x |
+
+Static instruction effects were `huffman-01` 1142 -> 858 with `mov` 420 ->
+148, `01_mm1` 544 -> 311 with `mov` 264 -> 53, and `matmul1` 659 -> 374 with
+`mov` 303 -> 39.  A 16-shard whole-preliminary run reported 106.213 seconds
+wall for the new default versus 240.551 legacy and 166.814 off; all modes were
+60/60 exact.  Those shard walls include scheduling/load effects and are not a
+substitute for summed single-case board time.
+
+The same change fixed the off-mode five-PHI compiler crash, a rematerialized
+constant path that could address `[x29,#-0]`, and float truthiness for `-0.0`
+and NaN.  Default/legacy/off each passed 192 Mac native exact cases.
+
 ## Updating this ledger
 
 For every future performance run, append the date, compiler revision or dirty
