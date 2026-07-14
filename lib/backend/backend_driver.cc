@@ -651,7 +651,9 @@ private:
     std::unordered_map<std::string, std::vector<quad::QuadType>> functionParamTypes_;
     std::map<int, int> slots_;
     std::unordered_map<int, int> residentRegs_;
+    std::unordered_map<int, int> residentFpRegs_;
     std::vector<std::pair<int, int>> calleeSaveSlots_;
+    std::vector<std::pair<int, int>> calleeSaveFloatSlots_;
     std::vector<int> phiScratchSlots_;
     int frameSize_ = 0;
     int edgeLabelId_ = 0;
@@ -759,7 +761,9 @@ private:
 
     void selectLegacyResidentTemps() {
         residentRegs_.clear();
+        residentFpRegs_.clear();
         calleeSaveSlots_.clear();
+        calleeSaveFloatSlots_.clear();
         phiScratchSlots_.clear();
         if (func_ == nullptr || func_->quadblocklist == nullptr) {
             return;
@@ -876,7 +880,9 @@ private:
         }
 
         residentRegs_.clear();
+        residentFpRegs_.clear();
         calleeSaveSlots_.clear();
+        calleeSaveFloatSlots_.clear();
         phiScratchSlots_.clear();
         if (mode == "off" || func_ == nullptr) {
             return;
@@ -889,10 +895,12 @@ private:
         Aarch64RegisterAllocation allocation = allocateAarch64Gprs(
             func_, tempTypes_, rematerializedTemps);
         residentRegs_ = std::move(allocation.tempToRegister);
+        residentFpRegs_ = std::move(allocation.tempToFloatRegister);
     }
 
     void layoutFrameStorage(int tempSlotBytes) {
         calleeSaveSlots_.clear();
+        calleeSaveFloatSlots_.clear();
         phiScratchSlots_.clear();
 
         // x12-x15 remain dedicated PHI snapshot registers.  Overflow inputs
@@ -941,9 +949,29 @@ private:
                  tempSlotBytes + phiScratchBytes +
                      static_cast<int>(index + 1) * 8});
         }
+        std::vector<int> usedCalleeSavedFloatRegisters;
+        for (const auto &home : residentFpRegs_) {
+            if (home.second >= 8 && home.second <= 15) {
+                usedCalleeSavedFloatRegisters.push_back(home.second);
+            }
+        }
+        std::sort(usedCalleeSavedFloatRegisters.begin(),
+                  usedCalleeSavedFloatRegisters.end());
+        usedCalleeSavedFloatRegisters.erase(
+            std::unique(usedCalleeSavedFloatRegisters.begin(),
+                        usedCalleeSavedFloatRegisters.end()),
+            usedCalleeSavedFloatRegisters.end());
+        for (std::size_t index = 0;
+             index < usedCalleeSavedFloatRegisters.size(); ++index) {
+            calleeSaveFloatSlots_.push_back(
+                {usedCalleeSavedFloatRegisters[index],
+                 tempSlotBytes + phiScratchBytes +
+                     static_cast<int>(calleeSaveSlots_.size() + index + 1) * 8});
+        }
         frameSize_ = alignUpInt(
             tempSlotBytes + phiScratchBytes +
-                static_cast<int>(calleeSaveSlots_.size()) * 8,
+                static_cast<int>(calleeSaveSlots_.size() +
+                                 calleeSaveFloatSlots_.size()) * 8,
             16);
     }
 
@@ -959,9 +987,18 @@ private:
         std::unordered_map<int, std::int32_t> constantCandidates;
         std::vector<quad::QuadStm *> allStatements;
         if (func_->params != nullptr) {
-            for (auto *param : *func_->params) {
-                if (param != nullptr && tempTypes_.find(param->num) == tempTypes_.end()) {
-                    tempTypes_[param->num] = quad::QuadType::INT;
+            bool hasParameterTypes = func_->param_types != nullptr &&
+                                     func_->param_types->size() ==
+                                         func_->params->size();
+            for (std::size_t index = 0; index < func_->params->size(); ++index) {
+                auto *param = func_->params->at(index);
+                if (param != nullptr &&
+                    tempTypes_.find(param->num) == tempTypes_.end()) {
+                    // Legacy/test-built Quad IR may omit the parallel type
+                    // vector; later typed uses still refine this INT fallback.
+                    tempTypes_[param->num] = hasParameterTypes
+                        ? func_->param_types->at(index)
+                        : quad::QuadType::INT;
                 }
                 if (param != nullptr) ++tempDefinitionCounts[param->num];
             }
@@ -1147,6 +1184,7 @@ private:
         spillTemps.reserve(tempTypes_.size());
         for (const auto &entry : tempTypes_) {
             if (residentRegs_.count(entry.first) != 0 ||
+                residentFpRegs_.count(entry.first) != 0 ||
                 constantTemps_.count(entry.first) != 0) {
                 continue;
             }
@@ -1173,7 +1211,9 @@ private:
         auto savedUseCounts = tempUseStatementCounts_;
         auto savedSlots = slots_;
         auto savedResidentRegs = residentRegs_;
+        auto savedResidentFpRegs = residentFpRegs_;
         auto savedCalleeSaveSlots = calleeSaveSlots_;
+        auto savedCalleeSaveFloatSlots = calleeSaveFloatSlots_;
         auto savedPhiScratchSlots = phiScratchSlots_;
         int savedFrameSize = frameSize_;
 
@@ -1200,7 +1240,9 @@ private:
         tempUseStatementCounts_ = std::move(savedUseCounts);
         slots_ = std::move(savedSlots);
         residentRegs_ = std::move(savedResidentRegs);
+        residentFpRegs_ = std::move(savedResidentFpRegs);
         calleeSaveSlots_ = std::move(savedCalleeSaveSlots);
+        calleeSaveFloatSlots_ = std::move(savedCalleeSaveFloatSlots);
         phiScratchSlots_ = std::move(savedPhiScratchSlots);
         frameSize_ = savedFrameSize;
     }
@@ -1512,6 +1554,12 @@ private:
     std::string residentTempRegister(tree::Temp *temp,
                                      quad::QuadType type) const {
         if (temp == nullptr) return {};
+        if (type == quad::QuadType::FLOAT) {
+            auto residentFloat = residentFpRegs_.find(temp->num);
+            if (residentFloat != residentFpRegs_.end()) {
+                return "s" + std::to_string(residentFloat->second);
+            }
+        }
         auto resident = residentRegs_.find(temp->num);
         if (resident == residentRegs_.end()) return {};
         return physicalRegister(resident->second, type);
@@ -1527,7 +1575,16 @@ private:
     std::string termRegister(quad::QuadTerm *term, quad::QuadType type,
                              const std::string &scratch) {
         std::string resident = residentTermRegister(term, type);
-        if (!resident.empty()) return resident;
+        if (!resident.empty()) {
+            // Legacy mode may keep float raw bits in a GPR.  Native FP
+            // selectors explicitly request an s-register scratch; bridge the
+            // legacy home here instead of handing an invalid w-register to an
+            // FP arithmetic instruction.
+            bool wantsFloatRegister = type == quad::QuadType::FLOAT &&
+                                      !scratch.empty() && scratch.front() == 's';
+            bool hasFloatRegister = !resident.empty() && resident.front() == 's';
+            if (!wantsFloatRegister || hasFloatRegister) return resident;
+        }
         loadTerm(term, type, scratch);
         return scratch;
     }
@@ -1535,11 +1592,24 @@ private:
     std::string resultRegister(tree::Temp *temp, quad::QuadType type,
                                const std::string &scratch) const {
         std::string resident = residentTempRegister(temp, type);
+        if (type == quad::QuadType::FLOAT && !scratch.empty() &&
+            scratch.front() == 's' && !resident.empty() &&
+            resident.front() != 's') {
+            return scratch;
+        }
         return resident.empty() ? scratch : resident;
     }
 
     bool sameResidentHome(tree::Temp *left, tree::Temp *right) const {
         if (left == nullptr || right == nullptr) return false;
+        auto leftFloatHome = residentFpRegs_.find(left->num);
+        auto rightFloatHome = residentFpRegs_.find(right->num);
+        if (leftFloatHome != residentFpRegs_.end() ||
+            rightFloatHome != residentFpRegs_.end()) {
+            return leftFloatHome != residentFpRegs_.end() &&
+                   rightFloatHome != residentFpRegs_.end() &&
+                   leftFloatHome->second == rightFloatHome->second;
+        }
         auto leftHome = residentRegs_.find(left->num);
         auto rightHome = residentRegs_.find(right->num);
         return leftHome != residentRegs_.end() &&
@@ -1550,7 +1620,13 @@ private:
     void loadTemp(tree::Temp *temp, quad::QuadType type, const std::string &reg) {
         std::string source = residentTempRegister(temp, type);
         if (!source.empty()) {
-            if (source != reg) out_ << "\tmov " << reg << ", " << source << "\n";
+            if (source != reg) {
+                bool fpMove = type == quad::QuadType::FLOAT &&
+                              ((!source.empty() && source.front() == 's') ||
+                               (!reg.empty() && reg.front() == 's'));
+                out_ << "\t" << (fpMove ? "fmov " : "mov ") << reg << ", "
+                     << source << "\n";
+            }
             return;
         }
         int distance = -slots_[temp->num];
@@ -1565,7 +1641,13 @@ private:
     void storeTemp(tree::Temp *temp, quad::QuadType type, const std::string &reg) {
         std::string destination = residentTempRegister(temp, type);
         if (!destination.empty()) {
-            if (destination != reg) out_ << "\tmov " << destination << ", " << reg << "\n";
+            if (destination != reg) {
+                bool fpMove = type == quad::QuadType::FLOAT &&
+                              ((!destination.empty() && destination.front() == 's') ||
+                               (!reg.empty() && reg.front() == 's'));
+                out_ << "\t" << (fpMove ? "fmov " : "mov ") << destination
+                     << ", " << reg << "\n";
+            }
             return;
         }
         int distance = -slots_[temp->num];
@@ -1598,9 +1680,53 @@ private:
             }
             ++i;
         }
+        for (std::size_t i = 0; i < calleeSaveFloatSlots_.size();) {
+            if (i + 1 < calleeSaveFloatSlots_.size() &&
+                calleeSaveFloatSlots_[i + 1].second ==
+                    calleeSaveFloatSlots_[i].second + 8 &&
+                calleeSaveFloatSlots_[i + 1].second <= 512) {
+                out_ << "\tstp d" << calleeSaveFloatSlots_[i + 1].first
+                     << ", d" << calleeSaveFloatSlots_[i].first
+                     << ", [x29, #-" << calleeSaveFloatSlots_[i + 1].second
+                     << "]\n";
+                i += 2;
+                continue;
+            }
+            int reg = calleeSaveFloatSlots_[i].first;
+            int distance = calleeSaveFloatSlots_[i].second;
+            if (distance <= 256) {
+                out_ << "\tstur d" << reg << ", [x29, #-" << distance << "]\n";
+            } else {
+                emitAddSubImm64("sub", "x16", "x29", distance);
+                out_ << "\tstr d" << reg << ", [x16]\n";
+            }
+            ++i;
+        }
     }
 
     void restoreResidentRegisters() {
+        for (std::size_t end = calleeSaveFloatSlots_.size(); end > 0;) {
+            if (end >= 2 &&
+                calleeSaveFloatSlots_[end - 1].second ==
+                    calleeSaveFloatSlots_[end - 2].second + 8 &&
+                calleeSaveFloatSlots_[end - 1].second <= 512) {
+                out_ << "\tldp d" << calleeSaveFloatSlots_[end - 1].first
+                     << ", d" << calleeSaveFloatSlots_[end - 2].first
+                     << ", [x29, #-"
+                     << calleeSaveFloatSlots_[end - 1].second << "]\n";
+                end -= 2;
+                continue;
+            }
+            int reg = calleeSaveFloatSlots_[end - 1].first;
+            int distance = calleeSaveFloatSlots_[end - 1].second;
+            if (distance <= 256) {
+                out_ << "\tldur d" << reg << ", [x29, #-" << distance << "]\n";
+            } else {
+                emitAddSubImm64("sub", "x16", "x29", distance);
+                out_ << "\tldr d" << reg << ", [x16]\n";
+            }
+            --end;
+        }
         for (std::size_t end = calleeSaveSlots_.size(); end > 0;) {
             if (end >= 2 &&
                 calleeSaveSlots_[end - 1].second == calleeSaveSlots_[end - 2].second + 8 &&
@@ -1650,6 +1776,9 @@ private:
         if (term == nullptr) {
             if (type == quad::QuadType::PTR) {
                 out_ << "\tmov " << reg << ", xzr\n";
+            } else if (type == quad::QuadType::FLOAT && !reg.empty() &&
+                       reg.front() == 's') {
+                out_ << "\tfmov " << reg << ", wzr\n";
             } else {
                 out_ << "\tmov " << reg << ", wzr\n";
             }
@@ -1658,6 +1787,10 @@ private:
         if (term->kind == quad::QuadTermKind::CONST) {
             if (type == quad::QuadType::PTR) {
                 loadImm64(reg, static_cast<std::uint64_t>(static_cast<std::uint32_t>(term->get_const())));
+            } else if (type == quad::QuadType::FLOAT && !reg.empty() &&
+                       reg.front() == 's') {
+                loadImm32("w11", static_cast<std::uint32_t>(term->get_const()));
+                out_ << "\tfmov " << reg << ", w11\n";
             } else {
                 loadImm32(reg, static_cast<std::uint32_t>(term->get_const()));
             }
@@ -2038,17 +2171,15 @@ private:
         std::string leftRegister;
         std::string rightRegister;
         if (floatCompare) {
-            std::string rawLeft = termRegister(cjump->left,
-                                               quad::QuadType::FLOAT, "w9");
-            emitLine("fmov s30, " + rawLeft);
+            leftRegister = termRegister(cjump->left,
+                                        quad::QuadType::FLOAT, "s30");
             if (rightIsZero) {
-                emitLine("fcmp s30, #0.0");
+                emitLine("fcmp " + leftRegister + ", #0.0");
             } else {
-                std::string rawRight = termRegister(cjump->right,
-                                                    quad::QuadType::FLOAT,
-                                                    "w10");
-                emitLine("fmov s31, " + rawRight);
-                emitLine("fcmp s30, s31");
+                rightRegister = termRegister(cjump->right,
+                                             quad::QuadType::FLOAT,
+                                             "s31");
+                emitLine("fcmp " + leftRegister + ", " + rightRegister);
             }
         } else if (pointerCompare) {
             if (leftType == quad::QuadType::PTR) {
@@ -2127,8 +2258,8 @@ private:
             quad::QuadType type = func_ == nullptr ? termType(ret->exp)
                                                    : func_->return_type;
             if (type == quad::QuadType::FLOAT) {
-                std::string value = termRegister(ret->exp, type, "w9");
-                emitLine("fmov s0, " + value);
+                std::string value = termRegister(ret->exp, type, "s30");
+                if (value != "s0") emitLine("fmov s0, " + value);
             } else if (type == quad::QuadType::PTR) {
                 loadTerm(ret->exp, type, "x0");
             } else {
@@ -2287,8 +2418,11 @@ private:
 
     void moveArgToRegister(quad::QuadTerm *arg, quad::QuadType type, int index) {
         if (type == quad::QuadType::FLOAT) {
-            std::string value = termRegister(arg, type, "w9");
-            emitLine("fmov s" + std::to_string(index) + ", " + value);
+            std::string destination = "s" + std::to_string(index);
+            std::string value = termRegister(arg, type, "s30");
+            if (destination != value) {
+                emitLine("fmov " + destination + ", " + value);
+            }
         } else if (type == quad::QuadType::PTR) {
             loadTerm(arg, type, "x" + std::to_string(index));
         } else {
@@ -2299,14 +2433,16 @@ private:
     void storeStackArg(int offset, const StackArg &arg) {
         if (arg.variadicDouble) {
             std::string value = termRegister(arg.term, quad::QuadType::FLOAT,
-                                             "w9");
-            emitLine("fmov s31, " + value);
-            emitLine("fcvt d31, s31");
+                                             "s30");
+            emitLine("fcvt d31, " + value);
             emitLine("str d31, [sp, #" + std::to_string(offset) + "]");
             return;
         }
         if (arg.type == quad::QuadType::PTR) {
             std::string value = termRegister(arg.term, arg.type, "x9");
+            emitLine("str " + value + ", [sp, #" + std::to_string(offset) + "]");
+        } else if (arg.type == quad::QuadType::FLOAT) {
+            std::string value = termRegister(arg.term, arg.type, "s30");
             emitLine("str " + value + ", [sp, #" + std::to_string(offset) + "]");
         } else {
             std::string value = termRegister(arg.term, arg.type, "w9");
@@ -2386,8 +2522,10 @@ private:
         if (dst != nullptr && dst->temp != nullptr) {
             if (dstType == quad::QuadType::FLOAT) {
                 std::string destination = resultRegister(dst->temp, dstType,
-                                                         "w9");
-                emitLine("fmov " + destination + ", s0");
+                                                         "s30");
+                if (destination != "s0") {
+                    emitLine("fmov " + destination + ", s0");
+                }
                 storeTemp(dst->temp, dstType, destination);
             } else if (dstType == quad::QuadType::PTR) {
                 storeTemp(dst->temp, dstType, "x0");
@@ -2402,47 +2540,44 @@ private:
         auto argAt = [&](std::size_t i) -> quad::QuadTerm * {
             return args != nullptr && i < args->size() ? args->at(i) : nullptr;
         };
-        std::string destination =
-            dst != nullptr && dst->temp != nullptr
-                ? resultRegister(dst->temp, dst->type, "w10")
-                : "w10";
+        bool hasDestination = dst != nullptr && dst->temp != nullptr;
+        bool floatResult = name == "__sysy_i2f_bits" ||
+                           name == "__sysy_fneg_bits" ||
+                           name == "__sysy_fadd_bits" ||
+                           name == "__sysy_fsub_bits" ||
+                           name == "__sysy_fmul_bits" ||
+                           name == "__sysy_fdiv_bits";
+        std::string destination = hasDestination
+            ? resultRegister(dst->temp, dst->type,
+                             floatResult ? "s30" : "w10")
+            : (floatResult ? "s30" : "w10");
         if (name == "__sysy_i2f_bits") {
             std::string value = termRegister(argAt(0), quad::QuadType::INT,
                                              "w9");
-            emitLine("scvtf s0, " + value);
-            emitLine("fmov " + destination + ", s0");
+            emitLine("scvtf " + destination + ", " + value);
         } else if (name == "__sysy_f2i_bits") {
             std::string value = termRegister(argAt(0), quad::QuadType::FLOAT,
-                                             "w9");
-            emitLine("fmov s0, " + value);
-            emitLine("fcvtzs " + destination + ", s0");
+                                             "s30");
+            emitLine("fcvtzs " + destination + ", " + value);
         } else if (name == "__sysy_fneg_bits") {
             std::string value = termRegister(argAt(0), quad::QuadType::FLOAT,
-                                             "w9");
-            emitLine("fmov s0, " + value);
-            emitLine("fneg s0, s0");
-            emitLine("fmov " + destination + ", s0");
+                                             "s31");
+            emitLine("fneg " + destination + ", " + value);
         } else {
             std::string left = termRegister(argAt(0), quad::QuadType::FLOAT,
-                                            "w9");
+                                            "s30");
             std::string right = termRegister(argAt(1), quad::QuadType::FLOAT,
-                                             "w10");
-            emitLine("fmov s0, " + left);
-            emitLine("fmov s1, " + right);
+                                             "s31");
             if (name == "__sysy_fadd_bits") {
-                emitLine("fadd s0, s0, s1");
-                emitLine("fmov " + destination + ", s0");
+                emitLine("fadd " + destination + ", " + left + ", " + right);
             } else if (name == "__sysy_fsub_bits") {
-                emitLine("fsub s0, s0, s1");
-                emitLine("fmov " + destination + ", s0");
+                emitLine("fsub " + destination + ", " + left + ", " + right);
             } else if (name == "__sysy_fmul_bits") {
-                emitLine("fmul s0, s0, s1");
-                emitLine("fmov " + destination + ", s0");
+                emitLine("fmul " + destination + ", " + left + ", " + right);
             } else if (name == "__sysy_fdiv_bits") {
-                emitLine("fdiv s0, s0, s1");
-                emitLine("fmov " + destination + ", s0");
+                emitLine("fdiv " + destination + ", " + left + ", " + right);
             } else {
-                emitLine("fcmp s0, s1");
+                emitLine("fcmp " + left + ", " + right);
                 if (name == "__sysy_fcmpeq_bits") {
                     emitLine("cset " + destination + ", eq");
                 } else if (name == "__sysy_fcmpne_bits") {
@@ -2460,7 +2595,7 @@ private:
                 }
             }
         }
-        if (dst != nullptr && dst->temp != nullptr) {
+        if (hasDestination) {
             storeTemp(dst->temp, dst->type, destination);
         }
     }
@@ -2481,9 +2616,8 @@ private:
             if (specs[i] == 'f') {
                 if (fp < 8) {
                     std::string value = termRegister(arg, quad::QuadType::FLOAT,
-                                                     "w9");
-                    emitLine("fmov s" + std::to_string(fp) + ", " + value);
-                    emitLine("fcvt d" + std::to_string(fp) + ", s" + std::to_string(fp));
+                                                     "s30");
+                    emitLine("fcvt d" + std::to_string(fp) + ", " + value);
                     ++fp;
                 } else {
                     stackArgs.push_back(StackArg{arg, quad::QuadType::FLOAT, true});

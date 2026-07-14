@@ -1,9 +1,9 @@
 #include "aarch64_regalloc.hh"
 
 #include <algorithm>
-#include <array>
 #include <limits>
 #include <set>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -32,6 +32,7 @@ struct BlockInfo {
 
 struct Interval {
     int temp = -1;
+    quad::QuadType type = quad::QuadType::INT;
     int start = std::numeric_limits<int>::max();
     int end = std::numeric_limits<int>::min();
     long long weightedAccesses = 0;
@@ -190,12 +191,28 @@ TempSet statementUses(quad::QuadStm *statement) {
 
 bool isCall(quad::QuadStm *statement) {
     if (statement == nullptr) return false;
+    auto isInlinedFloatHelper = [](const std::string &name) {
+        return name == "__sysy_i2f_bits" || name == "__sysy_f2i_bits" ||
+               name == "__sysy_fadd_bits" || name == "__sysy_fsub_bits" ||
+               name == "__sysy_fmul_bits" || name == "__sysy_fdiv_bits" ||
+               name == "__sysy_fneg_bits" || name == "__sysy_fcmpeq_bits" ||
+               name == "__sysy_fcmpne_bits" || name == "__sysy_fcmplt_bits" ||
+               name == "__sysy_fcmple_bits" || name == "__sysy_fcmpgt_bits" ||
+               name == "__sysy_fcmpge_bits";
+    };
     switch (statement->kind) {
     case quad::QuadKind::CALL:
     case quad::QuadKind::MOVE_CALL:
-    case quad::QuadKind::EXTCALL:
-    case quad::QuadKind::MOVE_EXTCALL:
         return true;
+    case quad::QuadKind::EXTCALL: {
+        auto *call = static_cast<quad::QuadExtCall *>(statement);
+        return call == nullptr || !isInlinedFloatHelper(call->extfun);
+    }
+    case quad::QuadKind::MOVE_EXTCALL: {
+        auto *move = static_cast<quad::QuadMoveExtCall *>(statement);
+        return move == nullptr || move->extcall == nullptr ||
+               !isInlinedFloatHelper(move->extcall->extfun);
+    }
     default:
         return false;
     }
@@ -413,6 +430,7 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
     for (const auto &entry : tempTypes) {
         if (rematerializedTemps.count(entry.first) != 0) continue;
         byTemp[entry.first].temp = entry.first;
+        byTemp[entry.first].type = entry.second;
     }
     auto intervalFor = [&](int temp) -> Interval * {
         if (rematerializedTemps.count(temp) != 0) return nullptr;
@@ -550,94 +568,111 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
     });
     result.intervalCount = intervals.size();
 
-    static constexpr int kCallerSavedRegister = 8;
-    static constexpr std::array<int, 10> kCalleeSavedRegisters = {
-        19, 20, 21, 22, 23, 24, 25, 26, 27, 28};
     struct Active {
         std::size_t interval = 0;
         int reg = -1;
     };
-    std::vector<Active> active;
+    auto allocateBank = [&](const std::vector<std::size_t> &bank,
+                            const std::vector<int> &callerSaved,
+                            const std::vector<int> &calleeSaved,
+                            std::unordered_map<int, int> &homes) {
+        std::vector<Active> active;
+        std::unordered_set<int> callerSavedSet(callerSaved.begin(),
+                                               callerSaved.end());
+        for (std::size_t currentIndex : bank) {
+            const Interval &current = intervals[currentIndex];
+            active.erase(std::remove_if(active.begin(), active.end(),
+                                        [&](const Active &entry) {
+                                            return intervals[entry.interval].end <
+                                                   current.start;
+                                        }),
+                         active.end());
 
-    for (std::size_t currentIndex = 0; currentIndex < intervals.size();
-         ++currentIndex) {
-        const Interval &current = intervals[currentIndex];
-        active.erase(std::remove_if(active.begin(), active.end(),
-                                    [&](const Active &entry) {
-                                        return intervals[entry.interval].end <
-                                               current.start;
-                                    }),
-                     active.end());
-
-        std::unordered_set<int> occupied;
-        for (const Active &entry : active) occupied.insert(entry.reg);
-        int selected = -1;
-        auto preferred = affinities.find(current.temp);
-        if (preferred != affinities.end()) {
-            for (int source : preferred->second) {
-                auto sourceHome = result.tempToRegister.find(source);
-                if (sourceHome == result.tempToRegister.end() ||
-                    occupied.count(sourceHome->second) != 0 ||
-                    (current.liveAcrossCall &&
-                     sourceHome->second == kCallerSavedRegister)) {
-                    continue;
-                }
-                selected = sourceHome->second;
-                break;
-            }
-        }
-        if (!current.liveAcrossCall &&
-            selected < 0 &&
-            occupied.count(kCallerSavedRegister) == 0) {
-            selected = kCallerSavedRegister;
-        }
-        if (selected < 0) {
-            for (int reg : kCalleeSavedRegisters) {
-                if (occupied.count(reg) == 0) {
-                    selected = reg;
+            std::unordered_set<int> occupied;
+            for (const Active &entry : active) occupied.insert(entry.reg);
+            int selected = -1;
+            auto preferred = affinities.find(current.temp);
+            if (preferred != affinities.end()) {
+                for (int source : preferred->second) {
+                    auto sourceHome = homes.find(source);
+                    if (sourceHome == homes.end() ||
+                        occupied.count(sourceHome->second) != 0 ||
+                        (current.liveAcrossCall &&
+                         callerSavedSet.count(sourceHome->second) != 0)) {
+                        continue;
+                    }
+                    selected = sourceHome->second;
                     break;
                 }
             }
-        }
-
-        if (selected < 0) {
-            // Whole-interval spilling keeps the emitter integration simple:
-            // an evicted temp falls back to its frame slot for all accesses.
-            // Prefer evicting the least profitable active interval that owns a
-            // register legal for the current call-crossing class.
-            auto victim = active.end();
-            for (auto iterator = active.begin(); iterator != active.end();
-                 ++iterator) {
-                if (current.liveAcrossCall &&
-                    iterator->reg == kCallerSavedRegister) {
-                    continue;
-                }
-                if (victim == active.end() ||
-                    intervals[iterator->interval].priority() <
-                        intervals[victim->interval].priority() ||
-                    (intervals[iterator->interval].priority() ==
-                         intervals[victim->interval].priority() &&
-                     intervals[iterator->interval].end >
-                         intervals[victim->interval].end)) {
-                    victim = iterator;
+            if (!current.liveAcrossCall && selected < 0) {
+                for (int reg : callerSaved) {
+                    if (occupied.count(reg) == 0) {
+                        selected = reg;
+                        break;
+                    }
                 }
             }
-            if (victim != active.end() &&
-                intervals[victim->interval].priority() < current.priority()) {
-                selected = victim->reg;
-                result.tempToRegister.erase(
-                    intervals[victim->interval].temp);
-                active.erase(victim);
+            if (selected < 0) {
+                for (int reg : calleeSaved) {
+                    if (occupied.count(reg) == 0) {
+                        selected = reg;
+                        break;
+                    }
+                }
             }
-        }
 
-        if (selected < 0) {
-            ++result.spilledIntervalCount;
-            continue;
+            if (selected < 0) {
+                // Whole-interval spilling keeps the emitter integration
+                // simple. Prefer evicting the least profitable active range
+                // that owns a register legal for this call-crossing class.
+                auto victim = active.end();
+                for (auto iterator = active.begin(); iterator != active.end();
+                     ++iterator) {
+                    if (current.liveAcrossCall &&
+                        callerSavedSet.count(iterator->reg) != 0) {
+                        continue;
+                    }
+                    if (victim == active.end() ||
+                        intervals[iterator->interval].priority() <
+                            intervals[victim->interval].priority() ||
+                        (intervals[iterator->interval].priority() ==
+                             intervals[victim->interval].priority() &&
+                         intervals[iterator->interval].end >
+                             intervals[victim->interval].end)) {
+                        victim = iterator;
+                    }
+                }
+                if (victim != active.end() &&
+                    intervals[victim->interval].priority() < current.priority()) {
+                    selected = victim->reg;
+                    homes.erase(intervals[victim->interval].temp);
+                    active.erase(victim);
+                }
+            }
+
+            if (selected < 0) continue;
+            homes[current.temp] = selected;
+            active.push_back(Active{currentIndex, selected});
         }
-        result.tempToRegister[current.temp] = selected;
-        active.push_back(Active{currentIndex, selected});
+    };
+
+    std::vector<std::size_t> gprIntervals;
+    std::vector<std::size_t> floatIntervals;
+    for (std::size_t index = 0; index < intervals.size(); ++index) {
+        if (intervals[index].type == quad::QuadType::FLOAT) {
+            floatIntervals.push_back(index);
+        } else {
+            gprIntervals.push_back(index);
+        }
     }
+    allocateBank(gprIntervals, {8},
+                 {19, 20, 21, 22, 23, 24, 25, 26, 27, 28},
+                 result.tempToRegister);
+    allocateBank(floatIntervals,
+                 {16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29},
+                 {8, 9, 10, 11, 12, 13, 14, 15},
+                 result.tempToFloatRegister);
 
     std::set<int> usedCalleeSaved;
     for (const auto &entry : result.tempToRegister) {
@@ -647,10 +682,19 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
     }
     result.usedCalleeSavedRegisters.assign(usedCalleeSaved.begin(),
                                            usedCalleeSaved.end());
+    std::set<int> usedCalleeSavedFloat;
+    for (const auto &entry : result.tempToFloatRegister) {
+        if (entry.second >= 8 && entry.second <= 15) {
+            usedCalleeSavedFloat.insert(entry.second);
+        }
+    }
+    result.usedCalleeSavedFloatRegisters.assign(usedCalleeSavedFloat.begin(),
+                                                usedCalleeSavedFloat.end());
     // Evicted intervals are also spills even though they were tentatively
     // assigned earlier in the scan.
     result.spilledIntervalCount = result.intervalCount -
-                                  result.tempToRegister.size();
+                                  result.tempToRegister.size() -
+                                  result.tempToFloatRegister.size();
     return result;
 }
 
