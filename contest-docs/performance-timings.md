@@ -324,6 +324,39 @@ passed all 60 local expected outputs in 86.406 seconds wall time (647.200 user
 seconds and 15.370 system seconds).  This does not override the development
 board WA/TLE evidence; the Mac VM has substantially more memory.
 
+## SSA-aware GPR allocation (`6d6b856a`)
+
+This clean-revision comparison used the Mac ARM64 VM, `taskset -c 0,1`, three
+alternating rounds, a 300-second per-run timeout, and exact normalized output.
+`default` is the SSA-aware live-interval allocator; `legacy` gives ten hot
+temps function-long `x19`-`x28` homes; `off` is stack code.  Values are medians.
+
+| Program | Default (s) | Legacy (s) | Off (s) | Default / legacy speedup |
+|---|---:|---:|---:|---:|
+| `matmul1` | 11.92 | 16.29 | 18.02 | 1.37x |
+| `01_mm1` | 5.27 | 8.44 | 9.52 | 1.60x |
+| `h-1-03` | 25.16 | 30.88 | 30.11 | 1.23x |
+| `h-4-03` | 7.82 | 7.80 | 12.22 | neutral |
+| `h-5-01` | 3.69 | 5.43 | 5.55 | 1.47x |
+| `h-8-01` | 2.15 | 3.03 | 3.76 | 1.41x |
+| `fft1` | 8.05 | 10.45 | 10.42 | 1.30x |
+| `many_mat_cal-1` | 47.62 | 70.13 | 82.13 | 1.47x |
+| `huffman-01` | 39.68 | 37.83 | compiler crash | 0.95x |
+| `knapsack_naive-1` | 0.21 | 0.31 | 0.32 | 1.48x |
+
+Across all ten default/legacy cases, summed time improves 190.59 -> 151.57
+seconds (1.257x) and geometric-mean speedup is 1.311x.  Across the nine cases
+where stack-code `off` compiled, summed time improves 172.05 -> 111.89 seconds
+(1.538x), with 1.529x geometric mean.  Static all-60 analysis found temporary
+stack accesses down 85.0% and total assembly instructions down 13.9%.
+
+The `off` huffman failure is a compiler bug rather than a program result:
+functions with more than four PHI copies need frame scratch slots after the
+four dedicated snapshot registers, but the off-mode setup returned before
+allocating those slots.  A five-PHI loop is the minimal reproducer.  Huffman's
+repeatable roughly 5% default/legacy regression remains an allocator/codegen
+tuning target.
+
 ## Updating this ledger
 
 For every future performance run, append the date, compiler revision or dirty
