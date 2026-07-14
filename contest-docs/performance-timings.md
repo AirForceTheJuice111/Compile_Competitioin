@@ -382,6 +382,46 @@ The same change fixed the off-mode five-PHI compiler crash, a rematerialized
 constant path that could address `[x29,#-0]`, and float truthiness for `-0.0`
 and NaN.  Default/legacy/off each passed 192 Mac native exact cases.
 
+## Native floating-point register allocation (`89b08220`)
+
+This milestone added a separate single-precision FPR allocation bank and made
+the emitter operate directly on allocated `s` registers.  Non-call-crossing
+values use `s16-s29`; values crossing real calls use `s8-s15`, with only the
+used `d8-d15` registers saved.  Inlined float helpers no longer create false
+call barriers.  Commit `a5960487` also preserved declared parameter types
+through Tree, Quad, SSA, cloning, inlining, and specialization, which fixes ABI
+placement for unused float parameters.  Clean `4671001e` is the baseline.
+
+Static AArch64 effects were:
+
+| Program | Baseline instructions | FPR instructions | Reduction | Baseline `fmov` | FPR `fmov` | Reduction |
+|---|---:|---:|---:|---:|---:|---:|
+| `h-10-01` | 356 | 325 | 8.7% | 20 | 10 | 50.0% |
+| `35_math` | 990 | 710 | 28.3% | 387 | 185 | 52.2% |
+| `37_dct` | 969 | 754 | 22.2% | 228 | 71 | 68.9% |
+| `38_light2d` | 785 | 610 | 22.3% | 239 | 116 | 51.5% |
+
+The preliminary `h-10-*` binaries were then measured in the Mac ARM64 VM,
+pinned to cores 0 and 1.  Each reported sample is ten program executions; five
+ABBA rounds produced ten samples per variant after warmup.  Times below are
+sample means, so startup overhead is present equally on both sides.
+
+| Program | `4671001e` mean (s / 10 runs) | `89b08220` mean (s / 10 runs) | Speedup |
+|---|---:|---:|---:|
+| `h-10-01` | 0.0493 | 0.0427 | 1.155x |
+| `h-10-02` | 0.1109 | 0.0934 | 1.187x |
+| `h-10-03` | 0.1999 | 0.1677 | 1.192x |
+| summed | 0.3601 | 0.3038 | 1.185x |
+
+An adjacent whole-preliminary 16-shard run was 53.101 seconds for the FPR
+candidate and 80.274 seconds for the baseline, with 60/60 exact in both runs.
+All integer shards also changed by a similar ratio, however, so this wall-time
+difference is recorded as host-frequency/load variation and is **not** claimed
+as an FPR speedup.  Independent local validation passed the complete 317-case
+tree exactly; focused functional default/legacy/off runs passed 151/151 in each
+mode, including NaN, signed-zero, PHI-cycle, call-pressure, mixed-ABI, and
+variadic-float stress cases.
+
 ## Updating this ledger
 
 For every future performance run, append the date, compiler revision or dirty
