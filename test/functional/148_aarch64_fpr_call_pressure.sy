@@ -1,0 +1,53 @@
+// Keep twelve independent floats live across a recursive call.  The callee
+// performs real FP work, so caller-saved s0-s7 cannot accidentally retain the
+// caller's values; d8-d15 and spill slots must obey AAPCS64.
+float disturb(int depth, float seed) {
+  if (depth <= 0) {
+    return seed + 0.125;
+  }
+  return disturb(depth - 1, seed + 0.5) * 1.25 - 0.25;
+}
+
+int main() {
+  float a = getfloat();
+  float b = getfloat();
+  float c = getfloat();
+  float d = getfloat();
+  float e = getfloat();
+  float f = getfloat();
+  float g = getfloat();
+  float h = getfloat();
+  float i = getfloat();
+  float j = getfloat();
+  float k = getfloat();
+  float l = getfloat();
+  float noise = disturb(3, 0.5);
+
+  putint(a);
+  putch(32);
+  putint(b);
+  putch(32);
+  putint(c);
+  putch(32);
+  putint(d);
+  putch(32);
+  putint(e);
+  putch(32);
+  putint(f);
+  putch(32);
+  putint(g);
+  putch(32);
+  putint(h);
+  putch(32);
+  putint(i);
+  putch(32);
+  putint(j);
+  putch(32);
+  putint(k);
+  putch(32);
+  putint(l);
+  putch(10);
+  putint(noise * 1024.0);
+  putch(10);
+  return 0;
+}

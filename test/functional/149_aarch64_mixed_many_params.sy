@@ -1,0 +1,37 @@
+// GP and FP argument registers have independent indices.  More than eight of
+// each class also tests the shared stack argument area.  Unused float
+// parameters must still consume their ABI positions and retain their type.
+int mixed_many_params(
+    int i0, float f0, float unused_f1,
+    int i1, float f2,
+    int i2, float f3,
+    int i3, float f4,
+    int i4, float f5,
+    int i5, float unused_f6,
+    int i6, float f7,
+    int i7, float f8,
+    int i8, float f9,
+    int i9, float unused_f10, float f11) {
+  int integer_sum = i0 + i1 + i2 + i3 + i4 +
+                    i5 + i6 + i7 + i8 + i9;
+  float float_sum = f0 + f2 + f3 + f4 + f5 +
+                    f7 + f8 + f9 + f11;
+  return integer_sum + float_sum;
+}
+
+int main() {
+  int result = mixed_many_params(
+      1, 11.0, 12.0,
+      2, 13.0,
+      3, 14.0,
+      4, 15.0,
+      5, 16.0,
+      6, 17.0,
+      7, 18.0,
+      8, 19.0,
+      9, 20.0,
+      10, 21.0, 22.0);
+  putint(result);
+  putch(10);
+  return 0;
+}

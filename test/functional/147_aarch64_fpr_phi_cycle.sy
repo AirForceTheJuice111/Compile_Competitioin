@@ -1,0 +1,52 @@
+// Eight loop-carried floats force an FP parallel-copy set larger than the
+// four ordinary PHI scratch registers.  Every next value depends on a
+// different old value, so sequential edge copies would corrupt the cycle.
+int main() {
+  int count = getint();
+  float a = getfloat();
+  float b = getfloat();
+  float c = getfloat();
+  float d = getfloat();
+  float e = getfloat();
+  float f = getfloat();
+  float g = getfloat();
+  float h = getfloat();
+
+  while (count > 0) {
+    float old_a = a;
+    float old_b = b;
+    float old_c = c;
+    float old_d = d;
+    float old_e = e;
+    float old_f = f;
+    float old_g = g;
+    float old_h = h;
+    a = old_b + 0.25;
+    b = old_c + 0.5;
+    c = old_d + 0.75;
+    d = old_e + 1.0;
+    e = old_f + 1.25;
+    f = old_g + 1.5;
+    g = old_h + 1.75;
+    h = old_a + 2.0;
+    count = count - 1;
+  }
+
+  putint(a * 4.0);
+  putch(32);
+  putint(b * 4.0);
+  putch(32);
+  putint(c * 4.0);
+  putch(32);
+  putint(d * 4.0);
+  putch(32);
+  putint(e * 4.0);
+  putch(32);
+  putint(f * 4.0);
+  putch(32);
+  putint(g * 4.0);
+  putch(32);
+  putint(h * 4.0);
+  putch(10);
+  return 0;
+}

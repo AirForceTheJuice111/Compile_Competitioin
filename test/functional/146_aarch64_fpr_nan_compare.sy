@@ -1,0 +1,27 @@
+// Exercise every ordered/unordered FP condition code.  The values come from
+// input so algebraic simplification cannot assume reflexive comparisons.
+void print_flag(int value, int separator) {
+  putint(value);
+  putch(separator);
+}
+
+int main() {
+  float not_a_number = getfloat();
+  float positive_zero = getfloat();
+  float negative_zero = getfloat();
+
+  print_flag(not_a_number == not_a_number, 32);
+  print_flag(not_a_number != not_a_number, 32);
+  print_flag(not_a_number < not_a_number, 32);
+  print_flag(not_a_number <= not_a_number, 32);
+  print_flag(not_a_number > not_a_number, 32);
+  print_flag(not_a_number >= not_a_number, 10);
+
+  print_flag(positive_zero == negative_zero, 32);
+  print_flag(positive_zero != negative_zero, 32);
+  print_flag(positive_zero < negative_zero, 32);
+  print_flag(positive_zero <= negative_zero, 32);
+  print_flag(positive_zero > negative_zero, 32);
+  print_flag(positive_zero >= negative_zero, 10);
+  return 0;
+}
