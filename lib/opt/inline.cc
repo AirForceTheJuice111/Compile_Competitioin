@@ -81,6 +81,14 @@ bool analyzeCandidate(quad::QuadFuncDecl *function, InlineCandidate &candidate) 
 
     std::set<int> parameters;
     std::set<int> available;
+    bool hasTypedSignature = function->param_types != nullptr &&
+                             function->param_types->size() ==
+                                 function->params->size();
+    if (hasTypedSignature) {
+        for (quad::QuadType type : *function->param_types) {
+            if (type != quad::QuadType::INT) return false;
+        }
+    }
     for (auto *parameter : *function->params) {
         if (parameter == nullptr || !parameters.insert(parameter->num).second)
             return false;
@@ -118,10 +126,11 @@ bool analyzeCandidate(quad::QuadFuncDecl *function, InlineCandidate &candidate) 
 
     auto *returnStatement = static_cast<quad::QuadReturn *>(last);
     if (!isIntTerm(returnStatement->exp, available, parameters,
-                   &usedParameters) || usedParameters != parameters) {
-        // Quad parameters have no stored type. Requiring each one to occur in
-        // an INT-typed operand is the conservative proof that the signature is
-        // scalar-INT; an otherwise-unused parameter is therefore rejected.
+                   &usedParameters) ||
+        (!hasTypedSignature && usedParameters != parameters)) {
+        // Legacy hand-built Quad without signature metadata still requires
+        // every parameter to occur in an INT-typed operand.  A typed signature
+        // safely admits otherwise-unused integer parameters.
         return false;
     }
 

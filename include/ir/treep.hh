@@ -108,12 +108,20 @@ class FuncDecl : public Tree {
   public:
     string name;                     // function name (unique name: classname + methodname)
     std::vector<tree::Temp *> *args; // arguments: the first argument is the object pointer (this)
+    // Declared argument types, in the same order as args.  Keep this metadata
+    // on the function rather than trying to recover it from TempExp uses: an
+    // unused parameter has no such use, and array parameters must retain PTR
+    // independently of their element type.
+    std::vector<Type> *arg_types;
     Stm *stm;                        // function body
     Type return_type;
     int last_temp_num;  // last temp number used in the function
     int last_label_num; // last label number used in the function
-    FuncDecl(string name, std::vector<tree::Temp *> *args, Stm *stm, Type return_type, int lt, int ll)
-        : name(name), args(args), stm(stm), return_type(return_type), last_temp_num(lt), last_label_num(ll) {}
+    FuncDecl(string name, std::vector<tree::Temp *> *args, Stm *stm,
+             Type return_type, int lt, int ll,
+             std::vector<Type> *arg_types = nullptr)
+        : name(name), args(args), arg_types(arg_types), stm(stm),
+          return_type(return_type), last_temp_num(lt), last_label_num(ll) {}
     Kind getTreeKind() { return Kind::FUNCDECL; }
     void accept(Visitor &v) { v.visit(this); }
 };

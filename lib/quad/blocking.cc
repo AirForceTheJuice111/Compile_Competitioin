@@ -87,7 +87,8 @@ static QuadFuncDecl* blocking(QuadFuncDecl* func_decl) {
         new_blocks,
         func_decl->return_type,
         func_decl->last_label_num,
-        func_decl->last_temp_num
+        func_decl->last_temp_num,
+        func_decl->param_types
     );
     
     return new_func_decl;

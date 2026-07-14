@@ -148,8 +148,12 @@ void CanonVisitor::visit(FuncDecl* node) {
             stm = new tree::Seq(sl_result);
         }
     }
-    fd_result = new FuncDecl(node->name, node->args, stm, node->return_type, 
-        visitor_temp_map->next_temp-1, visitor_temp_map->next_label-1);
+    auto *arg_types = node->arg_types == nullptr
+                          ? nullptr
+                          : new std::vector<tree::Type>(*node->arg_types);
+    fd_result = new FuncDecl(node->name, node->args, stm, node->return_type,
+        visitor_temp_map->next_temp-1, visitor_temp_map->next_label-1,
+        arg_types);
 }
 
 void CanonVisitor::visit(Jump* node) {

@@ -228,11 +228,15 @@ void QuadFuncDecl::print(string &use_str, int indent, bool to_print_def_use) {
     if (params != nullptr) {
         use_str += "(";
         bool first = true;
-        for (auto param : *this->params) {
+        for (std::size_t index = 0; index < this->params->size(); ++index) {
+            auto *param = this->params->at(index);
             if (!first) {
                 use_str += ", ";
             }
             use_str += "t"+to_string(param->num);
+            if (param_types != nullptr && index < param_types->size()) {
+                use_str += ":" + quadTypeToString(param_types->at(index));
+            }
             first = false;
         }
         use_str += ")";
@@ -561,6 +565,8 @@ QuadFuncDecl* QuadFuncDecl::clone() const {
             cloned_params->push_back(p != nullptr ? new Temp(p->num) : nullptr);
         }
     }
+    vector<QuadType>* cloned_param_types =
+        param_types != nullptr ? new vector<QuadType>(*param_types) : nullptr;
     vector<QuadBlock*>* cloned_blocks = nullptr;
     if (quadblocklist != nullptr) {
         cloned_blocks = new vector<QuadBlock*>();
@@ -569,7 +575,8 @@ QuadFuncDecl* QuadFuncDecl::clone() const {
         }
     }
     return new QuadFuncDecl(funcname, cloned_params, cloned_blocks, return_type,
-                            last_label_num, last_temp_num);
+                            last_label_num, last_temp_num,
+                            cloned_param_types);
 }
 
 QuadBlock* QuadBlock::clone() const {

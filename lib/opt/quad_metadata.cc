@@ -242,10 +242,23 @@ bool verifySsaFunction(QuadFuncDecl *func, ControlFlowInfo *cfi, std::string *re
         types[temp] = type;
         return true;
     };
+    const std::size_t parameterCount =
+        func->params == nullptr ? 0 : func->params->size();
+    if (func->param_types != nullptr &&
+        func->param_types->size() != parameterCount) {
+        return fail("parameter type count mismatch");
+    }
     std::set<int> params;
+    std::size_t parameterIndex = 0;
     if (func->params != nullptr) for (auto *param : *func->params) {
         if (param == nullptr || !params.insert(param->num).second) return fail("duplicate parameter temp");
-        definitions[param->num] = DefSite{cfi->entryBlock, -1, QuadType::INT};
+        QuadType type = func->param_types == nullptr
+                            ? QuadType::INT
+                            : func->param_types->at(parameterIndex);
+        if (func->param_types != nullptr && !noteType(param->num, type))
+            return fail("parameter type mismatch");
+        definitions[param->num] = DefSite{cfi->entryBlock, -1, type};
+        ++parameterIndex;
     }
     std::map<QuadBlock *, int> blockLabels;
     for (auto *block : *func->quadblocklist) {

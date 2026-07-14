@@ -152,13 +152,19 @@ class QuadFuncDecl : public Quad {
     vector<QuadBlock*> *quadblocklist;
     string funcname;
     vector<Temp*> *params;
+    // Declared parameter types, in the same order as params.  This is
+    // deliberately separate from QuadTemp uses so even unused parameters
+    // retain enough information for ABI lowering and register allocation.
+    vector<QuadType> *param_types;
     QuadType return_type;
     int last_label_num;
     int last_temp_num;
     QuadFuncDecl(string funcname, vector<Temp*> *params, vector<QuadBlock*> *quadblocklist,
-                 QuadType return_type, int lln, int ltn)
-        : Quad(QuadKind::FUNCDECL), params(params), quadblocklist(quadblocklist),
-          funcname(funcname), return_type(return_type), last_label_num(lln), last_temp_num(ltn) {}
+                 QuadType return_type, int lln, int ltn,
+                 vector<QuadType> *param_types = nullptr)
+        : Quad(QuadKind::FUNCDECL), quadblocklist(quadblocklist),
+          funcname(funcname), params(params), param_types(param_types), return_type(return_type),
+          last_label_num(lln), last_temp_num(ltn) {}
     void accept(QuadVisitor &v) override {v.visit(this);}
     void print(string &output_str, int indent, bool print_def_use) override;
     

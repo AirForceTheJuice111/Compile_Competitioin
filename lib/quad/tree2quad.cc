@@ -124,8 +124,17 @@ void Tree2Quad::visit(tree::Program *prog) {
             } else if (func->return_type == tree::Type::PTR) {
                 return_type = QuadType::PTR;
             }
+            vector<QuadType> *param_types = nullptr;
+            if (func->arg_types != nullptr) {
+                param_types = new vector<QuadType>();
+                param_types->reserve(func->arg_types->size());
+                for (tree::Type type : *func->arg_types) {
+                    param_types->push_back(toQuadType(type));
+                }
+            }
             funcs->push_back(new QuadFuncDecl(
-                func->name, func->args, blocks, return_type, fn_last_label, fn_last_temp
+                func->name, func->args, blocks, return_type, fn_last_label,
+                fn_last_temp, param_types
             ));
             if (fn_last_label > max_label) max_label = fn_last_label;
             if (fn_last_temp > max_temp) max_temp = fn_last_temp;

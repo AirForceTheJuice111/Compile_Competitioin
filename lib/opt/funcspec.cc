@@ -279,11 +279,21 @@ quad::QuadFuncDecl* specializeFunc(quad::QuadFuncDecl* original,
     // Remove const params from the parameter list
     if (clone->params) {
         auto* newParams = new vector<Temp*>();
+        auto* newParamTypes = clone->param_types != nullptr &&
+                                      clone->param_types->size() ==
+                                          clone->params->size()
+                                  ? new vector<quad::QuadType>()
+                                  : nullptr;
         set<int> constIdxSet(constIdx.begin(), constIdx.end());
-        for (size_t i = 0; i < clone->params->size(); i++)
-            if (!constIdxSet.count((int)i))
+        for (size_t i = 0; i < clone->params->size(); i++) {
+            if (!constIdxSet.count((int)i)) {
                 newParams->push_back((*clone->params)[i]);
+                if (newParamTypes != nullptr)
+                    newParamTypes->push_back((*clone->param_types)[i]);
+            }
+        }
         clone->params = newParams;
+        clone->param_types = newParamTypes;
     }
 
     clone->last_temp_num = max(clone->last_temp_num, globalTemp);

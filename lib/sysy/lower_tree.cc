@@ -996,6 +996,7 @@ private:
 
         pushScope();
         auto *params = new std::vector<tree::Temp *>();
+        auto *paramTypes = new std::vector<tree::Type>();
         auto *stms = new std::vector<tree::Stm *>();
         stms->push_back(new tree::LabelStm(newLabel()));
 
@@ -1016,8 +1017,10 @@ private:
                 }
             }
             if (dims.empty()) {
+                paramTypes->push_back(treeType(paramBase));
                 declareLocal(secondWord(child->text), param, paramBase, child->loc);
             } else {
+                paramTypes->push_back(tree::Type::PTR);
                 declareLocalArray(secondWord(child->text), param, std::move(dims), paramBase, child->loc, true);
             }
         }
@@ -1035,7 +1038,8 @@ private:
 
         return new tree::FuncDecl(name, params, new tree::Seq(stms),
                                   ret == "void" ? tree::Type::INT : treeType(currentReturnType_),
-                                  temps_.next_temp - 1, temps_.next_label - 1);
+                                  temps_.next_temp - 1, temps_.next_label - 1,
+                                  paramTypes);
     }
 
     bool blockFallsThrough(const std::vector<tree::Stm *> *stms) const {
@@ -1594,6 +1598,8 @@ private:
         auto *endParam = newTemp();
         auto *ctxParam = newTemp();
         auto *params = new std::vector<tree::Temp *>({beginParam, endParam, ctxParam});
+        auto *paramTypes = new std::vector<tree::Type>(
+            {tree::Type::INT, tree::Type::INT, tree::Type::PTR});
         auto *stms = new std::vector<tree::Stm *>();
         stms->push_back(new tree::LabelStm(newLabel()));
 
@@ -1692,7 +1698,7 @@ private:
 
         auto *worker = new tree::FuncDecl(workerName, params, new tree::Seq(stms),
                                           tree::Type::INT, temps_.next_temp - 1,
-                                          temps_.next_label - 1);
+                                          temps_.next_label - 1, paramTypes);
 
         scopes_ = std::move(savedScopes);
         breakLabels_ = std::move(savedBreakLabels);
