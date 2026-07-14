@@ -1,0 +1,1 @@
+int main(){int x=getint();int a=x*8;int b=x*9;int c=x*7;int d=x/3;int e=x-(x/5)*5;return a+b+c+d+e;}

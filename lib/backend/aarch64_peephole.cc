@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -121,6 +122,10 @@ std::string optimizeAarch64Assembly(const std::string &assembly,
     std::string source;
     while (std::getline(input, source)) lines.push_back(parseLine(source));
 
+    const char *aggressiveEnv = std::getenv("SYSY_AGGRESSIVE_PEEPHOLE");
+    bool aggressiveBranches = aggressiveEnv != nullptr && aggressiveEnv[0] != '\0' &&
+                              std::string(aggressiveEnv) != "0";
+
     for (int round = 0; round < 4; ++round) {
         bool changed = false;
         for (std::size_t i = 0; i < lines.size(); ++i) {
@@ -142,7 +147,8 @@ std::string optimizeAarch64Assembly(const std::string &assembly,
                 changed = true;
                 continue;
             }
-            if (line.opcode == "b" && line.operands.size() == 1) {
+            if (aggressiveBranches && line.opcode == "b" &&
+                line.operands.size() == 1) {
                 std::size_t next = nextNonEmpty(lines, i);
                 if (next < lines.size() && lines[next].kind == LineKind::Label &&
                     line.operands[0] == labelText(lines[next])) {

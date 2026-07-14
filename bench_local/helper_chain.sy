@@ -1,0 +1,1 @@
+int f4(int x){return x+4;} int f3(int x){return f4(x)+3;} int f2(int x){return f3(x)+2;} int f1(int x){return f2(x)+1;} int main(){return f1(0);}

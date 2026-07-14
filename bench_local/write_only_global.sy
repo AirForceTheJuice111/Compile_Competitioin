@@ -1,0 +1,1 @@
+int x[64]; int y[64]; int main(){int i=0;while(i<64){x[i]=i;y[i]=i*2;i=i+1;}return x[63];}

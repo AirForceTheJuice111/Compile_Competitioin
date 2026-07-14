@@ -26,6 +26,7 @@ set(BACKEND_SOURCES
     lib/opt/cfg_transform.cc
     lib/opt/defusechain.cc
     lib/opt/funcspec.cc
+    lib/opt/function_dce.cc
     lib/opt/gvn.cc
     lib/opt/inline.cc
     lib/opt/loopheaderwithflow.cc

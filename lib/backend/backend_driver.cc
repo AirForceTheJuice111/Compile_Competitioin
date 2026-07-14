@@ -10,6 +10,7 @@
 #include "copyprop.hh"
 #include "flowinfo.hh"
 #include "funcspec.hh"
+#include "function_dce.hh"
 #include "gvn.hh"
 #include "inline.hh"
 #include "loopheader.hh"
@@ -319,7 +320,7 @@ bool optimizationPassEnabled(const std::string &name) {
         return false;
     }
     if (name == "algebrasimp" || name == "bitwise" || name == "gvn" ||
-        name == "copyprop" || name == "inline") {
+        name == "copyprop" || name == "inline" || name == "functiondce") {
         return true;
     }
     return passListContains("SYSY_EXPERIMENTAL_PASSES", name);
@@ -342,15 +343,37 @@ quad::QuadProgram *runGvnPass(quad::QuadProgram *program) {
     return result;
 }
 
-quad::QuadProgram *runInlinePass(quad::QuadProgram *program) {
-    int inlined = 0;
-    auto *result = quad::inlineProg(program, &inlined);
-    if (result == nullptr) {
-        return program;
+quad::QuadProgram *runInlinePass(quad::QuadProgram *program,
+                                 int *inlinedOut = nullptr) {
+    int totalInlined = 0;
+    auto *result = program;
+    // A leaf exposed by one round can make its caller eligible in the next.
+    // Keep the cap small so deep helper chains cannot explode code size.
+    for (int round = 0; round < 3; ++round) {
+        int roundInlined = 0;
+        auto *next = quad::inlineProg(result, &roundInlined);
+        if (next == nullptr) break;
+        result = next;
+        totalInlined += roundInlined;
+        if (roundInlined == 0) break;
     }
     refreshQuadExtents(result);
+    if (inlinedOut != nullptr) *inlinedOut = totalInlined;
     if (std::getenv("BACKEND_PROFILE") != nullptr) {
-        std::cerr << "BACKEND_PROFILE inline inlined " << inlined << " calls\n";
+        std::cerr << "BACKEND_PROFILE inline inlined " << totalInlined
+                  << " calls\n";
+    }
+    return result;
+}
+
+quad::QuadProgram *runFunctionDcePass(quad::QuadProgram *program) {
+    int removed = 0;
+    auto *result = quad::eliminateDeadFunctions(program, &removed);
+    if (result == nullptr) return program;
+    refreshQuadExtents(result);
+    if (std::getenv("BACKEND_PROFILE") != nullptr) {
+        std::cerr << "BACKEND_PROFILE functiondce removed " << removed
+                  << " functions\n";
     }
     return result;
 }
@@ -1316,6 +1339,139 @@ private:
         if (temp == nullptr) return false;
         auto found = tempUseStatementCounts_.find(temp->num);
         return found != tempUseStatementCounts_.end() && found->second == 1;
+    }
+
+    static bool encodeAddSubImmediate(std::uint32_t value,
+                                      std::uint32_t *immediate,
+                                      int *shift) {
+        if (value <= 4095u) {
+            if (immediate != nullptr) *immediate = value;
+            if (shift != nullptr) *shift = 0;
+            return true;
+        }
+        if ((value & 0xfffu) == 0 && (value >> 12) <= 4095u) {
+            if (immediate != nullptr) *immediate = value >> 12;
+            if (shift != nullptr) *shift = 12;
+            return true;
+        }
+        return false;
+    }
+
+    bool emitAddSubImmediate32(const std::string &op,
+                               const std::string &destination,
+                               const std::string &source,
+                               std::uint32_t value) {
+        std::uint32_t immediate = 0;
+        int shift = 0;
+        if (!encodeAddSubImmediate(value, &immediate, &shift)) return false;
+        std::string instruction = op + " " + destination + ", " + source +
+                                  ", #" + std::to_string(immediate);
+        if (shift != 0) instruction += ", lsl #12";
+        emitLine(instruction);
+        return true;
+    }
+
+    bool emitCompareImmediate32(const std::string &reg,
+                                std::int32_t value) {
+        std::uint32_t immediate = 0;
+        int shift = 0;
+        if (value >= 0) {
+            if (!encodeAddSubImmediate(static_cast<std::uint32_t>(value),
+                                       &immediate, &shift)) {
+                return false;
+            }
+            std::string instruction = "cmp " + reg + ", #" +
+                                      std::to_string(immediate);
+            if (shift != 0) instruction += ", lsl #12";
+            emitLine(instruction);
+            return true;
+        }
+        std::uint64_t magnitude = static_cast<std::uint64_t>(
+            -static_cast<std::int64_t>(value));
+        if (magnitude > 0xffffffffULL ||
+            !encodeAddSubImmediate(static_cast<std::uint32_t>(magnitude),
+                                   &immediate, &shift)) {
+            return false;
+        }
+        std::string instruction = "cmn " + reg + ", #" +
+                                  std::to_string(immediate);
+        if (shift != 0) instruction += ", lsl #12";
+        emitLine(instruction);
+        return true;
+    }
+
+    static std::string swapComparisonOperands(const std::string &relop) {
+        if (relop == "<") return ">";
+        if (relop == "<=") return ">=";
+        if (relop == ">") return "<";
+        if (relop == ">=") return "<=";
+        return relop;
+    }
+
+    static bool powerOfTwo(std::uint64_t value, unsigned *shift) {
+        if (value == 0 || (value & (value - 1)) != 0) return false;
+        unsigned amount = 0;
+        while ((std::uint64_t{1} << amount) != value) ++amount;
+        if (shift != nullptr) *shift = amount;
+        return true;
+    }
+
+    bool emitMultiplyByConstant(quad::QuadTerm *valueTerm,
+                                std::int32_t constant,
+                                const std::string &destination) {
+        std::string source = termRegister(valueTerm, quad::QuadType::INT,
+                                          "w9");
+        if (constant == 0) {
+            emitLine("mov " + destination + ", wzr");
+            return true;
+        }
+        if (constant == 1) {
+            if (destination != source) {
+                emitLine("mov " + destination + ", " + source);
+            }
+            return true;
+        }
+        if (constant == -1) {
+            emitLine("neg " + destination + ", " + source);
+            return true;
+        }
+        bool negate = constant < 0;
+        std::uint64_t magnitude = negate
+            ? static_cast<std::uint64_t>(-
+                  static_cast<std::int64_t>(constant))
+            : static_cast<std::uint64_t>(constant);
+        unsigned shift = 0;
+        if (powerOfTwo(magnitude, &shift) && shift <= 31) {
+            emitLine("lsl " + destination + ", " + source + ", #" +
+                     std::to_string(shift));
+            // In modulo-2^32 arithmetic, negating a value shifted left by 31
+            // leaves the same bit pattern.
+            if (negate && magnitude != (std::uint64_t{1} << 31)) {
+                emitLine("neg " + destination + ", " + destination);
+            }
+            return true;
+        }
+        if (magnitude > 1 && powerOfTwo(magnitude - 1, &shift) &&
+            shift <= 31) {
+            emitLine("add " + destination + ", " + source + ", " + source +
+                     ", lsl #" + std::to_string(shift));
+            if (negate) {
+                emitLine("neg " + destination + ", " + destination);
+            }
+            return true;
+        }
+        if (magnitude > 1 && powerOfTwo(magnitude + 1, &shift) &&
+            shift <= 31) {
+            emitLine("lsl w10, " + source + ", #" +
+                     std::to_string(shift));
+            if (negate) {
+                emitLine("sub " + destination + ", " + source + ", w10");
+            } else {
+                emitLine("sub " + destination + ", w10, " + source);
+            }
+            return true;
+        }
+        return false;
     }
 
     static std::int32_t signed32FromBits(std::uint32_t bits) {
@@ -2386,6 +2542,7 @@ private:
         bool rightIsZero = cjump->right != nullptr &&
                            cjump->right->kind == quad::QuadTermKind::CONST &&
                            cjump->right->get_const() == 0;
+        std::string relation = cjump->relop;
         std::string leftRegister;
         std::string rightRegister;
         if (floatCompare) {
@@ -2419,22 +2576,39 @@ private:
                 rightRegister = "x10";
             }
         } else {
-            leftRegister = termRegister(cjump->left, leftType, "w9");
-            if (!rightIsZero) {
+            std::int32_t constant = 0;
+            bool comparisonEmitted = false;
+            if (constantIntValue(cjump->right, &constant)) {
+                leftRegister = termRegister(cjump->left, leftType, "w9");
+                comparisonEmitted = emitCompareImmediate32(leftRegister,
+                                                            constant);
+            }
+            if (!comparisonEmitted &&
+                constantIntValue(cjump->left, &constant)) {
+                rightRegister = termRegister(cjump->right, rightType, "w9");
+                comparisonEmitted = emitCompareImmediate32(rightRegister,
+                                                            constant);
+                if (comparisonEmitted) {
+                    relation = swapComparisonOperands(relation);
+                }
+            }
+            if (!comparisonEmitted) {
+                leftRegister = termRegister(cjump->left, leftType, "w9");
                 rightRegister = termRegister(cjump->right, rightType, "w10");
+                emitLine("cmp " + leftRegister + ", " + rightRegister);
             }
         }
         if (floatCompare) {
             // FCMP above already established flags, including the required
             // unordered behavior for NaNs and equality of +0.0/-0.0.
-        } else if (rightIsZero) {
+        } else if (pointerCompare && rightIsZero) {
             emitLine("cmp " + leftRegister + ", #0");
-        } else {
+        } else if (pointerCompare) {
             emitLine("cmp " + leftRegister + ", " + rightRegister);
         }
         std::string branch = floatCompare
-                                 ? aarch64FloatBranchMnemonic(cjump->relop)
-                                 : aarch64BranchMnemonic(cjump->relop);
+                                 ? aarch64FloatBranchMnemonic(relation)
+                                 : aarch64BranchMnemonic(relation);
         bool falseFallsThrough = traceBlockEnabled_ && sameLabel(cjump->f, nextLabel);
         bool trueFallsThrough = traceBlockEnabled_ && sameLabel(cjump->t, nextLabel);
         if (falseFallsThrough) {
@@ -2572,10 +2746,62 @@ private:
         if (binop == nullptr || binop->dst == nullptr || binop->dst->temp == nullptr) {
             return;
         }
-        std::string left = termRegister(binop->left, quad::QuadType::INT,
-                                        "w9");
         std::string destination = resultRegister(binop->dst->temp,
                                                  binop->dst->type, "w11");
+        std::int32_t leftConstant = 0;
+        std::int32_t rightConstant = 0;
+        bool leftIsConstant = constantIntValue(binop->left, &leftConstant);
+        bool rightIsConstant = constantIntValue(binop->right, &rightConstant);
+
+        if (binop->binop == "*" && rightIsConstant &&
+            emitMultiplyByConstant(binop->left, rightConstant, destination)) {
+            storeTemp(binop->dst->temp, binop->dst->type, destination);
+            return;
+        }
+        if (binop->binop == "*" && leftIsConstant &&
+            emitMultiplyByConstant(binop->right, leftConstant, destination)) {
+            storeTemp(binop->dst->temp, binop->dst->type, destination);
+            return;
+        }
+
+        if ((binop->binop == "+" || binop->binop == "-") &&
+            rightIsConstant) {
+            std::string left = termRegister(binop->left, quad::QuadType::INT,
+                                            "w9");
+            std::int64_t magnitude = rightConstant;
+            std::string operation = binop->binop == "+" ? "add" : "sub";
+            if (magnitude < 0) {
+                magnitude = -magnitude;
+                operation = operation == "add" ? "sub" : "add";
+            }
+            if (magnitude <= 0xffffffffLL &&
+                emitAddSubImmediate32(
+                    operation, destination, left,
+                    static_cast<std::uint32_t>(magnitude))) {
+                storeTemp(binop->dst->temp, binop->dst->type, destination);
+                return;
+            }
+        }
+        if (binop->binop == "+" && leftIsConstant) {
+            std::string right = termRegister(binop->right, quad::QuadType::INT,
+                                             "w9");
+            std::int64_t magnitude = leftConstant;
+            std::string operation = "add";
+            if (magnitude < 0) {
+                magnitude = -magnitude;
+                operation = "sub";
+            }
+            if (magnitude <= 0xffffffffLL &&
+                emitAddSubImmediate32(
+                    operation, destination, right,
+                    static_cast<std::uint32_t>(magnitude))) {
+                storeTemp(binop->dst->temp, binop->dst->type, destination);
+                return;
+            }
+        }
+
+        std::string left = termRegister(binop->left, quad::QuadType::INT,
+                                        "w9");
         if (binop->binop == "/") {
             std::int32_t divisor = 0;
             if (constantIntValue(binop->right, &divisor) && divisor != 0) {
@@ -2625,10 +2851,32 @@ private:
         }
         std::string base = termRegister(ptrCalc->ptr, quad::QuadType::PTR,
                                         "x9");
-        std::string offset = termRegister(ptrCalc->offset, quad::QuadType::INT,
-                                          "w10");
         std::string destination = resultRegister(dst->temp,
                                                  quad::QuadType::PTR, "x11");
+        std::int32_t constant = 0;
+        if (constantIntValue(ptrCalc->offset, &constant)) {
+            std::int64_t magnitude = constant;
+            std::string operation = "add";
+            if (magnitude < 0) {
+                magnitude = -magnitude;
+                operation = "sub";
+            }
+            std::uint32_t immediate = 0;
+            int shift = 0;
+            if (magnitude <= 0xffffffffLL &&
+                encodeAddSubImmediate(static_cast<std::uint32_t>(magnitude),
+                                      &immediate, &shift)) {
+                std::string instruction = operation + " " + destination +
+                                          ", " + base + ", #" +
+                                          std::to_string(immediate);
+                if (shift != 0) instruction += ", lsl #12";
+                emitLine(instruction);
+                storeTemp(dst->temp, quad::QuadType::PTR, destination);
+                return;
+            }
+        }
+        std::string offset = termRegister(ptrCalc->offset, quad::QuadType::INT,
+                                          "w10");
         emitLine("add " + destination + ", " + base + ", " + offset +
                  ", sxtw");
         storeTemp(dst->temp, quad::QuadType::PTR, destination);
@@ -3587,13 +3835,23 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
         profile.mark("memopt");
     }
 
+    int inlinedCalls = 0;
     if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("inline")) {
-        optimizedSsa = runInlinePass(optimizedSsa);
+        optimizedSsa = runInlinePass(optimizedSsa, &inlinedCalls);
         if (optimizedSsa == nullptr) {
             result.error = "Inlining optimization failed";
             return result;
         }
         profile.mark("inline");
+        if (inlinedCalls != 0) {
+            optimizedSsa = optProg(optimizedSsa);
+            if (optimizedSsa == nullptr) {
+                result.error = "Inlining SCCP cleanup failed";
+                return result;
+            }
+            refreshQuadExtents(optimizedSsa);
+            profile.mark("inline-sccp");
+        }
     }
 
     if (optModeUsesSccp(options.optMode) && optimizationPassEnabled("funcspec")) {
@@ -3707,6 +3965,15 @@ BackendResult compileTreeToAarch64(tree::Program *program, const BackendOptions 
             return result;
         }
         profile.mark("copyprop");
+    }
+    if (options.optMode != OptMode::None &&
+        optimizationPassEnabled("functiondce")) {
+        optimizedSsa = runFunctionDcePass(optimizedSsa);
+        if (optimizedSsa == nullptr) {
+            result.error = "Function DCE failed";
+            return result;
+        }
+        profile.mark("functiondce");
     }
     maybeWriteQuad(options, ".4-ssa-final.quad", optimizedSsa);
 

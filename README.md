@@ -100,6 +100,39 @@ MAX_CASES=3 make sysy-performance-regression
 An older archive can still be selected explicitly with
 `SYSY_PERF_ARCHIVE=/path/to/archive.zip`.
 
+## Optimization Update
+
+The compiler intentionally keeps two entry modes:
+
+- functional/correctness invocation defaults to `-O0`;
+- the contest performance invocation passes `-O1`, which selects the full
+  optimizer, native AArch64 backend, and guarded two-core loop runtime.
+
+This optimized delivery adds a conservative multi-round inline pipeline,
+post-inline SCCP cleanup, whole-program unreachable-function removal, compact
+spill-frame allocation, direct use of resident integer/pointer and scalar-float
+registers, immediate-aware arithmetic/comparisons, constant-multiply strength
+reduction, and folded constant pointer offsets. The existing
+profitability-gated native parallel path remains enabled for `-O1`; pass
+`--no-parallel-native` to measure the sequential backend alone.
+
+A reproducible static regression is included:
+
+```sh
+# Nine focused local cases, optimized compiler only
+make local-static-regression SYSY_TEST_ROOT=bench_local
+
+# Compare against another compiler binary
+BASELINE_COMPILER=/path/to/original/compiler \
+PARALLEL_MODE=serial \
+make local-static-regression SYSY_TEST_ROOT=bench_local
+```
+
+The full implementation rationale, safety conditions, iteration record, and
+validation procedure are in `OPTIMIZATION_IMPLEMENTATION_REPORT.md`. Aggregate
+results are in `OPTIMIZATION_STATIC_SUMMARY.tsv`, and per-case results are in
+`OPTIMIZATION_CASE_RESULTS.tsv`.
+
 ## AArch64 Backend
 
 The backend lowers SysY AST into the migrated Tree/Quad/SSA IR. It supports the
@@ -134,19 +167,27 @@ the textual AArch64 peephole remain disabled unless named explicitly in
 `SYSY_EXPERIMENTAL_PASSES` as `funcspec`, `memopt`, `loopsimplify`,
 `loopunroll`, `traceblock`, or `peephole`. Their general correctness or
 profitability is not yet strong enough for the default pipeline; in particular,
-measured loop simplification and text-peephole regressions outweighed wins on
-other cases.
+trace layout and peephole changes previously regressed measured performance.
+Whole-program function DCE is a stable optimized-mode default. Even when the
+peephole is explicitly enabled, its historically mixed branch-to-next-label
+rewrite additionally requires `SYSY_AGGRESSIVE_PEEPHOLE=1`.
 
 The AArch64 emitter assigns up to ten hot, loop-weighted Quad temps injectively
-to callee-saved `x19`-`x28` homes, including pointer values and raw float bits.
-It preserves those registers under AAPCS64, snapshots parallel PHI copies, and
-uses direct frame-relative addressing for nearby spills. Address forms whose
-scratch lifetimes are known are selected directly: pointer-plus-signed-32-bit
-byte offsets use `add xD, xN, wM, sxtw`, and comparisons against zero use an
-immediate operand. Signed division and remainder by compile-time constants use
-exact AArch64 magic-number, power-of-two, and `msub` sequences, including
-negative divisors and the `INT_MIN / -1` wrapping boundary. Broader scaled-index
-and pointer-induction folding remains future work.
+to callee-saved `x19`-`x28` homes. Integer and pointer operations now consume
+and produce those homes directly instead of round-tripping through `w9/w10`
+and a stack slot. Scalar floats move directly between ABI `s` registers,
+resident raw-bit homes, or spill slots. Stack-frame construction allocates
+slots only for values that are actually spilled and cannot be rematerialized.
+
+Address and arithmetic forms whose scratch lifetimes are known are selected
+directly: add/sub/cmp use encodable immediates (including the shifted 12-bit
+form), constant multiplication recognizes `0`, `1`, `-1`, powers of two, and
+`2^k +/- 1`, constant pointer offsets fold into add/sub, and variable byte
+offsets use `add xD, xN, wM, sxtw`. Signed division and remainder by
+compile-time constants retain the exact magic-number, power-of-two, and `msub`
+sequences, including negative divisors and the `INT_MIN / -1` wrapping
+boundary. Broader scaled-index and pointer-induction folding remains future
+work.
 
 Native loop parallelization is enabled automatically for optimized modes unless
 `--no-parallel-native` is passed. The lowering stage uses the shared loop plan
