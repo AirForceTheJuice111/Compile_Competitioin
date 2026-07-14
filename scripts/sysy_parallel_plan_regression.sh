@@ -167,7 +167,10 @@ assert_workers 117_parallel_step 1
 assert_workers 118_parallel_decrement 1
 assert_workers 119_parallel_ne 1
 assert_workers 127_parallel_general_alias 2
-assert_workers 129_parallel_mod_reduction 2
+# Both loops are still recognized in the plan dump above.  The second has a
+# compile-time empty range (`i == limit == 2`), so SCCP removes its runtime call
+# and the default whole-program DCE correctly drops the now-unreferenced worker.
+assert_workers 129_parallel_mod_reduction 1
 assert_workers 130_parallel_mod_reject 0
 assert_workers 133_parallel_local_partition_overlap 0
 assert_workers 134_parallel_affine_partition_control 1
