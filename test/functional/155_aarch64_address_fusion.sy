@@ -1,0 +1,117 @@
+// Focused coverage for exact PTR_CALC + LOAD/STORE address folding.  Each
+// helper leaves the array address immediately adjacent to its only memory
+// use.  Small constant offsets fit an AArch64 immediate displacement; index
+// 5000 has byte offset 20000 and deliberately does not.
+int small_ints[16];
+float small_floats[16];
+int far_ints[5001];
+float far_floats[5001];
+
+void store_small_int(int a[], int value) {
+  a[3] = value;
+}
+
+void print_small_int(int a[]) {
+  putint(a[3]);
+  putch(32);
+}
+
+void store_small_float(float a[], float value) {
+  a[4] = value;
+}
+
+void print_small_float(float a[]) {
+  putint(a[4] * 2.0);
+  putch(32);
+}
+
+void store_far_int(int a[], int value) {
+  a[5000] = value;
+}
+
+void print_far_int(int a[]) {
+  putint(a[5000]);
+  putch(32);
+}
+
+void store_far_float(float a[], float value) {
+  a[5000] = value;
+}
+
+void print_far_float(float a[]) {
+  putint(a[5000] * 4.0);
+  putch(32);
+}
+
+void guarded_store_int(int a[], int index, int value) {
+  if (index >= 0 && index < 16) {
+    a[index] = value;
+  }
+}
+
+void print_guarded_int(int a[], int index) {
+  if (index >= 0 && index < 16) {
+    putint(a[index]);
+  } else {
+    putint(-701);
+  }
+  putch(32);
+}
+
+void guarded_store_float(float a[], int index, float value) {
+  if (index >= 0 && index < 16) {
+    a[index] = value;
+  }
+}
+
+void print_guarded_float(float a[], int index) {
+  if (index >= 0 && index < 16) {
+    putint(a[index] * 4.0);
+  } else {
+    putint(-702);
+  }
+  putch(32);
+}
+
+// GVN shares the constant address between all three memory operations.  Its
+// PTR_CALC therefore has multiple uses and must remain materialized even
+// though its first use is an adjacent load.
+int bump_shared_address(int a[], int delta) {
+  int before = a[7];
+  a[7] = before + delta;
+  return before + a[7];
+}
+
+int main() {
+  int valid_int_index = getint();
+  int negative_int_index = getint();
+  int valid_float_index = getint();
+  int negative_float_index = getint();
+
+  store_small_int(small_ints, 31);
+  print_small_int(small_ints);
+  store_small_float(small_floats, 4.5);
+  print_small_float(small_floats);
+
+  store_far_int(far_ints, 77);
+  print_far_int(far_ints);
+  store_far_float(far_floats, 6.25);
+  print_far_float(far_floats);
+
+  guarded_store_int(small_ints, valid_int_index, 45);
+  print_guarded_int(small_ints, valid_int_index);
+  guarded_store_int(small_ints, negative_int_index, 999);
+  print_guarded_int(small_ints, negative_int_index);
+
+  guarded_store_float(small_floats, valid_float_index, 7.25);
+  print_guarded_float(small_floats, valid_float_index);
+  guarded_store_float(small_floats, negative_float_index, 99.0);
+  print_guarded_float(small_floats, negative_float_index);
+
+  small_ints[7] = 10;
+  putint(bump_shared_address(small_ints, 4));
+  putch(32);
+  putint(small_ints[7]);
+  putch(10);
+  return 0;
+}

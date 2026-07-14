@@ -1,0 +1,87 @@
+// Address operands must survive both register pressure and 32-bit byte-offset
+// wrapping.  The huge executed indices below wrap to byte offsets 0 or 4;
+// values around the first signed-overflow boundary are rejected before any
+// memory operation, so this test never accesses outside either array.
+int pressure_data[16];
+int wrap_data[4];
+
+int pressure_load(
+    int a[], int index,
+    int p0, int p1, int p2, int p3, int p4, int p5,
+    int p6, int p7, int p8, int p9, int p10, int p11) {
+  int loaded = a[index];
+  return loaded + p0 + p1 + p2 + p3 + p4 + p5 +
+         p6 + p7 + p8 + p9 + p10 + p11;
+}
+
+int pressure_store(
+    int a[], int index,
+    int p0, int p1, int p2, int p3, int p4, int p5,
+    int p6, int p7, int p8, int p9, int p10, int p11) {
+  // The stored value is the same index used to form the address, while all
+  // twelve other integer parameters remain live across the adjacent store.
+  a[index] = index;
+  return p0 + p1 + p2 + p3 + p4 + p5 +
+         p6 + p7 + p8 + p9 + p10 + p11;
+}
+
+void wrapped_store(int a[], int index, int value) {
+  a[index] = value;
+}
+
+void print_wrapped_load(int a[], int index) {
+  putint(a[index]);
+  putch(32);
+}
+
+void print_guarded_boundary(int a[], int index) {
+  if (index >= 0 && index < 4) {
+    putint(a[index]);
+  } else {
+    putint(909);
+  }
+}
+
+int main() {
+  int pressure_index = getint();
+  int wrap_zero_positive = getint();
+  int wrap_zero_negative = getint();
+  int wrap_four_positive = getint();
+  int wrap_four_negative = getint();
+  int below_positive_overflow = getint();
+  int at_positive_overflow = getint();
+  int at_negative_boundary = getint();
+  int below_negative_boundary = getint();
+
+  pressure_data[pressure_index] = 100;
+  putint(pressure_load(
+      pressure_data, pressure_index,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12));
+  putch(32);
+  putint(pressure_store(
+      pressure_data, pressure_index,
+      20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31));
+  putch(32);
+  putint(pressure_data[pressure_index]);
+  putch(32);
+
+  wrap_data[0] = 11;
+  wrap_data[1] = 22;
+  // Multiplication by the four-byte element size wraps modulo 2^32.
+  wrapped_store(wrap_data, wrap_zero_positive, 101);
+  print_wrapped_load(wrap_data, wrap_zero_negative);
+  wrapped_store(wrap_data, wrap_four_positive, 202);
+  print_wrapped_load(wrap_data, wrap_four_negative);
+
+  // These indices would form out-of-range byte offsets, but the signed guard
+  // dominates the array operation and rejects all four runtime values.
+  print_guarded_boundary(wrap_data, below_positive_overflow);
+  putch(32);
+  print_guarded_boundary(wrap_data, at_positive_overflow);
+  putch(32);
+  print_guarded_boundary(wrap_data, at_negative_boundary);
+  putch(32);
+  print_guarded_boundary(wrap_data, below_negative_boundary);
+  putch(10);
+  return 0;
+}
