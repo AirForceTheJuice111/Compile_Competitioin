@@ -422,6 +422,75 @@ tree exactly; focused functional default/legacy/off runs passed 151/151 in each
 mode, including NaN, signed-zero, PHI-cycle, call-pressure, mixed-ABI, and
 variadic-float stress cases.
 
+## Physical-home PHI scheduling (`8827634c`)
+
+The old edge lowering snapshotted every PHI input through `x12-x15` and then
+copied each snapshot to its destination.  The replacement schedules the
+parallel-copy graph by physical GPR/FPR/stack home, emits acyclic copies
+directly, and uses one reserved raw-bit scratch only for an actual cycle.
+Symmetric MOVE/PHI affinity also lets backedge definitions reuse an expired
+PHI home.  Clean `20b878fc` is the baseline.
+
+Across the 60 preliminary cases, exact static counts changed as follows:
+
+| Metric | Baseline | Scheduled PHIs | Change |
+|---|---:|---:|---:|
+| AArch64 instructions | 26,076 | 24,747 | -1,329 (-5.10%) |
+| exact `mov` mnemonic | 3,990 | 2,886 | -1,104 (-27.67%) |
+| numbered-register `mov` | 3,429 | 2,325 | -1,104 (-32.20%) |
+| instructions mentioning PHI staging `w/x12-w/x15` | 2,079 | 0 | -100% |
+
+The conservative malformed-IR fallback still reserves the old overflow frame
+area, so aggregate frame bytes remained 12,000 and the maximum remained 528.
+This is unused by valid SSA and is a future frame-size cleanup.
+
+For a timer-quantization-resistant runtime sample, each `h-5-01` observation
+ran the binary three times, pinned to Mac VM cores 0 and 1.  Ten ABBA samples
+were 3.36--3.37 seconds for `20b878fc` and 3.25--3.27 seconds for `8827634c`:
+1.12133 -> 1.08600 seconds per execution, a 1.0325x speedup.  `matmul1`
+improved 5.8425 -> 5.8075 seconds over eight alternating samples; `01_mm1`
+was neutral at 2.12875 versus 2.13000 seconds.  A Mac 16-shard exact run passed
+60/60 in 52.437 seconds.  The full functional suite passed 155/155 in each of
+default, legacy, and off modes, and an exhaustive model check covered 2,223,270
+parallel-copy graphs with fan-out and multiple cycles.
+
+## Hybrid merge of upstream selector and whole-program work (`b5549f91`)
+
+Upstream `a25c687e` arrived from a stale backend copy that removed native FPR
+allocation, typed unused-parameter ABI handling, direct-home code generation,
+and PHI scheduling.  The merge therefore retained the verified backend and
+ported only the new features: up to three conservative inline rounds with
+post-inline SCCP, reachable-function DCE, encodable add/sub/cmp immediates,
+constant multiply strength reduction, and constant pointer offsets.  Trace
+layout and textual peephole remain experimental because prior paired runs
+showed regressions; the unsafe branch deletion also requires its own explicit
+environment switch.
+
+Multi-round inlining deliberately trades code size for removed hot calls.  On
+the preliminary corpus, static instructions changed 24,747 -> 33,366 (+34.8%):
+for example `crypto-1` fell 1,445 -> 714 and `matmul1` 349 -> 296, while
+`many_mat_cal-1` grew 391 -> 1,042 and `conv2d-1` 668 -> 1,317.  The runtime
+decision was therefore made from adjacent ABBA measurements, not code size.
+
+| Program | `8827634c` mean (s) | Hybrid mean (s) | Speedup |
+|---|---:|---:|---:|
+| `01_mm1` | 1.46225 | 1.41500 | 1.033x |
+| `many_mat_cal-1` | 12.39425 | 10.23625 | 1.211x |
+| `conv2d-1` | 0.64150 | 0.45925 | 1.396x |
+| `matmul1` | 5.51400 | 4.97475 | 1.108x |
+| `h-5-01` | 1.10600 | 0.86925 | 1.272x |
+
+Each row is four measurements per variant in two ABBA rounds on Mac VM cores
+0 and 1.  Single adjacent probes were neutral for `fft1` and `h-8-01`, and
+slightly faster for `h-1-01`, `huffman-01`, and `crypto-1`; no measured case
+showed a material regression.  A 16-shard preliminary run passed 60/60 in
+56.418 seconds, but is not compared with another session's shard wall.  The
+complete local tree passed 321/321 exactly.  A separate default/legacy/off
+selector differential covered multiplication through `INT_MIN`, immediate
+encoding boundaries, operand-swapped comparisons, and constant array offsets;
+all modes matched `8827634c`, while its synthetic assembly shrank 243 -> 204
+instructions.
+
 ## Updating this ledger
 
 For every future performance run, append the date, compiler revision or dirty
