@@ -85,9 +85,18 @@ void addExtCallUses(quad::QuadExtCall *call, TempSet &result) {
     for (auto *argument : *call->args) addTermUse(argument, result);
 }
 
-TempSet statementDefs(quad::QuadStm *statement) {
+struct AddressFusionOverrides {
+    std::unordered_map<quad::QuadStm *, quad::QuadPtrCalc *> byMemoryStatement;
+    std::unordered_set<quad::QuadStm *> elidedCalculations;
+};
+
+TempSet statementDefs(quad::QuadStm *statement,
+                      const AddressFusionOverrides &addressFusions) {
     TempSet result;
     if (statement == nullptr) return result;
+    if (addressFusions.elidedCalculations.count(statement) != 0) {
+        return result;
+    }
     quad::QuadTemp *destination = nullptr;
     switch (statement->kind) {
     case quad::QuadKind::MOVE:
@@ -124,9 +133,13 @@ TempSet statementDefs(quad::QuadStm *statement) {
     return result;
 }
 
-TempSet statementUses(quad::QuadStm *statement) {
+TempSet statementUses(quad::QuadStm *statement,
+                      const AddressFusionOverrides &addressFusions) {
     TempSet result;
     if (statement == nullptr) return result;
+    if (addressFusions.elidedCalculations.count(statement) != 0) {
+        return result;
+    }
     switch (statement->kind) {
     case quad::QuadKind::MOVE:
         addTermUse(static_cast<quad::QuadMove *>(statement)->src, result);
@@ -186,6 +199,22 @@ TempSet statementUses(quad::QuadStm *statement) {
     default:
         break;
     }
+    auto fused = addressFusions.byMemoryStatement.find(statement);
+    if (fused != addressFusions.byMemoryStatement.end() &&
+        fused->second != nullptr) {
+        auto *calculation = fused->second;
+        auto *destination = calculation->dst == nullptr
+                                ? nullptr
+                                : calculation->dst->kind ==
+                                          quad::QuadTermKind::TEMP
+                                      ? calculation->dst->get_temp()
+                                      : nullptr;
+        if (destination != nullptr && destination->temp != nullptr) {
+            result.erase(destination->temp->num);
+        }
+        addTermUse(calculation->ptr, result);
+        addTermUse(calculation->offset, result);
+    }
     return result;
 }
 
@@ -244,11 +273,23 @@ void noteAccess(Interval &interval, int position, std::size_t block,
 Aarch64RegisterAllocation allocateAarch64Gprs(
     quad::QuadFuncDecl *function,
     const std::unordered_map<int, quad::QuadType> &tempTypes,
-    const std::unordered_set<int> &rematerializedTemps) {
+    const std::unordered_set<int> &rematerializedTemps,
+    const std::vector<Aarch64FusedAddress> &fusedAddresses) {
     Aarch64RegisterAllocation result;
     if (function == nullptr || function->quadblocklist == nullptr ||
         function->quadblocklist->empty()) {
         return result;
+    }
+
+    AddressFusionOverrides addressFusions;
+    for (const auto &fusion : fusedAddresses) {
+        if (fusion.memoryStatement == nullptr ||
+            fusion.pointerCalculation == nullptr) {
+            continue;
+        }
+        addressFusions.byMemoryStatement.emplace(fusion.memoryStatement,
+                                                 fusion.pointerCalculation);
+        addressFusions.elidedCalculations.insert(fusion.pointerCalculation);
     }
 
     const auto &blocks = *function->quadblocklist;
@@ -373,8 +414,8 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
                 continue;
             }
             pastPhiPrefix = true;
-            TempSet uses = statementUses(statement);
-            TempSet defs = statementDefs(statement);
+            TempSet uses = statementUses(statement, addressFusions);
+            TempSet defs = statementDefs(statement, addressFusions);
             for (int temp : uses) {
                 if (info[index].defs.count(temp) == 0) {
                     info[index].uses.insert(temp);
@@ -522,13 +563,13 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
                         move->dst->temp->num);
                 }
             }
-            for (int temp : statementUses(statement)) {
+            for (int temp : statementUses(statement, addressFusions)) {
                 if (Interval *interval = intervalFor(temp)) {
                     noteAccess(*interval, position->second.first, index, weight,
                                true);
                 }
             }
-            for (int temp : statementDefs(statement)) {
+            for (int temp : statementDefs(statement, addressFusions)) {
                 if (Interval *interval = intervalFor(temp)) {
                     noteAccess(*interval, position->second.second, index, weight,
                                false);
@@ -551,7 +592,7 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
             if (statement == nullptr || statement->kind == quad::QuadKind::PHI) {
                 continue;
             }
-            TempSet defs = statementDefs(statement);
+            TempSet defs = statementDefs(statement, addressFusions);
             if (isCall(statement)) {
                 for (int temp : live) {
                     if (defs.count(temp) != 0) continue;
@@ -561,7 +602,7 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
                 }
             }
             for (int temp : defs) live.erase(temp);
-            insertAll(live, statementUses(statement));
+            insertAll(live, statementUses(statement, addressFusions));
         }
     }
 

@@ -671,6 +671,11 @@ private:
     // divisor to a temporary, share the literal constant-division selector.
     std::unordered_map<int, std::int32_t> constantTemps_;
     std::unordered_map<int, int> tempUseStatementCounts_;
+    std::vector<Aarch64FusedAddress> fusedAddresses_;
+    std::unordered_map<quad::QuadStm *, quad::QuadPtrCalc *>
+        fusedAddressByMemory_;
+    std::unordered_set<quad::QuadStm *> elidedPointerCalculations_;
+    std::unordered_set<int> elidedPointerTemps_;
     std::unordered_map<std::string, std::vector<quad::QuadType>> functionParamTypes_;
     std::map<int, int> slots_;
     std::unordered_map<int, int> residentRegs_;
@@ -854,11 +859,36 @@ private:
             int weight = loopDepth[i] >= 2 ? 64 : (loopDepth[i] == 1 ? 8 : 1);
             for (auto *stm : *block->quadlist) {
                 if (stm == nullptr) continue;
+                if (elidedPointerCalculations_.count(stm) != 0) continue;
+                auto fused = fusedAddressByMemory_.find(stm);
+                tree::Temp *replacedAddressTemp = nullptr;
+                if (fused != fusedAddressByMemory_.end() &&
+                    fused->second != nullptr) {
+                    auto *destination = termTemp(fused->second->dst);
+                    replacedAddressTemp = destination == nullptr
+                                              ? nullptr
+                                              : destination->temp;
+                }
                 if (stm->def != nullptr) {
                     for (auto *temp : *stm->def) countTemp(temp, weight, loopDepth[i], i);
                 }
                 if (stm->use != nullptr) {
-                    for (auto *temp : *stm->use) countTemp(temp, weight, loopDepth[i], i);
+                    for (auto *temp : *stm->use) {
+                        if (temp != nullptr && replacedAddressTemp != nullptr &&
+                            temp->num == replacedAddressTemp->num) {
+                            continue;
+                        }
+                        countTemp(temp, weight, loopDepth[i], i);
+                    }
+                }
+                if (fused != fusedAddressByMemory_.end() &&
+                    fused->second != nullptr) {
+                    auto *base = termTemp(fused->second->ptr);
+                    auto *offset = termTemp(fused->second->offset);
+                    countTemp(base == nullptr ? nullptr : base->temp, weight,
+                              loopDepth[i], i);
+                    countTemp(offset == nullptr ? nullptr : offset->temp,
+                              weight, loopDepth[i], i);
                 }
             }
         }
@@ -867,7 +897,8 @@ private:
         ranked.reserve(candidates.size());
         for (const auto &entry : candidates) {
             const Candidate &candidate = entry.second;
-            if (constantTemps_.find(candidate.temp) != constantTemps_.end()) {
+            if (constantTemps_.find(candidate.temp) != constantTemps_.end() ||
+                elidedPointerTemps_.count(candidate.temp) != 0) {
                 continue;
             }
             if ((candidate.inLoop && candidate.accesses >= 2) || candidate.accesses >= 6) {
@@ -916,7 +947,7 @@ private:
             rematerializedTemps.insert(constant.first);
         }
         Aarch64RegisterAllocation allocation = allocateAarch64Gprs(
-            func_, tempTypes_, rematerializedTemps);
+            func_, tempTypes_, rematerializedTemps, fusedAddresses_);
         residentRegs_ = std::move(allocation.tempToRegister);
         residentFpRegs_ = std::move(allocation.tempToFloatRegister);
     }
@@ -998,10 +1029,126 @@ private:
             16);
     }
 
+    bool isStableDeferredAddressTerm(
+        quad::QuadTerm *term, quad::QuadType expectedType,
+        const std::unordered_map<int, int> &definitionCounts) const {
+        if (term == nullptr || termType(term, expectedType) != expectedType) {
+            return false;
+        }
+        if (term->kind == quad::QuadTermKind::CONST) {
+            return true;
+        }
+        if (term->kind == quad::QuadTermKind::NAME) {
+            return expectedType == quad::QuadType::PTR;
+        }
+        auto *temp = termTemp(term);
+        if (temp == nullptr || temp->temp == nullptr) {
+            return false;
+        }
+        auto count = definitionCounts.find(temp->temp->num);
+        // Delaying the read from PTR_CALC to LOAD/STORE is safe only for an
+        // immutable SSA value (a parameter counts as its one definition).
+        return count != definitionCounts.end() && count->second == 1;
+    }
+
+    void collectFusedAddresses(
+        const std::unordered_map<int, int> &definitionCounts) {
+        fusedAddresses_.clear();
+        fusedAddressByMemory_.clear();
+        elidedPointerCalculations_.clear();
+        elidedPointerTemps_.clear();
+        if (func_ == nullptr || func_->quadblocklist == nullptr) return;
+
+        using StatementLocation = std::pair<quad::QuadBlock *, std::size_t>;
+        std::unordered_map<quad::QuadStm *, StatementLocation> locations;
+        std::unordered_map<int, quad::QuadStm *> uniqueUseStatements;
+        for (auto *block : *func_->quadblocklist) {
+            if (block == nullptr || block->quadlist == nullptr) continue;
+            for (std::size_t index = 0; index < block->quadlist->size(); ++index) {
+                auto *statement = block->quadlist->at(index);
+                if (statement == nullptr) continue;
+                locations.emplace(statement, StatementLocation{block, index});
+                if (statement->use == nullptr) continue;
+                for (auto *temp : *statement->use) {
+                    if (temp != nullptr) uniqueUseStatements[temp->num] = statement;
+                }
+            }
+        }
+
+        for (const auto &entry : locations) {
+            auto *statement = entry.first;
+            if (statement == nullptr ||
+                statement->kind != quad::QuadKind::PTR_CALC) {
+                continue;
+            }
+            auto *calculation = static_cast<quad::QuadPtrCalc *>(statement);
+            auto *destination = termTemp(calculation->dst);
+            if (destination == nullptr || destination->temp == nullptr ||
+                destination->type != quad::QuadType::PTR) {
+                continue;
+            }
+            int destinationNumber = destination->temp->num;
+            auto definitions = definitionCounts.find(destinationNumber);
+            auto uses = tempUseStatementCounts_.find(destinationNumber);
+            auto uniqueUse = uniqueUseStatements.find(destinationNumber);
+            if (definitions == definitionCounts.end() ||
+                definitions->second != 1 ||
+                uses == tempUseStatementCounts_.end() || uses->second != 1 ||
+                uniqueUse == uniqueUseStatements.end() ||
+                uniqueUse->second == nullptr) {
+                continue;
+            }
+
+            auto useLocation = locations.find(uniqueUse->second);
+            if (useLocation == locations.end() ||
+                useLocation->second.first != entry.second.first ||
+                useLocation->second.second <= entry.second.second) {
+                // Restrict the transformation to a straight-line region.  It
+                // may cross calls, but never a control-flow edge or reorder a
+                // memory access relative to another statement.
+                continue;
+            }
+
+            bool isAddressUse = false;
+            if (uniqueUse->second->kind == quad::QuadKind::LOAD) {
+                auto *load = static_cast<quad::QuadLoad *>(uniqueUse->second);
+                isAddressUse = termReferencesTemp(load->src,
+                                                  destination->temp);
+            } else if (uniqueUse->second->kind == quad::QuadKind::STORE) {
+                auto *store = static_cast<quad::QuadStore *>(uniqueUse->second);
+                isAddressUse = termReferencesTemp(store->dst,
+                                                  destination->temp) &&
+                               !termReferencesTemp(store->src,
+                                                   destination->temp);
+            }
+            if (!isAddressUse ||
+                termReferencesTemp(calculation->ptr, destination->temp) ||
+                termReferencesTemp(calculation->offset, destination->temp) ||
+                !isStableDeferredAddressTerm(calculation->ptr,
+                                             quad::QuadType::PTR,
+                                             definitionCounts) ||
+                !isStableDeferredAddressTerm(calculation->offset,
+                                             quad::QuadType::INT,
+                                             definitionCounts)) {
+                continue;
+            }
+
+            fusedAddresses_.push_back(
+                Aarch64FusedAddress{uniqueUse->second, calculation});
+            fusedAddressByMemory_.emplace(uniqueUse->second, calculation);
+            elidedPointerCalculations_.insert(calculation);
+            elidedPointerTemps_.insert(destinationNumber);
+        }
+    }
+
     void collectTypesAndSlots() {
         tempTypes_.clear();
         constantTemps_.clear();
         tempUseStatementCounts_.clear();
+        fusedAddresses_.clear();
+        fusedAddressByMemory_.clear();
+        elidedPointerCalculations_.clear();
+        elidedPointerTemps_.clear();
         slots_.clear();
         if (func_ == nullptr || func_->quadblocklist == nullptr) {
             return;
@@ -1196,6 +1343,7 @@ private:
                 }
             }
         }
+        collectFusedAddresses(tempDefinitionCounts);
         selectResidentTemps();
 
         // Whole-interval allocation means a resident temporary never needs a
@@ -1208,7 +1356,8 @@ private:
         for (const auto &entry : tempTypes_) {
             if (residentRegs_.count(entry.first) != 0 ||
                 residentFpRegs_.count(entry.first) != 0 ||
-                constantTemps_.count(entry.first) != 0) {
+                constantTemps_.count(entry.first) != 0 ||
+                elidedPointerTemps_.count(entry.first) != 0) {
                 continue;
             }
             spillTemps.push_back(entry.first);
@@ -1232,6 +1381,10 @@ private:
         auto savedTypes = tempTypes_;
         auto savedConstants = constantTemps_;
         auto savedUseCounts = tempUseStatementCounts_;
+        auto savedFusedAddresses = fusedAddresses_;
+        auto savedFusedAddressByMemory = fusedAddressByMemory_;
+        auto savedElidedPointerCalculations = elidedPointerCalculations_;
+        auto savedElidedPointerTemps = elidedPointerTemps_;
         auto savedSlots = slots_;
         auto savedResidentRegs = residentRegs_;
         auto savedResidentFpRegs = residentFpRegs_;
@@ -1261,6 +1414,11 @@ private:
         tempTypes_ = std::move(savedTypes);
         constantTemps_ = std::move(savedConstants);
         tempUseStatementCounts_ = std::move(savedUseCounts);
+        fusedAddresses_ = std::move(savedFusedAddresses);
+        fusedAddressByMemory_ = std::move(savedFusedAddressByMemory);
+        elidedPointerCalculations_ =
+            std::move(savedElidedPointerCalculations);
+        elidedPointerTemps_ = std::move(savedElidedPointerTemps);
         slots_ = std::move(savedSlots);
         residentRegs_ = std::move(savedResidentRegs);
         residentFpRegs_ = std::move(savedResidentFpRegs);
@@ -2711,8 +2869,64 @@ private:
         }
     }
 
+    struct SelectedMemoryAddress {
+        std::string operand;
+        bool unscaledImmediate = false;
+    };
+
+    static int memoryAccessBytes(quad::QuadType type) {
+        return type == quad::QuadType::PTR ? 8 : 4;
+    }
+
+    SelectedMemoryAddress selectFusedMemoryAddress(
+        quad::QuadPtrCalc *calculation, int accessBytes) {
+        std::string base = termRegister(calculation->ptr,
+                                        quad::QuadType::PTR, "x9");
+        std::int32_t constant = 0;
+        if (constantIntValue(calculation->offset, &constant)) {
+            if (constant == 0) {
+                return SelectedMemoryAddress{"[" + base + "]", false};
+            }
+            // LDR/STR's unsigned immediate is scaled by the access width;
+            // LDUR/STUR provides a signed, unscaled nine-bit byte offset.
+            if (constant > 0 && accessBytes > 0 &&
+                constant % accessBytes == 0 &&
+                constant / accessBytes <= 4095) {
+                return SelectedMemoryAddress{
+                    "[" + base + ", #" + std::to_string(constant) + "]",
+                    false};
+            }
+            if (constant >= -256 && constant <= 255) {
+                return SelectedMemoryAddress{
+                    "[" + base + ", #" + std::to_string(constant) + "]",
+                    true};
+            }
+        }
+        // PTR_CALC defines byte addressing with a signed 32-bit offset.  Keep
+        // that exact behavior: no implicit element-size shift is introduced,
+        // even when the offset happened to originate from index*4.
+        std::string offset = termRegister(calculation->offset,
+                                          quad::QuadType::INT, "w10");
+        return SelectedMemoryAddress{
+            "[" + base + ", " + offset + ", sxtw]", false};
+    }
+
     void emitLoad(quad::QuadLoad *load) {
         if (load == nullptr || load->dst == nullptr || load->dst->temp == nullptr) {
+            return;
+        }
+        auto fused = fusedAddressByMemory_.find(load);
+        if (fused != fusedAddressByMemory_.end() && fused->second != nullptr) {
+            SelectedMemoryAddress address = selectFusedMemoryAddress(
+                fused->second, memoryAccessBytes(load->dst->type));
+            std::string scratch = load->dst->type == quad::QuadType::PTR
+                                      ? "x11"
+                                      : "w11";
+            std::string destination = resultRegister(
+                load->dst->temp, load->dst->type, scratch);
+            emitLine(std::string(address.unscaledImmediate ? "ldur " : "ldr ") +
+                     destination + ", " + address.operand);
+            storeTemp(load->dst->temp, load->dst->type, destination);
             return;
         }
         std::string address = termRegister(load->src, quad::QuadType::PTR,
@@ -2731,6 +2945,16 @@ private:
             return;
         }
         quad::QuadType type = termType(store->src);
+        auto fused = fusedAddressByMemory_.find(store);
+        if (fused != fusedAddressByMemory_.end() && fused->second != nullptr) {
+            SelectedMemoryAddress address = selectFusedMemoryAddress(
+                fused->second, memoryAccessBytes(type));
+            std::string scratch = type == quad::QuadType::PTR ? "x11" : "w11";
+            std::string value = termRegister(store->src, type, scratch);
+            emitLine(std::string(address.unscaledImmediate ? "stur " : "str ") +
+                     value + ", " + address.operand);
+            return;
+        }
         std::string address = termRegister(store->dst, quad::QuadType::PTR,
                                            "x10");
         if (type == quad::QuadType::PTR) {
@@ -2843,6 +3067,9 @@ private:
 
     void emitPtrCalc(quad::QuadPtrCalc *ptrCalc) {
         if (ptrCalc == nullptr || ptrCalc->dst == nullptr) {
+            return;
+        }
+        if (elidedPointerCalculations_.count(ptrCalc) != 0) {
             return;
         }
         auto *dst = termTemp(ptrCalc->dst);

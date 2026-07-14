@@ -23,6 +23,16 @@ struct Aarch64RegisterAllocation {
     std::size_t spilledIntervalCount = 0;
 };
 
+// A PTR_CALC whose sole observable result is a memory address can be selected
+// directly as an AArch64 register-offset/immediate memory operand.  The
+// allocator must see the original base and byte offset at the LOAD/STORE use
+// point (rather than at PTR_CALC), otherwise a call or register reuse between
+// the two statements could destroy an operand before the fused instruction.
+struct Aarch64FusedAddress {
+    quad::QuadStm *memoryStatement = nullptr;
+    quad::QuadPtrCalc *pointerCalculation = nullptr;
+};
+
 // Allocate integer/pointer GPR homes and native single-precision FPR homes for
 // Quad SSA temporaries.  Non-call-crossing floats prefer caller-saved s16-s29;
 // call-crossing floats use the callee-saved low lanes s8-s15.  s0-s7 remain
@@ -33,6 +43,7 @@ struct Aarch64RegisterAllocation {
 Aarch64RegisterAllocation allocateAarch64Gprs(
     quad::QuadFuncDecl *function,
     const std::unordered_map<int, quad::QuadType> &tempTypes,
-    const std::unordered_set<int> &rematerializedTemps = {});
+    const std::unordered_set<int> &rematerializedTemps = {},
+    const std::vector<Aarch64FusedAddress> &fusedAddresses = {});
 
 } // namespace backend
