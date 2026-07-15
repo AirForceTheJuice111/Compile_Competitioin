@@ -2211,13 +2211,44 @@ private:
             incoming.push_back(entry);
         }
 
+        auto gprHomeInAbiRange = [&](tree::Temp *temp) {
+            if (temp == nullptr) return -1;
+            auto found = residentRegs_.find(temp->num);
+            if (found == residentRegs_.end() || found->second < 0 ||
+                found->second > 7) {
+                return -1;
+            }
+            return found->second;
+        };
+        auto fpHomeInAbiRange = [&](tree::Temp *temp) {
+            if (temp == nullptr) return -1;
+            auto found = residentFpRegs_.find(temp->num);
+            if (found == residentFpRegs_.end() || found->second < 0 ||
+                found->second > 7) {
+                return -1;
+            }
+            return found->second;
+        };
+        bool snapshotGpr = false;
+        bool snapshotFp = false;
+        for (const IncomingParam &entry : incoming) {
+            if (entry.gp >= 0 && gprHomeInAbiRange(entry.temp) >= 0 &&
+                gprHomeInAbiRange(entry.temp) != entry.gp) {
+                snapshotGpr = true;
+            }
+            if (entry.fp >= 0 && fpHomeInAbiRange(entry.temp) >= 0 &&
+                fpHomeInAbiRange(entry.temp) != entry.fp) {
+                snapshotFp = true;
+            }
+        }
+
         // GPR snapshots live in the otherwise-unused s16-s23 lanes (raw bits
         // are preserved by fmov); FP snapshots live in x8-x15.  The two banks
         // are independent, and neither set overlaps a possible destination
         // home in the corresponding bank.  This gives us eight scratch lanes
         // per ABI class without growing every function's frame.
         for (const IncomingParam &entry : incoming) {
-            if (entry.gp >= 0) {
+            if (entry.gp >= 0 && snapshotGpr) {
                 if (entry.type == quad::QuadType::PTR) {
                     out_ << "\tfmov d" << (16 + entry.gp) << ", x"
                          << entry.gp << "\n";
@@ -2225,7 +2256,7 @@ private:
                     out_ << "\tfmov s" << (16 + entry.gp) << ", w"
                          << entry.gp << "\n";
                 }
-            } else if (entry.fp >= 0) {
+            } else if (entry.fp >= 0 && snapshotFp) {
                 out_ << "\tfmov w" << (8 + entry.fp) << ", s" << entry.fp
                      << "\n";
             }
@@ -2234,7 +2265,7 @@ private:
         for (const IncomingParam &entry : incoming) {
             if (entry.temp == nullptr) continue;
             std::string source;
-            if (entry.gp >= 0) {
+            if (entry.gp >= 0 && snapshotGpr) {
                 if (entry.type == quad::QuadType::PTR) {
                     out_ << "\tfmov x9, d" << (16 + entry.gp) << "\n";
                     source = "x9";
@@ -2242,9 +2273,15 @@ private:
                     out_ << "\tfmov w9, s" << (16 + entry.gp) << "\n";
                     source = "w9";
                 }
-            } else if (entry.fp >= 0) {
+            } else if (entry.gp >= 0) {
+                source = entry.type == quad::QuadType::PTR
+                             ? "x" + std::to_string(entry.gp)
+                             : "w" + std::to_string(entry.gp);
+            } else if (entry.fp >= 0 && snapshotFp) {
                 out_ << "\tfmov s30, w" << (8 + entry.fp) << "\n";
                 source = "s30";
+            } else if (entry.fp >= 0) {
+                source = "s" + std::to_string(entry.fp);
             } else {
                 stackAddressFromFrame(entry.stackOffset);
                 if (entry.type == quad::QuadType::FLOAT) {
