@@ -1,0 +1,12 @@
+int main() {
+  int i;
+  int difference = 100;
+  i = 0;
+  while (i < 20000) {
+    difference = difference - i % 17;
+    i = i + 1;
+  }
+  putint(difference);
+  putch(10);
+  return 0;
+}

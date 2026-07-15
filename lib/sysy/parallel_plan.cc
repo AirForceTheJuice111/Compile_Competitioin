@@ -1068,6 +1068,24 @@ bool exprIsProvablyInt(const Node &node, const ParallelTypeLookup &lookupType,
     return false;
 }
 
+const Node *parallelSubtractionAddend(const Node &assign,
+                                      const std::string &var) {
+    if (assign.kind != NodeKind::AssignStmt || assign.children.size() != 2) {
+        return nullptr;
+    }
+    const Node &lhs = *assign.children.front();
+    const Node &rhs = *assign.children.back();
+    if (!isScalarLVal(lhs) || lhs.text != var ||
+        rhs.kind != NodeKind::BinaryExpr || rhs.text != "-" ||
+        rhs.children.size() != 2) {
+        return nullptr;
+    }
+    const Node &accumulator = *rhs.children.front();
+    return isScalarLVal(accumulator) && accumulator.text == var
+               ? rhs.children.back().get()
+               : nullptr;
+}
+
 std::optional<int> reductionConstInt(const Node &node,
                                      const ParallelConstIntLookup &lookupConstInt) {
     int literal = 0;
@@ -1422,6 +1440,9 @@ bool analyzeNode(const Node &node, const std::string &loopVar,
                     }
                 }
                 const Node *add = parallelReductionAddend(node, lhs.text);
+                if (add == nullptr) {
+                    add = parallelSubtractionAddend(node, lhs.text);
+                }
                 if (add != nullptr &&
                     !containsExternalScalarReference(*add, lhs.text, localLvals)) {
                     addReduction(plan.reductions, ParallelReduction{lhs.text, add});
@@ -1498,6 +1519,9 @@ bool validateReductionUses(
                 }
             } else if (reduction.kind == ParallelReduction::Kind::Add) {
                 addend = parallelReductionAddend(node, reduction.var);
+                if (reduction.type == "int" && addend == nullptr) {
+                    addend = parallelSubtractionAddend(node, reduction.var);
+                }
             }
             return addend != nullptr &&
                    !containsExternalScalarReference(*addend, reduction.var, localLvals);
