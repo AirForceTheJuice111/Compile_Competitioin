@@ -487,6 +487,68 @@ bool sameFirstPartitionIndex(const Node &lhs, const Node &rhs, const std::string
     return false;
 }
 
+bool invariantReadOutsideLoopPartition(
+    const Node &writeLval, const Node &readLval,
+    const ParallelLoopPlan &plan,
+    const std::unordered_set<const Node *> &localLvals,
+    const ParallelFunctionSummaryLookup &lookupFunction) {
+    if (writeLval.kind != NodeKind::LVal || readLval.kind != NodeKind::LVal ||
+        writeLval.children.size() != readLval.children.size() ||
+        plan.init.initExpr == nullptr || plan.dynamicStep) {
+        return false;
+    }
+    for (std::size_t index = 0; index < writeLval.children.size(); ++index) {
+        const Node &writeIndex = *writeLval.children[index];
+        const Node &readIndex = *readLval.children[index];
+        if (!isScalarLVal(writeIndex) || writeIndex.text != plan.init.var ||
+            localLvals.find(&writeIndex) != localLvals.end() ||
+            containsLocalLVal(readIndex, localLvals)) {
+            continue;
+        }
+        int readCoeff = 0;
+        if (!affineCoeff(readIndex, plan.init.var, localLvals,
+                         lookupFunction, readCoeff) ||
+            readCoeff != 0) {
+            continue;
+        }
+        const Node &initial = *plan.init.initExpr;
+        if (initial.kind != NodeKind::BinaryExpr ||
+            initial.children.size() != 2) {
+            continue;
+        }
+        int distance = 0;
+        bool initialAboveRead = false;
+        bool initialBelowRead = false;
+        if (initial.text == "+") {
+            if (nodeKey(*initial.children.front()) == nodeKey(readIndex) &&
+                intConstValue(*initial.children.back(), distance)) {
+                initialAboveRead = distance > 0;
+                initialBelowRead = distance < 0;
+            } else if (nodeKey(*initial.children.back()) == nodeKey(readIndex) &&
+                       intConstValue(*initial.children.front(), distance)) {
+                initialAboveRead = distance > 0;
+                initialBelowRead = distance < 0;
+            }
+        } else if (initial.text == "-" &&
+                   nodeKey(*initial.children.front()) == nodeKey(readIndex) &&
+                   intConstValue(*initial.children.back(), distance)) {
+            initialAboveRead = distance < 0;
+            initialBelowRead = distance > 0;
+        }
+        const bool increasing = plan.step > 0 &&
+                                (plan.comparison == "<" ||
+                                 plan.comparison == "<=");
+        const bool decreasing = plan.step < 0 &&
+                                (plan.comparison == ">" ||
+                                 plan.comparison == ">=");
+        if ((increasing && initialAboveRead) ||
+            (decreasing && initialBelowRead)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool signedIntConstValue(const Node &node, int &value) {
     if (intConstValue(node, value)) {
         return true;
@@ -1407,7 +1469,7 @@ void collectCapturesFromStmt(const Node &node, const std::string &loopVar,
 }
 
 bool sameArrayReadsStayInWrittenPartition(const Node &writeLval, const Node &rhs,
-                                          const std::string &loopVar,
+                                          const ParallelLoopPlan &plan,
                                           const std::unordered_set<const Node *> &localLvals,
                                           const ParallelFunctionSummaryLookup &lookupFunction) {
     std::vector<ArrayAccess> reads;
@@ -1417,8 +1479,11 @@ bool sameArrayReadsStayInWrittenPartition(const Node &writeLval, const Node &rhs
             continue;
         }
         if (read.lval == nullptr ||
-            !sameFirstPartitionIndex(writeLval, *read.lval, loopVar, localLvals,
-                                     lookupFunction)) {
+            (!sameFirstPartitionIndex(writeLval, *read.lval, plan.init.var,
+                                      localLvals, lookupFunction) &&
+             !invariantReadOutsideLoopPartition(
+                 writeLval, *read.lval, plan, localLvals,
+                 lookupFunction))) {
             return false;
         }
     }
@@ -1544,7 +1609,7 @@ bool analyzeNode(const Node &node, const std::string &loopVar,
             plan.rejectReason = "non-affine array write";
             return false;
         }
-        if (!sameArrayReadsStayInWrittenPartition(lhs, *node.children.at(1), loopVar,
+        if (!sameArrayReadsStayInWrittenPartition(lhs, *node.children.at(1), plan,
                                                   localLvals, lookupFunction)) {
             plan.rejectReason = "same-array read is not partitioned";
             return false;
@@ -2669,7 +2734,10 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
         for (const ArrayAccess &read : reads) {
             if (write.base == read.base && read.lval != nullptr &&
                 !sameFirstPartitionIndex(*write.lval, *read.lval, plan.init.var,
-                                         lexical.localLvals, lookupFunction)) {
+                                         lexical.localLvals, lookupFunction) &&
+                !invariantReadOutsideLoopPartition(
+                    *write.lval, *read.lval, plan, lexical.localLvals,
+                    lookupFunction)) {
                 plan.valid = false;
                 plan.rejectReason = "loop-carried array dependence";
                 return plan;

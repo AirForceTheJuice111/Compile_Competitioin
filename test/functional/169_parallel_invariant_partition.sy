@@ -1,0 +1,31 @@
+int matrix[20000][4];
+
+int update_rows(int base, int end) {
+  int j;
+  int k = 91;
+  j = base + 1;
+  while (j < end) {
+    k = 0;
+    while (k < 4) {
+      matrix[j][k] = matrix[j][k] + matrix[base][k];
+      k = k + 1;
+    }
+    j = j + 1;
+  }
+  return j + k;
+}
+
+int main() {
+  matrix[0][0] = 1;
+  matrix[0][1] = 2;
+  matrix[0][2] = 3;
+  matrix[0][3] = 4;
+  putint(update_rows(0, 20000));
+  putch(32);
+  putint(matrix[19999][0] + matrix[19999][1] +
+         matrix[19999][2] + matrix[19999][3]);
+  putch(32);
+  putint(update_rows(5, 5));
+  putch(10);
+  return 0;
+}
