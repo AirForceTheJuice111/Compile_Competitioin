@@ -1247,6 +1247,28 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
                    {8, 9, 10, 11, 12, 13, 14, 15},
                    result.tempToFloatRegister);
 
+    // Keep the ABI rule explicit at the final boundary as well.  This is a
+    // cheap guard against a future coalescer/coloring change accidentally
+    // reintroducing an x0-x7/s0-s7 home for a call operand; the emitter then
+    // falls back to the value's colored spill slot rather than risking an
+    // argument-source clobber.
+    for (const Interval &interval : intervals) {
+        if (!interval.callArgument) continue;
+        if (interval.type == quad::QuadType::FLOAT) {
+            auto home = result.tempToFloatRegister.find(interval.temp);
+            if (home != result.tempToFloatRegister.end() && home->second >= 0 &&
+                home->second <= 7) {
+                result.tempToFloatRegister.erase(home);
+            }
+        } else {
+            auto home = result.tempToRegister.find(interval.temp);
+            if (home != result.tempToRegister.end() && home->second >= 0 &&
+                home->second <= 7) {
+                result.tempToRegister.erase(home);
+            }
+        }
+    }
+
     // Color stack-resident ranges as well.  The emitter keeps one fixed home
     // per SSA temp, so sharing a slot is safe precisely when no pair of their
     // live segments overlaps.  A simple first-fit coloring is sufficient here
