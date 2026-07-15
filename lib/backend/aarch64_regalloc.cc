@@ -30,6 +30,15 @@ struct BlockInfo {
     TempSet liveOut;
 };
 
+// A half-open portion of the linearized instruction stream in which an SSA
+// value is live.  Keeping the portions separate is important: the old
+// allocator represented every value by one [first,last] envelope, so values
+// with a dead region in the middle unnecessarily interfered.
+struct LiveSegment {
+    int start = 0;
+    int end = 0;
+};
+
 struct Interval {
     int temp = -1;
     quad::QuadType type = quad::QuadType::INT;
@@ -41,9 +50,10 @@ struct Interval {
     bool parameter = false;
     bool liveAcrossCall = false;
     std::unordered_set<std::size_t> blocks;
+    std::vector<LiveSegment> segments;
 
     bool valid() const {
-        return temp >= 0 && start <= end && uses != 0;
+        return temp >= 0 && start <= end && uses != 0 && !segments.empty();
     }
 
     long long priority() const {
@@ -55,6 +65,49 @@ struct Interval {
                (parameter ? 8LL : 0LL);
     }
 };
+
+bool segmentsOverlap(const LiveSegment &left, const LiveSegment &right) {
+    return left.start < right.end && right.start < left.end;
+}
+
+bool intervalsOverlap(const Interval &left, const Interval &right) {
+    std::size_t l = 0;
+    std::size_t r = 0;
+    while (l < left.segments.size() && r < right.segments.size()) {
+        if (segmentsOverlap(left.segments[l], right.segments[r])) return true;
+        if (left.segments[l].end <= right.segments[r].start) {
+            ++l;
+        } else {
+            ++r;
+        }
+    }
+    return false;
+}
+
+void normalizeSegments(Interval &interval) {
+    auto &segments = interval.segments;
+    std::sort(segments.begin(), segments.end(),
+              [](const LiveSegment &left, const LiveSegment &right) {
+                  if (left.start != right.start) return left.start < right.start;
+                  return left.end < right.end;
+              });
+    std::vector<LiveSegment> normalized;
+    for (const LiveSegment &segment : segments) {
+        if (segment.start >= segment.end) continue;
+        if (!normalized.empty() && segment.start <= normalized.back().end) {
+            normalized.back().end = std::max(normalized.back().end, segment.end);
+        } else {
+            normalized.push_back(segment);
+        }
+    }
+    segments = std::move(normalized);
+    if (segments.empty() && interval.start <= interval.end) {
+        // Malformed/hand-built Quad input can omit precise statement points.
+        // Retain the old conservative envelope rather than allocating an
+        // untracked value in a physical register.
+        segments.push_back({interval.start, interval.end + 1});
+    }
+}
 
 bool insertAll(TempSet &destination, const TempSet &source) {
     bool changed = false;
@@ -578,6 +631,83 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
         }
     }
 
+    // Build statement-granular live segments.  The block data-flow sets above
+    // tell us which values cross a CFG edge; walking each block backwards
+    // tells us where a value is actually live inside that block.  We record
+    // discrete instruction points and then turn consecutive points into
+    // half-open ranges.  A value used early in a block and redefined before a
+    // later use therefore has a real hole instead of one conservative envelope.
+    for (std::size_t index = 0; index < info.size(); ++index) {
+        BlockInfo &blockInfo = info[index];
+        auto *block = blockInfo.block;
+        if (block == nullptr || block->quadlist == nullptr) continue;
+
+        std::unordered_map<int, std::vector<int>> points;
+        auto mark = [&](int temp, int point) {
+            points[temp].push_back(point);
+        };
+        TempSet live = blockInfo.liveOut;
+        for (auto iterator = block->quadlist->rbegin();
+             iterator != block->quadlist->rend(); ++iterator) {
+            auto *statement = *iterator;
+            if (statement == nullptr) continue;
+            auto position = positions.find(statement);
+            if (position == positions.end()) continue;
+
+            TempSet defs = statementDefs(statement, addressFusions);
+            TempSet uses;
+            // PHI operands are live on their predecessor edges and are not
+            // local uses in the destination block.
+            if (statement->kind != quad::QuadKind::PHI) {
+                uses = statementUses(statement, addressFusions);
+            }
+            const int first = position->second.first;
+            const int last = position->second.second;
+            for (int temp : live) {
+                mark(temp, first);
+                mark(temp, last);
+            }
+            for (int temp : uses) {
+                mark(temp, first);
+                mark(temp, last);
+            }
+            for (int temp : defs) live.erase(temp);
+            insertAll(live, uses);
+        }
+
+        // Preserve the live-in/out boundary even for an empty block or a
+        // value whose first/last use is on a neighboring edge.
+        for (int temp : blockInfo.liveIn) {
+            mark(temp, blockInfo.start);
+            mark(temp, blockInfo.start + 1);
+        }
+        for (int temp : blockInfo.liveOut) {
+            mark(temp, blockInfo.end);
+            mark(temp, blockInfo.end + 1);
+        }
+
+        for (auto &entry : points) {
+            auto *interval = intervalFor(entry.first);
+            if (interval == nullptr) continue;
+            auto &values = entry.second;
+            std::sort(values.begin(), values.end());
+            values.erase(std::unique(values.begin(), values.end()), values.end());
+            if (values.empty()) continue;
+            int runStart = values.front();
+            int previous = values.front();
+            for (std::size_t point = 1; point < values.size(); ++point) {
+                if (values[point] <= previous + 1) {
+                    previous = values[point];
+                    continue;
+                }
+                interval->segments.push_back({runStart, previous + 1});
+                runStart = previous = values[point];
+            }
+            interval->segments.push_back({runStart, previous + 1});
+        }
+    }
+    for (auto &entry : byTemp) normalizeSegments(entry.second);
+
     // Walk exact statement liveness backwards to identify values that must
     // survive a call.  Call operands die before the ABI clobber and call
     // results are born afterwards, so both remain eligible for x8 unless used
@@ -724,6 +854,88 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
                  {16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29},
                  {8, 9, 10, 11, 12, 13, 14, 15},
                  result.tempToFloatRegister);
+
+    // The legacy scan intentionally keeps a whole [start,end] envelope, so a
+    // range that could only fit in a dead hole is often left on the stack.
+    // Recover those values opportunistically without changing any already
+    // selected home: this preserves direct-home MOVE/PHI behavior while
+    // making the new segment information useful.  A candidate is assigned
+    // only when no assigned interval with the same physical register has an
+    // overlapping segment, and call-crossing values never use x8/s16-s29.
+    auto fillLifetimeHoles = [&](const std::vector<std::size_t> &bank,
+                                 const std::vector<int> &callerSaved,
+                                 const std::vector<int> &calleeSaved,
+                                 std::unordered_map<int, int> &homes) {
+        std::unordered_set<int> callerSavedSet(callerSaved.begin(),
+                                               callerSaved.end());
+        std::vector<std::size_t> candidates;
+        for (std::size_t index : bank) {
+            if (homes.find(intervals[index].temp) == homes.end()) {
+                candidates.push_back(index);
+            }
+        }
+        std::sort(candidates.begin(), candidates.end(),
+                  [&](std::size_t left, std::size_t right) {
+                      long long lp = intervals[left].priority();
+                      long long rp = intervals[right].priority();
+                      if (lp != rp) return lp > rp;
+                      if (intervals[left].segments.size() !=
+                          intervals[right].segments.size()) {
+                          return intervals[left].segments.size() >
+                                 intervals[right].segments.size();
+                      }
+                      return intervals[left].start < intervals[right].start;
+                  });
+
+        auto occupiedBy = [&](std::size_t current, int reg) {
+            const Interval &candidate = intervals[current];
+            if (candidate.liveAcrossCall && callerSavedSet.count(reg) != 0) {
+                return true;
+            }
+            for (std::size_t other : bank) {
+                auto home = homes.find(intervals[other].temp);
+                if (home == homes.end() || home->second != reg ||
+                    other == current) {
+                    continue;
+                }
+                if (intervalsOverlap(candidate, intervals[other])) return true;
+            }
+            return false;
+        };
+
+        for (std::size_t current : candidates) {
+            if (homes.find(intervals[current].temp) != homes.end()) continue;
+            std::vector<int> choices;
+            std::unordered_set<int> seen;
+            auto addChoice = [&](int reg) {
+                if (seen.insert(reg).second) choices.push_back(reg);
+            };
+            auto preferred = affinities.find(intervals[current].temp);
+            if (preferred != affinities.end()) {
+                for (int source : preferred->second) {
+                    auto home = homes.find(source);
+                    if (home != homes.end()) addChoice(home->second);
+                }
+            }
+            if (!intervals[current].liveAcrossCall) {
+                for (int reg : callerSaved) addChoice(reg);
+            }
+            for (int reg : calleeSaved) addChoice(reg);
+            for (int reg : choices) {
+                if (occupiedBy(current, reg)) continue;
+                homes[intervals[current].temp] = reg;
+                break;
+            }
+        }
+    };
+    fillLifetimeHoles(gprIntervals, {8},
+                      {19, 20, 21, 22, 23, 24, 25, 26, 27, 28},
+                      result.tempToRegister);
+    fillLifetimeHoles(floatIntervals,
+                      {16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28,
+                       29},
+                      {8, 9, 10, 11, 12, 13, 14, 15},
+                      result.tempToFloatRegister);
 
     std::set<int> usedCalleeSaved;
     for (const auto &entry : result.tempToRegister) {
