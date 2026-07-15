@@ -2170,49 +2170,95 @@ private:
         if (func_ == nullptr || func_->params == nullptr) {
             return;
         }
+        struct IncomingParam {
+            tree::Temp *temp = nullptr;
+            quad::QuadType type = quad::QuadType::INT;
+            int gp = -1;
+            int fp = -1;
+            int stackOffset = -1;
+        };
+
+        // First classify every parameter.  We then snapshot all incoming
+        // register arguments before writing any homes: with caller-saved
+        // allocation enabled, one parameter may be homed in another incoming
+        // argument register (for example x -> x1, y -> x0).  The old
+        // left-to-right stores would overwrite y before it was copied.
+        std::vector<IncomingParam> incoming;
+        incoming.reserve(func_->params->size());
         int gp = 0;
         int fp = 0;
         int stackOffset = 16;
         for (auto *param : *func_->params) {
-            if (param == nullptr) {
-                continue;
-            }
-            quad::QuadType type = tempType(param);
-            if (type == quad::QuadType::FLOAT) {
-                std::string destination = resultRegister(param, type, "w9");
+            if (param == nullptr) continue;
+            IncomingParam entry;
+            entry.temp = param;
+            entry.type = tempType(param);
+            if (entry.type == quad::QuadType::FLOAT) {
                 if (fp < 8) {
-                    out_ << "\tfmov " << destination << ", s" << fp << "\n";
-                    storeTemp(param, type, destination);
-                    ++fp;
+                    entry.fp = fp++;
                 } else {
-                    stackAddressFromFrame(stackOffset);
-                    out_ << "\tldr " << destination << ", [x16]\n";
-                    storeTemp(param, type, destination);
-                    stackOffset += 8;
-                }
-            } else if (type == quad::QuadType::PTR) {
-                if (gp < 8) {
-                    storeTemp(param, type, "x" + std::to_string(gp));
-                    ++gp;
-                } else {
-                    std::string destination = resultRegister(param, type, "x9");
-                    stackAddressFromFrame(stackOffset);
-                    out_ << "\tldr " << destination << ", [x16]\n";
-                    storeTemp(param, type, destination);
+                    entry.stackOffset = stackOffset;
                     stackOffset += 8;
                 }
             } else {
                 if (gp < 8) {
-                    storeTemp(param, type, "w" + std::to_string(gp));
-                    ++gp;
+                    entry.gp = gp++;
                 } else {
-                    std::string destination = resultRegister(param, type, "w9");
-                    stackAddressFromFrame(stackOffset);
-                    out_ << "\tldr " << destination << ", [x16]\n";
-                    storeTemp(param, type, destination);
+                    entry.stackOffset = stackOffset;
                     stackOffset += 8;
                 }
             }
+            incoming.push_back(entry);
+        }
+
+        // GPR snapshots live in the otherwise-unused s16-s23 lanes (raw bits
+        // are preserved by fmov); FP snapshots live in x8-x15.  The two banks
+        // are independent, and neither set overlaps a possible destination
+        // home in the corresponding bank.  This gives us eight scratch lanes
+        // per ABI class without growing every function's frame.
+        for (const IncomingParam &entry : incoming) {
+            if (entry.gp >= 0) {
+                if (entry.type == quad::QuadType::PTR) {
+                    out_ << "\tfmov d" << (16 + entry.gp) << ", x"
+                         << entry.gp << "\n";
+                } else {
+                    out_ << "\tfmov s" << (16 + entry.gp) << ", w"
+                         << entry.gp << "\n";
+                }
+            } else if (entry.fp >= 0) {
+                out_ << "\tfmov w" << (8 + entry.fp) << ", s" << entry.fp
+                     << "\n";
+            }
+        }
+
+        for (const IncomingParam &entry : incoming) {
+            if (entry.temp == nullptr) continue;
+            std::string source;
+            if (entry.gp >= 0) {
+                if (entry.type == quad::QuadType::PTR) {
+                    out_ << "\tfmov x9, d" << (16 + entry.gp) << "\n";
+                    source = "x9";
+                } else {
+                    out_ << "\tfmov w9, s" << (16 + entry.gp) << "\n";
+                    source = "w9";
+                }
+            } else if (entry.fp >= 0) {
+                out_ << "\tfmov s30, w" << (8 + entry.fp) << "\n";
+                source = "s30";
+            } else {
+                stackAddressFromFrame(entry.stackOffset);
+                if (entry.type == quad::QuadType::FLOAT) {
+                    out_ << "\tldr s30, [x16]\n";
+                    source = "s30";
+                } else if (entry.type == quad::QuadType::PTR) {
+                    out_ << "\tldr x9, [x16]\n";
+                    source = "x9";
+                } else {
+                    out_ << "\tldr w9, [x16]\n";
+                    source = "w9";
+                }
+            }
+            storeTemp(entry.temp, entry.type, source);
         }
     }
 

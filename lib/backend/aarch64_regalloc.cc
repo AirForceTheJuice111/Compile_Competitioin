@@ -49,6 +49,13 @@ struct Interval {
     int uses = 0;
     bool parameter = false;
     bool liveAcrossCall = false;
+    // A value consumed by an ABI call argument cannot use x0-x7/s0-s7 as its
+    // home.  Argument setup writes those registers left-to-right, so keeping
+    // an argument itself in one of them would make a later argument move
+    // observe a clobbered source.  x8 (and s16-s29) remain legal for an
+    // argument because the marshaller does not overwrite them before the
+    // call.
+    bool callArgument = false;
     std::unordered_set<std::size_t> blocks;
     std::vector<LiveSegment> segments;
 
@@ -136,6 +143,43 @@ void addCallUses(quad::QuadCall *call, TempSet &result) {
 void addExtCallUses(quad::QuadExtCall *call, TempSet &result) {
     if (call == nullptr || call->args == nullptr) return;
     for (auto *argument : *call->args) addTermUse(argument, result);
+}
+
+bool isCall(quad::QuadStm *statement);
+
+// Record the values which are consumed by the target ABI argument marshaller.
+// This is intentionally separate from addCallUses: the object term of an
+// indirect QuadCall is loaded through x15 and therefore is not subject to the
+// x0-x7 argument-register clobber rule.  Likewise, inlined floating helpers
+// are not ABI calls and are handled directly by the emitter.
+void addCallArgumentUses(quad::QuadStm *statement, TempSet &result) {
+    if (statement == nullptr || !isCall(statement)) return;
+    switch (statement->kind) {
+    case quad::QuadKind::CALL:
+        if (auto *call = static_cast<quad::QuadCall *>(statement);
+            call != nullptr && call->args != nullptr) {
+            for (auto *argument : *call->args) addTermUse(argument, result);
+        }
+        break;
+    case quad::QuadKind::MOVE_CALL: {
+        auto *move = static_cast<quad::QuadMoveCall *>(statement);
+        auto *call = move == nullptr ? nullptr : move->call;
+        if (call != nullptr && call->args != nullptr) {
+            for (auto *argument : *call->args) addTermUse(argument, result);
+        }
+        break;
+    }
+    case quad::QuadKind::EXTCALL:
+        addExtCallUses(static_cast<quad::QuadExtCall *>(statement), result);
+        break;
+    case quad::QuadKind::MOVE_EXTCALL: {
+        auto *move = static_cast<quad::QuadMoveExtCall *>(statement);
+        addExtCallUses(move == nullptr ? nullptr : move->extcall, result);
+        break;
+    }
+    default:
+        break;
+    }
 }
 
 struct AddressFusionOverrides {
@@ -516,6 +560,7 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
     }
 
     std::unordered_map<int, Interval> byTemp;
+    TempSet callArgumentTemps;
     // Coalescing preferences never override interference or ABI legality.
     // They merely bias a destination toward a MOVE/PHI input's now-free home,
     // allowing the emitter to omit the corresponding copy when adjacent live
@@ -565,6 +610,7 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
         if (block == nullptr || block->quadlist == nullptr) continue;
         for (auto *statement : *block->quadlist) {
             if (statement == nullptr) continue;
+            addCallArgumentUses(statement, callArgumentTemps);
             auto position = positions.find(statement);
             if (position == positions.end()) continue;
             if (statement->kind == quad::QuadKind::PHI) {
@@ -629,6 +675,9 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
                 }
             }
         }
+    }
+    for (auto &entry : byTemp) {
+        entry.second.callArgument = callArgumentTemps.count(entry.first) != 0;
     }
 
     // Build statement-granular live segments.  The block data-flow sets above
@@ -753,6 +802,16 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
         std::size_t interval = 0;
         int reg = -1;
     };
+    auto registerUnavailable = [](const Interval &interval, int reg,
+                                  const std::unordered_set<int> &callerSaved) {
+        if (interval.liveAcrossCall && callerSaved.count(reg) != 0) {
+            return true;
+        }
+        // x0-x7 and s0-s7 are overwritten while ABI arguments are prepared.
+        // A call argument may still use x8/s16-s29, which are not touched by
+        // the register-argument moves themselves.
+        return interval.callArgument && reg >= 0 && reg <= 7;
+    };
     auto allocateBank = [&](const std::vector<std::size_t> &bank,
                             const std::vector<int> &callerSaved,
                             const std::vector<int> &calleeSaved,
@@ -778,8 +837,8 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
                     auto sourceHome = homes.find(source);
                     if (sourceHome == homes.end() ||
                         occupied.count(sourceHome->second) != 0 ||
-                        (current.liveAcrossCall &&
-                         callerSavedSet.count(sourceHome->second) != 0)) {
+                        registerUnavailable(current, sourceHome->second,
+                                            callerSavedSet)) {
                         continue;
                     }
                     selected = sourceHome->second;
@@ -788,6 +847,9 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
             }
             if (!current.liveAcrossCall && selected < 0) {
                 for (int reg : callerSaved) {
+                    if (current.callArgument && reg >= 0 && reg <= 7) {
+                        continue;
+                    }
                     if (occupied.count(reg) == 0) {
                         selected = reg;
                         break;
@@ -810,8 +872,8 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
                 auto victim = active.end();
                 for (auto iterator = active.begin(); iterator != active.end();
                      ++iterator) {
-                    if (current.liveAcrossCall &&
-                        callerSavedSet.count(iterator->reg) != 0) {
+                    if (registerUnavailable(current, iterator->reg,
+                                            callerSavedSet)) {
                         continue;
                     }
                     if (victim == active.end() ||
@@ -847,11 +909,12 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
             gprIntervals.push_back(index);
         }
     }
-    allocateBank(gprIntervals, {8},
+    allocateBank(gprIntervals, {0, 1, 2, 3, 4, 5, 6, 7, 8},
                  {19, 20, 21, 22, 23, 24, 25, 26, 27, 28},
                  result.tempToRegister);
     allocateBank(floatIntervals,
-                 {16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29},
+                 {0, 1, 2, 3, 4, 5, 6, 7, 16, 17, 18, 19, 20, 21, 22, 23,
+                  24, 25, 26, 27, 28, 29},
                  {8, 9, 10, 11, 12, 13, 14, 15},
                  result.tempToFloatRegister);
 
@@ -889,7 +952,7 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
 
         auto occupiedBy = [&](std::size_t current, int reg) {
             const Interval &candidate = intervals[current];
-            if (candidate.liveAcrossCall && callerSavedSet.count(reg) != 0) {
+            if (registerUnavailable(candidate, reg, callerSavedSet)) {
                 return true;
             }
             for (std::size_t other : bank) {
@@ -918,7 +981,12 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
                 }
             }
             if (!intervals[current].liveAcrossCall) {
-                for (int reg : callerSaved) addChoice(reg);
+                for (int reg : callerSaved) {
+                    if (intervals[current].callArgument && reg >= 0 && reg <= 7) {
+                        continue;
+                    }
+                    addChoice(reg);
+                }
             }
             for (int reg : calleeSaved) addChoice(reg);
             for (int reg : choices) {
@@ -928,12 +996,12 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
             }
         }
     };
-    fillLifetimeHoles(gprIntervals, {8},
+    fillLifetimeHoles(gprIntervals, {0, 1, 2, 3, 4, 5, 6, 7, 8},
                       {19, 20, 21, 22, 23, 24, 25, 26, 27, 28},
                       result.tempToRegister);
     fillLifetimeHoles(floatIntervals,
-                      {16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28,
-                       29},
+                      {0, 1, 2, 3, 4, 5, 6, 7, 16, 17, 18, 19, 20, 21, 22,
+                       23, 24, 25, 26, 27, 28, 29},
                       {8, 9, 10, 11, 12, 13, 14, 15},
                       result.tempToFloatRegister);
 
@@ -954,7 +1022,7 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
 
         auto conflictsAt = [&](std::size_t moving, int target) {
             const Interval &candidate = intervals[moving];
-            if (candidate.liveAcrossCall && callerSavedSet.count(target) != 0) {
+            if (registerUnavailable(candidate, target, callerSavedSet)) {
                 return true;
             }
             for (std::size_t other : bank) {
@@ -1008,9 +1076,11 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
             }
         }
     };
-    coalesceBank(gprIntervals, {8}, result.tempToRegister);
+    coalesceBank(gprIntervals, {0, 1, 2, 3, 4, 5, 6, 7, 8},
+                 result.tempToRegister);
     coalesceBank(floatIntervals,
-                 {16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29},
+                 {0, 1, 2, 3, 4, 5, 6, 7, 16, 17, 18, 19, 20, 21, 22, 23,
+                  24, 25, 26, 27, 28, 29},
                  result.tempToFloatRegister);
 
     // Build a graph-colored alternative from the same segment interference
@@ -1049,7 +1119,7 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
 
         auto canUse = [&](std::size_t node, int reg) {
             const Interval &interval = intervals[bank[node]];
-            if (interval.liveAcrossCall && callerSavedSet.count(reg) != 0) {
+            if (registerUnavailable(interval, reg, callerSavedSet)) {
                 return false;
             }
             for (std::size_t neighbor : neighbors[node]) {
@@ -1106,7 +1176,12 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
                 }
             }
             if (!current.liveAcrossCall) {
-                for (int reg : callerSaved) addChoice(choices, seen, reg);
+                for (int reg : callerSaved) {
+                    if (current.callArgument && reg >= 0 && reg <= 7) {
+                        continue;
+                    }
+                    addChoice(choices, seen, reg);
+                }
             }
             for (int reg : calleeSaved) addChoice(choices, seen, reg);
 
@@ -1163,11 +1238,12 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
             homes = std::move(candidateHomes);
         }
     };
-    graphColorBank(gprIntervals, {8},
+    graphColorBank(gprIntervals, {0, 1, 2, 3, 4, 5, 6, 7, 8},
                    {19, 20, 21, 22, 23, 24, 25, 26, 27, 28},
                    result.tempToRegister);
     graphColorBank(floatIntervals,
-                   {16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29},
+                   {0, 1, 2, 3, 4, 5, 6, 7, 16, 17, 18, 19, 20, 21, 22, 23,
+                    24, 25, 26, 27, 28, 29},
                    {8, 9, 10, 11, 12, 13, 14, 15},
                    result.tempToFloatRegister);
 
