@@ -117,6 +117,7 @@ struct ParallelScalarFunctionSummary {
     std::string returnType;
     std::vector<std::string> parameters;
     std::unordered_set<std::string> globalScalarReads;
+    std::unordered_set<std::string> globalArrayReads;
     // Present only for a direct, single-expression return.  The expression is
     // owned by the source AST and can be substituted into affine index checks.
     const Node *affineReturnExpr = nullptr;

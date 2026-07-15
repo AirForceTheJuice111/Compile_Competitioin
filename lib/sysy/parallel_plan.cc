@@ -101,6 +101,28 @@ bool callReadsWrittenScalar(
     });
 }
 
+bool callReadsWrittenArray(
+    const Node &node, const std::unordered_set<std::string> &writes,
+    const ParallelFunctionSummaryLookup &lookupFunction) {
+    if (node.kind == NodeKind::CallExpr) {
+        const ParallelScalarFunctionSummary *summary =
+            lookupPureFunction(lookupFunction, node.text);
+        if (summary == nullptr) {
+            return true;
+        }
+        for (const std::string &read : summary->globalArrayReads) {
+            if (writes.find(read) != writes.end()) {
+                return true;
+            }
+        }
+    }
+    return std::any_of(node.children.begin(), node.children.end(),
+                       [&](const auto &child) {
+                           return callReadsWrittenArray(*child, writes,
+                                                        lookupFunction);
+                       });
+}
+
 bool isStartTimingStmt(const Node &node) {
     return node.kind == NodeKind::ExprStmt && node.children.size() == 1 &&
            node.children.front()->kind == NodeKind::CallExpr &&
@@ -1850,6 +1872,13 @@ bool profitableParallelLoop(const ParallelLoopPlan &plan) {
     if (!plan.reductions.empty()) {
         return true;
     }
+    if (plan.hasArrayWrite) {
+        // Dynamic and large constant maps are gated by trip_count*work_cost in
+        // the native runtime.  Requiring an expensive single iteration here
+        // used to discard cheap but very large array loops before that more
+        // accurate profitability test could run.
+        return true;
+    }
     if (plan.hasNestedLoop) {
         return true;
     }
@@ -1882,6 +1911,7 @@ bool declarationIsArray(const Node &def) {
 
 struct GlobalPuritySymbol {
     bool immutableScalar = false;
+    bool array = false;
 };
 
 struct FunctionPurityCandidate {
@@ -2006,7 +2036,14 @@ private:
         }
         if (node.kind == NodeKind::LVal) {
             if (!node.children.empty()) {
-                candidate_.structurallyPure = false;
+                if (!local(node.text)) {
+                    auto found = globals_.find(node.text);
+                    if (found == globals_.end() || !found->second.array) {
+                        candidate_.structurallyPure = false;
+                    } else {
+                        candidate_.summary.globalArrayReads.insert(node.text);
+                    }
+                }
             } else if (!local(node.text)) {
                 auto found = globals_.find(node.text);
                 // Reading a scalar global has no call effect.  Such a value is
@@ -2014,7 +2051,7 @@ private:
                 // planner separately rejects every non-reduction scalar write
                 // in its body.  Array/global writes and unknown symbols remain
                 // impure.
-                if (found == globals_.end()) {
+                if (found == globals_.end() || found->second.array) {
                     candidate_.structurallyPure = false;
                 } else {
                     candidate_.summary.globalScalarReads.insert(node.text);
@@ -2096,7 +2133,8 @@ ParallelFunctionSummaries summarizeParallelScalarFunctions(const Node &root) {
         }
         for (const auto &def : child->children) {
             globals[def->text] = GlobalPuritySymbol{
-                child->kind == NodeKind::ConstDecl && !declarationIsArray(*def)};
+                child->kind == NodeKind::ConstDecl && !declarationIsArray(*def),
+                declarationIsArray(*def)};
         }
     }
 
@@ -2159,6 +2197,11 @@ ParallelFunctionSummaries summarizeParallelScalarFunctions(const Node &root) {
                 }
                 for (const std::string &read : calleeSummary->second.globalScalarReads) {
                     if (summary->second.globalScalarReads.insert(read).second) {
+                        changed = true;
+                    }
+                }
+                for (const std::string &read : calleeSummary->second.globalArrayReads) {
+                    if (summary->second.globalArrayReads.insert(read).second) {
                         changed = true;
                     }
                 }
@@ -2631,6 +2674,17 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
                 plan.rejectReason = "loop-carried array dependence";
                 return plan;
             }
+        }
+    }
+    std::unordered_set<std::string> writtenArrays;
+    for (const ArrayAccess &write : writes) {
+        writtenArrays.insert(write.base);
+    }
+    for (const Node *stmt : plan.body) {
+        if (callReadsWrittenArray(*stmt, writtenArrays, lookupFunction)) {
+            plan.valid = false;
+            plan.rejectReason = "call reads loop-written array";
+            return plan;
         }
     }
     if (!plan.hasArrayWrite && plan.reductions.empty()) {
