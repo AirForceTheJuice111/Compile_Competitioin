@@ -18,6 +18,11 @@ struct Aarch64RegisterAllocation {
     std::unordered_map<int, int> tempToFloatRegister;
     std::vector<int> usedCalleeSavedRegisters;
     std::vector<int> usedCalleeSavedFloatRegisters;
+    // Greedy coloring of stack-resident SSA ranges.  Values with different
+    // colors may share the same 8-byte frame slot only when their segmented
+    // live ranges do not overlap.
+    std::unordered_map<int, int> spillSlotColors;
+    std::size_t spillSlotCount = 0;
     std::size_t maxPhiCopies = 0;
     std::size_t intervalCount = 0;
     std::size_t spilledIntervalCount = 0;

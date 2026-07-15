@@ -678,6 +678,7 @@ private:
     std::unordered_set<int> elidedPointerTemps_;
     std::unordered_map<std::string, std::vector<quad::QuadType>> functionParamTypes_;
     std::map<int, int> slots_;
+    std::unordered_map<int, int> spillSlotColors_;
     std::unordered_map<int, int> residentRegs_;
     std::unordered_map<int, int> residentFpRegs_;
     std::vector<std::pair<int, int>> calleeSaveSlots_;
@@ -790,6 +791,7 @@ private:
     void selectLegacyResidentTemps() {
         residentRegs_.clear();
         residentFpRegs_.clear();
+        spillSlotColors_.clear();
         calleeSaveSlots_.clear();
         calleeSaveFloatSlots_.clear();
         phiScratchSlots_.clear();
@@ -950,6 +952,7 @@ private:
             func_, tempTypes_, rematerializedTemps, fusedAddresses_);
         residentRegs_ = std::move(allocation.tempToRegister);
         residentFpRegs_ = std::move(allocation.tempToFloatRegister);
+        spillSlotColors_ = std::move(allocation.spillSlotColors);
     }
 
     void layoutFrameStorage(int tempSlotBytes) {
@@ -1150,6 +1153,7 @@ private:
         elidedPointerCalculations_.clear();
         elidedPointerTemps_.clear();
         slots_.clear();
+        spillSlotColors_.clear();
         if (func_ == nullptr || func_->quadblocklist == nullptr) {
             return;
         }
@@ -1363,11 +1367,22 @@ private:
             spillTemps.push_back(entry.first);
         }
         std::sort(spillTemps.begin(), spillTemps.end());
-        int offset = 0;
+        int maxColor = -1;
         for (int temp : spillTemps) {
-            offset += 8;
-            slots_[temp] = -offset;
+            auto color = spillSlotColors_.find(temp);
+            if (color != spillSlotColors_.end()) {
+                maxColor = std::max(maxColor, color->second);
+            }
         }
+        int nextColor = maxColor + 1;
+        for (int temp : spillTemps) {
+            auto color = spillSlotColors_.find(temp);
+            if (color == spillSlotColors_.end()) {
+                color = spillSlotColors_.emplace(temp, nextColor++).first;
+            }
+            slots_[temp] = -(color->second + 1) * 8;
+        }
+        int offset = nextColor * 8;
         layoutFrameStorage(offset);
     }
 
@@ -1386,6 +1401,7 @@ private:
         auto savedElidedPointerCalculations = elidedPointerCalculations_;
         auto savedElidedPointerTemps = elidedPointerTemps_;
         auto savedSlots = slots_;
+        auto savedSpillSlotColors = spillSlotColors_;
         auto savedResidentRegs = residentRegs_;
         auto savedResidentFpRegs = residentFpRegs_;
         auto savedCalleeSaveSlots = calleeSaveSlots_;
@@ -1420,6 +1436,7 @@ private:
             std::move(savedElidedPointerCalculations);
         elidedPointerTemps_ = std::move(savedElidedPointerTemps);
         slots_ = std::move(savedSlots);
+        spillSlotColors_ = std::move(savedSpillSlotColors);
         residentRegs_ = std::move(savedResidentRegs);
         residentFpRegs_ = std::move(savedResidentFpRegs);
         calleeSaveSlots_ = std::move(savedCalleeSaveSlots);

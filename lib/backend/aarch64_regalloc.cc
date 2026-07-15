@@ -1171,6 +1171,59 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
                    {8, 9, 10, 11, 12, 13, 14, 15},
                    result.tempToFloatRegister);
 
+    // Color stack-resident ranges as well.  The emitter keeps one fixed home
+    // per SSA temp, so sharing a slot is safe precisely when no pair of their
+    // live segments overlaps.  A simple first-fit coloring is sufficient here
+    // because the number of physical spill slots is normally much larger
+    // than the register bank; sorting by first segment keeps hot short ranges
+    // from needlessly extending a color's occupancy.
+    std::vector<std::size_t> spilled;
+    for (std::size_t index = 0; index < intervals.size(); ++index) {
+        const Interval &interval = intervals[index];
+        if (interval.type == quad::QuadType::FLOAT) {
+            if (result.tempToFloatRegister.count(interval.temp) == 0) {
+                spilled.push_back(index);
+            }
+        } else if (result.tempToRegister.count(interval.temp) == 0) {
+            spilled.push_back(index);
+        }
+    }
+    std::sort(spilled.begin(), spilled.end(), [&](std::size_t left,
+                                                   std::size_t right) {
+        int ls = intervals[left].segments.empty()
+                     ? intervals[left].start
+                     : intervals[left].segments.front().start;
+        int rs = intervals[right].segments.empty()
+                     ? intervals[right].start
+                     : intervals[right].segments.front().start;
+        if (ls != rs) return ls < rs;
+        return intervals[left].priority() > intervals[right].priority();
+    });
+    std::vector<std::vector<std::size_t>> slotUsers;
+    for (std::size_t index : spilled) {
+        int selected = -1;
+        for (std::size_t color = 0; color < slotUsers.size(); ++color) {
+            bool conflict = false;
+            for (std::size_t other : slotUsers[color]) {
+                if (intervalsOverlap(intervals[index], intervals[other])) {
+                    conflict = true;
+                    break;
+                }
+            }
+            if (!conflict) {
+                selected = static_cast<int>(color);
+                break;
+            }
+        }
+        if (selected < 0) {
+            selected = static_cast<int>(slotUsers.size());
+            slotUsers.emplace_back();
+        }
+        slotUsers[static_cast<std::size_t>(selected)].push_back(index);
+        result.spillSlotColors[intervals[index].temp] = selected;
+    }
+    result.spillSlotCount = slotUsers.size();
+
     std::set<int> usedCalleeSaved;
     for (const auto &entry : result.tempToRegister) {
         if (entry.second >= 19 && entry.second <= 28) {
