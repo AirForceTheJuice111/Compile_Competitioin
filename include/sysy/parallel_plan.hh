@@ -35,6 +35,10 @@ struct ParallelReduction {
     bool modular = false;
     int modulus = 0;
     Kind kind = Kind::Add;
+    // Integer reductions may be reassociated in the native runtime.  Float
+    // additions instead use an ordered map/serial-fold lowering so every
+    // source addition remains in the original iteration order.
+    std::string type = "int";
 };
 
 struct ParallelCapture {

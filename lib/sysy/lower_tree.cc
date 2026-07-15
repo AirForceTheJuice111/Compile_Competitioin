@@ -675,6 +675,9 @@ private:
     std::unordered_set<const Node *> suppressedParallelIvUpdates_;
     std::string workerModReductionVar_;
     int workerModulus_ = 0;
+    std::string workerOrderedFloatReductionVar_;
+    tree::Temp *workerOrderedFloatBuffer_ = nullptr;
+    tree::Temp *workerOrderedFloatIndex_ = nullptr;
 
     tree::Temp *newTemp() { return temps_.newtemp(); }
     tree::Label *newLabel() { return temps_.newlabel(); }
@@ -1290,6 +1293,35 @@ private:
         return alignTo(bytes, pointerBytes());
     }
 
+    int parallelFloatBufferOffset(
+        const std::vector<ParallelContextField> &fields,
+        std::size_t reductionCount, bool dynamicLogicalRange) const {
+        return alignTo(parallelContextBytes(fields, reductionCount,
+                                            dynamicLogicalRange),
+                       pointerBytes());
+    }
+
+    int parallelFloatBeginOffset(
+        const std::vector<ParallelContextField> &fields,
+        std::size_t reductionCount, bool dynamicLogicalRange) const {
+        return parallelFloatBufferOffset(fields, reductionCount,
+                                         dynamicLogicalRange) + pointerBytes();
+    }
+
+    int parallelContextBytes(const std::vector<ParallelContextField> &fields,
+                             std::size_t reductionCount,
+                             bool dynamicLogicalRange,
+                             bool orderedFloatReduction) const {
+        int bytes = parallelContextBytes(fields, reductionCount,
+                                         dynamicLogicalRange);
+        if (orderedFloatReduction) {
+            bytes = parallelFloatBeginOffset(fields, reductionCount,
+                                             dynamicLogicalRange) +
+                    static_cast<int>(sizeof(std::int32_t));
+        }
+        return alignTo(bytes, pointerBytes());
+    }
+
     bool aliasPairNeedsRuntimeGuard(const ParallelContextField &lhs,
                                     const ParallelContextField &rhs,
                                     bool &needsGuard) const {
@@ -1332,24 +1364,31 @@ private:
         return true;
     }
 
-    bool reductionDestinationIsInt(const ParallelLoopPlan &plan) const {
+    bool orderedFloatReduction(const ParallelLoopPlan &plan) const {
+        return plan.reductions.size() == 1 &&
+               plan.reductions.front().type == "float";
+    }
+
+    bool reductionDestinationsSupported(const ParallelLoopPlan &plan) const {
         if (plan.reductions.empty()) {
             return true;
         }
         for (const ParallelReduction &reduction : plan.reductions) {
-            // Float reductions deliberately remain sequential: changing the
-            // association of IEEE-754 additions is observable.  The planner
-            // currently admits only integer scalar reductions, but retain the
-            // check here as a lowering-side safety net.
             if (reduction.modular && plan.reductions.size() > 1) {
                 return false;
             }
             Symbol dst = lookup(reduction.var, plan.init.initExpr->loc);
-            if (isArraySymbol(dst) || dst.base != BaseType::Int) {
+            BaseType expected = reduction.type == "float" ? BaseType::Float
+                                                           : BaseType::Int;
+            if (isArraySymbol(dst) || dst.base != expected) {
                 return false;
             }
         }
-        return true;
+        return !std::any_of(plan.reductions.begin(), plan.reductions.end(),
+                            [&](const ParallelReduction &reduction) {
+                                return reduction.type == "float" &&
+                                       !orderedFloatReduction(plan);
+                            });
     }
 
     bool stagedParallelReductions(const ParallelLoopPlan &plan) const {
@@ -1551,17 +1590,21 @@ private:
                                  std::vector<tree::Stm *> *stms,
                                  tree::Label *modUnsafeLabel = nullptr) {
         const bool stagedReduction = stagedParallelReductions(plan);
+        const bool orderedFloat = orderedFloatReduction(plan);
         tree::Temp *ctxTemp = nullptr;
+        tree::Temp *floatBufferTemp = nullptr;
         tree::Exp *ctxArg = new tree::Const(0, tree::Type::PTR);
         // Multi-reduction workers use a private tail in the context for the
         // second worker's partials.  Force a context allocation even when the
         // source body has no ordinary captures.
-        if (!fields.empty() || stagedReduction || plan.dynamicLogicalRange) {
+        if (!fields.empty() || stagedReduction || plan.dynamicLogicalRange ||
+            orderedFloat) {
             ctxTemp = newTemp();
             const std::size_t reductionCount =
                 stagedReduction ? plan.reductions.size() : 0;
             int ctxBytes = parallelContextBytes(fields, reductionCount,
-                                                plan.dynamicLogicalRange);
+                                                plan.dynamicLogicalRange,
+                                                orderedFloat);
             stms->push_back(new tree::Move(
                 ptrTempExp(ctxTemp),
                 new tree::ExtCall(tree::Type::PTR, "malloc",
@@ -1612,6 +1655,34 @@ private:
                             parallelDynamicInitialOffset(fields,
                                                          reductionCount))),
                     tempExp(sourceInitialTemp)));
+            }
+            if (orderedFloat) {
+                floatBufferTemp = newTemp();
+                tree::Exp *elementCount = new tree::Binop(
+                    tree::Type::INT, "-", tempExp(endTemp), tempExp(beginTemp));
+                tree::Exp *bufferBytes = new tree::Binop(
+                    tree::Type::INT, "*", elementCount, new tree::Const(4));
+                stms->push_back(new tree::Move(
+                    ptrTempExp(floatBufferTemp),
+                    new tree::ExtCall(
+                        tree::Type::PTR, "malloc",
+                        new std::vector<tree::Exp *>({bufferBytes}))));
+                stms->push_back(new tree::Move(
+                    new tree::Mem(
+                        tree::Type::PTR,
+                        ctxFieldAddr(
+                            ctxTemp,
+                            parallelFloatBufferOffset(fields, reductionCount,
+                                                      plan.dynamicLogicalRange))),
+                    ptrTempExp(floatBufferTemp)));
+                stms->push_back(new tree::Move(
+                    new tree::Mem(
+                        tree::Type::INT,
+                        ctxFieldAddr(
+                            ctxTemp,
+                            parallelFloatBeginOffset(fields, reductionCount,
+                                                     plan.dynamicLogicalRange))),
+                    tempExp(beginTemp)));
             }
         }
 
@@ -1679,6 +1750,49 @@ private:
                 dst, intRemainder(sum, new tree::Const(reduction.modulus))));
             stms->push_back(new tree::Jump(doneLabel));
             stms->push_back(new tree::LabelStm(doneLabel));
+        } else if (orderedFloat) {
+            stms->push_back(new tree::ExpStm(
+                new tree::ExtCall(tree::Type::INT,
+                                  "__sysy_parallel_for_range", runtimeArgs)));
+
+            const ParallelReduction &reduction = plan.reductions.front();
+            auto *indexTemp = newTemp();
+            auto *countTemp = newTemp();
+            auto *testLabel = newLabel();
+            auto *bodyLabel = newLabel();
+            auto *doneLabel = newLabel();
+            stms->push_back(new tree::Move(tempExp(indexTemp), new tree::Const(0)));
+            stms->push_back(new tree::Move(
+                tempExp(countTemp),
+                new tree::Binop(tree::Type::INT, "-", tempExp(endTemp),
+                                tempExp(beginTemp))));
+            stms->push_back(new tree::LabelStm(testLabel));
+            stms->push_back(new tree::Cjump("<", tempExp(indexTemp),
+                                            tempExp(countTemp), bodyLabel,
+                                            doneLabel));
+            stms->push_back(new tree::LabelStm(bodyLabel));
+            tree::Exp *bufferAddress = new tree::Binop(
+                tree::Type::PTR, "+", ptrTempExp(floatBufferTemp),
+                new tree::Binop(tree::Type::INT, "*", tempExp(indexTemp),
+                                new tree::Const(4)));
+            auto *dst = lowerLValue(Node{NodeKind::LVal,
+                                          plan.init.initExpr->loc,
+                                          reduction.var});
+            stms->push_back(new tree::Move(
+                dst,
+                new tree::ExtCall(
+                    tree::Type::FLOAT, "__sysy_fadd_bits",
+                    new std::vector<tree::Exp *>({
+                        lowerExpr(Node{NodeKind::LVal,
+                                       plan.init.initExpr->loc,
+                                       reduction.var}),
+                        new tree::Mem(tree::Type::FLOAT, bufferAddress)}))));
+            stms->push_back(new tree::Move(
+                tempExp(indexTemp),
+                new tree::Binop(tree::Type::INT, "+", tempExp(indexTemp),
+                                new tree::Const(1))));
+            stms->push_back(new tree::Jump(testLabel));
+            stms->push_back(new tree::LabelStm(doneLabel));
         } else if (stagedReduction) {
             // Min/max cannot use the additive scalar reduction ABI.  Stage
             // both worker partials in the private context tail and combine
@@ -1740,6 +1854,13 @@ private:
         }
 
         if (ctxTemp != nullptr) {
+            if (floatBufferTemp != nullptr) {
+                stms->push_back(new tree::ExpStm(
+                    new tree::ExtCall(
+                        tree::Type::INT, "free",
+                        new std::vector<tree::Exp *>({
+                            ptrTempExp(floatBufferTemp)}))));
+            }
             stms->push_back(new tree::ExpStm(
                 new tree::ExtCall(tree::Type::INT, "free",
                                   new std::vector<tree::Exp *>({ptrTempExp(ctxTemp)}))));
@@ -1798,6 +1919,9 @@ private:
         auto savedSuppressedIvUpdates = suppressedParallelIvUpdates_;
         std::string savedModVar = workerModReductionVar_;
         int savedModulus = workerModulus_;
+        std::string savedFloatVar = workerOrderedFloatReductionVar_;
+        tree::Temp *savedFloatBuffer = workerOrderedFloatBuffer_;
+        tree::Temp *savedFloatIndex = workerOrderedFloatIndex_;
 
         scopes_.clear();
         breakLabels_.clear();
@@ -1810,9 +1934,15 @@ private:
             plan.canonicalContinueUpdates.end());
         workerModReductionVar_.clear();
         workerModulus_ = 0;
+        workerOrderedFloatReductionVar_.clear();
+        workerOrderedFloatBuffer_ = nullptr;
+        workerOrderedFloatIndex_ = nullptr;
         if (!plan.reductions.empty() && plan.reductions.front().modular) {
             workerModReductionVar_ = plan.reductions.front().var;
             workerModulus_ = plan.reductions.front().modulus;
+        }
+        if (orderedFloatReduction(plan)) {
+            workerOrderedFloatReductionVar_ = plan.reductions.front().var;
         }
 
         auto *beginParam = newTemp();
@@ -1845,6 +1975,29 @@ private:
             }
         }
 
+        tree::Temp *floatRangeBeginTemp = nullptr;
+        if (orderedFloatReduction(plan)) {
+            workerOrderedFloatBuffer_ = newTemp();
+            floatRangeBeginTemp = newTemp();
+            constexpr std::size_t reductionCount = 0;
+            stms->push_back(new tree::Move(
+                ptrTempExp(workerOrderedFloatBuffer_),
+                new tree::Mem(
+                    tree::Type::PTR,
+                    ctxFieldAddr(
+                        ctxParam,
+                        parallelFloatBufferOffset(fields, reductionCount,
+                                                  plan.dynamicLogicalRange)))));
+            stms->push_back(new tree::Move(
+                tempExp(floatRangeBeginTemp),
+                new tree::Mem(
+                    tree::Type::INT,
+                    ctxFieldAddr(
+                        ctxParam,
+                        parallelFloatBeginOffset(fields, reductionCount,
+                                                 plan.dynamicLogicalRange)))));
+        }
+
         for (const ParallelPrivatizedScalar &scalar : plan.privatizedScalars) {
             auto *scratchTemp = newTemp();
             declareLocal(scalar.var, scratchTemp, BaseType::Int, scalar.initExpr->loc);
@@ -1856,11 +2009,17 @@ private:
         for (const ParallelReduction &reduction : plan.reductions) {
             auto *reductionTemp = newTemp();
             reductionTemps.push_back(reductionTemp);
-            declareLocal(reduction.var, reductionTemp, BaseType::Int,
+            BaseType reductionBase = reduction.type == "float"
+                                         ? BaseType::Float
+                                         : BaseType::Int;
+            declareLocal(reduction.var, reductionTemp, reductionBase,
                          plan.init.initExpr->loc);
+            tree::Exp *identity = reductionBase == BaseType::Float
+                                      ? zero(BaseType::Float)
+                                      : static_cast<tree::Exp *>(new tree::Const(
+                                            parallelReductionIdentity(reduction)));
             stms->push_back(new tree::Move(
-                tempExp(reductionTemp),
-                new tree::Const(parallelReductionIdentity(reduction))));
+                tempExp(reductionTemp, reductionBase), identity));
         }
 
         auto *ivTemp = newTemp();
@@ -1891,6 +2050,13 @@ private:
                                     new tree::Const(plan.step)))));
         } else {
             stms->push_back(new tree::Move(tempExp(ivTemp), tempExp(beginParam)));
+        }
+        if (orderedFloatReduction(plan)) {
+            workerOrderedFloatIndex_ = newTemp();
+            stms->push_back(new tree::Move(
+                tempExp(workerOrderedFloatIndex_),
+                new tree::Binop(tree::Type::INT, "-", tempExp(beginParam),
+                                tempExp(floatRangeBeginTemp))));
         }
 
         auto *testLabel = newLabel();
@@ -1929,6 +2095,13 @@ private:
             stms->push_back(new tree::Move(
                 tempExp(logicalIvTemp),
                 new tree::Binop(tree::Type::INT, "+", tempExp(logicalIvTemp),
+                                new tree::Const(1))));
+        }
+        if (workerOrderedFloatIndex_ != nullptr) {
+            stms->push_back(new tree::Move(
+                tempExp(workerOrderedFloatIndex_),
+                new tree::Binop(tree::Type::INT, "+",
+                                tempExp(workerOrderedFloatIndex_),
                                 new tree::Const(1))));
         }
         stms->push_back(new tree::Jump(testLabel));
@@ -1971,8 +2144,9 @@ private:
             stms->push_back(new tree::LabelStm(slotDoneLabel));
         }
         stms->push_back(new tree::Return(
-            reductionTemps.empty() ? new tree::Const(0)
-                                   : tempExp(reductionTemps.front())));
+            reductionTemps.empty() || orderedFloatReduction(plan)
+                ? static_cast<tree::Exp *>(new tree::Const(0))
+                : static_cast<tree::Exp *>(tempExp(reductionTemps.front()))));
         popScope();
 
         auto *worker = new tree::FuncDecl(workerName, params, new tree::Seq(stms),
@@ -1988,6 +2162,9 @@ private:
             std::move(savedSuppressedIvUpdates);
         workerModReductionVar_ = std::move(savedModVar);
         workerModulus_ = savedModulus;
+        workerOrderedFloatReductionVar_ = std::move(savedFloatVar);
+        workerOrderedFloatBuffer_ = savedFloatBuffer;
+        workerOrderedFloatIndex_ = savedFloatIndex;
         return worker;
     }
 
@@ -2065,7 +2242,7 @@ private:
         std::vector<ParallelAliasPair> aliasPairs;
         std::vector<Symbol> scratchSymbols;
         if (!buildParallelContextFields(plan, fields) ||
-            !reductionDestinationIsInt(plan) ||
+            !reductionDestinationsSupported(plan) ||
             !buildParallelScratchSymbols(plan, scratchSymbols) ||
             !buildParallelAliasGuardPairs(fields, aliasPairs)) {
             return false;
@@ -2157,6 +2334,31 @@ private:
         std::vector<ParallelScratchWriteback> scratchWritebacks =
             buildParallelScratchWritebacks(plan, scratchSymbols, stms);
 
+        tree::Label *orderedFloatDoneLabel = nullptr;
+        if (orderedFloatReduction(plan)) {
+            auto *nonemptyLabel = newLabel();
+            auto *sizeSafeLabel = newLabel();
+            auto *sequentialLabel = newLabel();
+            orderedFloatDoneLabel = newLabel();
+            stms->push_back(new tree::Cjump("<", tempExp(beginTemp),
+                                            tempExp(endTemp), nonemptyLabel,
+                                            orderedFloatDoneLabel));
+            stms->push_back(new tree::LabelStm(nonemptyLabel));
+            stms->push_back(new tree::Cjump(
+                ">",
+                new tree::Binop(tree::Type::INT, "-", tempExp(endTemp),
+                                tempExp(beginTemp)),
+                new tree::Const(INT_MAX / 4), sequentialLabel,
+                sizeSafeLabel));
+            stms->push_back(new tree::LabelStm(sequentialLabel));
+            lowerParallelSequentialFallback(
+                plan, ivTemp,
+                logicalRange || plan.inclusiveEnd ? rawEndTemp : endTemp,
+                plan.comparison, stms);
+            stms->push_back(new tree::Jump(orderedFloatDoneLabel));
+            stms->push_back(new tree::LabelStm(sizeSafeLabel));
+        }
+
         if (!aliasPairs.empty()) {
             auto *sequentialLabel = newLabel();
             auto *parallelLabel = newLabel();
@@ -2224,6 +2426,9 @@ private:
         if (dynamicDoneLabel != nullptr) {
             stms->push_back(new tree::LabelStm(dynamicDoneLabel));
         }
+        if (orderedFloatDoneLabel != nullptr) {
+            stms->push_back(new tree::LabelStm(orderedFloatDoneLabel));
+        }
         return true;
     }
 
@@ -2246,6 +2451,29 @@ private:
                     // Candidate discovery proved that the indices and RHS are
                     // call-free, so removing the entire assignment preserves
                     // all source-visible effects.
+                    return true;
+                }
+            }
+            if (!workerOrderedFloatReductionVar_.empty() &&
+                workerOrderedFloatBuffer_ != nullptr &&
+                workerOrderedFloatIndex_ != nullptr &&
+                node.children.size() == 2 &&
+                node.children.front()->kind == NodeKind::LVal &&
+                node.children.front()->children.empty() &&
+                node.children.front()->text ==
+                    workerOrderedFloatReductionVar_) {
+                const Node *addend = parallelReductionAddend(
+                    node, workerOrderedFloatReductionVar_);
+                if (addend != nullptr) {
+                    tree::Exp *bufferAddress = new tree::Binop(
+                        tree::Type::PTR, "+",
+                        ptrTempExp(workerOrderedFloatBuffer_),
+                        new tree::Binop(tree::Type::INT, "*",
+                                        tempExp(workerOrderedFloatIndex_),
+                                        new tree::Const(4)));
+                    stms->push_back(new tree::Move(
+                        new tree::Mem(tree::Type::FLOAT, bufferAddress),
+                        lowerExprAs(*addend, BaseType::Float)));
                     return true;
                 }
             }

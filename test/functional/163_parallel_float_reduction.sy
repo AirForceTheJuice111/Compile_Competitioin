@@ -1,0 +1,32 @@
+float ordered_term(int i) {
+  int kind = i % 4;
+  if (kind == 0) {
+    return 1.0e20;
+  }
+  if (kind == 1) {
+    return 1.0;
+  }
+  if (kind == 2) {
+    return -1.0e20;
+  }
+  return 1.0;
+}
+
+float ordered_sum(int n) {
+  int i;
+  float sum = -0.0;
+  i = 0;
+  while (i < n) {
+    sum = sum + ordered_term(i);
+    i = i + 1;
+  }
+  return sum;
+}
+
+int main() {
+  putfloat(ordered_sum(20000));
+  putch(10);
+  putfloat(ordered_sum(0));
+  putch(10);
+  return 0;
+}

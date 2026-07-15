@@ -1132,6 +1132,7 @@ std::optional<ParallelReduction> conditionalMinMaxReduction(
     reduction.var = lhs.text;
     reduction.addend = candidate;
     reduction.kind = kind;
+    reduction.type = "int";
     return reduction;
 }
 
@@ -1344,7 +1345,9 @@ bool analyzeNode(const Node &node, const std::string &loopVar,
                 plan.rejectReason = "loop induction variable write";
                 return false;
             }
-            if (lookupType && lookupType(lhs.text) == "int") {
+            const std::string scalarType =
+                lookupType ? lookupType(lhs.text) : std::string{};
+            if (scalarType == "int") {
                 if (std::optional<ParallelReduction> reduction =
                         modularReduction(node, lhs.text, lookupConstInt)) {
                     if (!containsExternalScalarReference(*reduction->addend, lhs.text,
@@ -1357,6 +1360,17 @@ bool analyzeNode(const Node &node, const std::string &loopVar,
                 if (add != nullptr &&
                     !containsExternalScalarReference(*add, lhs.text, localLvals)) {
                     addReduction(plan.reductions, ParallelReduction{lhs.text, add});
+                    return true;
+                }
+            } else if (scalarType == "float") {
+                const Node *add = parallelReductionAddend(node, lhs.text);
+                if (add != nullptr &&
+                    !containsExternalScalarReference(*add, lhs.text, localLvals)) {
+                    ParallelReduction reduction;
+                    reduction.var = lhs.text;
+                    reduction.addend = add;
+                    reduction.type = "float";
+                    addReduction(plan.reductions, std::move(reduction));
                     return true;
                 }
             }
@@ -1425,6 +1439,48 @@ bool validateReductionUses(
     }
     return std::all_of(node.children.begin(), node.children.end(), [&](const auto &child) {
         return validateReductionUses(*child, reduction, localLvals, lookupConstInt);
+    });
+}
+
+void countReductionWrites(const Node &node, const ParallelReduction &reduction,
+                          const std::unordered_set<const Node *> &localLvals,
+                          int &count) {
+    if (node.kind == NodeKind::AssignStmt && node.children.size() == 2) {
+        const Node &lhs = *node.children.front();
+        if (isScalarLVal(lhs) && lhs.text == reduction.var &&
+            localLvals.find(&lhs) == localLvals.end()) {
+            ++count;
+        }
+    }
+    for (const auto &child : node.children) {
+        countReductionWrites(*child, reduction, localLvals, count);
+    }
+}
+
+bool simpleOrderedFloatReduction(
+    const ParallelLoopPlan &plan,
+    const std::unordered_set<const Node *> &localLvals) {
+    if (plan.reductions.size() != 1 ||
+        plan.reductions.front().type != "float" ||
+        !plan.canonicalContinueUpdates.empty()) {
+        return false;
+    }
+    const ParallelReduction &reduction = plan.reductions.front();
+    int writeCount = 0;
+    for (const Node *stmt : plan.body) {
+        countReductionWrites(*stmt, reduction, localLvals, writeCount);
+    }
+    if (writeCount != 1) {
+        return false;
+    }
+    return std::any_of(plan.body.begin(), plan.body.end(), [&](const Node *stmt) {
+        if (stmt->kind != NodeKind::AssignStmt || stmt->children.size() != 2) {
+            return false;
+        }
+        const Node &lhs = *stmt->children.front();
+        return isScalarLVal(lhs) && lhs.text == reduction.var &&
+               localLvals.find(&lhs) == localLvals.end() &&
+               parallelReductionAddend(*stmt, reduction.var) != nullptr;
     });
 }
 
@@ -2081,6 +2137,9 @@ private:
             } else if (plan.reductions.front().modular) {
                 loweringKind = "parallel_reduce_mod_int_dynamic";
                 runtimeSymbol = "__sysy_parallel_reduce_mod_int_range";
+            } else if (plan.reductions.front().type == "float") {
+                loweringKind = "parallel_reduce_float_ordered";
+                runtimeSymbol = "__sysy_parallel_for_range";
             } else if (std::any_of(
                            plan.reductions.begin(), plan.reductions.end(),
                            [](const ParallelReduction &reduction) {
@@ -2146,7 +2205,10 @@ private:
                          : plan.reductions[i].kind == ParallelReduction::Kind::Max
                                ? "max"
                                : "add")
-                 << "\",\"modular\":"
+                 << "\",\"type\":\"" << jsonEscape(plan.reductions[i].type)
+                 << "\",\"ordered\":"
+                 << (plan.reductions[i].type == "float" ? "true" : "false")
+                 << ",\"modular\":"
                  << (plan.reductions[i].modular ? "true" : "false")
                  << ",\"modulus\":" << plan.reductions[i].modulus << "}";
         }
@@ -2339,6 +2401,18 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
         plan.rejectReason = "no parallel side effect";
         return plan;
     }
+    bool hasFloatReduction = std::any_of(
+        plan.reductions.begin(), plan.reductions.end(),
+        [](const ParallelReduction &reduction) {
+            return reduction.type == "float";
+        });
+    if (hasFloatReduction && !simpleOrderedFloatReduction(plan,
+                                                          lexical.localLvals)) {
+        plan.valid = false;
+        plan.rejectReason = "float reduction requires one unconditional ordered update";
+        return plan;
+    }
+
     // The ordinary integer reduction runtime already has a scalar result
     // ABI.  Multiple plain additions use a small hidden per-worker scratch
     // area in the lowering, while modular reductions retain their guarded
@@ -2348,7 +2422,8 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
     for (const ParallelReduction &reduction : plan.reductions) {
         hasModularReduction = hasModularReduction || reduction.modular;
     }
-    if (plan.reductions.size() > kMaxPlainIntReductions) {
+    if (!hasFloatReduction &&
+        plan.reductions.size() > kMaxPlainIntReductions) {
         plan.valid = false;
         plan.rejectReason = "too many reductions";
         return plan;
