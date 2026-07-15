@@ -2081,9 +2081,23 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
         plan.rejectReason = "no parallel side effect";
         return plan;
     }
-    if (plan.reductions.size() > 1) {
+    // The ordinary integer reduction runtime already has a scalar result
+    // ABI.  Multiple plain additions use a small hidden per-worker scratch
+    // area in the lowering, while modular reductions retain their guarded
+    // INT_MIN retry protocol and therefore stay single-variable only.
+    constexpr std::size_t kMaxPlainIntReductions = 4;
+    bool hasModularReduction = false;
+    for (const ParallelReduction &reduction : plan.reductions) {
+        hasModularReduction = hasModularReduction || reduction.modular;
+    }
+    if (plan.reductions.size() > kMaxPlainIntReductions) {
         plan.valid = false;
-        plan.rejectReason = "multiple reductions";
+        plan.rejectReason = "too many reductions";
+        return plan;
+    }
+    if (hasModularReduction && plan.reductions.size() > 1) {
+        plan.valid = false;
+        plan.rejectReason = "multiple modular reductions";
         return plan;
     }
     if (!plan.privatizedScalars.empty() &&

@@ -1231,6 +1231,43 @@ private:
         return alignTo(bytes, pointerBytes());
     }
 
+    // A plain multi-reduction reuses the existing scalar reduction runtime:
+    // the first accumulator is returned in w0, while the worker writes the
+    // remaining per-worker partials into this hidden tail of the context.
+    // Keep the layout private to lowering so ordinary captures and the public
+    // runtime ABI remain unchanged.
+    int parallelReductionBaseOffset(
+        const std::vector<ParallelContextField> &fields) const {
+        return alignTo(parallelContextBytes(fields), 4);
+    }
+
+    int parallelReductionSlotOffset(
+        const std::vector<ParallelContextField> &fields,
+        std::size_t reductionCount, std::size_t workerSlot,
+        std::size_t reductionIndex) const {
+        int base = parallelReductionBaseOffset(fields);
+        return base + static_cast<int>((workerSlot * reductionCount +
+                                        reductionIndex) * sizeof(std::int32_t));
+    }
+
+    int parallelReductionBeginOffset(
+        const std::vector<ParallelContextField> &fields,
+        std::size_t reductionCount) const {
+        return parallelReductionBaseOffset(fields) +
+               static_cast<int>(2 * reductionCount * sizeof(std::int32_t));
+    }
+
+    int parallelContextBytes(const std::vector<ParallelContextField> &fields,
+                             std::size_t reductionCount) const {
+        int bytes = parallelContextBytes(fields);
+        if (reductionCount <= 1) {
+            return bytes;
+        }
+        return alignTo(parallelReductionBeginOffset(fields, reductionCount) +
+                           static_cast<int>(sizeof(std::int32_t)),
+                       pointerBytes());
+    }
+
     bool aliasPairNeedsRuntimeGuard(const ParallelContextField &lhs,
                                     const ParallelContextField &rhs,
                                     bool &needsGuard) const {
@@ -1277,11 +1314,20 @@ private:
         if (plan.reductions.empty()) {
             return true;
         }
-        if (plan.reductions.size() > 1) {
-            return false;
+        for (const ParallelReduction &reduction : plan.reductions) {
+            // Float reductions deliberately remain sequential: changing the
+            // association of IEEE-754 additions is observable.  The planner
+            // currently admits only integer scalar reductions, but retain the
+            // check here as a lowering-side safety net.
+            if (reduction.modular && plan.reductions.size() > 1) {
+                return false;
+            }
+            Symbol dst = lookup(reduction.var, plan.init.initExpr->loc);
+            if (isArraySymbol(dst) || dst.base != BaseType::Int) {
+                return false;
+            }
         }
-        Symbol dst = lookup(plan.reductions.front().var, plan.init.initExpr->loc);
-        return !isArraySymbol(dst) && dst.base == BaseType::Int;
+        return true;
     }
 
     bool buildParallelScratchSymbols(const ParallelLoopPlan &plan,
@@ -1429,11 +1475,18 @@ private:
                                  tree::Temp *endTemp,
                                  std::vector<tree::Stm *> *stms,
                                  tree::Label *modUnsafeLabel = nullptr) {
+        const bool multiReduction = plan.reductions.size() > 1;
         tree::Temp *ctxTemp = nullptr;
         tree::Exp *ctxArg = new tree::Const(0, tree::Type::PTR);
-        if (!fields.empty()) {
+        // Multi-reduction workers use a private tail in the context for the
+        // second worker's partials.  Force a context allocation even when the
+        // source body has no ordinary captures.
+        if (!fields.empty() || multiReduction) {
             ctxTemp = newTemp();
-            int ctxBytes = parallelContextBytes(fields);
+            int ctxBytes = parallelContextBytes(fields,
+                                                multiReduction
+                                                    ? plan.reductions.size()
+                                                    : 0);
             stms->push_back(new tree::Move(
                 ptrTempExp(ctxTemp),
                 new tree::ExtCall(tree::Type::PTR, "malloc",
@@ -1446,6 +1499,33 @@ private:
                 stms->push_back(new tree::Move(
                     new tree::Mem(fieldType, ctxFieldAddr(ctxTemp, field.offset)),
                     value));
+            }
+            if (multiReduction) {
+                const std::size_t reductionCount = plan.reductions.size();
+                // The worker chooses slot zero for the first half (or a
+                // direct fallback) by comparing its begin parameter with this
+                // original range start.  Zero both slots so a defensive
+                // direct path still has a complete result if a worker exits
+                // early in the future.
+                stms->push_back(new tree::Move(
+                    new tree::Mem(
+                        tree::Type::INT,
+                        ctxFieldAddr(ctxTemp,
+                                     parallelReductionBeginOffset(fields,
+                                                                  reductionCount))),
+                    tempExp(beginTemp)));
+                for (std::size_t slot = 0; slot < 2; ++slot) {
+                    for (std::size_t index = 0; index < reductionCount; ++index) {
+                        stms->push_back(new tree::Move(
+                            new tree::Mem(
+                                tree::Type::INT,
+                                ctxFieldAddr(
+                                    ctxTemp,
+                                    parallelReductionSlotOffset(
+                                        fields, reductionCount, slot, index))),
+                            new tree::Const(0)));
+                    }
+                }
             }
         }
 
@@ -1513,6 +1593,49 @@ private:
                 dst, intRemainder(sum, new tree::Const(reduction.modulus))));
             stms->push_back(new tree::Jump(doneLabel));
             stms->push_back(new tree::LabelStm(doneLabel));
+        } else if (multiReduction) {
+            // Keep the existing scalar runtime ABI: it returns the first
+            // partial sum in w0 and invokes the same worker for both halves.
+            // Additional accumulators are written by the worker into the
+            // hidden context slots and combined here after the runtime's
+            // completion barrier.
+            auto *firstPartial = newTemp();
+            stms->push_back(new tree::Move(
+                tempExp(firstPartial),
+                new tree::ExtCall(tree::Type::INT,
+                                  "__sysy_parallel_reduce_int_range",
+                                  runtimeArgs)));
+            const std::size_t reductionCount = plan.reductions.size();
+            for (std::size_t index = 0; index < reductionCount; ++index) {
+                tree::Exp *partial = nullptr;
+                if (index == 0) {
+                    partial = tempExp(firstPartial);
+                } else {
+                    auto *slot0 = new tree::Mem(
+                        tree::Type::INT,
+                        ctxFieldAddr(
+                            ctxTemp,
+                            parallelReductionSlotOffset(fields, reductionCount,
+                                                        0, index)));
+                    auto *slot1 = new tree::Mem(
+                        tree::Type::INT,
+                        ctxFieldAddr(
+                            ctxTemp,
+                            parallelReductionSlotOffset(fields, reductionCount,
+                                                        1, index)));
+                    partial = new tree::Binop(tree::Type::INT, "+", slot0, slot1);
+                }
+                const std::string &var = plan.reductions[index].var;
+                auto *dst = lowerLValue(
+                    Node{NodeKind::LVal, plan.init.initExpr->loc, var});
+                stms->push_back(new tree::Move(
+                    dst,
+                    new tree::Binop(
+                        tree::Type::INT, "+",
+                        lowerExpr(Node{NodeKind::LVal,
+                                       plan.init.initExpr->loc, var}),
+                        partial)));
+            }
         } else {
             auto *partialTemp = newTemp();
             stms->push_back(new tree::Move(
@@ -1630,11 +1753,15 @@ private:
             stms->push_back(new tree::Move(tempExp(scratchTemp), new tree::Const(0)));
         }
 
-        tree::Temp *reductionTemp = nullptr;
-        if (!plan.reductions.empty()) {
-            reductionTemp = newTemp();
-            declareLocal(plan.reductions.front().var, reductionTemp, BaseType::Int, plan.init.initExpr->loc);
-            stms->push_back(new tree::Move(tempExp(reductionTemp), new tree::Const(0)));
+        std::vector<tree::Temp *> reductionTemps;
+        reductionTemps.reserve(plan.reductions.size());
+        for (const ParallelReduction &reduction : plan.reductions) {
+            auto *reductionTemp = newTemp();
+            reductionTemps.push_back(reductionTemp);
+            declareLocal(reduction.var, reductionTemp, BaseType::Int,
+                         plan.init.initExpr->loc);
+            stms->push_back(new tree::Move(tempExp(reductionTemp),
+                                           new tree::Const(0)));
         }
 
         auto *ivTemp = newTemp();
@@ -1693,7 +1820,46 @@ private:
         }
         stms->push_back(new tree::Jump(testLabel));
         stms->push_back(new tree::LabelStm(doneLabel));
-        stms->push_back(new tree::Return(reductionTemp == nullptr ? new tree::Const(0) : tempExp(reductionTemp)));
+        if (plan.reductions.size() > 1) {
+            const std::size_t reductionCount = plan.reductions.size();
+            auto *slotZeroLabel = newLabel();
+            auto *slotOneLabel = newLabel();
+            auto *slotDoneLabel = newLabel();
+            int beginOffset = parallelReductionBeginOffset(fields,
+                                                           reductionCount);
+            stms->push_back(new tree::Cjump(
+                "==", tempExp(beginParam),
+                new tree::Mem(tree::Type::INT,
+                              ctxFieldAddr(ctxParam, beginOffset)),
+                slotZeroLabel, slotOneLabel));
+            stms->push_back(new tree::LabelStm(slotZeroLabel));
+            for (std::size_t index = 0; index < reductionCount; ++index) {
+                stms->push_back(new tree::Move(
+                    new tree::Mem(
+                        tree::Type::INT,
+                        ctxFieldAddr(
+                            ctxParam,
+                            parallelReductionSlotOffset(fields, reductionCount,
+                                                        0, index))),
+                    tempExp(reductionTemps[index])));
+            }
+            stms->push_back(new tree::Jump(slotDoneLabel));
+            stms->push_back(new tree::LabelStm(slotOneLabel));
+            for (std::size_t index = 0; index < reductionCount; ++index) {
+                stms->push_back(new tree::Move(
+                    new tree::Mem(
+                        tree::Type::INT,
+                        ctxFieldAddr(
+                            ctxParam,
+                            parallelReductionSlotOffset(fields, reductionCount,
+                                                        1, index))),
+                    tempExp(reductionTemps[index])));
+            }
+            stms->push_back(new tree::LabelStm(slotDoneLabel));
+        }
+        stms->push_back(new tree::Return(
+            reductionTemps.empty() ? new tree::Const(0)
+                                   : tempExp(reductionTemps.front())));
         popScope();
 
         auto *worker = new tree::FuncDecl(workerName, params, new tree::Seq(stms),

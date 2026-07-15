@@ -1,0 +1,26 @@
+// Independent integer reductions share one parallel worker.  The first
+// partial uses the runtime's scalar return value; the remaining partials are
+// staged in the worker context and combined after the completion barrier.
+int main() {
+  int first = 0;
+  int second = 0;
+  int third = 0;
+  int bias = 3;
+  int i = 0;
+  while (i < 20000) {
+    first = first + (i % 17 + bias);
+    second = second + (i % 19) * 2;
+    third = third + (i % 23 - 11);
+    i = i + 1;
+  }
+
+  putint(first);
+  putch(32);
+  putint(second);
+  putch(32);
+  putint(third);
+  putch(32);
+  putint(i);
+  putch(10);
+  return 0;
+}

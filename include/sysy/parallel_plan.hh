@@ -76,6 +76,9 @@ struct ParallelLoopPlan {
     bool hasNestedLoop = false;
     int estimatedCost = 0;
     int runtimeWorkCost = 1;
+    // Plain integer additions may contain more than one independent
+    // reduction.  Modular reductions remain single-variable only because
+    // their guarded retry protocol has a scalar sentinel/result ABI.
     std::vector<ParallelReduction> reductions;
     std::vector<ParallelPrivatizedScalar> privatizedScalars;
     std::vector<ParallelCapture> captures;

@@ -136,6 +136,7 @@ assert_plan 136_parallel_continue_reject 44 false "break exits candidate loop"
 assert_plan 136_parallel_continue_reject 56 false "return in loop body"
 assert_plan 136_parallel_continue_reject 68 false "return in loop body"
 assert_plan 137_write_only_global 6 true
+assert_plan 157_parallel_multi_reduction 10 true
 assert_plan 2025-O30-49 24 true "" "" "" \
   "$TEST_ROOT/../performance_final/2025-O30-49.sy"
 assert_plan 2025-MYO-20 92 false "unsafe scalar write" "" "" \
@@ -177,6 +178,7 @@ assert_workers 134_parallel_affine_partition_control 1
 assert_workers 135_parallel_continue 3
 assert_workers 136_parallel_continue_reject 0
 assert_workers 137_write_only_global 0
+assert_workers 157_parallel_multi_reduction 1
 assert_workers 138_write_only_global_reject 0
 assert_workers 2025-O30-49 1 \
   "$TEST_ROOT/../performance_final/2025-O30-49.sy"
