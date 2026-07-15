@@ -39,9 +39,11 @@ struct Aarch64FusedAddress {
 };
 
 // Allocate integer/pointer GPR homes and native single-precision FPR homes for
-// Quad SSA temporaries.  Non-call-crossing floats prefer caller-saved s16-s29;
-// call-crossing floats use the callee-saved low lanes s8-s15.  s0-s7 remain
-// reserved for ABI arguments/results and s30-s31 for selector scratch.
+// Quad SSA temporaries.  Non-call-crossing values may use ABI caller-saved
+// x0-x8/s0-s7 and s16-s29; values live across calls use callee-saved banks.
+// A value consumed as a call argument is kept out of x0-x7/s0-s7 because the
+// emitter overwrites those registers while preparing the call.  s30-s31
+// remain selector scratch.
 //
 // rematerializedTemps contains integer constants which the emitter recreates
 // at each use and therefore must not occupy a physical register.
