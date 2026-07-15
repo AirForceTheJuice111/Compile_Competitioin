@@ -408,12 +408,22 @@ bool lvalFirstIndexIsPartitionedByLoopVar(
     if (lval.kind != NodeKind::LVal || lval.children.empty()) {
         return false;
     }
-    if (containsLocalLVal(*lval.children.front(), localLvals)) {
-        return false;
+    // Any affine dimension can serve as the partition key.  The former
+    // first-dimension-only rule rejected safe column-wise loops such as
+    // `a[row][j]`; an injective nonzero coefficient in any dimension still
+    // guarantees that two distinct logical iterations address different
+    // elements (the existing affine/overflow conservatism remains in force).
+    for (const auto &index : lval.children) {
+        if (containsLocalLVal(*index, localLvals)) {
+            continue;
+        }
+        int coeff = 0;
+        if (affineCoeff(*index, var, localLvals, lookupFunction, coeff) &&
+            coeff != 0) {
+            return true;
+        }
     }
-    int coeff = 0;
-    return affineCoeff(*lval.children.front(), var, localLvals, lookupFunction, coeff) &&
-           coeff != 0;
+    return false;
 }
 
 std::string nodeKey(const Node &node) {
@@ -430,21 +440,29 @@ bool sameFirstPartitionIndex(const Node &lhs, const Node &rhs, const std::string
                              const std::unordered_set<const Node *> &localLvals,
                              const ParallelFunctionSummaryLookup &lookupFunction) {
     if (lhs.kind != NodeKind::LVal || rhs.kind != NodeKind::LVal ||
-        lhs.children.empty() || rhs.children.empty()) {
+        lhs.children.empty() || rhs.children.empty() ||
+        lhs.children.size() != rhs.children.size()) {
         return false;
     }
-    if (containsLocalLVal(*lhs.children.front(), localLvals) ||
-        containsLocalLVal(*rhs.children.front(), localLvals)) {
-        return false;
+    for (std::size_t index = 0; index < lhs.children.size(); ++index) {
+        const Node &lhsIndex = *lhs.children[index];
+        const Node &rhsIndex = *rhs.children[index];
+        if (containsLocalLVal(lhsIndex, localLvals) ||
+            containsLocalLVal(rhsIndex, localLvals)) {
+            continue;
+        }
+        int lhsCoeff = 0;
+        int rhsCoeff = 0;
+        if (!affineCoeff(lhsIndex, var, localLvals, lookupFunction, lhsCoeff) ||
+            !affineCoeff(rhsIndex, var, localLvals, lookupFunction, rhsCoeff) ||
+            lhsCoeff == 0 || rhsCoeff == 0) {
+            continue;
+        }
+        if (nodeKey(lhsIndex) == nodeKey(rhsIndex)) {
+            return true;
+        }
     }
-    int lhsCoeff = 0;
-    int rhsCoeff = 0;
-    if (!affineCoeff(*lhs.children.front(), var, localLvals, lookupFunction, lhsCoeff) ||
-        !affineCoeff(*rhs.children.front(), var, localLvals, lookupFunction, rhsCoeff) ||
-        lhsCoeff == 0 || rhsCoeff == 0) {
-        return false;
-    }
-    return nodeKey(*lhs.children.front()) == nodeKey(*rhs.children.front());
+    return false;
 }
 
 bool signedIntConstValue(const Node &node, int &value) {
@@ -716,6 +734,51 @@ bool containsScalarWriteNamed(const Node &node, const std::string &name) {
     });
 }
 
+bool containsCallOrArray(const Node &node) {
+    if (node.kind == NodeKind::CallExpr ||
+        (node.kind == NodeKind::LVal && !node.children.empty())) {
+        return true;
+    }
+    return std::any_of(node.children.begin(), node.children.end(),
+                       [](const auto &child) {
+                           return containsCallOrArray(*child);
+                       });
+}
+
+bool containsScalarNameReference(const Node &node, const std::string &name) {
+    if (node.kind == NodeKind::LVal && node.children.empty() &&
+        node.text == name) {
+        return true;
+    }
+    return std::any_of(node.children.begin(), node.children.end(),
+                       [&](const auto &child) {
+                           return containsScalarNameReference(*child, name);
+                       });
+}
+
+void collectAllScalarWrites(const Node &node,
+                            std::unordered_set<std::string> &writes) {
+    if (node.kind == NodeKind::AssignStmt && node.children.size() == 2 &&
+        isScalarLVal(*node.children.front())) {
+        writes.insert(node.children.front()->text);
+    }
+    for (const auto &child : node.children) {
+        collectAllScalarWrites(*child, writes);
+    }
+}
+
+bool containsLoopExit(const Node &node) {
+    if (node.kind == NodeKind::BreakStmt ||
+        node.kind == NodeKind::ContinueStmt ||
+        node.kind == NodeKind::ReturnStmt) {
+        return true;
+    }
+    return std::any_of(node.children.begin(), node.children.end(),
+                       [](const auto &child) {
+                           return containsLoopExit(*child);
+                       });
+}
+
 void markPrivatizedScalarLvals(const Node &node, const std::string &name,
                               std::unordered_set<const Node *> &localLvals) {
     if (node.kind == NodeKind::LVal && node.text == name) {
@@ -738,11 +801,6 @@ std::optional<ParallelPrivatizedScalar> recognizeCanonicalScratchScalar(
         lookupType(scratchInit.var) != "int") {
         return std::nullopt;
     }
-    int scratchBegin = 0;
-    if (!intConstValue(*scratchInit.initExpr, scratchBegin)) {
-        return std::nullopt;
-    }
-
     const Node *scratchEnd = nullptr;
     bool scratchInclusive = false;
     int scratchStep = 1;
@@ -755,19 +813,58 @@ std::optional<ParallelPrivatizedScalar> recognizeCanonicalScratchScalar(
         return std::nullopt;
     }
 
-    int scratchEndValue = 0;
-    if (!intConstValue(*scratchEnd, scratchEndValue) ||
-        (scratchInclusive && scratchEndValue == INT_MAX)) {
+    // A nested IV may use a dynamic, loop-invariant bound (for example
+    // `j < n` in a matrix kernel).  It is safe to privatize it only when the
+    // initializer and endpoint are free of calls/array accesses, do not
+    // reference the candidate IV, and none of their scalar names is written
+    // by the candidate body.  This excludes bounds such as `j < i`, whose
+    // final value would differ between workers and cannot be written back
+    // through one shared scalar.
+    if (containsCallOrArray(*scratchInit.initExpr) ||
+        containsCallOrArray(*scratchEnd) ||
+        containsScalarNameReference(*scratchInit.initExpr, plan.init.var) ||
+        containsScalarNameReference(*scratchEnd, plan.init.var)) {
         return std::nullopt;
     }
-    long long scratchTripCount = static_cast<long long>(scratchEndValue) -
-                                 static_cast<long long>(scratchBegin) +
-                                 (scratchInclusive ? 1LL : 0LL);
-    if (scratchTripCount < 0) {
-        scratchTripCount = 0;
+
+    int scratchEndValue = 0;
+    if (scratchInclusive && !intConstValue(*scratchEnd, scratchEndValue)) {
+        // Dynamic inclusive bounds would need a runtime INT_MAX guard before
+        // the writeback's `end + 1` normalization.  Keep this path strict;
+        // constant inclusive bounds retain the existing overflow check below.
+        return std::nullopt;
     }
-    constexpr long long kNativeParallelThreadThreshold = 512;
-    if (scratchTripCount >= kNativeParallelThreadThreshold) {
+
+    std::unordered_set<std::string> writes;
+    for (const Node *stmt : plan.body) {
+        collectAllScalarWrites(*stmt, writes);
+    }
+    std::unordered_set<std::string> boundNames;
+    auto collectScalarNames = [&](const Node &node, auto &&self) -> void {
+        if (node.kind == NodeKind::LVal && node.children.empty()) {
+            boundNames.insert(node.text);
+        }
+        for (const auto &child : node.children) self(*child, self);
+    };
+    collectScalarNames(*scratchInit.initExpr, collectScalarNames);
+    collectScalarNames(*scratchEnd, collectScalarNames);
+    for (const std::string &name : boundNames) {
+        if (name != scratchInit.var && writes.count(name) != 0) {
+            return std::nullopt;
+        }
+    }
+
+    if (scratchInclusive && scratchEndValue == INT_MAX) {
+        return std::nullopt;
+    }
+
+    // Early exits can leave different workers with different final scratch
+    // values.  The normal canonical latch has one deterministic endpoint, so
+    // reject any explicit break/continue/return in the nested body.
+    if (std::any_of(scratchBody.begin(), scratchBody.end(),
+                    [](const Node *stmt) {
+                        return stmt != nullptr && containsLoopExit(*stmt);
+                    })) {
         return std::nullopt;
     }
 
@@ -2101,10 +2198,16 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
         return plan;
     }
     if (!plan.privatizedScalars.empty() &&
-        (plan.reductions.size() != 1 || plan.hasArrayWrite ||
-         plan.reductions.front().var == plan.privatizedScalars.front().var)) {
+        std::any_of(plan.privatizedScalars.begin(),
+                    plan.privatizedScalars.end(), [&](const auto &scalar) {
+                        return std::any_of(
+                            plan.reductions.begin(), plan.reductions.end(),
+                            [&](const auto &reduction) {
+                                return reduction.var == scalar.var;
+                            });
+                    })) {
         plan.valid = false;
-        plan.rejectReason = "scratch scalar privatization requires a pure reduction";
+        plan.rejectReason = "scratch scalar is also a reduction";
         return plan;
     }
     if (!profitableParallelLoop(plan)) {

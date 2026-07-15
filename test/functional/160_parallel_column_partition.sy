@@ -1,0 +1,26 @@
+int a[2][20000];
+
+int main() {
+  int j = 0;
+  while (j < 20000) {
+    int t = j * 3;
+    t = t + 1;
+    t = t - 1;
+    t = t * 2;
+    t = t / 2;
+    t = t + j;
+    t = t - j;
+    a[0][j] = j;
+    a[1][j] = j * 2;
+    j = j + 1;
+  }
+  int answer = 0;
+  j = 0;
+  while (j < 20000) {
+    answer = answer + a[0][j] + a[1][j];
+    j = j + 1;
+  }
+  putint(answer);
+  putch(10);
+  return 0;
+}
