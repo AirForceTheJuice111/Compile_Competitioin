@@ -937,6 +937,82 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
                       {8, 9, 10, 11, 12, 13, 14, 15},
                       result.tempToFloatRegister);
 
+    // Affinity is stronger than a first-fit preference when two SSA ranges
+    // do not interfere.  Coalesce such MOVE/PHI pairs after the conservative
+    // allocation above: move only the lower-priority range to the established
+    // home of the hotter range, and never displace a third overlapping value.
+    // This keeps the emitter's one-home invariant while removing physical
+    // copies that the ordinary linear scan could not coalesce due to scan
+    // order.
+    auto coalesceBank = [&](const std::vector<std::size_t> &bank,
+                            const std::vector<int> &callerSaved,
+                            std::unordered_map<int, int> &homes) {
+        std::unordered_set<int> callerSavedSet(callerSaved.begin(),
+                                               callerSaved.end());
+        std::unordered_map<int, std::size_t> indexByTemp;
+        for (std::size_t index : bank) indexByTemp[intervals[index].temp] = index;
+
+        auto conflictsAt = [&](std::size_t moving, int target) {
+            const Interval &candidate = intervals[moving];
+            if (candidate.liveAcrossCall && callerSavedSet.count(target) != 0) {
+                return true;
+            }
+            for (std::size_t other : bank) {
+                if (other == moving) continue;
+                auto home = homes.find(intervals[other].temp);
+                if (home == homes.end() || home->second != target) continue;
+                if (intervalsOverlap(candidate, intervals[other])) return true;
+            }
+            return false;
+        };
+
+        std::vector<std::pair<int, int>> edges;
+        for (const auto &entry : affinities) {
+            auto left = indexByTemp.find(entry.first);
+            if (left == indexByTemp.end()) continue;
+            for (int source : entry.second) {
+                auto right = indexByTemp.find(source);
+                if (right == indexByTemp.end() || entry.first == source) continue;
+                if (entry.first < source) edges.emplace_back(entry.first, source);
+            }
+        }
+        std::sort(edges.begin(), edges.end(), [&](const auto &left, const auto &right) {
+            auto score = [&](const auto &edge) {
+                const Interval &a = intervals[indexByTemp.at(edge.first)];
+                const Interval &b = intervals[indexByTemp.at(edge.second)];
+                return std::max(a.priority(), b.priority());
+            };
+            return score(left) > score(right);
+        });
+
+        for (const auto &[leftTemp, rightTemp] : edges) {
+            auto leftHome = homes.find(leftTemp);
+            auto rightHome = homes.find(rightTemp);
+            if (leftHome == homes.end() || rightHome == homes.end() ||
+                leftHome->second == rightHome->second) {
+                continue;
+            }
+            std::size_t leftIndex = indexByTemp.at(leftTemp);
+            std::size_t rightIndex = indexByTemp.at(rightTemp);
+            if (intervalsOverlap(intervals[leftIndex], intervals[rightIndex])) {
+                continue;
+            }
+            std::size_t moving = leftIndex;
+            int target = rightHome->second;
+            if (intervals[leftIndex].priority() > intervals[rightIndex].priority()) {
+                moving = rightIndex;
+                target = leftHome->second;
+            }
+            if (!conflictsAt(moving, target)) {
+                homes[intervals[moving].temp] = target;
+            }
+        }
+    };
+    coalesceBank(gprIntervals, {8}, result.tempToRegister);
+    coalesceBank(floatIntervals,
+                 {16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29},
+                 result.tempToFloatRegister);
+
     std::set<int> usedCalleeSaved;
     for (const auto &entry : result.tempToRegister) {
         if (entry.second >= 19 && entry.second <= 28) {
