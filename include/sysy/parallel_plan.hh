@@ -28,6 +28,7 @@ struct ParallelReduction {
 
     std::string var;
     const Node *addend = nullptr;
+    std::vector<const Node *> addends;
     // A modular reduction is the exact recurrence
     //   var = (var + addend) % modulus
     // with a positive, sufficiently small constant modulus.  Lowering proves

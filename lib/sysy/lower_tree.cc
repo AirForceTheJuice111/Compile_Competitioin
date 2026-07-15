@@ -2180,34 +2180,40 @@ private:
         return worker;
     }
 
-    const Node *workerModularAddend(const Node &assign) const {
+    std::vector<const Node *> workerModularAddends(const Node &assign) const {
         if (workerModReductionVar_.empty() || assign.kind != NodeKind::AssignStmt ||
             assign.children.size() != 2) {
-            return nullptr;
+            return {};
         }
         const Node &lhs = *assign.children.at(0);
         const Node &rhs = *assign.children.at(1);
         if (lhs.kind != NodeKind::LVal || !lhs.children.empty() ||
             lhs.text != workerModReductionVar_ || rhs.kind != NodeKind::BinaryExpr ||
             rhs.text != "%" || rhs.children.size() != 2) {
-            return nullptr;
+            return {};
         }
-        const Node &sum = *rhs.children.at(0);
-        if (sum.kind != NodeKind::BinaryExpr || sum.text != "+" ||
-            sum.children.size() != 2) {
-            return nullptr;
+        std::vector<const Node *> leaves;
+        auto flatten = [&](const Node &node, auto &&self) -> void {
+            if (node.kind == NodeKind::BinaryExpr && node.text == "+" &&
+                node.children.size() == 2) {
+                self(*node.children.front(), self);
+                self(*node.children.back(), self);
+            } else {
+                leaves.push_back(&node);
+            }
+        };
+        flatten(*rhs.children.front(), flatten);
+        int accumulatorCount = 0;
+        std::vector<const Node *> addends;
+        for (const Node *leaf : leaves) {
+            if (leaf->kind == NodeKind::LVal && leaf->children.empty() &&
+                leaf->text == workerModReductionVar_) {
+                ++accumulatorCount;
+            } else {
+                addends.push_back(leaf);
+            }
         }
-        const Node *left = sum.children.at(0).get();
-        const Node *right = sum.children.at(1).get();
-        if (left->kind == NodeKind::LVal && left->children.empty() &&
-            left->text == workerModReductionVar_) {
-            return right;
-        }
-        if (right->kind == NodeKind::LVal && right->children.empty() &&
-            right->text == workerModReductionVar_) {
-            return left;
-        }
-        return nullptr;
+        return accumulatorCount == 1 ? addends : std::vector<const Node *>{};
     }
 
     bool lowerParallelLoop(const ParallelLoopPlan &plan, std::vector<tree::Stm *> *stms,
@@ -2489,33 +2495,51 @@ private:
                     return true;
                 }
             }
-            if (const Node *addend = workerModularAddend(node)) {
+            if (std::vector<const Node *> addends = workerModularAddends(node);
+                !addends.empty()) {
                 // SysY integer addition wraps, so modular reassociation is
-                // valid only while the source addition cannot overflow.  A
-                // nonnegative addend no larger than INT_MAX-(m-1), together
-                // with a canonical accumulator, proves that condition.  The
-                // INT_MIN sentinel requests an exact sequential retry.
-                auto *addendTemp = newTemp();
-                stms->push_back(new tree::Move(tempExp(addendTemp),
-                                                lowerExprAs(*addend, BaseType::Int)));
-                auto *checkUpperLabel = newLabel();
-                auto *safeLabel = newLabel();
+                // valid only while the complete source addition chain cannot
+                // overflow.  Accumulate nonnegative terms under the remaining
+                // INT_MAX-(m-1) budget without performing an unchecked add.
+                // The INT_MIN sentinel requests an exact sequential retry.
+                auto *combinedTemp = newTemp();
                 auto *unsafeLabel = newLabel();
-                stms->push_back(new tree::Cjump("<", tempExp(addendTemp),
-                                                new tree::Const(0), unsafeLabel,
-                                                checkUpperLabel));
-                stms->push_back(new tree::LabelStm(checkUpperLabel));
-                stms->push_back(new tree::Cjump(
-                    ">", tempExp(addendTemp),
-                    new tree::Const(INT_MAX - (workerModulus_ - 1)),
-                    unsafeLabel, safeLabel));
+                auto *termsSafeLabel = newLabel();
+                stms->push_back(new tree::Move(tempExp(combinedTemp),
+                                                new tree::Const(0)));
+                for (const Node *addend : addends) {
+                    auto *addendTemp = newTemp();
+                    auto *checkBudgetLabel = newLabel();
+                    auto *addTermLabel = newLabel();
+                    stms->push_back(new tree::Move(
+                        tempExp(addendTemp),
+                        lowerExprAs(*addend, BaseType::Int)));
+                    stms->push_back(new tree::Cjump(
+                        "<", tempExp(addendTemp), new tree::Const(0),
+                        unsafeLabel, checkBudgetLabel));
+                    stms->push_back(new tree::LabelStm(checkBudgetLabel));
+                    stms->push_back(new tree::Cjump(
+                        ">", tempExp(addendTemp),
+                        new tree::Binop(
+                            tree::Type::INT, "-",
+                            new tree::Const(INT_MAX - (workerModulus_ - 1)),
+                            tempExp(combinedTemp)),
+                        unsafeLabel, addTermLabel));
+                    stms->push_back(new tree::LabelStm(addTermLabel));
+                    stms->push_back(new tree::Move(
+                        tempExp(combinedTemp),
+                        new tree::Binop(tree::Type::INT, "+",
+                                        tempExp(combinedTemp),
+                                        tempExp(addendTemp))));
+                }
+                stms->push_back(new tree::Jump(termsSafeLabel));
                 stms->push_back(new tree::LabelStm(unsafeLabel));
                 stms->push_back(new tree::Return(new tree::Const(INT_MIN)));
-                stms->push_back(new tree::LabelStm(safeLabel));
+                stms->push_back(new tree::LabelStm(termsSafeLabel));
                 auto *dst = lowerLValue(*node.children.at(0));
                 auto *mod = new tree::Const(workerModulus_);
                 auto *addendResidue = intRemainder(
-                    tempExp(addendTemp), new tree::Const(workerModulus_));
+                    tempExp(combinedTemp), new tree::Const(workerModulus_));
                 auto *sum = new tree::Binop(tree::Type::INT, "+",
                                             lowerExpr(*node.children.at(0)),
                                             addendResidue);

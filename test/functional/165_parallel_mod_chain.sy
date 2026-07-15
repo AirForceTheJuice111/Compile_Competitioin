@@ -1,0 +1,17 @@
+const int MOD = 1009;
+
+int chained_mod_sum(int end, int delta) {
+  int sum = 7;
+  int i = 1;
+  while (i < end) {
+    sum = (sum + i % 13 + 5) % MOD;
+    i = i + delta;
+  }
+  return sum;
+}
+
+int main() {
+  putint(chained_mod_sum(60001, 3));
+  putch(10);
+  return 0;
+}

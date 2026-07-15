@@ -1099,23 +1099,36 @@ std::optional<ParallelReduction> modularReduction(
     if (!modulus || *modulus <= 0 || *modulus > INT_MAX / 2) {
         return std::nullopt;
     }
-    const Node &sum = *rhs.children.at(0);
-    if (sum.kind != NodeKind::BinaryExpr || sum.text != "+" ||
-        sum.children.size() != 2) {
+    std::vector<const Node *> leaves;
+    auto flatten = [&](const Node &node, auto &&self) -> void {
+        if (node.kind == NodeKind::BinaryExpr && node.text == "+" &&
+            node.children.size() == 2) {
+            self(*node.children.front(), self);
+            self(*node.children.back(), self);
+        } else {
+            leaves.push_back(&node);
+        }
+    };
+    flatten(*rhs.children.front(), flatten);
+    int accumulatorCount = 0;
+    std::vector<const Node *> addends;
+    for (const Node *leaf : leaves) {
+        if (isScalarLVal(*leaf) && leaf->text == var) {
+            ++accumulatorCount;
+        } else {
+            addends.push_back(leaf);
+        }
+    }
+    if (accumulatorCount != 1 || addends.empty()) {
         return std::nullopt;
     }
-    const Node *left = sum.children.at(0).get();
-    const Node *right = sum.children.at(1).get();
-    const Node *addend = nullptr;
-    if (isScalarLVal(*left) && left->text == var) {
-        addend = right;
-    } else if (isScalarLVal(*right) && right->text == var) {
-        addend = left;
-    }
-    if (addend == nullptr) {
-        return std::nullopt;
-    }
-    return ParallelReduction{var, addend, true, *modulus};
+    ParallelReduction reduction;
+    reduction.var = var;
+    reduction.addend = addends.front();
+    reduction.addends = std::move(addends);
+    reduction.modular = true;
+    reduction.modulus = *modulus;
+    return reduction;
 }
 
 const Node *singleReductionAssignment(const Node &node) {
@@ -1397,8 +1410,13 @@ bool analyzeNode(const Node &node, const std::string &loopVar,
             if (scalarType == "int") {
                 if (std::optional<ParallelReduction> reduction =
                         modularReduction(node, lhs.text, lookupConstInt)) {
-                    if (!containsExternalScalarReference(*reduction->addend, lhs.text,
-                                                         localLvals)) {
+                    bool selfReference = std::any_of(
+                        reduction->addends.begin(), reduction->addends.end(),
+                        [&](const Node *addend) {
+                            return containsExternalScalarReference(
+                                *addend, lhs.text, localLvals);
+                        });
+                    if (!selfReference) {
                         addReduction(plan.reductions, *reduction);
                         return true;
                     }
@@ -1471,6 +1489,12 @@ bool validateReductionUses(
                     modularReduction(node, reduction.var, lookupConstInt);
                 if (current && current->modulus == reduction.modulus) {
                     addend = current->addend;
+                    return std::all_of(
+                        current->addends.begin(), current->addends.end(),
+                        [&](const Node *term) {
+                            return !containsExternalScalarReference(
+                                *term, reduction.var, localLvals);
+                        });
                 }
             } else if (reduction.kind == ParallelReduction::Kind::Add) {
                 addend = parallelReductionAddend(node, reduction.var);
