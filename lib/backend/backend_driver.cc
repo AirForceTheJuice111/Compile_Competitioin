@@ -2242,14 +2242,45 @@ private:
             }
         }
 
+        // SIMD lanes s16-s23 are convenient raw-bit snapshots for GPR
+        // arguments, but a native FP parameter may itself be homed in one of
+        // those lanes.  Commit FP homes before GPR homes in the usual case;
+        // when a lane would still be overwritten, use a short-lived stack
+        // snapshot for the GPR class instead.
+        bool stackSnapshotGpr = false;
+        if (snapshotGpr) {
+            for (const IncomingParam &entry : incoming) {
+                if (entry.temp == nullptr || entry.type != quad::QuadType::FLOAT) {
+                    continue;
+                }
+                auto home = residentFpRegs_.find(entry.temp->num);
+                if (home != residentFpRegs_.end() && home->second >= 16 &&
+                    home->second <= 23) {
+                    stackSnapshotGpr = true;
+                    break;
+                }
+            }
+        }
+        int snapshotBytes = stackSnapshotGpr ? 8 * 8 : 0;
+        if (snapshotBytes > 0) {
+            emitAddSubImm64("sub", "sp", "sp", snapshotBytes);
+        }
+
         // GPR snapshots live in the otherwise-unused s16-s23 lanes (raw bits
-        // are preserved by fmov); FP snapshots live in x8-x15.  The two banks
-        // are independent, and neither set overlaps a possible destination
-        // home in the corresponding bank.  This gives us eight scratch lanes
-        // per ABI class without growing every function's frame.
+        // are preserved by fmov); FP snapshots live in x8-x15.  FP homes are
+        // emitted first below, and the rare cross-bank conflict uses the
+        // temporary stack area allocated above.
         for (const IncomingParam &entry : incoming) {
             if (entry.gp >= 0 && snapshotGpr) {
-                if (entry.type == quad::QuadType::PTR) {
+                if (stackSnapshotGpr) {
+                    if (entry.type == quad::QuadType::PTR) {
+                        out_ << "\tstr x" << entry.gp << ", [sp, #"
+                             << entry.gp * 8 << "]\n";
+                    } else {
+                        out_ << "\tstr w" << entry.gp << ", [sp, #"
+                             << entry.gp * 8 << "]\n";
+                    }
+                } else if (entry.type == quad::QuadType::PTR) {
                     out_ << "\tfmov d" << (16 + entry.gp) << ", x"
                          << entry.gp << "\n";
                 } else {
@@ -2262,11 +2293,38 @@ private:
             }
         }
 
-        for (const IncomingParam &entry : incoming) {
-            if (entry.temp == nullptr) continue;
+        auto emitFloatParam = [&](const IncomingParam &entry) {
+            if (entry.temp == nullptr || entry.type != quad::QuadType::FLOAT) {
+                return;
+            }
+            std::string source;
+            if (entry.fp >= 0 && snapshotFp) {
+                out_ << "\tfmov s30, w" << (8 + entry.fp) << "\n";
+                source = "s30";
+            } else if (entry.fp >= 0) {
+                source = "s" + std::to_string(entry.fp);
+            } else {
+                stackAddressFromFrame(entry.stackOffset);
+                out_ << "\tldr s30, [x16]\n";
+                source = "s30";
+            }
+            storeTemp(entry.temp, entry.type, source);
+        };
+        auto emitGprParam = [&](const IncomingParam &entry) {
+            if (entry.temp == nullptr || entry.type == quad::QuadType::FLOAT) {
+                return;
+            }
             std::string source;
             if (entry.gp >= 0 && snapshotGpr) {
-                if (entry.type == quad::QuadType::PTR) {
+                if (stackSnapshotGpr) {
+                    if (entry.type == quad::QuadType::PTR) {
+                        out_ << "\tldr x9, [sp, #" << entry.gp * 8 << "]\n";
+                        source = "x9";
+                    } else {
+                        out_ << "\tldr w9, [sp, #" << entry.gp * 8 << "]\n";
+                        source = "w9";
+                    }
+                } else if (entry.type == quad::QuadType::PTR) {
                     out_ << "\tfmov x9, d" << (16 + entry.gp) << "\n";
                     source = "x9";
                 } else {
@@ -2277,17 +2335,9 @@ private:
                 source = entry.type == quad::QuadType::PTR
                              ? "x" + std::to_string(entry.gp)
                              : "w" + std::to_string(entry.gp);
-            } else if (entry.fp >= 0 && snapshotFp) {
-                out_ << "\tfmov s30, w" << (8 + entry.fp) << "\n";
-                source = "s30";
-            } else if (entry.fp >= 0) {
-                source = "s" + std::to_string(entry.fp);
             } else {
                 stackAddressFromFrame(entry.stackOffset);
-                if (entry.type == quad::QuadType::FLOAT) {
-                    out_ << "\tldr s30, [x16]\n";
-                    source = "s30";
-                } else if (entry.type == quad::QuadType::PTR) {
+                if (entry.type == quad::QuadType::PTR) {
                     out_ << "\tldr x9, [x16]\n";
                     source = "x9";
                 } else {
@@ -2296,6 +2346,12 @@ private:
                 }
             }
             storeTemp(entry.temp, entry.type, source);
+        };
+        // Consume FP snapshots before any GPR home can overwrite x8-x15.
+        for (const IncomingParam &entry : incoming) emitFloatParam(entry);
+        for (const IncomingParam &entry : incoming) emitGprParam(entry);
+        if (snapshotBytes > 0) {
+            emitAddSubImm64("add", "sp", "sp", snapshotBytes);
         }
     }
 
