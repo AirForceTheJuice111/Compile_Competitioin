@@ -7,8 +7,10 @@ int main() {
   i = 0;
   while (i < n) {
     j = 0;
+    int scratch = 0;
     while (j < n) {
       a[i][j] = i + j;
+      scratch = scratch + a[i][j];
       j = j + 1;
     }
     i = i + 1;
