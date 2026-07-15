@@ -1334,6 +1334,64 @@ private:
         return alignTo(bytes, pointerBytes());
     }
 
+    int parallelResetBaseOffset(
+        const std::vector<ParallelContextField> &fields,
+        std::size_t reductionCount, bool dynamicLogicalRange,
+        bool orderedFloat) const {
+        return alignTo(parallelContextBytes(fields, reductionCount,
+                                            dynamicLogicalRange,
+                                            orderedFloat),
+                       4);
+    }
+
+    int parallelResetSlotOffset(
+        const std::vector<ParallelContextField> &fields,
+        std::size_t reductionCount, bool dynamicLogicalRange,
+        bool orderedFloat, std::size_t resetCount, std::size_t workerSlot,
+        std::size_t resetIndex) const {
+        return parallelResetBaseOffset(fields, reductionCount,
+                                       dynamicLogicalRange, orderedFloat) +
+               static_cast<int>((workerSlot * resetCount + resetIndex) *
+                                sizeof(std::int32_t));
+    }
+
+    int parallelResetMarkerOffset(
+        const std::vector<ParallelContextField> &fields,
+        std::size_t reductionCount, bool dynamicLogicalRange,
+        bool orderedFloat, std::size_t resetCount,
+        std::size_t workerSlot) const {
+        return parallelResetBaseOffset(fields, reductionCount,
+                                       dynamicLogicalRange, orderedFloat) +
+               static_cast<int>((2 * resetCount + workerSlot) *
+                                sizeof(std::int32_t));
+    }
+
+    int parallelResetBeginOffset(
+        const std::vector<ParallelContextField> &fields,
+        std::size_t reductionCount, bool dynamicLogicalRange,
+        bool orderedFloat, std::size_t resetCount) const {
+        return parallelResetBaseOffset(fields, reductionCount,
+                                       dynamicLogicalRange, orderedFloat) +
+               static_cast<int>((2 * resetCount + 2) *
+                                sizeof(std::int32_t));
+    }
+
+    int parallelContextBytes(const std::vector<ParallelContextField> &fields,
+                             std::size_t reductionCount,
+                             bool dynamicLogicalRange,
+                             bool orderedFloat,
+                             std::size_t resetCount) const {
+        int bytes = parallelContextBytes(fields, reductionCount,
+                                         dynamicLogicalRange, orderedFloat);
+        if (resetCount != 0) {
+            bytes = parallelResetBeginOffset(
+                        fields, reductionCount, dynamicLogicalRange,
+                        orderedFloat, resetCount) +
+                    static_cast<int>(sizeof(std::int32_t));
+        }
+        return alignTo(bytes, pointerBytes());
+    }
+
     bool aliasPairNeedsRuntimeGuard(const ParallelContextField &lhs,
                                     const ParallelContextField &rhs,
                                     bool &needsGuard) const {
@@ -1460,7 +1518,7 @@ private:
         symbols.clear();
         for (const ParallelPrivatizedScalar &scalar : plan.privatizedScalars) {
             if (scalar.type != "int" || scalar.initExpr == nullptr ||
-                scalar.endExpr == nullptr) {
+                (!scalar.perIterationReset && scalar.endExpr == nullptr)) {
                 return false;
             }
             Symbol symbol = lookup(scalar.var, scalar.initExpr->loc);
@@ -1479,6 +1537,9 @@ private:
         std::vector<ParallelScratchWriteback> writebacks;
         for (std::size_t index = 0; index < plan.privatizedScalars.size(); ++index) {
             const ParallelPrivatizedScalar &scalar = plan.privatizedScalars[index];
+            if (scalar.perIterationReset) {
+                continue;
+            }
             auto *finalTemp = newTemp();
             auto *endTemp = newTemp();
             stms->push_back(new tree::Move(
@@ -1519,6 +1580,88 @@ private:
             stms->push_back(new tree::Move(tempExp(writeback.symbol.temp),
                                             tempExp(writeback.finalValue)));
         }
+        stms->push_back(new tree::Jump(doneLabel));
+        stms->push_back(new tree::LabelStm(doneLabel));
+    }
+
+    std::vector<std::size_t> parallelResetScalarIndices(
+        const ParallelLoopPlan &plan) const {
+        std::vector<std::size_t> indices;
+        for (std::size_t index = 0; index < plan.privatizedScalars.size(); ++index) {
+            if (plan.privatizedScalars[index].perIterationReset) {
+                indices.push_back(index);
+            }
+        }
+        return indices;
+    }
+
+    void emitParallelResetWritebacks(
+        const ParallelLoopPlan &plan,
+        const std::vector<ParallelContextField> &fields,
+        tree::Temp *ctxTemp, tree::Temp *beginTemp, tree::Temp *endTemp,
+        std::size_t reductionCount, bool orderedFloat,
+        std::vector<tree::Stm *> *stms) {
+        std::vector<std::size_t> resetIndices =
+            parallelResetScalarIndices(plan);
+        if (resetIndices.empty()) {
+            return;
+        }
+        auto *writeLabel = newLabel();
+        auto *emptyLabel = newLabel();
+        auto *chooseSlotOneLabel = newLabel();
+        auto *chooseSlotZeroLabel = newLabel();
+        auto *doneLabel = newLabel();
+        stms->push_back(new tree::Cjump("<", tempExp(beginTemp),
+                                        tempExp(endTemp), writeLabel,
+                                        emptyLabel));
+        stms->push_back(new tree::LabelStm(writeLabel));
+        stms->push_back(new tree::Cjump(
+            ">",
+            new tree::Mem(
+                tree::Type::INT,
+                ctxFieldAddr(
+                    ctxTemp,
+                    parallelResetMarkerOffset(
+                        fields, reductionCount, plan.dynamicLogicalRange,
+                        orderedFloat, resetIndices.size(), 1))),
+            tempExp(beginTemp), chooseSlotOneLabel, chooseSlotZeroLabel));
+        stms->push_back(new tree::LabelStm(chooseSlotOneLabel));
+        for (std::size_t resetIndex = 0; resetIndex < resetIndices.size();
+             ++resetIndex) {
+            const ParallelPrivatizedScalar &scalar =
+                plan.privatizedScalars[resetIndices[resetIndex]];
+            Symbol symbol = lookup(scalar.var, scalar.initExpr->loc);
+            stms->push_back(new tree::Move(
+                tempExp(symbol.temp),
+                new tree::Mem(
+                    tree::Type::INT,
+                    ctxFieldAddr(
+                        ctxTemp,
+                        parallelResetSlotOffset(
+                            fields, reductionCount,
+                            plan.dynamicLogicalRange, orderedFloat,
+                            resetIndices.size(), 1, resetIndex)))));
+        }
+        stms->push_back(new tree::Jump(doneLabel));
+        stms->push_back(new tree::LabelStm(chooseSlotZeroLabel));
+        for (std::size_t resetIndex = 0; resetIndex < resetIndices.size();
+             ++resetIndex) {
+            const ParallelPrivatizedScalar &scalar =
+                plan.privatizedScalars[resetIndices[resetIndex]];
+            Symbol symbol = lookup(scalar.var, scalar.initExpr->loc);
+            stms->push_back(new tree::Move(
+                tempExp(symbol.temp),
+                new tree::Mem(
+                    tree::Type::INT,
+                    ctxFieldAddr(
+                        ctxTemp,
+                        parallelResetSlotOffset(
+                            fields, reductionCount,
+                            plan.dynamicLogicalRange, orderedFloat,
+                            resetIndices.size(), 0, resetIndex)))));
+        }
+        stms->push_back(new tree::Jump(doneLabel));
+        stms->push_back(new tree::LabelStm(emptyLabel));
         stms->push_back(new tree::Jump(doneLabel));
         stms->push_back(new tree::LabelStm(doneLabel));
     }
@@ -1603,6 +1746,10 @@ private:
                                  tree::Label *modUnsafeLabel = nullptr) {
         const bool stagedReduction = stagedParallelReductions(plan);
         const bool orderedFloat = orderedFloatReduction(plan);
+        const std::size_t reductionCount =
+            stagedReduction ? plan.reductions.size() : 0;
+        const std::vector<std::size_t> resetIndices =
+            parallelResetScalarIndices(plan);
         tree::Temp *ctxTemp = nullptr;
         tree::Temp *floatBufferTemp = nullptr;
         tree::Exp *ctxArg = new tree::Const(0, tree::Type::PTR);
@@ -1610,13 +1757,12 @@ private:
         // second worker's partials.  Force a context allocation even when the
         // source body has no ordinary captures.
         if (!fields.empty() || stagedReduction || plan.dynamicLogicalRange ||
-            orderedFloat) {
+            orderedFloat || !resetIndices.empty()) {
             ctxTemp = newTemp();
-            const std::size_t reductionCount =
-                stagedReduction ? plan.reductions.size() : 0;
             int ctxBytes = parallelContextBytes(fields, reductionCount,
                                                 plan.dynamicLogicalRange,
-                                                orderedFloat);
+                                                orderedFloat,
+                                                resetIndices.size());
             stms->push_back(new tree::Move(
                 ptrTempExp(ctxTemp),
                 new tree::ExtCall(tree::Type::PTR, "malloc",
@@ -1695,6 +1841,47 @@ private:
                             parallelFloatBeginOffset(fields, reductionCount,
                                                      plan.dynamicLogicalRange))),
                     tempExp(beginTemp)));
+            }
+            if (!resetIndices.empty()) {
+                stms->push_back(new tree::Move(
+                    new tree::Mem(
+                        tree::Type::INT,
+                        ctxFieldAddr(
+                            ctxTemp,
+                            parallelResetBeginOffset(
+                                fields, reductionCount,
+                                plan.dynamicLogicalRange, orderedFloat,
+                                resetIndices.size()))),
+                    tempExp(beginTemp)));
+                for (std::size_t slot = 0; slot < 2; ++slot) {
+                    for (std::size_t resetIndex = 0;
+                         resetIndex < resetIndices.size(); ++resetIndex) {
+                        const ParallelPrivatizedScalar &scalar =
+                            plan.privatizedScalars[resetIndices[resetIndex]];
+                        Symbol symbol = lookup(scalar.var, scalar.initExpr->loc);
+                        stms->push_back(new tree::Move(
+                            new tree::Mem(
+                                tree::Type::INT,
+                                ctxFieldAddr(
+                                    ctxTemp,
+                                    parallelResetSlotOffset(
+                                        fields, reductionCount,
+                                        plan.dynamicLogicalRange, orderedFloat,
+                                        resetIndices.size(), slot,
+                                        resetIndex))),
+                            symbolScalarValue(symbol)));
+                    }
+                    stms->push_back(new tree::Move(
+                        new tree::Mem(
+                            tree::Type::INT,
+                            ctxFieldAddr(
+                                ctxTemp,
+                                parallelResetMarkerOffset(
+                                    fields, reductionCount,
+                                    plan.dynamicLogicalRange, orderedFloat,
+                                    resetIndices.size(), slot))),
+                        tempExp(beginTemp)));
+                }
             }
         }
 
@@ -1866,6 +2053,9 @@ private:
         }
 
         if (ctxTemp != nullptr) {
+            emitParallelResetWritebacks(
+                plan, fields, ctxTemp, beginTemp, endTemp, reductionCount,
+                orderedFloat, stms);
             if (floatBufferTemp != nullptr) {
                 stms->push_back(new tree::ExpStm(
                     new tree::ExtCall(
@@ -2010,8 +2200,11 @@ private:
                                                  plan.dynamicLogicalRange)))));
         }
 
+        std::vector<tree::Temp *> scratchTemps;
+        scratchTemps.reserve(plan.privatizedScalars.size());
         for (const ParallelPrivatizedScalar &scalar : plan.privatizedScalars) {
             auto *scratchTemp = newTemp();
+            scratchTemps.push_back(scratchTemp);
             declareLocal(scalar.var, scratchTemp, BaseType::Int, scalar.initExpr->loc);
             stms->push_back(new tree::Move(tempExp(scratchTemp), new tree::Const(0)));
         }
@@ -2153,6 +2346,76 @@ private:
                                                         1, index))),
                     tempExp(reductionTemps[index])));
             }
+            stms->push_back(new tree::LabelStm(slotDoneLabel));
+        }
+        std::vector<std::size_t> resetIndices =
+            parallelResetScalarIndices(plan);
+        if (!resetIndices.empty()) {
+            const bool stagedReduction = stagedParallelReductions(plan);
+            const std::size_t reductionCount =
+                stagedReduction ? plan.reductions.size() : 0;
+            const bool orderedFloat = orderedFloatReduction(plan);
+            auto *slotZeroLabel = newLabel();
+            auto *slotOneLabel = newLabel();
+            auto *slotDoneLabel = newLabel();
+            stms->push_back(new tree::Cjump(
+                "==", tempExp(beginParam),
+                new tree::Mem(
+                    tree::Type::INT,
+                    ctxFieldAddr(
+                        ctxParam,
+                        parallelResetBeginOffset(
+                            fields, reductionCount, plan.dynamicLogicalRange,
+                            orderedFloat, resetIndices.size()))),
+                slotZeroLabel, slotOneLabel));
+            stms->push_back(new tree::LabelStm(slotZeroLabel));
+            for (std::size_t resetIndex = 0;
+                 resetIndex < resetIndices.size(); ++resetIndex) {
+                stms->push_back(new tree::Move(
+                    new tree::Mem(
+                        tree::Type::INT,
+                        ctxFieldAddr(
+                            ctxParam,
+                            parallelResetSlotOffset(
+                                fields, reductionCount,
+                                plan.dynamicLogicalRange, orderedFloat,
+                                resetIndices.size(), 0, resetIndex))),
+                    tempExp(scratchTemps[resetIndices[resetIndex]])));
+            }
+            stms->push_back(new tree::Move(
+                new tree::Mem(
+                    tree::Type::INT,
+                    ctxFieldAddr(
+                        ctxParam,
+                        parallelResetMarkerOffset(
+                            fields, reductionCount, plan.dynamicLogicalRange,
+                            orderedFloat, resetIndices.size(), 0))),
+                tempExp(endParam)));
+            stms->push_back(new tree::Jump(slotDoneLabel));
+            stms->push_back(new tree::LabelStm(slotOneLabel));
+            for (std::size_t resetIndex = 0;
+                 resetIndex < resetIndices.size(); ++resetIndex) {
+                stms->push_back(new tree::Move(
+                    new tree::Mem(
+                        tree::Type::INT,
+                        ctxFieldAddr(
+                            ctxParam,
+                            parallelResetSlotOffset(
+                                fields, reductionCount,
+                                plan.dynamicLogicalRange, orderedFloat,
+                                resetIndices.size(), 1, resetIndex))),
+                    tempExp(scratchTemps[resetIndices[resetIndex]])));
+            }
+            stms->push_back(new tree::Move(
+                new tree::Mem(
+                    tree::Type::INT,
+                    ctxFieldAddr(
+                        ctxParam,
+                        parallelResetMarkerOffset(
+                            fields, reductionCount, plan.dynamicLogicalRange,
+                            orderedFloat, resetIndices.size(), 1))),
+                tempExp(endParam)));
+            stms->push_back(new tree::Jump(slotDoneLabel));
             stms->push_back(new tree::LabelStm(slotDoneLabel));
         }
         stms->push_back(new tree::Return(

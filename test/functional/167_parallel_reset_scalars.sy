@@ -1,0 +1,33 @@
+int values[20000];
+
+int reset_kernel(int n) {
+  int scratch = 77;
+  int inner = 88;
+  int total = 5;
+  int i;
+  i = 0;
+  while (i < n) {
+    scratch = i * 3 + 1;
+    inner = 0;
+    while (inner < i % 4 + 1) {
+      scratch = scratch + inner;
+      inner = inner + 1;
+    }
+    values[i] = scratch;
+    total = total + i;
+    i = i + 1;
+  }
+  return scratch + inner + total;
+}
+
+int main() {
+  putint(reset_kernel(20000));
+  putch(32);
+  putint(values[0]);
+  putch(32);
+  putint(values[19999]);
+  putch(32);
+  putint(reset_kernel(0));
+  putch(10);
+  return 0;
+}

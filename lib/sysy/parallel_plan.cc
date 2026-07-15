@@ -877,16 +877,29 @@ void markPrivatizedScalarLvals(const Node &node, const std::string &name,
 }
 
 std::optional<ParallelPrivatizedScalar> recognizeCanonicalScratchScalar(
-    const ParallelLoopPlan &plan, const ParallelTypeLookup &lookupType) {
-    if (plan.body.size() < 2) {
+    const ParallelLoopPlan &plan, const ParallelTypeLookup &lookupType,
+    const std::unordered_set<const Node *> &localLvals,
+    std::size_t startIndex) {
+    if (startIndex + 1 >= plan.body.size()) {
         return std::nullopt;
     }
 
-    ParallelLoopInit scratchInit = parseParallelLoopInit(*plan.body.front());
+    ParallelLoopInit scratchInit = parseParallelLoopInit(*plan.body[startIndex]);
+    if (plan.body[startIndex]->kind == NodeKind::AssignStmt &&
+        !plan.body[startIndex]->children.empty() &&
+        localLvals.find(plan.body[startIndex]->children.front().get()) !=
+            localLvals.end()) {
+        return std::nullopt;
+    }
     if (!scratchInit.valid || scratchInit.declaration || scratchInit.initExpr == nullptr ||
         scratchInit.var == plan.init.var || !lookupType ||
         lookupType(scratchInit.var) != "int") {
         return std::nullopt;
+    }
+    for (std::size_t index = 0; index < startIndex; ++index) {
+        if (containsScalarNameReference(*plan.body[index], scratchInit.var)) {
+            return std::nullopt;
+        }
     }
     const Node *scratchEnd = nullptr;
     bool scratchInclusive = false;
@@ -896,7 +909,7 @@ std::optional<ParallelPrivatizedScalar> recognizeCanonicalScratchScalar(
     bool scratchNegateStepExpr = false;
     std::string scratchComparison;
     std::vector<const Node *> scratchBody;
-    std::size_t loopIndex = 1;
+    std::size_t loopIndex = startIndex + 1;
     while (loopIndex < plan.body.size() &&
            (plan.body[loopIndex]->kind == NodeKind::VarDecl ||
             plan.body[loopIndex]->kind == NodeKind::ConstDecl)) {
@@ -989,6 +1002,47 @@ std::optional<ParallelPrivatizedScalar> recognizeCanonicalScratchScalar(
 
     return ParallelPrivatizedScalar{scratchInit.var, "int", scratchInit.initExpr,
                                     scratchEnd, scratchInclusive};
+}
+
+std::optional<ParallelPrivatizedScalar> recognizePerIterationResetScalar(
+    const ParallelLoopPlan &plan, const ParallelTypeLookup &lookupType,
+    const std::unordered_set<const Node *> &localLvals,
+    std::size_t statementIndex) {
+    const Node &stmt = *plan.body[statementIndex];
+    if (stmt.kind != NodeKind::AssignStmt || stmt.children.size() != 2) {
+        return std::nullopt;
+    }
+    const Node &lhs = *stmt.children.front();
+    const Node *resetExpr = stmt.children.back().get();
+    if (!isScalarLVal(lhs) || localLvals.find(&lhs) != localLvals.end() ||
+        lhs.text == plan.init.var || !lookupType ||
+        lookupType(lhs.text) != "int" ||
+        containsScalarNameReference(*resetExpr, lhs.text)) {
+        return std::nullopt;
+    }
+    if ((plan.endExpr != nullptr &&
+         containsScalarNameReference(*plan.endExpr, lhs.text)) ||
+        (plan.stepExpr != nullptr &&
+         containsScalarNameReference(*plan.stepExpr, lhs.text))) {
+        return std::nullopt;
+    }
+    // The reset must dominate every use in the candidate iteration.  Keeping
+    // it in the straight-line top-level prefix also guarantees that each
+    // nonempty worker finishes with the value from its last source iteration.
+    for (std::size_t index = 0; index < statementIndex; ++index) {
+        if (containsScalarNameReference(*plan.body[index], lhs.text) ||
+            plan.body[index]->kind == NodeKind::IfStmt ||
+            plan.body[index]->kind == NodeKind::WhileStmt ||
+            plan.body[index]->kind == NodeKind::ContinueStmt) {
+            return std::nullopt;
+        }
+    }
+    ParallelPrivatizedScalar scalar;
+    scalar.var = lhs.text;
+    scalar.type = "int";
+    scalar.initExpr = resetExpr;
+    scalar.perIterationReset = true;
+    return scalar;
 }
 
 bool containsWhile(const Node &node) {
@@ -2362,7 +2416,10 @@ private:
             const ParallelPrivatizedScalar &scalar = plan.privatizedScalars[i];
             out_ << "{\"name\":\"" << jsonEscape(scalar.var)
                  << "\",\"type\":\"" << jsonEscape(scalar.type)
-                 << "\",\"kind\":\"canonical_nested_iv\""
+                 << "\",\"kind\":\""
+                 << (scalar.perIterationReset ? "iteration_reset"
+                                              : "canonical_nested_iv")
+                 << "\""
                  << ",\"inclusive_end\":"
                  << (scalar.inclusiveEnd ? "true" : "false") << "}";
         }
@@ -2450,11 +2507,40 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
         plan.valid = false;
         return plan;
     }
-    if (std::optional<ParallelPrivatizedScalar> scratch =
-            recognizeCanonicalScratchScalar(plan, lookupType)) {
-        plan.privatizedScalars.push_back(*scratch);
-        for (const Node *stmt : plan.body) {
-            markPrivatizedScalarLvals(*stmt, scratch->var, lexical.localLvals);
+    for (std::size_t index = 0; index < plan.body.size(); ++index) {
+        if (std::optional<ParallelPrivatizedScalar> scratch =
+                recognizeCanonicalScratchScalar(plan, lookupType,
+                                                lexical.localLvals, index)) {
+            bool duplicate = std::any_of(
+                plan.privatizedScalars.begin(), plan.privatizedScalars.end(),
+                [&](const ParallelPrivatizedScalar &existing) {
+                    return existing.var == scratch->var;
+                });
+            if (!duplicate) {
+                plan.privatizedScalars.push_back(*scratch);
+                for (const Node *stmt : plan.body) {
+                    markPrivatizedScalarLvals(*stmt, scratch->var,
+                                              lexical.localLvals);
+                }
+            }
+        }
+    }
+    for (std::size_t index = 0; index < plan.body.size(); ++index) {
+        if (std::optional<ParallelPrivatizedScalar> reset =
+                recognizePerIterationResetScalar(
+                    plan, lookupType, lexical.localLvals, index)) {
+            bool duplicate = std::any_of(
+                plan.privatizedScalars.begin(), plan.privatizedScalars.end(),
+                [&](const ParallelPrivatizedScalar &existing) {
+                    return existing.var == reset->var;
+                });
+            if (!duplicate) {
+                plan.privatizedScalars.push_back(*reset);
+                for (const Node *stmt : plan.body) {
+                    markPrivatizedScalarLvals(*stmt, reset->var,
+                                              lexical.localLvals);
+                }
+            }
         }
     }
     for (const Node *stmt : plan.body) {
@@ -2582,6 +2668,16 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
     if (hasModularReduction && plan.reductions.size() > 1) {
         plan.valid = false;
         plan.rejectReason = "multiple modular reductions";
+        return plan;
+    }
+    if (hasModularReduction &&
+        std::any_of(plan.privatizedScalars.begin(),
+                    plan.privatizedScalars.end(),
+                    [](const ParallelPrivatizedScalar &scalar) {
+                        return scalar.perIterationReset;
+                    })) {
+        plan.valid = false;
+        plan.rejectReason = "modular reduction with reset scalar";
         return plan;
     }
     if (!plan.privatizedScalars.empty() &&

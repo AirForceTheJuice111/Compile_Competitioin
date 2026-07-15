@@ -56,6 +56,10 @@ struct ParallelPrivatizedScalar {
     const Node *initExpr = nullptr;
     const Node *endExpr = nullptr;
     bool inclusiveEnd = false;
+    // The scalar is assigned an iteration-local reset value before any use.
+    // Workers stage the value from the lexically last source iteration so the
+    // original function-scope scalar retains its post-loop value.
+    bool perIterationReset = false;
 };
 
 struct ParallelLoopPlan {
