@@ -1265,7 +1265,7 @@ private:
     int parallelContextBytes(const std::vector<ParallelContextField> &fields,
                              std::size_t reductionCount) const {
         int bytes = parallelContextBytes(fields);
-        if (reductionCount <= 1) {
+        if (reductionCount == 0) {
             return bytes;
         }
         return alignTo(parallelReductionBeginOffset(fields, reductionCount) +
@@ -1350,6 +1350,58 @@ private:
             }
         }
         return true;
+    }
+
+    bool stagedParallelReductions(const ParallelLoopPlan &plan) const {
+        return plan.reductions.size() > 1 ||
+               std::any_of(plan.reductions.begin(), plan.reductions.end(),
+                           [](const ParallelReduction &reduction) {
+                               return reduction.kind != ParallelReduction::Kind::Add;
+                           });
+    }
+
+    int parallelReductionIdentity(const ParallelReduction &reduction) const {
+        if (reduction.kind == ParallelReduction::Kind::Min) {
+            return INT_MAX;
+        }
+        if (reduction.kind == ParallelReduction::Kind::Max) {
+            return INT_MIN;
+        }
+        return 0;
+    }
+
+    void emitParallelReductionCombine(const ParallelReduction &reduction,
+                                      tree::Exp *partial,
+                                      std::vector<tree::Stm *> *stms) {
+        auto *dst = lowerLValue(
+            Node{NodeKind::LVal, reduction.addend->loc, reduction.var});
+        tree::Exp *initial = lowerExpr(
+            Node{NodeKind::LVal, reduction.addend->loc, reduction.var});
+        if (reduction.kind == ParallelReduction::Kind::Add) {
+            stms->push_back(new tree::Move(
+                dst, new tree::Binop(tree::Type::INT, "+", initial, partial)));
+            return;
+        }
+
+        auto *initialTemp = newTemp();
+        auto *partialTemp = newTemp();
+        auto *takePartialLabel = newLabel();
+        auto *takeInitialLabel = newLabel();
+        auto *doneLabel = newLabel();
+        stms->push_back(new tree::Move(tempExp(initialTemp), initial));
+        stms->push_back(new tree::Move(tempExp(partialTemp), partial));
+        const std::string relop =
+            reduction.kind == ParallelReduction::Kind::Min ? "<" : ">";
+        stms->push_back(new tree::Cjump(relop, tempExp(partialTemp),
+                                        tempExp(initialTemp), takePartialLabel,
+                                        takeInitialLabel));
+        stms->push_back(new tree::LabelStm(takePartialLabel));
+        stms->push_back(new tree::Move(dst, tempExp(partialTemp)));
+        stms->push_back(new tree::Jump(doneLabel));
+        stms->push_back(new tree::LabelStm(takeInitialLabel));
+        stms->push_back(new tree::Move(dst, tempExp(initialTemp)));
+        stms->push_back(new tree::Jump(doneLabel));
+        stms->push_back(new tree::LabelStm(doneLabel));
     }
 
     bool buildParallelScratchSymbols(const ParallelLoopPlan &plan,
@@ -1498,16 +1550,16 @@ private:
                                  tree::Temp *sourceInitialTemp,
                                  std::vector<tree::Stm *> *stms,
                                  tree::Label *modUnsafeLabel = nullptr) {
-        const bool multiReduction = plan.reductions.size() > 1;
+        const bool stagedReduction = stagedParallelReductions(plan);
         tree::Temp *ctxTemp = nullptr;
         tree::Exp *ctxArg = new tree::Const(0, tree::Type::PTR);
         // Multi-reduction workers use a private tail in the context for the
         // second worker's partials.  Force a context allocation even when the
         // source body has no ordinary captures.
-        if (!fields.empty() || multiReduction || plan.dynamicLogicalRange) {
+        if (!fields.empty() || stagedReduction || plan.dynamicLogicalRange) {
             ctxTemp = newTemp();
             const std::size_t reductionCount =
-                multiReduction ? plan.reductions.size() : 0;
+                stagedReduction ? plan.reductions.size() : 0;
             int ctxBytes = parallelContextBytes(fields, reductionCount,
                                                 plan.dynamicLogicalRange);
             stms->push_back(new tree::Move(
@@ -1523,7 +1575,7 @@ private:
                     new tree::Mem(fieldType, ctxFieldAddr(ctxTemp, field.offset)),
                     value));
             }
-            if (multiReduction) {
+            if (stagedReduction) {
                 const std::size_t reductionCount = plan.reductions.size();
                 // The worker chooses slot zero for the first half (or a
                 // direct fallback) by comparing its begin parameter with this
@@ -1546,7 +1598,8 @@ private:
                                     ctxTemp,
                                     parallelReductionSlotOffset(
                                         fields, reductionCount, slot, index))),
-                            new tree::Const(0)));
+                            new tree::Const(parallelReductionIdentity(
+                                plan.reductions[index]))));
                     }
                 }
             }
@@ -1626,48 +1679,51 @@ private:
                 dst, intRemainder(sum, new tree::Const(reduction.modulus))));
             stms->push_back(new tree::Jump(doneLabel));
             stms->push_back(new tree::LabelStm(doneLabel));
-        } else if (multiReduction) {
-            // Keep the existing scalar runtime ABI: it returns the first
-            // partial sum in w0 and invokes the same worker for both halves.
-            // Additional accumulators are written by the worker into the
-            // hidden context slots and combined here after the runtime's
-            // completion barrier.
-            auto *firstPartial = newTemp();
-            stms->push_back(new tree::Move(
-                tempExp(firstPartial),
+        } else if (stagedReduction) {
+            // Min/max cannot use the additive scalar reduction ABI.  Stage
+            // both worker partials in the private context tail and combine
+            // each accumulator after parallel_for's completion barrier.
+            stms->push_back(new tree::ExpStm(
                 new tree::ExtCall(tree::Type::INT,
-                                  "__sysy_parallel_reduce_int_range",
-                                  runtimeArgs)));
+                                  "__sysy_parallel_for_range", runtimeArgs)));
             const std::size_t reductionCount = plan.reductions.size();
             for (std::size_t index = 0; index < reductionCount; ++index) {
+                auto *slot0 = new tree::Mem(
+                    tree::Type::INT,
+                    ctxFieldAddr(
+                        ctxTemp,
+                        parallelReductionSlotOffset(fields, reductionCount,
+                                                    0, index)));
+                auto *slot1 = new tree::Mem(
+                    tree::Type::INT,
+                    ctxFieldAddr(
+                        ctxTemp,
+                        parallelReductionSlotOffset(fields, reductionCount,
+                                                    1, index)));
                 tree::Exp *partial = nullptr;
-                if (index == 0) {
-                    partial = tempExp(firstPartial);
-                } else {
-                    auto *slot0 = new tree::Mem(
-                        tree::Type::INT,
-                        ctxFieldAddr(
-                            ctxTemp,
-                            parallelReductionSlotOffset(fields, reductionCount,
-                                                        0, index)));
-                    auto *slot1 = new tree::Mem(
-                        tree::Type::INT,
-                        ctxFieldAddr(
-                            ctxTemp,
-                            parallelReductionSlotOffset(fields, reductionCount,
-                                                        1, index)));
+                const ParallelReduction &reduction = plan.reductions[index];
+                if (reduction.kind == ParallelReduction::Kind::Add) {
                     partial = new tree::Binop(tree::Type::INT, "+", slot0, slot1);
+                } else {
+                    auto *partialTemp = newTemp();
+                    auto *takeSlot0Label = newLabel();
+                    auto *takeSlot1Label = newLabel();
+                    auto *partialDoneLabel = newLabel();
+                    const std::string relop =
+                        reduction.kind == ParallelReduction::Kind::Min ? "<" : ">";
+                    stms->push_back(new tree::Cjump(relop, slot0, slot1,
+                                                    takeSlot0Label,
+                                                    takeSlot1Label));
+                    stms->push_back(new tree::LabelStm(takeSlot0Label));
+                    stms->push_back(new tree::Move(tempExp(partialTemp), slot0));
+                    stms->push_back(new tree::Jump(partialDoneLabel));
+                    stms->push_back(new tree::LabelStm(takeSlot1Label));
+                    stms->push_back(new tree::Move(tempExp(partialTemp), slot1));
+                    stms->push_back(new tree::Jump(partialDoneLabel));
+                    stms->push_back(new tree::LabelStm(partialDoneLabel));
+                    partial = tempExp(partialTemp);
                 }
-                const std::string &var = plan.reductions[index].var;
-                auto *dst = lowerLValue(
-                    Node{NodeKind::LVal, plan.init.initExpr->loc, var});
-                stms->push_back(new tree::Move(
-                    dst,
-                    new tree::Binop(
-                        tree::Type::INT, "+",
-                        lowerExpr(Node{NodeKind::LVal,
-                                       plan.init.initExpr->loc, var}),
-                        partial)));
+                emitParallelReductionCombine(reduction, partial, stms);
             }
         } else {
             auto *partialTemp = newTemp();
@@ -1802,8 +1858,9 @@ private:
             reductionTemps.push_back(reductionTemp);
             declareLocal(reduction.var, reductionTemp, BaseType::Int,
                          plan.init.initExpr->loc);
-            stms->push_back(new tree::Move(tempExp(reductionTemp),
-                                           new tree::Const(0)));
+            stms->push_back(new tree::Move(
+                tempExp(reductionTemp),
+                new tree::Const(parallelReductionIdentity(reduction))));
         }
 
         auto *ivTemp = newTemp();
@@ -1817,7 +1874,7 @@ private:
             tree::Exp *initialValue = nullptr;
             if (plan.dynamicLogicalRange) {
                 const std::size_t reductionCount =
-                    plan.reductions.size() > 1 ? plan.reductions.size() : 0;
+                    stagedParallelReductions(plan) ? plan.reductions.size() : 0;
                 initialValue = new tree::Mem(
                     tree::Type::INT,
                     ctxFieldAddr(
@@ -1876,7 +1933,7 @@ private:
         }
         stms->push_back(new tree::Jump(testLabel));
         stms->push_back(new tree::LabelStm(doneLabel));
-        if (plan.reductions.size() > 1) {
+        if (stagedParallelReductions(plan)) {
             const std::size_t reductionCount = plan.reductions.size();
             auto *slotZeroLabel = newLabel();
             auto *slotOneLabel = newLabel();

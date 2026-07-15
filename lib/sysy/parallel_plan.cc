@@ -1071,6 +1071,70 @@ std::optional<ParallelReduction> modularReduction(
     return ParallelReduction{var, addend, true, *modulus};
 }
 
+const Node *singleReductionAssignment(const Node &node) {
+    if (node.kind == NodeKind::AssignStmt) {
+        return &node;
+    }
+    if (node.kind == NodeKind::Block && node.children.size() == 1 &&
+        node.children.front()->kind == NodeKind::AssignStmt) {
+        return node.children.front().get();
+    }
+    return nullptr;
+}
+
+std::optional<ParallelReduction> conditionalMinMaxReduction(
+    const Node &node, const std::unordered_set<const Node *> &localLvals) {
+    if (node.kind != NodeKind::IfStmt || node.children.size() != 2) {
+        return std::nullopt;
+    }
+    const Node &condition = *node.children.front();
+    const Node *assign = singleReductionAssignment(*node.children.back());
+    if (condition.kind != NodeKind::BinaryExpr || condition.children.size() != 2 ||
+        assign == nullptr || assign->children.size() != 2) {
+        return std::nullopt;
+    }
+    const Node &lhs = *assign->children.front();
+    const Node &assignedValue = *assign->children.back();
+    if (!isScalarLVal(lhs) || localLvals.find(&lhs) != localLvals.end()) {
+        return std::nullopt;
+    }
+
+    const Node *left = condition.children.front().get();
+    const Node *right = condition.children.back().get();
+    const Node *candidate = nullptr;
+    ParallelReduction::Kind kind = ParallelReduction::Kind::Add;
+    const bool varOnLeft = isScalarLVal(*left) && left->text == lhs.text &&
+                           localLvals.find(left) == localLvals.end();
+    const bool varOnRight = isScalarLVal(*right) && right->text == lhs.text &&
+                            localLvals.find(right) == localLvals.end();
+    if (varOnLeft &&
+        (condition.text == "<" || condition.text == "<=")) {
+        candidate = right;
+        kind = ParallelReduction::Kind::Max;
+    } else if (varOnLeft &&
+               (condition.text == ">" || condition.text == ">=")) {
+        candidate = right;
+        kind = ParallelReduction::Kind::Min;
+    } else if (varOnRight &&
+               (condition.text == ">" || condition.text == ">=")) {
+        candidate = left;
+        kind = ParallelReduction::Kind::Max;
+    } else if (varOnRight &&
+               (condition.text == "<" || condition.text == "<=")) {
+        candidate = left;
+        kind = ParallelReduction::Kind::Min;
+    }
+    if (candidate == nullptr || nodeKey(*candidate) != nodeKey(assignedValue) ||
+        containsExternalScalarReference(*candidate, lhs.text, localLvals)) {
+        return std::nullopt;
+    }
+    ParallelReduction reduction;
+    reduction.var = lhs.text;
+    reduction.addend = candidate;
+    reduction.kind = kind;
+    return reduction;
+}
+
 void addReduction(std::vector<ParallelReduction> &reductions, ParallelReduction info) {
     auto found = std::find_if(reductions.begin(), reductions.end(),
                               [&](const ParallelReduction &existing) {
@@ -1221,6 +1285,19 @@ bool analyzeNode(const Node &node, const std::string &loopVar,
         plan.rejectReason = "unsafe call in loop body";
         return false;
     }
+    if (std::optional<ParallelReduction> reduction =
+            conditionalMinMaxReduction(node, localLvals)) {
+        if (!lookupType || lookupType(reduction->var) != "int") {
+            plan.rejectReason = "non-int min/max reduction";
+            return false;
+        }
+        addReduction(plan.reductions, *reduction);
+        // The candidate expression still contributes captures and dependence
+        // information in the later whole-body scans.  Treat this exact if as
+        // one reduction update here so its condition/assignment uses of the
+        // accumulator are not mistaken for unsafe shared scalar accesses.
+        return true;
+    }
     switch (node.kind) {
     case NodeKind::ReturnStmt:
         plan.rejectReason = "control transfer in loop body";
@@ -1315,6 +1392,14 @@ bool validateReductionUses(
     const Node &node, const ParallelReduction &reduction,
     const std::unordered_set<const Node *> &localLvals,
     const ParallelConstIntLookup &lookupConstInt) {
+    if (reduction.kind != ParallelReduction::Kind::Add) {
+        std::optional<ParallelReduction> current =
+            conditionalMinMaxReduction(node, localLvals);
+        if (current && current->var == reduction.var &&
+            current->kind == reduction.kind) {
+            return true;
+        }
+    }
     if (node.kind == NodeKind::AssignStmt && node.children.size() == 2) {
         const Node &lhs = *node.children.at(0);
         if (isScalarLVal(lhs) && lhs.text == reduction.var &&
@@ -1326,7 +1411,7 @@ bool validateReductionUses(
                 if (current && current->modulus == reduction.modulus) {
                     addend = current->addend;
                 }
-            } else {
+            } else if (reduction.kind == ParallelReduction::Kind::Add) {
                 addend = parallelReductionAddend(node, reduction.var);
             }
             return addend != nullptr &&
@@ -1996,6 +2081,13 @@ private:
             } else if (plan.reductions.front().modular) {
                 loweringKind = "parallel_reduce_mod_int_dynamic";
                 runtimeSymbol = "__sysy_parallel_reduce_mod_int_range";
+            } else if (std::any_of(
+                           plan.reductions.begin(), plan.reductions.end(),
+                           [](const ParallelReduction &reduction) {
+                               return reduction.kind != ParallelReduction::Kind::Add;
+                           })) {
+                loweringKind = "parallel_reduce_int_staged";
+                runtimeSymbol = "__sysy_parallel_for_range";
             } else {
                 loweringKind = "parallel_reduce_int";
                 runtimeSymbol = "__sysy_parallel_reduce_int_range";
@@ -2048,6 +2140,12 @@ private:
                 out_ << ",";
             }
             out_ << "{\"var\":\"" << jsonEscape(plan.reductions[i].var)
+                 << "\",\"kind\":\""
+                 << (plan.reductions[i].kind == ParallelReduction::Kind::Min
+                         ? "min"
+                         : plan.reductions[i].kind == ParallelReduction::Kind::Max
+                               ? "max"
+                               : "add")
                  << "\",\"modular\":"
                  << (plan.reductions[i].modular ? "true" : "false")
                  << ",\"modulus\":" << plan.reductions[i].modulus << "}";

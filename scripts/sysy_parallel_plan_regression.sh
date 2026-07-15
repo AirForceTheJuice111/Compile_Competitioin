@@ -143,6 +143,8 @@ assert_plan 160_parallel_column_partition 5 true
 assert_plan 161_parallel_dynamic_stride 4 true
 assert_plan 161_parallel_dynamic_stride 18 true
 assert_plan 161_parallel_dynamic_stride 32 true
+assert_plan 162_parallel_minmax_reduction 5 true
+assert_plan 162_parallel_minmax_reduction 21 true
 assert_plan 2025-O30-49 24 true "" "" "" \
   "$TEST_ROOT/../performance_final/2025-O30-49.sy"
 assert_plan 2025-MYO-20 92 true "" i false \
@@ -189,6 +191,7 @@ assert_workers 158_parallel_nested_array_iv 2
 assert_workers 159_parallel_multi_nested 1
 assert_workers 160_parallel_column_partition 1
 assert_workers 161_parallel_dynamic_stride 3
+assert_workers 162_parallel_minmax_reduction 2
 assert_workers 138_write_only_global_reject 0
 assert_workers 2025-O30-49 1 \
   "$TEST_ROOT/../performance_final/2025-O30-49.sy"

@@ -20,6 +20,12 @@ struct ParallelLoopInit {
 };
 
 struct ParallelReduction {
+    enum class Kind {
+        Add,
+        Min,
+        Max,
+    };
+
     std::string var;
     const Node *addend = nullptr;
     // A modular reduction is the exact recurrence
@@ -28,6 +34,7 @@ struct ParallelReduction {
     // the initial value/addends safe at runtime and otherwise falls back.
     bool modular = false;
     int modulus = 0;
+    Kind kind = Kind::Add;
 };
 
 struct ParallelCapture {

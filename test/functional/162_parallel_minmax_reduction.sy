@@ -1,0 +1,48 @@
+int find_odd_min(int n) {
+  int i;
+  int minimum = 123456;
+  i = n - 1;
+  while (i >= 0) {
+    if (i < minimum) {
+      minimum = i;
+    }
+    i = i - 2;
+  }
+  return minimum;
+}
+
+int main() {
+  int i;
+  int sum = 10;
+  int minimum = 50000;
+  int maximum = -9;
+  int reverse_maximum = 2;
+  i = 0;
+  while (i < 20000) {
+    sum = sum + i;
+    if (minimum > i) {
+      minimum = i;
+    }
+    if (maximum < i)
+      maximum = i;
+    if (i > reverse_maximum) {
+      reverse_maximum = i;
+    }
+    i = i + 1;
+  }
+  putint(sum);
+  putch(32);
+  putint(minimum);
+  putch(32);
+  putint(maximum);
+  putch(32);
+  putint(reverse_maximum);
+  putch(32);
+  putint(i);
+  putch(10);
+  putint(find_odd_min(20000));
+  putch(32);
+  putint(find_odd_min(0));
+  putch(10);
+  return 0;
+}
