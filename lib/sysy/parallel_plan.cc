@@ -836,7 +836,7 @@ void markPrivatizedScalarLvals(const Node &node, const std::string &name,
 
 std::optional<ParallelPrivatizedScalar> recognizeCanonicalScratchScalar(
     const ParallelLoopPlan &plan, const ParallelTypeLookup &lookupType) {
-    if (plan.body.size() != 2) {
+    if (plan.body.size() < 2) {
         return std::nullopt;
     }
 
@@ -851,7 +851,24 @@ std::optional<ParallelPrivatizedScalar> recognizeCanonicalScratchScalar(
     int scratchStep = 1;
     std::string scratchComparison;
     std::vector<const Node *> scratchBody;
-    if (!canonicalWhile(*plan.body.back(), scratchInit, scratchEnd,
+    std::size_t loopIndex = 1;
+    while (loopIndex < plan.body.size() &&
+           (plan.body[loopIndex]->kind == NodeKind::VarDecl ||
+            plan.body[loopIndex]->kind == NodeKind::ConstDecl)) {
+        // Declarations between `j = init` and `while (j < end)` are executed
+        // once per candidate iteration and already receive worker-local homes.
+        // They do not prevent the preceding function-scope IV from being
+        // privatized, provided they neither redeclare nor reference it.
+        if (containsScalarDeclarationNamed(*plan.body[loopIndex],
+                                           scratchInit.var) ||
+            containsScalarNameReference(*plan.body[loopIndex],
+                                        scratchInit.var)) {
+            return std::nullopt;
+        }
+        ++loopIndex;
+    }
+    if (loopIndex >= plan.body.size() ||
+        !canonicalWhile(*plan.body[loopIndex], scratchInit, scratchEnd,
                         scratchInclusive, scratchStep, scratchComparison, scratchBody) ||
         scratchEnd == nullptr || scratchStep != 1 ||
         (scratchComparison != "<" && scratchComparison != "<=")) {
