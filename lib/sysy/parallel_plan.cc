@@ -515,9 +515,44 @@ bool inductionStepOf(const Node &stmt, const std::string &var, int &step) {
     return step != 0;
 }
 
+bool dynamicInductionStepOf(const Node &stmt, const std::string &var,
+                            const Node *&stepExpr, bool &negateStepExpr) {
+    if (stmt.kind != NodeKind::AssignStmt || stmt.children.size() != 2) {
+        return false;
+    }
+    const Node &lhs = *stmt.children.front();
+    const Node &rhs = *stmt.children.back();
+    if (!isScalarLVal(lhs) || lhs.text != var ||
+        rhs.kind != NodeKind::BinaryExpr || rhs.children.size() != 2) {
+        return false;
+    }
+    const Node *left = rhs.children.front().get();
+    const Node *right = rhs.children.back().get();
+    if (rhs.text == "+") {
+        if (isScalarLVal(*left) && left->text == var) {
+            stepExpr = right;
+        } else if (isScalarLVal(*right) && right->text == var) {
+            stepExpr = left;
+        } else {
+            return false;
+        }
+        negateStepExpr = false;
+        return true;
+    }
+    if (rhs.text == "-" && isScalarLVal(*left) && left->text == var) {
+        stepExpr = right;
+        negateStepExpr = true;
+        return true;
+    }
+    return false;
+}
+
 bool isCanonicalContinueUpdate(
     const Node &stmt, const ParallelLoopPlan &plan,
     const std::unordered_set<const Node *> &localLvals) {
+    if (plan.dynamicStep) {
+        return false;
+    }
     int step = 0;
     if (!inductionStepOf(stmt, plan.init.var, step) || step != plan.step) {
         return false;
@@ -625,6 +660,8 @@ bool validateCandidateBodyControlTransfers(
 
 bool canonicalWhile(const Node &loop, const ParallelLoopInit &init, const Node *&endExpr,
                     bool &inclusiveEnd, int &step, std::string &comparison,
+                    const Node *&stepExpr, bool &dynamicStep,
+                    bool &negateStepExpr,
                     std::vector<const Node *> &body) {
     if (!init.valid || loop.kind != NodeKind::WhileStmt || loop.children.size() != 2) {
         return false;
@@ -644,7 +681,12 @@ bool canonicalWhile(const Node &loop, const ParallelLoopInit &init, const Node *
     }
     const Node &last = *bodyNode.children.back();
     if (!inductionStepOf(last, init.var, step)) {
-        return false;
+        if (!dynamicInductionStepOf(last, init.var, stepExpr,
+                                    negateStepExpr)) {
+            return false;
+        }
+        step = 0;
+        dynamicStep = true;
     }
     endExpr = cond.children.at(1).get();
     comparison = cond.text;
@@ -849,6 +891,9 @@ std::optional<ParallelPrivatizedScalar> recognizeCanonicalScratchScalar(
     const Node *scratchEnd = nullptr;
     bool scratchInclusive = false;
     int scratchStep = 1;
+    const Node *scratchStepExpr = nullptr;
+    bool scratchDynamicStep = false;
+    bool scratchNegateStepExpr = false;
     std::string scratchComparison;
     std::vector<const Node *> scratchBody;
     std::size_t loopIndex = 1;
@@ -869,8 +914,10 @@ std::optional<ParallelPrivatizedScalar> recognizeCanonicalScratchScalar(
     }
     if (loopIndex >= plan.body.size() ||
         !canonicalWhile(*plan.body[loopIndex], scratchInit, scratchEnd,
-                        scratchInclusive, scratchStep, scratchComparison, scratchBody) ||
-        scratchEnd == nullptr || scratchStep != 1 ||
+                        scratchInclusive, scratchStep, scratchComparison,
+                        scratchStepExpr, scratchDynamicStep,
+                        scratchNegateStepExpr, scratchBody) ||
+        scratchEnd == nullptr || scratchDynamicStep || scratchStep != 1 ||
         (scratchComparison != "<" && scratchComparison != "<=")) {
         return std::nullopt;
     }
@@ -1495,6 +1542,45 @@ bool boundReferencesWrittenScalar(const Node &node,
     });
 }
 
+bool validateLoopStep(ParallelLoopPlan &plan, const LexicalInfo &lexical,
+                      const ParallelTypeLookup &lookupType,
+                      const ParallelFunctionSummaryLookup &lookupFunction) {
+    if (!plan.dynamicStep) {
+        return true;
+    }
+    if (plan.stepExpr == nullptr) {
+        plan.rejectReason = "missing dynamic loop step";
+        return false;
+    }
+    if (exprContainsAnyCall(*plan.stepExpr)) {
+        plan.rejectReason = "call in loop step";
+        return false;
+    }
+    if (containsArrayLVal(*plan.stepExpr)) {
+        plan.rejectReason = "array access in loop step";
+        return false;
+    }
+    static const std::unordered_set<const Node *> noLocals;
+    if (containsExternalScalarReference(*plan.stepExpr, plan.init.var,
+                                        noLocals)) {
+        plan.rejectReason = "induction variable in loop step";
+        return false;
+    }
+    std::unordered_set<std::string> writes;
+    for (const Node *stmt : plan.body) {
+        collectExternalScalarWrites(*stmt, lexical.localLvals, writes, &plan);
+    }
+    if (boundReferencesWrittenScalar(*plan.stepExpr, writes)) {
+        plan.rejectReason = "loop step is modified in body";
+        return false;
+    }
+    if (!exprIsProvablyInt(*plan.stepExpr, lookupType, lookupFunction)) {
+        plan.rejectReason = "non-int loop step";
+        return false;
+    }
+    return true;
+}
+
 bool validateLoopBound(ParallelLoopPlan &plan, const LexicalInfo &lexical,
                        const ParallelTypeLookup &lookupType,
                        const ParallelFunctionSummaryLookup &lookupFunction) {
@@ -1553,6 +1639,10 @@ bool comparisonHolds(long long lhs, long long rhs, const std::string &comparison
 }
 
 bool deriveLogicalIterationSpace(ParallelLoopPlan &plan) {
+    if (plan.dynamicStep) {
+        plan.dynamicLogicalRange = true;
+        return true;
+    }
     // Preserve the established dynamic unit-stride lowering.  It has runtime
     // overflow handling for <= and does not need a logical-IV mapping.
     if (plan.step == 1 && (plan.comparison == "<" || plan.comparison == "<=")) {
@@ -2165,6 +2255,10 @@ private:
              << ",\"inclusive_end\":" << (plan.inclusiveEnd ? "true" : "false")
              << ",\"comparison\":\"" << jsonEscape(plan.comparison) << "\""
              << ",\"step\":" << plan.step
+             << ",\"dynamic_step\":"
+             << (plan.dynamicStep ? "true" : "false")
+             << ",\"negate_step_expr\":"
+             << (plan.negateStepExpr ? "true" : "false")
              << ",\"logical_trip_count\":" << plan.logicalTripCount
              << ",\"dynamic_logical_range\":"
              << (plan.dynamicLogicalRange ? "true" : "false")
@@ -2290,7 +2384,8 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
         return plan;
     }
     if (!canonicalWhile(loopStmt, plan.init, plan.endExpr, plan.inclusiveEnd,
-                        plan.step, plan.comparison, plan.body)) {
+                        plan.step, plan.comparison, plan.stepExpr,
+                        plan.dynamicStep, plan.negateStepExpr, plan.body)) {
         plan.rejectReason = "not a canonical while loop";
         return plan;
     }
@@ -2321,6 +2416,10 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
         plan.hasNestedLoop = plan.hasNestedLoop || containsWhile(*stmt);
     }
     if (!validateLoopBound(plan, lexical, lookupType, lookupFunction)) {
+        plan.valid = false;
+        return plan;
+    }
+    if (!validateLoopStep(plan, lexical, lookupType, lookupFunction)) {
         plan.valid = false;
         return plan;
     }
@@ -2359,6 +2458,10 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
     }
     for (const Node *stmt : plan.body) {
         collectCapturesFromStmt(*stmt, plan.init.var, lexical.localLvals, lookupType, plan);
+    }
+    if (plan.dynamicStep && plan.stepExpr != nullptr) {
+        collectCapturesFromExpr(*plan.stepExpr, plan.init.var,
+                                lexical.localLvals, lookupType, plan);
     }
 
     std::vector<ArrayAccess> reads;

@@ -713,6 +713,18 @@ private:
             new tree::Binop(tree::Type::INT, "-", tempExp(lhsTemp), product));
     }
 
+    tree::Exp *parallelStepValue(const ParallelLoopPlan &plan) {
+        if (!plan.dynamicStep || plan.stepExpr == nullptr) {
+            return new tree::Const(plan.step);
+        }
+        tree::Exp *value = lowerExprAs(*plan.stepExpr, BaseType::Int);
+        if (plan.negateStepExpr) {
+            value = new tree::Binop(tree::Type::INT, "-", new tree::Const(0),
+                                    value);
+        }
+        return value;
+    }
+
     void pushScope() { scopes_.push_back({}); }
 
     void popScope() { scopes_.pop_back(); }
@@ -1576,7 +1588,7 @@ private:
         stms->push_back(new tree::Move(
             tempExp(ivTemp),
             new tree::Binop(tree::Type::INT, "+", tempExp(ivTemp),
-                            new tree::Const(plan.step))));
+                            parallelStepValue(plan))));
         stms->push_back(new tree::Jump(testLabel));
         stms->push_back(new tree::LabelStm(doneLabel));
     }
@@ -1883,7 +1895,7 @@ private:
                 new tree::Binop(
                     tree::Type::INT, "+", tempExp(ivTemp),
                     new tree::Binop(tree::Type::INT, "*", tempExp(endTemp),
-                                    new tree::Const(plan.step)))));
+                                    parallelStepValue(plan)))));
             return;
         }
         auto *setEndLabel = newLabel();
@@ -2047,7 +2059,7 @@ private:
                 new tree::Binop(
                     tree::Type::INT, "+", initialValue,
                     new tree::Binop(tree::Type::INT, "*", tempExp(beginParam),
-                                    new tree::Const(plan.step)))));
+                                    parallelStepValue(plan)))));
         } else {
             stms->push_back(new tree::Move(tempExp(ivTemp), tempExp(beginParam)));
         }
@@ -2090,7 +2102,7 @@ private:
         stms->push_back(new tree::Move(
             tempExp(ivTemp),
             new tree::Binop(tree::Type::INT, "+", tempExp(ivTemp),
-                            new tree::Const(plan.step))));
+                            parallelStepValue(plan))));
         if (logicalIvTemp != nullptr) {
             stms->push_back(new tree::Move(
                 tempExp(logicalIvTemp),
@@ -2295,7 +2307,7 @@ private:
                     tree::Type::INT, "__sysy_parallel_trip_count",
                     new std::vector<tree::Exp *>({
                         tempExp(ivTemp), tempExp(rawEndTemp),
-                        new tree::Const(plan.step),
+                        parallelStepValue(plan),
                         new tree::Const(comparisonKind)}))));
             auto *unsafeLabel = newLabel();
             auto *safeLabel = newLabel();

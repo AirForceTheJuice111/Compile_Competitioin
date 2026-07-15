@@ -1,0 +1,33 @@
+int ascending_sum(int begin, int end, int delta) {
+  int i;
+  int sum = 0;
+  i = begin;
+  while (i < end) {
+    sum = sum + i;
+    i = i + delta;
+  }
+  return sum;
+}
+
+int descending_sum(int begin, int end, int delta) {
+  int i;
+  int sum = 0;
+  i = begin;
+  while (i > end) {
+    sum = sum + i;
+    i = i - delta;
+  }
+  return sum;
+}
+
+int main() {
+  putint(ascending_sum(2, 20000, 3));
+  putch(32);
+  putint(descending_sum(20000, 1, 3));
+  putch(32);
+  putint(ascending_sum(5, 5, 0));
+  putch(32);
+  putint(descending_sum(1, 1, 0));
+  putch(10);
+  return 0;
+}

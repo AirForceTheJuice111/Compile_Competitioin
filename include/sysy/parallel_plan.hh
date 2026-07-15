@@ -67,6 +67,9 @@ struct ParallelLoopPlan {
     // when the planner can prove a finite, overflow-free constant iteration
     // space, represented as the logical half-open range [0, logicalTripCount).
     int step = 1;
+    const Node *stepExpr = nullptr;
+    bool dynamicStep = false;
+    bool negateStepExpr = false;
     std::string comparison = "<";
     int logicalTripCount = -1;
     // Non-unit/decrement/!= loops with dynamic endpoints use a runtime
