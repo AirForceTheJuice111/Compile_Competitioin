@@ -767,16 +767,61 @@ void collectAllScalarWrites(const Node &node,
     }
 }
 
-bool containsLoopExit(const Node &node) {
-    if (node.kind == NodeKind::BreakStmt ||
-        node.kind == NodeKind::ContinueStmt ||
-        node.kind == NodeKind::ReturnStmt) {
-        return true;
+bool inductionStepOf(const Node &stmt, const std::string &var, int &step);
+
+bool validateScratchControlSequence(const std::vector<const Node *> &nodes,
+                                    const std::string &var, int step,
+                                    int nestedLoopDepth = 0);
+
+bool validateScratchControlNode(const Node &node, const std::string &var,
+                                int step, int nestedLoopDepth) {
+    if (node.kind == NodeKind::BreakStmt || node.kind == NodeKind::ReturnStmt) {
+        // A break owned by an inner nested loop does not change the enclosing
+        // scratch IV's deterministic final value.  At depth zero it would.
+        return nestedLoopDepth > 0;
     }
-    return std::any_of(node.children.begin(), node.children.end(),
-                       [](const auto &child) {
-                           return containsLoopExit(*child);
+    if (node.kind == NodeKind::ContinueStmt) {
+        return nestedLoopDepth > 0;
+    }
+    if (node.kind == NodeKind::Block) {
+        std::vector<const Node *> children;
+        children.reserve(node.children.size());
+        for (const auto &child : node.children) children.push_back(child.get());
+        return validateScratchControlSequence(children, var, step,
+                                              nestedLoopDepth);
+    }
+    if (node.kind == NodeKind::WhileStmt && node.children.size() == 2) {
+        return validateScratchControlNode(*node.children.front(), var, step,
+                                          nestedLoopDepth) &&
+               validateScratchControlNode(*node.children.back(), var, step,
+                                          nestedLoopDepth + 1);
+    }
+    return std::all_of(node.children.begin(), node.children.end(),
+                       [&](const auto &child) {
+                           return validateScratchControlNode(*child, var, step,
+                                                             nestedLoopDepth);
                        });
+}
+
+bool validateScratchControlSequence(const std::vector<const Node *> &nodes,
+                                    const std::string &var, int step,
+                                    int nestedLoopDepth) {
+    for (std::size_t index = 0; index < nodes.size(); ++index) {
+        const Node &node = *nodes[index];
+        if (node.kind == NodeKind::ContinueStmt && nestedLoopDepth == 0) {
+            int actualStep = 0;
+            if (index == 0 ||
+                !inductionStepOf(*nodes[index - 1], var, actualStep) ||
+                actualStep != step) {
+                return false;
+            }
+            continue;
+        }
+        if (!validateScratchControlNode(node, var, step, nestedLoopDepth)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 void markPrivatizedScalarLvals(const Node &node, const std::string &name,
@@ -858,13 +903,12 @@ std::optional<ParallelPrivatizedScalar> recognizeCanonicalScratchScalar(
         return std::nullopt;
     }
 
-    // Early exits can leave different workers with different final scratch
-    // values.  The normal canonical latch has one deterministic endpoint, so
-    // reject any explicit break/continue/return in the nested body.
-    if (std::any_of(scratchBody.begin(), scratchBody.end(),
-                    [](const Node *stmt) {
-                        return stmt != nullptr && containsLoopExit(*stmt);
-                    })) {
+    // A canonical update immediately before a continue still advances the
+    // private IV exactly once.  Other exits at the scratch-loop level can
+    // produce worker-dependent final values and are rejected; exits owned by
+    // deeper nested loops are harmless to the enclosing IV.
+    if (!validateScratchControlSequence(scratchBody, scratchInit.var,
+                                        scratchStep)) {
         return std::nullopt;
     }
 
