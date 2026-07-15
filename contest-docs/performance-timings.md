@@ -491,6 +491,74 @@ encoding boundaries, operand-swapped comparisons, and constant array offsets;
 all modes matched `8827634c`, while its synthetic assembly shrank 243 -> 204
 instructions.
 
+## Fused AArch64 memory addressing (`f2cb49fa`)
+
+This change folds a single-use `PTR_CALC` into its consuming load or store.
+Dynamic byte offsets use `[base, wOffset, sxtw]`; legal constants use scaled or
+unscaled immediate addressing.  The conservative implementation retains
+materialized pointers for multiple uses and preserves the original 32-bit
+byte-offset wrap semantics.  Against clean `b5549f91`, the same all-60 static
+counting convention changed 33,366 -> 32,205 AArch64 instructions (-3.48%).
+Dynamic pointer adds changed 711 -> 15, with 696 direct register-offset memory
+operations replacing them; 51 of 60 programs shrank and none grew.
+
+The paired Mac run used the two content-addressed compiler caches
+`5e0aa05f...` and `e853efa3...`, `-O1`, `SYSY_THREADS=2`, and
+`taskset -c 0,1`.  After one warmup per variant, five ABBA rounds produced ten
+samples per variant.  The primary measurement is the SysY `TOTAL` timer, which
+excludes process startup consistently.  All 140 timed executions and all
+warmups matched the exact expected output.
+
+| Program | Baseline median (s) | Fused-address median (s) | Speedup |
+|---|---:|---:|---:|
+| `h-8-01` | 0.781696 | 0.664367 | 1.1766x |
+| `conv2d-1` | 0.443689 | 0.450614 | 0.9846x |
+| `03_sort1` | 0.723385 | 0.715822 | 1.0106x |
+| `many_mat_cal-1` | 9.849421 | 9.859673 | 0.9990x |
+| `h-5-01` | 0.782716 | 0.762379 | 1.0267x |
+| `matmul1` | 4.558014 | 4.368293 | 1.0434x |
+| `01_mm1` | 1.381238 | 1.365208 | 1.0117x |
+| sum of per-program medians | 18.520159 | 18.186355 | 1.0184x |
+
+The individual baseline -> candidate samples, in seconds, were:
+
+- `h-8-01`: 0.786757, 0.781743, 0.779774, 0.786420, 0.783496,
+  0.781649, 0.780622, 0.783770, 0.776158, 0.780043 -> 0.657819,
+  0.669687, 0.660352, 0.674770, 0.666237, 0.660954, 0.665319,
+  0.671255, 0.654689, 0.663416.
+- `conv2d-1`: 0.442716, 0.435385, 0.443527, 0.464289, 0.455653,
+  0.441901, 0.443850, 0.452713, 0.438692, 0.446876 -> 0.457236,
+  0.444302, 0.447282, 0.437711, 0.450788, 0.450068, 0.458959,
+  0.450440, 0.458378, 0.454325.
+- `03_sort1`: 0.723227, 0.728616, 0.723869, 0.711678, 0.719223,
+  0.721935, 0.717957, 0.723543, 0.727305, 0.723601 -> 0.720748,
+  0.711052, 0.714890, 0.706930, 0.720314, 0.716754, 0.725028,
+  0.713676, 0.713963, 0.720707.
+- `many_mat_cal-1`: 9.849481, 9.849361, 9.852549, 9.844357,
+  9.857263, 9.837665, 9.853320, 9.811531, 9.867412, 9.835142 ->
+  9.832619, 9.865872, 9.868037, 9.860047, 9.854809, 9.859298,
+  9.851462, 9.873722, 9.883178, 9.855810.
+- `h-5-01`: 0.791498, 0.777761, 0.789736, 0.787925, 0.784952,
+  0.778163, 0.780479, 0.787541, 0.774089, 0.780459 -> 0.757948,
+  0.775957, 0.774644, 0.763199, 0.762613, 0.748427, 0.756865,
+  0.757994, 0.775599, 0.762144.
+- `matmul1`: 4.549836, 4.600176, 4.553893, 4.548601, 4.602830,
+  4.560763, 4.553437, 4.576413, 4.555266, 4.584877 -> 4.372821,
+  4.383091, 4.341639, 4.369006, 4.368534, 4.364076, 4.357914,
+  4.368051, 4.372668, 4.367708.
+- `01_mm1`: 1.378744, 1.376103, 1.387131, 1.391606, 1.380909,
+  1.378792, 1.385994, 1.381567, 1.375443, 1.384871 -> 1.367043,
+  1.374195, 1.364531, 1.361949, 1.365885, 1.377521, 1.360277,
+  1.362841, 1.367643, 1.363892.
+
+The sum of external wall-time medians independently changed 18.881203 ->
+18.545521 seconds (1.0181x).  The complete raw run is archived in the VM at
+`paired/address-fusion-e853efa3df31-vs-5e0aa05f183e-20260714T235722Z`;
+its full archive SHA-256 is
+`2e778e96bc3615caa447203f3b51262d1a1e40ddbd445708f29844adc6ac7e37`.
+A separate 16-shard exact run of all 60 preliminary cases passed 60/60 in
+52.017 seconds; that concurrent wall time is correctness evidence only.
+
 ## Updating this ledger
 
 For every future performance run, append the date, compiler revision or dirty
