@@ -1,0 +1,39 @@
+int ascending(int end) {
+  int sum = 0;
+  int i = 0;
+  while (end > i) {
+    sum = sum + i;
+    i = i + 1;
+  }
+  return sum;
+}
+
+int descending() {
+  int sum = 0;
+  int i = 20000;
+  while (0 <= i) {
+    sum = sum + i;
+    i = i - 1;
+  }
+  return sum;
+}
+
+int unequal() {
+  int sum = 0;
+  int i = 1;
+  while (20001 != i) {
+    sum = sum + i;
+    i = i + 2;
+  }
+  return sum;
+}
+
+int main() {
+  putint(ascending(20000));
+  putch(32);
+  putint(descending());
+  putch(32);
+  putint(unequal());
+  putch(10);
+  return 0;
+}

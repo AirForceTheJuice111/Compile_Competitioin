@@ -754,9 +754,14 @@ bool canonicalWhile(const Node &loop, const ParallelLoopInit &init, const Node *
     if (cond.kind != NodeKind::BinaryExpr ||
         (cond.text != "<" && cond.text != "<=" && cond.text != ">" &&
          cond.text != ">=" && cond.text != "!=") ||
-        cond.children.at(0)->kind != NodeKind::LVal ||
-        cond.children.at(0)->text != init.var ||
-        !cond.children.at(0)->children.empty()) {
+        cond.children.size() != 2) {
+        return false;
+    }
+    const bool ivOnLeft = isScalarLVal(*cond.children.front()) &&
+                          cond.children.front()->text == init.var;
+    const bool ivOnRight = isScalarLVal(*cond.children.back()) &&
+                           cond.children.back()->text == init.var;
+    if (ivOnLeft == ivOnRight) {
         return false;
     }
     const Node &bodyNode = *loop.children.at(1);
@@ -772,9 +777,20 @@ bool canonicalWhile(const Node &loop, const ParallelLoopInit &init, const Node *
         step = 0;
         dynamicStep = true;
     }
-    endExpr = cond.children.at(1).get();
-    comparison = cond.text;
-    inclusiveEnd = cond.text == "<=" || cond.text == ">=";
+    endExpr = ivOnLeft ? cond.children.back().get()
+                       : cond.children.front().get();
+    if (ivOnLeft || cond.text == "!=") {
+        comparison = cond.text;
+    } else if (cond.text == "<") {
+        comparison = ">";
+    } else if (cond.text == "<=") {
+        comparison = ">=";
+    } else if (cond.text == ">") {
+        comparison = "<";
+    } else {
+        comparison = "<=";
+    }
+    inclusiveEnd = comparison == "<=" || comparison == ">=";
     body.clear();
     for (std::size_t i = 0; i + 1 < bodyNode.children.size(); ++i) {
         body.push_back(bodyNode.children[i].get());

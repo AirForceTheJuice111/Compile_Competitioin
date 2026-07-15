@@ -153,6 +153,9 @@ assert_plan 166_parallel_sub_reduction 5 true
 assert_plan 167_parallel_reset_scalars 9 true
 assert_plan 168_parallel_readonly_global_call 20 true
 assert_plan 169_parallel_invariant_partition 7 true
+assert_plan 170_parallel_reversed_condition 4 true
+assert_plan 170_parallel_reversed_condition 14 true
+assert_plan 170_parallel_reversed_condition 24 true
 assert_plan 2025-O30-49 24 true "" "" "" \
   "$TEST_ROOT/../performance_final/2025-O30-49.sy"
 assert_plan 2025-MYO-20 92 true "" i false \
@@ -207,6 +210,7 @@ assert_workers 166_parallel_sub_reduction 1
 assert_workers 167_parallel_reset_scalars 1
 assert_workers 168_parallel_readonly_global_call 3
 assert_workers 169_parallel_invariant_partition 1
+assert_workers 170_parallel_reversed_condition 3
 assert_workers 138_write_only_global_reject 0
 assert_workers 2025-O30-49 1 \
   "$TEST_ROOT/../performance_final/2025-O30-49.sy"
