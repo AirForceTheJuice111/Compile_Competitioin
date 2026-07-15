@@ -1013,6 +1013,164 @@ Aarch64RegisterAllocation allocateAarch64Gprs(
                  {16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29},
                  result.tempToFloatRegister);
 
+    // Build a graph-colored alternative from the same segment interference
+    // relation.  The old linear scan remains the reference assignment; this
+    // candidate is adopted only when it colors at least as many values and
+    // does not worsen MOVE/PHI affinity.  That makes the stronger allocator
+    // self-guarding while still allowing values separated by lifetime holes
+    // to share a register even when their envelopes overlap.
+    auto graphColorBank = [&](const std::vector<std::size_t> &bank,
+                              const std::vector<int> &callerSaved,
+                              const std::vector<int> &calleeSaved,
+                              std::unordered_map<int, int> &homes) {
+        if (bank.empty() || bank.size() > 2500) return;
+
+        std::unordered_map<int, std::size_t> indexByTemp;
+        for (std::size_t i = 0; i < bank.size(); ++i) {
+            indexByTemp[intervals[bank[i]].temp] = i;
+        }
+        std::vector<std::vector<std::size_t>> neighbors(bank.size());
+        for (std::size_t i = 0; i < bank.size(); ++i) {
+            for (std::size_t j = i + 1; j < bank.size(); ++j) {
+                if (!intervalsOverlap(intervals[bank[i]], intervals[bank[j]])) {
+                    continue;
+                }
+                neighbors[i].push_back(j);
+                neighbors[j].push_back(i);
+            }
+        }
+
+        std::vector<std::size_t> order;
+        std::vector<bool> done(bank.size(), false);
+        std::vector<int> colors(bank.size(), -1);
+        std::unordered_set<int> callerSavedSet(callerSaved.begin(),
+                                               callerSaved.end());
+        std::unordered_map<int, int> candidateHomes;
+
+        auto canUse = [&](std::size_t node, int reg) {
+            const Interval &interval = intervals[bank[node]];
+            if (interval.liveAcrossCall && callerSavedSet.count(reg) != 0) {
+                return false;
+            }
+            for (std::size_t neighbor : neighbors[node]) {
+                if (colors[neighbor] == reg) return false;
+            }
+            return true;
+        };
+
+        auto addChoice = [](std::vector<int> &choices,
+                           std::unordered_set<int> &seen, int reg) {
+            if (seen.insert(reg).second) choices.push_back(reg);
+        };
+
+        while (order.size() < bank.size()) {
+            std::size_t selected = bank.size();
+            long long bestPriority = std::numeric_limits<long long>::min();
+            std::size_t bestDegree = 0;
+            for (std::size_t node = 0; node < bank.size(); ++node) {
+                if (done[node]) continue;
+                const Interval &interval = intervals[bank[node]];
+                std::unordered_set<int> saturation;
+                for (std::size_t neighbor : neighbors[node]) {
+                    if (colors[neighbor] >= 0) saturation.insert(colors[neighbor]);
+                }
+                // Priority dominates, while saturation/degree break ties so
+                // dense loop-carried values get a color before short copies.
+                long long score = interval.priority() * 1024LL +
+                                  static_cast<long long>(saturation.size()) * 32LL;
+                if (selected == bank.size() || score > bestPriority ||
+                    (score == bestPriority && neighbors[node].size() > bestDegree)) {
+                    selected = node;
+                    bestPriority = score;
+                    bestDegree = neighbors[node].size();
+                }
+            }
+            if (selected == bank.size()) break;
+
+            const Interval &current = intervals[bank[selected]];
+            std::vector<int> choices;
+            std::unordered_set<int> seen;
+            auto oldHome = homes.find(current.temp);
+            if (oldHome != homes.end()) addChoice(choices, seen, oldHome->second);
+            auto preferred = affinities.find(current.temp);
+            if (preferred != affinities.end()) {
+                for (int source : preferred->second) {
+                    auto sourceHome = homes.find(source);
+                    if (sourceHome != homes.end()) {
+                        addChoice(choices, seen, sourceHome->second);
+                    }
+                    auto candidateSourceHome = candidateHomes.find(source);
+                    if (candidateSourceHome != candidateHomes.end()) {
+                        addChoice(choices, seen, candidateSourceHome->second);
+                    }
+                }
+            }
+            if (!current.liveAcrossCall) {
+                for (int reg : callerSaved) addChoice(choices, seen, reg);
+            }
+            for (int reg : calleeSaved) addChoice(choices, seen, reg);
+
+            for (int reg : choices) {
+                if (!canUse(selected, reg)) continue;
+                colors[selected] = reg;
+                candidateHomes[current.temp] = reg;
+                break;
+            }
+            done[selected] = true;
+            order.push_back(selected);
+        }
+
+        auto affinityCost = [&](const std::unordered_map<int, int> &mapping) {
+            long long cost = 0;
+            for (const auto &entry : affinities) {
+                auto left = mapping.find(entry.first);
+                if (left == mapping.end()) continue;
+                for (int source : entry.second) {
+                    if (entry.first >= source) continue;
+                    auto right = mapping.find(source);
+                    if (right == mapping.end()) {
+                        cost += intervals[indexByTemp.at(entry.first)].priority();
+                    } else if (left->second != right->second) {
+                        cost += std::min(
+                            intervals[indexByTemp.at(entry.first)].priority(),
+                            intervals[indexByTemp.at(source)].priority());
+                    }
+                }
+            }
+            return cost;
+        };
+
+        auto calleeRegisterCount = [&](const std::unordered_map<int, int> &mapping) {
+            std::unordered_set<int> used;
+            for (const auto &entry : mapping) {
+                if (std::find(calleeSaved.begin(), calleeSaved.end(),
+                              entry.second) != calleeSaved.end()) {
+                    used.insert(entry.second);
+                }
+            }
+            return used.size();
+        };
+
+        std::size_t baselineSpills = bank.size() - homes.size();
+        std::size_t candidateSpills = bank.size() - candidateHomes.size();
+        long long baselineMoves = affinityCost(homes);
+        long long candidateMoves = affinityCost(candidateHomes);
+        std::size_t baselineCallee = calleeRegisterCount(homes);
+        std::size_t candidateCallee = calleeRegisterCount(candidateHomes);
+        if (candidateSpills < baselineSpills ||
+            (candidateSpills == baselineSpills && candidateMoves <= baselineMoves &&
+             candidateCallee <= baselineCallee)) {
+            homes = std::move(candidateHomes);
+        }
+    };
+    graphColorBank(gprIntervals, {8},
+                   {19, 20, 21, 22, 23, 24, 25, 26, 27, 28},
+                   result.tempToRegister);
+    graphColorBank(floatIntervals,
+                   {16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29},
+                   {8, 9, 10, 11, 12, 13, 14, 15},
+                   result.tempToFloatRegister);
+
     std::set<int> usedCalleeSaved;
     for (const auto &entry : result.tempToRegister) {
         if (entry.second >= 19 && entry.second <= 28) {
