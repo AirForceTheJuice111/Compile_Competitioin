@@ -58,6 +58,10 @@ struct ParallelLoopPlan {
     int step = 1;
     std::string comparison = "<";
     int logicalTripCount = -1;
+    // Non-unit/decrement/!= loops with dynamic endpoints use a runtime
+    // 64-bit trip-count proof.  A negative proof result takes the original
+    // sequential loop, preserving wrapping or non-terminating source cases.
+    bool dynamicLogicalRange = false;
     int initialIv = 0;
     int finalIv = 0;
     std::vector<const Node *> body;

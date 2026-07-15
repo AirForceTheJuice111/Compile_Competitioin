@@ -114,7 +114,7 @@ assert_plan 117_parallel_step 4 true
 assert_plan 118_parallel_decrement 4 true
 assert_plan 119_parallel_ne 4 true
 assert_plan 119_parallel_ne 18 false "!= endpoint is not reached exactly"
-assert_plan 119_parallel_ne 28 false "generalized loop needs constant endpoints"
+assert_plan 119_parallel_ne 28 true
 assert_plan 119_parallel_ne 38 false "may overflow"
 assert_plan 127_parallel_general_alias 3 true
 assert_plan 129_parallel_mod_reduction 10 true
@@ -140,6 +140,9 @@ assert_plan 157_parallel_multi_reduction 10 true
 assert_plan 158_parallel_nested_array_iv 8 true
 assert_plan 159_parallel_multi_nested 8 true
 assert_plan 160_parallel_column_partition 5 true
+assert_plan 161_parallel_dynamic_stride 4 true
+assert_plan 161_parallel_dynamic_stride 18 true
+assert_plan 161_parallel_dynamic_stride 32 true
 assert_plan 2025-O30-49 24 true "" "" "" \
   "$TEST_ROOT/../performance_final/2025-O30-49.sy"
 assert_plan 2025-MYO-20 92 true "" i false \
@@ -185,6 +188,7 @@ assert_workers 157_parallel_multi_reduction 1
 assert_workers 158_parallel_nested_array_iv 2
 assert_workers 159_parallel_multi_nested 1
 assert_workers 160_parallel_column_partition 1
+assert_workers 161_parallel_dynamic_stride 3
 assert_workers 138_write_only_global_reject 0
 assert_workers 2025-O30-49 1 \
   "$TEST_ROOT/../performance_final/2025-O30-49.sy"

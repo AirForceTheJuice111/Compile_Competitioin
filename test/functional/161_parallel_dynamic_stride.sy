@@ -1,0 +1,50 @@
+int run_up(int end) {
+  int sum = 0;
+  int i = 1;
+  while (i < end) {
+    sum = sum + i;
+    i = i + 3;
+  }
+  putint(sum);
+  putch(32);
+  putint(i);
+  putch(10);
+  return 0;
+}
+
+int run_down(int begin) {
+  int sum = 0;
+  int i = begin;
+  while (i >= 1) {
+    sum = sum + i;
+    i = i - 4;
+  }
+  putint(sum);
+  putch(32);
+  putint(i);
+  putch(10);
+  return 0;
+}
+
+int run_ne(int end) {
+  int sum = 0;
+  int i = 2;
+  while (i != end) {
+    sum = sum + i;
+    i = i + 5;
+  }
+  putint(sum);
+  putch(32);
+  putint(i);
+  putch(10);
+  return 0;
+}
+
+int main() {
+  int n = getint();
+  int ne_end = getint();
+  run_up(n);
+  run_down(n);
+  run_ne(ne_end);
+  return 0;
+}

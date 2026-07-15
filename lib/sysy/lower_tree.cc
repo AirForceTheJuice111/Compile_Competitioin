@@ -824,6 +824,11 @@ private:
                               {BaseType::Int, BaseType::Int, BaseType::Int, BaseType::Int,
                                BaseType::Int, BaseType::Int},
                               {0, 0, 0, 0, 0, 0}};
+        functions_["__sysy_parallel_trip_count"] =
+            FunctionSignature{BaseType::Int,
+                              {BaseType::Int, BaseType::Int, BaseType::Int,
+                               BaseType::Int},
+                              {0, 0, 0, 0}};
         functions_["free"] = FunctionSignature{BaseType::Void, {BaseType::Int}, {0}};
     }
 
@@ -1268,6 +1273,23 @@ private:
                        pointerBytes());
     }
 
+    int parallelDynamicInitialOffset(
+        const std::vector<ParallelContextField> &fields,
+        std::size_t reductionCount) const {
+        return alignTo(parallelContextBytes(fields, reductionCount), 4);
+    }
+
+    int parallelContextBytes(const std::vector<ParallelContextField> &fields,
+                             std::size_t reductionCount,
+                             bool dynamicLogicalRange) const {
+        int bytes = parallelContextBytes(fields, reductionCount);
+        if (dynamicLogicalRange) {
+            bytes = parallelDynamicInitialOffset(fields, reductionCount) +
+                    static_cast<int>(sizeof(std::int32_t));
+        }
+        return alignTo(bytes, pointerBytes());
+    }
+
     bool aliasPairNeedsRuntimeGuard(const ParallelContextField &lhs,
                                     const ParallelContextField &rhs,
                                     bool &needsGuard) const {
@@ -1473,6 +1495,7 @@ private:
                                  const std::string &workerName,
                                  tree::Temp *beginTemp,
                                  tree::Temp *endTemp,
+                                 tree::Temp *sourceInitialTemp,
                                  std::vector<tree::Stm *> *stms,
                                  tree::Label *modUnsafeLabel = nullptr) {
         const bool multiReduction = plan.reductions.size() > 1;
@@ -1481,12 +1504,12 @@ private:
         // Multi-reduction workers use a private tail in the context for the
         // second worker's partials.  Force a context allocation even when the
         // source body has no ordinary captures.
-        if (!fields.empty() || multiReduction) {
+        if (!fields.empty() || multiReduction || plan.dynamicLogicalRange) {
             ctxTemp = newTemp();
-            int ctxBytes = parallelContextBytes(fields,
-                                                multiReduction
-                                                    ? plan.reductions.size()
-                                                    : 0);
+            const std::size_t reductionCount =
+                multiReduction ? plan.reductions.size() : 0;
+            int ctxBytes = parallelContextBytes(fields, reductionCount,
+                                                plan.dynamicLogicalRange);
             stms->push_back(new tree::Move(
                 ptrTempExp(ctxTemp),
                 new tree::ExtCall(tree::Type::PTR, "malloc",
@@ -1526,6 +1549,16 @@ private:
                             new tree::Const(0)));
                     }
                 }
+            }
+            if (plan.dynamicLogicalRange) {
+                stms->push_back(new tree::Move(
+                    new tree::Mem(
+                        tree::Type::INT,
+                        ctxFieldAddr(
+                            ctxTemp,
+                            parallelDynamicInitialOffset(fields,
+                                                         reductionCount))),
+                    tempExp(sourceInitialTemp)));
             }
         }
 
@@ -1667,6 +1700,15 @@ private:
                                            new tree::Const(plan.finalIv)));
             return;
         }
+        if (plan.dynamicLogicalRange) {
+            stms->push_back(new tree::Move(
+                tempExp(ivTemp),
+                new tree::Binop(
+                    tree::Type::INT, "+", tempExp(ivTemp),
+                    new tree::Binop(tree::Type::INT, "*", tempExp(endTemp),
+                                    new tree::Const(plan.step)))));
+            return;
+        }
         auto *setEndLabel = newLabel();
         auto *doneLabel = newLabel();
         stms->push_back(new tree::Cjump("<", tempExp(beginTemp), tempExp(endTemp),
@@ -1767,13 +1809,27 @@ private:
         auto *ivTemp = newTemp();
         declareLocal(plan.init.var, ivTemp, BaseType::Int, plan.init.initExpr->loc);
         tree::Temp *logicalIvTemp = nullptr;
-        if (plan.logicalTripCount >= 0) {
+        const bool logicalRange =
+            plan.logicalTripCount >= 0 || plan.dynamicLogicalRange;
+        if (logicalRange) {
             logicalIvTemp = newTemp();
             stms->push_back(new tree::Move(tempExp(logicalIvTemp), tempExp(beginParam)));
+            tree::Exp *initialValue = nullptr;
+            if (plan.dynamicLogicalRange) {
+                const std::size_t reductionCount =
+                    plan.reductions.size() > 1 ? plan.reductions.size() : 0;
+                initialValue = new tree::Mem(
+                    tree::Type::INT,
+                    ctxFieldAddr(
+                        ctxParam,
+                        parallelDynamicInitialOffset(fields, reductionCount)));
+            } else {
+                initialValue = new tree::Const(plan.initialIv);
+            }
             stms->push_back(new tree::Move(
                 tempExp(ivTemp),
                 new tree::Binop(
-                    tree::Type::INT, "+", new tree::Const(plan.initialIv),
+                    tree::Type::INT, "+", initialValue,
                     new tree::Binop(tree::Type::INT, "*", tempExp(beginParam),
                                     new tree::Const(plan.step)))));
         } else {
@@ -1786,7 +1842,7 @@ private:
         auto *doneLabel = newLabel();
         stms->push_back(new tree::LabelStm(testLabel));
         stms->push_back(new tree::Cjump(
-            "<", plan.logicalTripCount >= 0 ? tempExp(logicalIvTemp) : tempExp(ivTemp),
+            "<", logicalRange ? tempExp(logicalIvTemp) : tempExp(ivTemp),
             tempExp(endParam), bodyLabel, doneLabel));
         stms->push_back(new tree::LabelStm(bodyLabel));
 
@@ -1979,17 +2035,45 @@ private:
         auto *beginTemp = newTemp();
         auto *rawEndTemp = newTemp();
         auto *endTemp = newTemp();
+        const bool logicalRange =
+            plan.logicalTripCount >= 0 || plan.dynamicLogicalRange;
         stms->push_back(new tree::Move(
-            tempExp(beginTemp), plan.logicalTripCount >= 0
+            tempExp(beginTemp), logicalRange
                                     ? static_cast<tree::Exp *>(new tree::Const(0))
                                     : static_cast<tree::Exp *>(tempExp(ivTemp))));
         stms->push_back(new tree::Move(
             tempExp(rawEndTemp), lowerExprAs(*plan.endExpr, BaseType::Int)));
 
         tree::Label *inclusiveDoneLabel = nullptr;
+        tree::Label *dynamicDoneLabel = nullptr;
         if (plan.logicalTripCount >= 0) {
             stms->push_back(new tree::Move(tempExp(endTemp),
                                            new tree::Const(plan.logicalTripCount)));
+        } else if (plan.dynamicLogicalRange) {
+            int comparisonKind = 0;
+            if (plan.comparison == "<=") comparisonKind = 1;
+            else if (plan.comparison == ">") comparisonKind = 2;
+            else if (plan.comparison == ">=") comparisonKind = 3;
+            else if (plan.comparison == "!=") comparisonKind = 4;
+            stms->push_back(new tree::Move(
+                tempExp(endTemp),
+                new tree::ExtCall(
+                    tree::Type::INT, "__sysy_parallel_trip_count",
+                    new std::vector<tree::Exp *>({
+                        tempExp(ivTemp), tempExp(rawEndTemp),
+                        new tree::Const(plan.step),
+                        new tree::Const(comparisonKind)}))));
+            auto *unsafeLabel = newLabel();
+            auto *safeLabel = newLabel();
+            dynamicDoneLabel = newLabel();
+            stms->push_back(new tree::Cjump("<", tempExp(endTemp),
+                                            new tree::Const(0), unsafeLabel,
+                                            safeLabel));
+            stms->push_back(new tree::LabelStm(unsafeLabel));
+            lowerParallelSequentialFallback(plan, ivTemp, rawEndTemp,
+                                            plan.comparison, stms);
+            stms->push_back(new tree::Jump(dynamicDoneLabel));
+            stms->push_back(new tree::LabelStm(safeLabel));
         } else if (plan.inclusiveEnd) {
             // Normalizing <= to a half-open range needs end + 1.  Preserve the
             // original wrapping-loop behavior when a dynamic endpoint is
@@ -2024,14 +2108,15 @@ private:
 
             stms->push_back(new tree::LabelStm(sequentialLabel));
             lowerParallelSequentialFallback(plan, ivTemp,
-                                            plan.logicalTripCount >= 0 || plan.inclusiveEnd
+                                            logicalRange || plan.inclusiveEnd
                                                 ? rawEndTemp
                                                 : endTemp,
                                             plan.comparison, stms);
             stms->push_back(new tree::Jump(doneLabel));
 
             stms->push_back(new tree::LabelStm(parallelLabel));
-            emitParallelRuntimeCall(plan, fields, workerName, beginTemp, endTemp, stms);
+            emitParallelRuntimeCall(plan, fields, workerName, beginTemp, endTemp,
+                                    ivTemp, stms);
             emitParallelFinalIvUpdate(plan, ivTemp, beginTemp, endTemp, stms);
             emitParallelScratchWritebacks(scratchWritebacks, beginTemp, endTemp, stms);
             stms->push_back(new tree::Jump(doneLabel));
@@ -2058,25 +2143,29 @@ private:
 
             stms->push_back(new tree::LabelStm(parallelLabel));
             emitParallelRuntimeCall(plan, fields, workerName, beginTemp, endTemp,
-                                    stms, sequentialLabel);
+                                    ivTemp, stms, sequentialLabel);
             emitParallelFinalIvUpdate(plan, ivTemp, beginTemp, endTemp, stms);
             stms->push_back(new tree::Jump(doneLabel));
 
             stms->push_back(new tree::LabelStm(sequentialLabel));
             lowerParallelSequentialFallback(
                 plan, ivTemp,
-                plan.logicalTripCount >= 0 || plan.inclusiveEnd ? rawEndTemp : endTemp,
+                logicalRange || plan.inclusiveEnd ? rawEndTemp : endTemp,
                 plan.comparison, stms);
             stms->push_back(new tree::Jump(doneLabel));
             stms->push_back(new tree::LabelStm(doneLabel));
         } else {
-            emitParallelRuntimeCall(plan, fields, workerName, beginTemp, endTemp, stms);
+            emitParallelRuntimeCall(plan, fields, workerName, beginTemp, endTemp,
+                                    ivTemp, stms);
             emitParallelFinalIvUpdate(plan, ivTemp, beginTemp, endTemp, stms);
             emitParallelScratchWritebacks(scratchWritebacks, beginTemp, endTemp, stms);
         }
 
         if (inclusiveDoneLabel != nullptr) {
             stms->push_back(new tree::LabelStm(inclusiveDoneLabel));
+        }
+        if (dynamicDoneLabel != nullptr) {
+            stms->push_back(new tree::LabelStm(dynamicDoneLabel));
         }
         return true;
     }

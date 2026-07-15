@@ -692,7 +692,8 @@ private:
     static bool isRuntimeParallelSymbol(const std::string &name) {
         return name == "__sysy_parallel_for_range" ||
                name == "__sysy_parallel_reduce_int_range" ||
-               name == "__sysy_parallel_reduce_mod_int_range";
+               name == "__sysy_parallel_reduce_mod_int_range" ||
+               name == "__sysy_parallel_trip_count";
     }
 
     static bool isFloatHelper(const std::string &name) {
@@ -1716,6 +1717,9 @@ private:
             if (index == 0 || index == 1 || index == 4 || index == 5) {
                 return quad::QuadType::INT;
             }
+        }
+        if (name == "__sysy_parallel_trip_count" && index < 4) {
+            return quad::QuadType::INT;
         }
         return fallback;
     }
@@ -3534,6 +3538,124 @@ __sysy_parallel_pool_pending:
 	.zero 4
 
 .text
+.balign 4
+.global __sysy_parallel_trip_count
+.type __sysy_parallel_trip_count, %function
+__sysy_parallel_trip_count:
+	sxtw x4, w0
+	sxtw x5, w1
+	sxtw x6, w2
+	cmp w3, #0
+	b.eq .Lsysy_parallel_trip_lt
+	cmp w3, #1
+	b.eq .Lsysy_parallel_trip_le
+	cmp w3, #2
+	b.eq .Lsysy_parallel_trip_gt
+	cmp w3, #3
+	b.eq .Lsysy_parallel_trip_ge
+	cmp w3, #4
+	b.eq .Lsysy_parallel_trip_ne
+	b .Lsysy_parallel_trip_unsafe
+.Lsysy_parallel_trip_lt:
+	cmp x4, x5
+	b.ge .Lsysy_parallel_trip_zero
+	cmp x6, #0
+	b.le .Lsysy_parallel_trip_unsafe
+	sub x7, x5, x4
+	sub x8, x6, #1
+	add x7, x7, x8
+	sdiv x7, x7, x6
+	b .Lsysy_parallel_trip_validate
+.Lsysy_parallel_trip_le:
+	cmp x4, x5
+	b.gt .Lsysy_parallel_trip_zero
+	cmp x6, #0
+	b.le .Lsysy_parallel_trip_unsafe
+	sub x7, x5, x4
+	sdiv x7, x7, x6
+	add x7, x7, #1
+	b .Lsysy_parallel_trip_validate
+.Lsysy_parallel_trip_gt:
+	cmp x4, x5
+	b.le .Lsysy_parallel_trip_zero
+	cmp x6, #0
+	b.ge .Lsysy_parallel_trip_unsafe
+	neg x8, x6
+	sub x7, x4, x5
+	sub x9, x8, #1
+	add x7, x7, x9
+	sdiv x7, x7, x8
+	b .Lsysy_parallel_trip_validate
+.Lsysy_parallel_trip_ge:
+	cmp x4, x5
+	b.lt .Lsysy_parallel_trip_zero
+	cmp x6, #0
+	b.ge .Lsysy_parallel_trip_unsafe
+	neg x8, x6
+	sub x7, x4, x5
+	sdiv x7, x7, x8
+	add x7, x7, #1
+	b .Lsysy_parallel_trip_validate
+.Lsysy_parallel_trip_ne:
+	cmp x4, x5
+	b.eq .Lsysy_parallel_trip_zero
+	cbz x6, .Lsysy_parallel_trip_unsafe
+	sub x8, x5, x4
+	eor x9, x8, x6
+	tbnz x9, #63, .Lsysy_parallel_trip_unsafe
+	sdiv x7, x8, x6
+	msub x9, x7, x6, x8
+	cbnz x9, .Lsysy_parallel_trip_unsafe
+	cmp x7, #0
+	b.lt .Lsysy_parallel_trip_unsafe
+.Lsysy_parallel_trip_validate:
+	cmp x7, #0
+	b.lt .Lsysy_parallel_trip_unsafe
+	mov w8, #-1
+	lsr x8, x8, #1
+	cmp x7, x8
+	b.gt .Lsysy_parallel_trip_unsafe
+	madd x9, x7, x6, x4
+	sxtw x10, w9
+	cmp x9, x10
+	b.ne .Lsysy_parallel_trip_unsafe
+	cmp w3, #0
+	b.eq .Lsysy_parallel_trip_validate_lt
+	cmp w3, #1
+	b.eq .Lsysy_parallel_trip_validate_le
+	cmp w3, #2
+	b.eq .Lsysy_parallel_trip_validate_gt
+	cmp w3, #3
+	b.eq .Lsysy_parallel_trip_validate_ge
+	cmp x9, x5
+	b.ne .Lsysy_parallel_trip_unsafe
+	b .Lsysy_parallel_trip_done
+.Lsysy_parallel_trip_validate_lt:
+	cmp x9, x5
+	b.lt .Lsysy_parallel_trip_unsafe
+	b .Lsysy_parallel_trip_done
+.Lsysy_parallel_trip_validate_le:
+	cmp x9, x5
+	b.le .Lsysy_parallel_trip_unsafe
+	b .Lsysy_parallel_trip_done
+.Lsysy_parallel_trip_validate_gt:
+	cmp x9, x5
+	b.gt .Lsysy_parallel_trip_unsafe
+	b .Lsysy_parallel_trip_done
+.Lsysy_parallel_trip_validate_ge:
+	cmp x9, x5
+	b.ge .Lsysy_parallel_trip_unsafe
+.Lsysy_parallel_trip_done:
+	mov w0, w7
+	ret
+.Lsysy_parallel_trip_zero:
+	mov w0, wzr
+	ret
+.Lsysy_parallel_trip_unsafe:
+	mov w0, #-1
+	ret
+.size __sysy_parallel_trip_count, .-__sysy_parallel_trip_count
+
 .balign 4
 .type __sysy_parallel_pool_entry, %function
 __sysy_parallel_pool_entry:

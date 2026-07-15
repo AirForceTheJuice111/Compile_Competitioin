@@ -1423,8 +1423,8 @@ bool deriveLogicalIterationSpace(ParallelLoopPlan &plan) {
     if (plan.init.initExpr == nullptr || plan.endExpr == nullptr ||
         !signedIntConstValue(*plan.init.initExpr, initial) ||
         !signedIntConstValue(*plan.endExpr, endpoint)) {
-        plan.rejectReason = "generalized loop needs constant endpoints";
-        return false;
+        plan.dynamicLogicalRange = true;
+        return true;
     }
 
     const long long begin = initial;
@@ -2015,6 +2015,8 @@ private:
              << ",\"comparison\":\"" << jsonEscape(plan.comparison) << "\""
              << ",\"step\":" << plan.step
              << ",\"logical_trip_count\":" << plan.logicalTripCount
+             << ",\"dynamic_logical_range\":"
+             << (plan.dynamicLogicalRange ? "true" : "false")
              << ",\"estimated_cost\":" << plan.estimatedCost
              << ",\"runtime_work_cost\":" << plan.runtimeWorkCost
              << ",\"has_nested_loop\":" << (plan.hasNestedLoop ? "true" : "false")
