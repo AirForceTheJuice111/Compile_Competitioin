@@ -559,6 +559,35 @@ its full archive SHA-256 is
 A separate 16-shard exact run of all 60 preliminary cases passed 60/60 in
 52.017 seconds; that concurrent wall time is correctness evidence only.
 
+## Parallel coverage and profitability tuning (`68db3fd4`)
+
+This revision completes the current planned parallelization set: ordered
+IEEE-safe float reductions, staged multi/min/max integer reductions, dynamic
+invariant strides and reversed comparisons, canonical continue control flow,
+read-only global-array pure calls, and stronger invariant-partition alias
+proofs. It also raises the plain map-loop runtime dispatch threshold from
+16384 to 262144 estimated work and retains chained modular reductions with
+calls sequential, preventing an overflow-guard retry from replaying expensive
+calls.
+
+Mac ARM64 VM measurements used `-O1`, `SYSY_THREADS=2`, `taskset -c 0,1`, the
+official runtime, and exact output validation. The values below are external
+wall seconds. `shuffle0` and `h-4-01` have three ABBA rounds (six samples per
+variant); `h-10-03` batches 50 executions per sample to avoid timer
+quantization, also with three ABBA rounds.
+
+| Program | Sequential samples (s) | Native-parallel samples (s) | Median result |
+|---|---|---|---:|
+| `shuffle0` | 1.40, 1.48, 1.41, 1.40, 1.41, 1.43 | 1.10, 1.05, 1.09, 1.12, 1.12, 1.09 | 1.410 -> 1.095, **1.288x** |
+| `h-4-01` | 0.74, 0.74, 0.74, 0.74, 0.74, 0.74 | 0.74, 0.74, 0.74, 0.74, 0.74, 0.74 | neutral |
+| `h-10-03` | 0.014083, 0.014035, 0.014106, 0.014001, 0.014156, 0.014034 | 0.014108, 0.014064, 0.014370, 0.014096, 0.014073, 0.014115 | 0.014059 -> 0.014102, neutral/noise |
+
+The prior `h-4-01` regression was about 6.3%; it is now neutral because the
+guarded modular-call chain remains sequential. The 16-shard Mac exact
+regression of the default preliminary suite (`test/performance`) passed
+**60/60**, with 105 generated workers across 33 of 60 sources. Its 24.557s
+concurrent wall time is correctness evidence only, not a contest benchmark.
+
 ## Updating this ledger
 
 For every future performance run, append the date, compiler revision or dirty

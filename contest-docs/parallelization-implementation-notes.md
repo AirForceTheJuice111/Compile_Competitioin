@@ -14,9 +14,9 @@ AArch64-only migration.
   loop planning is now used by native lowering and by `--dump-parallel-plan`.
 - The native runtime reuses one persistent two-core helper rather than creating
   and joining a pthread for every profitable range.
-- Constant, provably finite generalized strides and exact modular integer
-  reductions are production paths; float and multi-variable reductions remain
-  conservative boundaries.
+- Constant and runtime-proved invariant generalized strides, exact modular
+  integer reductions, up to four ordinary integer reductions, and one ordered
+  floating-point reduction are production paths.
 
 ## Shared Loop Plan
 
@@ -39,11 +39,12 @@ while (i comparison end) {
 }
 ```
 
-For dynamic invariant integer endpoints, the production fast path remains
-`step == 1` with `<` or `<=`. The inclusive form is normalized to the same
-half-open runtime interval by evaluating the endpoint once and passing
-`end + 1`; `INT_MAX` takes a generated sequential path using the original
-comparison.
+Dynamic invariant integer bounds and nonzero invariant steps use a runtime
+64-bit trip-count proof. The proof admits `<`, `<=`, `>`, `>=`, and reachable
+`!=`, then dispatches the logical half-open range; an unsafe proof result takes
+the original sequential loop. Dynamic inclusive `<=` additionally preserves
+the original comparison when an `INT_MAX` endpoint could overflow during
+normalization.
 
 When `begin`, `end`, and nonzero `step` are compile-time integers, the planner
 also accepts `<`, `<=`, `>`, `>=`, and exactly reachable `!=`. It proves that
@@ -57,17 +58,22 @@ Supported idioms:
 
 - row/array initialization
 - array copy or map-style updates with disjoint per-iteration writes
-- integer sum reductions with deterministic final addition
-- exact array-free modular integer reductions with guarded sequential retry
+- up to four independent integer add/min/max reductions with staged worker
+  partials and deterministic final combines
+- one floating-point `sum = sum + term` reduction through a parallel map and
+  serial source-order fold, preserving IEEE addition order
+- exact array-free modular integer reductions, including pure chained
+  addends, with guarded sequential retry
 - descending, non-unit-step, and exactly reachable `!=` loops with constant
-  iteration spaces
+  or runtime-proved invariant iteration spaces
 - canonical early `continue` guarded by an immediately preceding exact IV
   update, lowered through a shared worker/fallback latch
 - outer row loops around sequential inner loops
-- same-rank array-parameter loops guarded by runtime alias checks
+- same-rank array-parameter loops guarded by runtime alias checks, plus
+  invariant first-index partitions that are proved disjoint
 - nested row loops reached through blocks or conditional statements
-- transitively pure scalar helper calls, including closed recursive call SCCs
-  and immutable scalar-constant reads
+- transitively pure scalar helper calls, including closed recursive call SCCs,
+  immutable scalar-constant reads, and read-only global-array reads
 - direct pure scalar return helpers substituted into affine index checks
 - pure integer outer reductions whose body resets one previously declared
   integer scratch IV and immediately runs its canonical nested loop
@@ -83,14 +89,16 @@ canonical final IV value back to the source scalar. Empty outer ranges preserve
 the scalar's incoming value, so this optimization does not depend on liveness.
 
 The modular form is deliberately exact rather than fast-math. It recognizes
-only `sum = (sum + addend) % MOD`, where `MOD` resolves to a positive integer
-constant no greater than `INT_MAX/2`, the body is array-free, and `sum` has no
-other use. The runtime uses striped dynamic claims to balance uneven pure-call
-cost. It accepts the result only when the initial accumulator is in
-`[0, MOD)`, every addend is nonnegative, and `accumulator + addend` cannot
-overflow. A worker reports `INT_MIN` on an unsafe value; because the accepted
-body has no replay-visible effects, lowering then executes the original source
-loop sequentially.
+`sum = (sum + addend_0 + ... + addend_n) % MOD`, where `MOD` resolves to a
+positive integer constant no greater than `INT_MAX/2`, the body is array-free,
+and `sum` has no other use. The runtime uses striped dynamic claims to balance
+uneven pure-call cost. It accepts the result only when the initial accumulator
+is in `[0, MOD)`, every addend is nonnegative, and `accumulator + addend`
+cannot overflow. A worker reports `INT_MIN` on an unsafe value; because the
+accepted body has no replay-visible effects, lowering then executes the
+original source loop sequentially. A chained modular form containing a call
+is deliberately retained sequential: a failed overflow guard would otherwise
+repeat expensive calls for the whole range.
 
 Conservative rejection cases:
 
@@ -108,8 +116,8 @@ Conservative rejection cases:
 - read/write conflicts on the same array unless they use the same first-index
   partition as the write
 - array alias cases that cannot be covered by the same-rank runtime guard
-- multiple reductions in the same loop
-- float reductions
+- mixed modular reductions or more than four ordinary integer reductions
+- float reductions other than one unconditional ordered addition
 - accumulator expressions that read their reduction variable outside the one
   recognized `sum = sum + value` operand
 
@@ -125,8 +133,9 @@ Profitability rules:
 - nested bodies receive an eight-iteration work boost per level, while lowering
   discounts helpers nested inside sequential enclosing loops because they are
   invoked repeatedly;
-- generated runtime helpers use an overflow-safe 64-bit product and dispatch
-  the persistent helper only when total estimated work reaches 16384.
+- generated runtime helpers use an overflow-safe 64-bit product. Reductions
+  dispatch the persistent helper at 16384 estimated work; plain map loops use
+  262144 to avoid a measured small-work dispatch regression.
 
 The plan dump interface is:
 
@@ -232,18 +241,10 @@ All Mac timing samples and session boundaries are recorded in
 The guarded correctness path is in place for the supported loop subset.
 Remaining work is broader parallel coverage and backend performance:
 
-- add correct support for multi-variable reductions;
-- define whether floating-point reductions may change association, then either
-  implement an explicit fast-math mode or keep them sequential;
 - broaden safe loop-local control flow beyond the canonical early-continue
   latch while continuing to reject transfers that leave the candidate loop;
-- support dynamic generalized steps/endpoints only when termination and signed
-  overflow can be proven;
-- improve alias analysis for different-rank parameter/global interactions;
-- extend the current ten-register injective hot-temp residency into a
-  liveness-based allocator with FP-register residency;
-- add scaled-index/pointer-induction addressing and post-allocation peepholes;
-- tune loop profitability on Cortex-A53 contest hardware;
-- harden and selectively enable imported loop transforms and trace layout only
-  where measurements show a net win;
+- improve alias analysis for different-rank parameter/global interactions and
+  pure helpers that read arrays reachable through parameters;
+- tune the conservative 262144 plain-loop dispatch threshold on the contest
+  Cortex-A53 board;
 - investigate NEON/vector lowering for array-heavy kernels.
