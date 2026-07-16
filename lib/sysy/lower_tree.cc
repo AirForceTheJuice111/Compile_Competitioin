@@ -1479,6 +1479,15 @@ private:
         return 0;
     }
 
+    int parallelEmittedWorkCost(const ParallelLoopPlan &plan) const {
+        int cost = std::max(1, plan.runtimeWorkCost);
+        for (std::size_t depth = 0; depth < breakLabels_.size(); ++depth) {
+            cost = cost / 8 + (cost % 8 == 0 ? 0 : 1);
+            cost = std::max(1, cost);
+        }
+        return cost;
+    }
+
     void emitParallelReductionCombine(const ParallelReduction &reduction,
                                       tree::Exp *partial,
                                       std::vector<tree::Stm *> *stms) {
@@ -1885,18 +1894,12 @@ private:
             }
         }
 
-        int emittedWorkCost = std::max(1, plan.runtimeWorkCost);
+        int emittedWorkCost = parallelEmittedWorkCost(plan);
         // A candidate selected inside sequential loops may invoke the helper
         // once per enclosing iteration.  Discount each such level so a costly
         // inner worker is not mistaken for one coarse parallel region.  The
         // planner's nested-body estimate remains boosted; only repeated helper
         // invocation is discounted here.
-        for (std::size_t depth = 0; depth < breakLabels_.size(); ++depth) {
-            emittedWorkCost = emittedWorkCost / 8 +
-                              (emittedWorkCost % 8 == 0 ? 0 : 1);
-            emittedWorkCost = std::max(1, emittedWorkCost);
-        }
-
         auto *runtimeArgs = new std::vector<tree::Exp *>({
             tempExp(beginTemp),
             tempExp(endTemp),

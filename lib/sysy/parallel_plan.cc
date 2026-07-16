@@ -2734,6 +2734,21 @@ ParallelLoopPlan analyzeParallelLoopPair(const Node &initStmt, const Node &loopS
         plan.rejectReason = "dynamic modular reduction requires an array-free body";
         return plan;
     }
+    if (!plan.reductions.empty() && plan.reductions.front().modular &&
+        plan.reductions.front().addends.size() > 1 &&
+        std::any_of(plan.reductions.front().addends.begin(),
+                    plan.reductions.front().addends.end(),
+                    [](const Node *addend) {
+                        return exprContainsAnyCall(*addend);
+                    })) {
+        // If any chained term violates the overflow budget, the guarded
+        // runtime must execute the whole loop again sequentially.  Calls make
+        // that failed speculation expensive in practice (h-4 is a measured
+        // regression), so retain the exact source loop by default.
+        plan.valid = false;
+        plan.rejectReason = "guarded modular call chain is not profitable";
+        return plan;
+    }
     for (const ArrayAccess &write : writes) {
         for (const ArrayAccess &otherWrite : writes) {
             if (&write == &otherWrite || write.base != otherWrite.base ||

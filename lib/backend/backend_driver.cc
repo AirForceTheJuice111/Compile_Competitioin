@@ -3816,7 +3816,7 @@ __sysy_parallel_for_range:
 	cmp w4, #1
 	blt .Lsysy_parallel_for_direct
 	umull x10, w9, w4
-	movz x11, #16384
+	movz x11, #4, lsl #16
 	cmp x10, x11
 	blt .Lsysy_parallel_for_direct
 	adrp x24, __sysy_parallel_pool_busy
